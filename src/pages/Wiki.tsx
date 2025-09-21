@@ -109,7 +109,7 @@ const Wiki: React.FC = () => {
     return { wikiTitle, sections };
   };
 
-  const   sudo xcodebuild -licenserenderCollapsibleContent = () => {
+  const renderCollapsibleContent = () => {
     if (!htmlContent) return null;
     
     const { wikiTitle, sections } = processHtmlContent(htmlContent);
