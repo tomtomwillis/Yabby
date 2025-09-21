@@ -262,14 +262,6 @@ const PlaceSticker: React.FC = () => {
     };
   };
 
-  const isFormReady = !!(
-    auth.currentUser && 
-    albumInfo && 
-    stickerPos && 
-    stickerText.trim() && 
-    sticker && 
-    !isSubmitting
-  );
 
   const closePopup = () => {
     setShowPopup(false);
