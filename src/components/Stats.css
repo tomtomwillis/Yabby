@@ -1,0 +1,13 @@
+.stats-container {
+    text-align: left;
+    margin: 0 auto;
+    padding: 1rem;
+    width: 100%;
+  }
+
+.ascii-art {
+  text-align: center;
+  font-family: monospace; 
+  white-space: pre; 
+  margin: 1rem auto; 
+}

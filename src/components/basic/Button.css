@@ -1,0 +1,109 @@
+/* basic button styling */
+
+.basic-button {
+  display: flex; /* Use flexbox */
+  align-items: center; /* Vertically center the text */
+  justify-content: center; /* Horizontally center the text */
+  padding: .8em 1.5em;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: var(--font1); /* Use font1 from App.css */
+  color: var(--colour4);
+  background-color: var(--colour2);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.basic-button:hover {
+  background-color: var(--colour1);
+  color: var(--colour4);
+}
+
+.basic-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* Close Button Styling */
+
+.close-button {
+    display: flex; /* Use flexbox to center the icon */
+    align-items: center; /* Vertically center the icon */
+    justify-content: center; /* Horizontally center the icon */
+    padding: 0; /* Remove padding to ensure the button stays circular */
+    font-size: .5rem; /* Adjust font size for the icon */
+    font-family: var(--font1); /* Use font1 from App.css */
+    color: var(--colour4); /* Icon color */
+    background-color: var(--colour3); /* Background color */
+    border: none; /* Remove border */
+    border-radius: 50%; /* Make the button circular */
+    cursor: pointer; /* Pointer cursor for interactivity */
+    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transitions */
+}
+
+.close-button:hover {
+    background-color: var(--colour2); /* Change background on hover */
+    color: var(--colour4); /* Ensure icon color remains consistent */
+}
+
+/* Arrow Button Styling (for arrow-left and arrow-right) */
+
+.arrow-button {
+    display: flex; /* Use flexbox to center the icon */
+    align-items: center; /* Vertically center the icon */
+    justify-content: center; /* Horizontally center the icon */
+    padding: 0; /* Remove padding to ensure the button stays circular */
+    font-size: .8rem; /* Adjust font size for the icon */
+    font-family: var(--font1); /* Use font1 from App.css */
+    color: var(--colour4); /* Icon color */
+    background-color: var(--colour3); /* Background color */
+    border: none; /* Remove border */
+    border-radius: 50%; /* Make the button circular */
+    cursor: pointer; /* Pointer cursor for interactivity */
+    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transitions */
+}
+
+.arrow-button:hover {
+    background-color: var(--colour2); /* Change background on hover */
+    color: var(--colour4); /* Ensure icon color remains consistent */
+}
+
+.center-button {
+  width: 100%; /* Set width to auto */
+  margin: 0 auto; /* Center the button horizontally */
+  display: block; /* Ensure the button is treated as a block element */
+  font-family: var(--font1); /* Use font1 from App.css */
+}
+
+/* Fixed circular shape - use explicit width and height instead of auto */
+.close-button,
+.arrow-button {
+  width: 2em;
+  height: 2em; /* Explicit height instead of auto */
+  flex-shrink: 0; /* Prevent shrinking in flex containers */
+  box-sizing: border-box;
+}
+
+/* Basic button min constraints */
+.basic-button {
+  min-width: 2em;
+  min-height: 2em;
+  box-sizing: border-box;
+}
+
+/* Adjust button sizes for smaller screens */
+@media (max-width: 768px) {
+  .close-button,
+  .arrow-button {
+    width: .8em;
+    height: .8em; /* Reduce size for smaller screens */
+    font-size: 0.6rem; /* Adjust icon size */
+  }
+
+  .basic-button {
+    font-size: 0.9rem; /* Slightly smaller text */
+    padding: 0.6em 1.2em; /* Adjust padding */
+  }
+}

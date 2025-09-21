@@ -1,0 +1,48 @@
+/* Main container for the background star */
+.star {
+    position: fixed;
+    top: 30%;
+    left: 50%;
+    width: 100vmin;
+    height: 100vmin;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    animation: continuousRotate 180s linear infinite;
+    pointer-events: none;
+}
+
+/* Styling for the star path */
+.star-path {
+    fill: var(--colour3);
+    opacity: 0.7;
+}
+
+/* Keyframe animation for smooth star rotation */
+@keyframes continuousRotate {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+/* 
+Performance optimization: Use transform3d to enable hardware acceleration
+if you need smoother rotation on lower-end devices 
+*/
+@media (max-width: 768px) {
+    .star {
+        transform: translate3d(-50%, -50%, 0);
+        animation: mobileRotate 180s linear infinite;
+    }
+    
+    @keyframes mobileRotate {
+        from {
+            transform: translate3d(-50%, -50%, 0) rotate(0deg);
+        }
+        to {
+            transform: translate3d(-50%, -50%, 0) rotate(360deg);
+        }
+    }
+}

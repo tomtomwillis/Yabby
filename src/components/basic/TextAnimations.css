@@ -1,0 +1,147 @@
+/* ===== GENTLE TEXT ANIMATIONS ===== */
+
+/* Base class - always include this with any animation */
+.animated-text {
+    display: inline-block;
+    transition: all 0.3s ease;
+  }
+  
+  /* ===== FLOATING ANIMATIONS ===== */
+  
+  /* Gentle up and down floating */
+  .float-gentle {
+    animation: floatGentle 3s ease-in-out infinite;
+  }
+  
+  @keyframes floatGentle {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+  
+  /* Slower, more subtle float */
+  .float-subtle {
+    animation: floatSubtle 4s ease-in-out infinite;
+  }
+  
+  @keyframes floatSubtle {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-4px); }
+  }
+  
+  /* ===== BREATHING ANIMATIONS ===== */
+  
+  /* Gentle scale breathing effect */
+  .breathe {
+    animation: breathe 2.5s ease-in-out infinite;
+  }
+  
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+  
+  /* Subtle opacity breathing */
+  .breathe-opacity {
+    animation: breatheOpacity 3s ease-in-out infinite;
+  }
+  
+  @keyframes breatheOpacity {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+  
+  /* ===== DRIFT ANIMATIONS ===== */
+  
+  /* Gentle horizontal drift */
+  .drift-horizontal {
+    animation: driftHorizontal 5s ease-in-out infinite;
+  }
+  
+  @keyframes driftHorizontal {
+    0%, 100% { transform: translateX(0px); }
+    50% { transform: translateX(6px); }
+  }
+  
+  /* Circular drift motion */
+  .drift-circular {
+    animation: driftCircular 6s ease-in-out infinite;
+  }
+  
+  @keyframes driftCircular {
+    0% { transform: translate(0px, 0px); }
+    25% { transform: translate(3px, -3px); }
+    50% { transform: translate(0px, -6px); }
+    75% { transform: translate(-3px, -3px); }
+    100% { transform: translate(0px, 0px); }
+  }
+  
+  /* ===== HOVER EFFECTS ===== */
+  
+  /* Gentle lift on hover */
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Gentle glow on hover */
+  .hover-glow:hover {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    transform: scale(1.01);
+  }
+  
+  /* ===== WAVE EFFECTS ===== */
+  
+  /* Gentle rotation wave */
+  .wave-rotate {
+    animation: waveRotate 4s ease-in-out infinite;
+  }
+  
+  @keyframes waveRotate {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(0.5deg); }
+    75% { transform: rotate(-0.5deg); }
+  }
+  
+  /* ===== COMBINATION CLASSES ===== */
+  
+  /* Float with gentle breathing */
+  .float-breathe {
+    animation: 
+      floatGentle 3s ease-in-out infinite,
+      breathe 2.5s ease-in-out infinite;
+  }
+  
+  /* Drift with opacity breathing */
+  .drift-fade {
+    animation: 
+      driftHorizontal 5s ease-in-out infinite,
+      breatheOpacity 3s ease-in-out infinite;
+  }
+  
+  /* ===== ANIMATION SPEED MODIFIERS ===== */
+  
+  .slow {
+    animation-duration: 6s;
+  }
+  
+  .fast {
+    animation-duration: 1.5s;
+  }
+  
+  .very-slow {
+    animation-duration: 8s;
+  }
+  
+  /* ===== ANIMATION DELAY HELPERS ===== */
+  
+  .delay-1 { animation-delay: 0.2s; }
+  .delay-2 { animation-delay: 0.4s; }
+  .delay-3 { animation-delay: 0.6s; }
+  .delay-4 { animation-delay: 0.8s; }
+  .delay-5 { animation-delay: 1s; }
+  
+  /* ===== PAUSE ON HOVER (optional) ===== */
+  
+  .pause-on-hover:hover {
+    animation-play-state: paused;
+  }

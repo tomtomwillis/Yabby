@@ -1,0 +1,32 @@
+.sticker-album-carousel {
+    margin: 0 auto; /* Center the carousel */
+    padding-bottom: 1rem; /* Add padding to the bottom */
+}
+
+.loading-container,
+.error-container,
+.empty-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0rem;
+}
+
+.album-card:hover {
+    transform: scale(1.02);
+}
+
+.album-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.sticker-overlay {
+    position: absolute;
+    transform: translate(-50%, -50%); /* Center the sticker */
+    border-radius: 50%; /* Make the sticker circular */
+    z-index: 3; /* Ensure stickers appear above the album image */
+    pointer-events: none; /* Prevent stickers from interfering with clicks */
+}

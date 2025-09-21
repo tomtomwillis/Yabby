@@ -1,0 +1,489 @@
+/* Base styles */
+.wiki-container {
+    max-width: 100%; /* Allow full width */
+    width: 100%; /* Stretch to fit */
+    margin: 0 auto; /* Center the container */
+    padding: 10px; /* Add padding */
+    font-family: var(--font1); /* Use font1 */
+    background-color: var(--colour4); /* Use colour4 */
+}
+
+.wiki-content {
+    line-height: 1.6;
+    color: var(--colour5); /* Use colour5 */
+    text-align: left;
+}
+
+/* Override Google Docs font families */
+.wiki-content,
+.wiki-content * {
+    font-family: var(--font1) !important; /* Use font1 */
+    text-align: left;
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    box-sizing: border-box;
+}
+
+/* Main Wiki Title */
+.wiki-title-section {
+    text-align: left;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 3px solid #3498db;
+}
+
+.wiki-main-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: var(--colour5); /* Use colour5 */
+    margin: 0;
+    font-family: var(--font2) !important; /* Use font2 */
+    text-shadow: 2px 2px 0px rgba(52, 152, 219, 0.3);
+}
+
+/* Collapsible Sections */
+.wiki-collapsible {
+    display: flex;
+    flex-wrap: wrap; /* Ensure children wrap */
+    gap: 1rem;
+}
+
+/* Force each wiki-section to fit container */
+.wiki-section {
+  flex: 1 1 100%; /* take full width of flex container */
+  min-width: 0;   /* allow shrinking inside flex */
+  box-sizing: border-box; /* include padding in width calc */
+}
+
+/* Prevent text/content from blowing out */
+.wiki-section-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Table cells should wrap instead of forcing overflow */
+.wiki-section-content table,
+.wiki-section-content th,
+.wiki-section-content td {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal; /* allow wrapping */
+}
+
+
+.wiki-section {
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.wiki-section:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-1px);
+}
+
+/* Section Headers (Clickable H1s) */
+.wiki-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: left;
+    padding: 1.5rem 2rem;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    user-select: none;
+    border: none;
+    border-bottom: 1px solid #e1e8ed;
+    transition: all 0.3s ease;
+    position: relative;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--colour5); /* Use colour5 */
+}
+
+.wiki-section-header:hover {
+    color: var(--colour2); /* Use colour2 */
+}
+
+.wiki-section-header:focus {
+    outline: 2px solid var(--colour2);
+    outline-offset: 2px;
+}
+
+.wiki-section-header.open {
+    background: linear-gradient(135deg, var(--colour2) 0%);
+    color: var(--colour4); /* Use colour4 */
+    border-bottom-color: transparent;
+}
+
+.wiki-section-title {
+    font-weight: 600;
+    flex: 1;
+}
+
+.wiki-section-arrow {
+    font-size: 1rem;
+    font-weight: bold;
+    transition: transform 0.3s ease;
+    margin-left: 1rem;
+    opacity: 0.8;
+}
+
+.wiki-section-header.open .wiki-section-arrow {
+    transform: rotate(180deg);
+}
+
+/* Section Content (Collapsible) */
+.wiki-section-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    padding: 0 2rem;
+    background-color: var(--colour4); /* Use colour4 */
+    color: var(--colour5); /* Use colour5 */
+}
+
+.wiki-section-content.open {
+    max-height: none;
+    opacity: 1;
+    padding: 2rem;
+    animation: slideDown 0.5s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+      max-height: 0;
+      opacity: 0;
+      padding: 0 2rem;
+    }
+    to {
+      max-height: 1000vh;
+      opacity: 1;
+      padding: 2rem;
+    }
+}
+
+/* Content within sections */
+.wiki-section-content h2,
+.wiki-section-content .c14.c12 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: var(--colour5); /* Use colour5 */
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #ecf0f1;
+    text-align: center;
+}
+
+.wiki-section-content h2:first-child,
+.wiki-section-content .c14.c12:first-child {
+    margin-top: 0;
+}
+
+.wiki-section-content h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--colour2);
+}
+
+/* Paragraphs within sections */
+.wiki-section-content p {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.wiki-section-content .c8,
+.wiki-section-content .c18 {
+    margin-bottom: 1rem;
+}
+
+/* Lists within sections */
+.wiki-section-content ul,
+.wiki-section-content ol {
+    margin-bottom: 1.5rem;
+    padding-left: 2rem;
+}
+
+.wiki-section-content li {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
+.wiki-section-content .c2 {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* Links within sections */
+.wiki-section-content a {
+    color: var(--colour2); /* Use colour2 */
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.wiki-section-content a:hover {
+    color: var(--colour3); /* Use colour3 */
+}
+
+.wiki-section-content .c6 a,
+.wiki-section-content .c3 a {
+    color: var(--colour2) !important;
+    text-decoration: underline !important;
+}
+
+/* Images within sections */
+.wiki-section-content img {
+    max-width: 100%;
+    height: auto;
+    margin: 2rem auto;
+    display: block;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease;
+}
+
+.wiki-section-content img:hover {
+    transform: scale(1.02);
+}
+
+/* Code within sections */
+.wiki-section-content code {
+    background-color: #f8f9fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: var(--font2);
+    font-size: 0.9em;
+    color: var(--colour3); /* Use colour3 */
+    border: 1px solid #e9ecef;
+}
+
+.wiki-section-content pre {
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    border-left: 4px solid #3498db;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto; /* Enable horizontal scrolling */
+    white-space: pre-wrap; /* Wrap long lines */
+    word-wrap: break-word; /* Break long words */
+}
+
+/* Warning sections within content */
+.wiki-section-content p:has(.c9):contains("⚠️"),
+.wiki-section-content p:contains("Warning") {
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    border-left: 4px solid #ffc107;
+    padding: 1rem;
+    margin: 1.5rem 0;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+}
+
+/* Tables within sections */
+.wiki-section-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    display: block;
+    overflow-x: auto;
+}
+
+.wiki-section-content th,
+.wiki-section-content td {
+    border: 1px solid #ddd;
+    padding: 1rem;
+    text-align: left;
+}
+
+.wiki-section-content th {
+    background-color: var(--colour5); /* Use colour5 */
+    color: var(--colour4); /* Use colour4 */
+    font-weight: bold;
+}
+
+.wiki-section-content tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* Google Docs specific overrides */
+.wiki-content .c20 {
+    max-width: none !important;
+    padding: 0 !important;
+    background-color: transparent !important;
+}
+
+.wiki-content .c1 {
+    height: auto !important;
+}
+
+/* Strikethrough content */
+.wiki-section-content .c13 {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+/* Loading and error states */
+.wiki-loading,
+.wiki-error {
+    text-align: center;
+    padding: 3rem;
+    border-radius: 12px;
+}
+
+.wiki-error {
+    color: #e74c3c;
+    background-color: #fdf2f2;
+    border: 1px solid #f5c6cb;
+    border-radius: 12px;
+}
+
+.wiki-loading {
+    color: #6c757d;
+    background-color: #f8f9fa;
+    border-radius: 12px;
+}
+
+/* Smooth focus transitions */
+.wiki-section-header:focus-visible {
+    outline: 3px solid #3498db;
+    outline-offset: 2px;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+    .wiki-container {
+        max-width: 700px;
+        padding: 15px;
+    }
+
+    .wiki-main-title {
+        font-size: 2rem;
+    }
+
+    .wiki-section-header {
+        padding: 1.2rem 1.5rem;
+        font-size: 1.2rem;
+    }
+
+    .wiki-section-content {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .wiki-container {
+        max-width: 100%;
+        padding: 10px;
+    }
+
+    .wiki-main-title {
+        font-size: 1.8rem;
+    }
+
+    .wiki-section-header {
+        padding: 1rem; /* Reduce padding */
+        font-size: 1.2rem; /* Adjust font size */
+    }
+
+    .wiki-section-content {
+        padding: 1rem; /* Reduce padding */
+    }
+}
+
+@media (max-width: 480px) {
+    .wiki-container {
+        padding: 5px;
+    }
+
+    .wiki-main-title {
+        font-size: 1.5rem;
+    }
+
+    .wiki-section-header {
+        padding: 0.8rem; /* Further reduce padding */
+        font-size: 1rem; /* Smaller font size */
+    }
+
+    .wiki-section-content {
+        padding: 0.8rem; /* Further reduce padding */
+    }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    .wiki-section-content,
+    .wiki-section-header,
+    .wiki-section-arrow,
+    .wiki-section {
+      transition: none;
+      animation: none;
+    }
+}
+
+/* Dark mode support (if needed later) */
+@media (prefers-color-scheme: dark) {
+    .wiki-section {
+      background-color: #2c3e50;
+      border-color: #34495e;
+    }
+
+    .wiki-section-header {
+      background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+      color: #ecf0f1;
+    }
+
+    .wiki-section-content {
+      background-color: #2c3e50;
+      color: #ecf0f1;
+    }
+}
+
+
+/* Force flex children to shrink */
+.wiki-section {
+    flex: 1 1 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  
+  /* Force all text content to wrap inside wiki */
+  .wiki-content, 
+  .wiki-content * {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    box-sizing: border-box;
+  }
+  
+  /* Fix tables */
+  .wiki-section-content table,
+  .wiki-section-content th,
+  .wiki-section-content td {
+    max-width: 100%;
+    white-space: normal;  /* allow wrapping */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Fix code/pre blocks */
+  .wiki-section-content pre {
+    white-space: pre-wrap;   /* wrap long lines */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }

@@ -1,0 +1,118 @@
+/* Import custom fonts */
+@font-face {
+  font-family: 'WorkSans';
+  src: url('./assets/fonts/WorkSans-Regular.otf') format('opentype'); /* Correct format for .otf */
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'NectoMono';
+  src: url('./assets/fonts/NectoMono-Regular.otf') format('opentype'); /* Correct format for .otf */
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* the main colour palette for the app */
+:root {
+  --font1: 'WorkSans', Arial, sans-serif; /* Default font */
+  --font2: 'NectoMono', monospace;       /* Secondary font */
+  --colour1: #4CAF50;
+  --colour2: #0000FF;
+  --colour3: #FF9F65;
+  --colour4: #FFFFFF;
+  --colour5: #333333;
+}
+
+/* Set default font for the entire app */
+body {
+  font-family: var(--font1);
+  margin: 0;
+  padding: 0;
+  color: var(--colour5); /* default text color */
+}
+
+#root {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 3rem;
+  text-align: center;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh; /* Use min-height instead of height */
+  padding-top: .1rem; /* Add some padding to prevent content from being cut off */
+  box-sizing: border-box; /* Ensure padding is included in the height calculation */
+}
+
+h1 {
+  font-family: var(--font1); /* Use font1 */
+  color: var(--colour2);     /* Use colour2 */
+  margin-bottom: 0px;
+  margin-left: 0px;
+  width: 100%; /* Ensure it spans the full width */
+}
+
+/* Title 1 styling */
+.title1 {
+  font-family: var(--font1);
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--colour2);
+  margin-bottom: 0rem;
+  width: 100%;
+  text-align: left;
+  padding-left: 15px;
+  
+}
+
+.title1centred {
+  font-family: var(--font1);
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--colour2);
+  margin-bottom: 0rem;
+  width: 100%;
+  text-align: center; /* Center the text */
+  padding-left: 0; /* Remove left padding */
+}
+
+/* Link styling */
+.links {
+  font-family: var(--font1);
+  color: var(--colour1);
+  font-size: 1.5rem;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.links:hover {
+  color: var(--colour2);
+  text-decoration: underline;
+}
+
+/* Normal text styling */
+.normal-text {
+  font-family: var(--font1);
+  font-size: 1rem;
+  color: var(--colour5);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+hr {
+  border: none; /* Remove default border */
+  border-top: 1px solid var(--colour2); /* Use a custom color */
+  width: 90%; 
+  margin: 20px auto; 
+}
+
+.no-scroll {
+  overflow: hidden; /* Disable scrolling */
+}

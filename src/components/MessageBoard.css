@@ -1,0 +1,56 @@
+.message-board-container {
+  width: 100vw; /* Use viewport width to ensure full width */
+  max-width: 600px; /* Optional: Set a maximum width for larger screens */
+  margin: 0 auto; /* Center the container horizontally */
+  padding: 16px; /* Add some padding for spacing */
+  box-sizing: border-box; /* Include padding and border in the width */
+  min-height: 100vh; /* Take full viewport height */
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; /* Allow messages to take full width */
+  width: 100%;
+  gap: 16px; /* Add spacing between messages */
+  box-sizing: border-box;
+  flex: 1; /* Take remaining space after TextBox */
+}
+
+/* Ensure TextBox takes full width */
+.message-board-container > * {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Force UserMessage components to take full available width */
+.messages-container .user-message {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+}
+
+/* Add responsiveness */
+@media (max-width: 768px) {
+  .message-board-container {
+    padding: 12px;
+    width: 100vw; /* Ensure full viewport width on mobile */
+  }
+
+  .messages-container {
+    align-items: stretch; /* Ensure messages take full width on smaller screens */
+  }
+}
+
+/* For very small screens */
+@media (max-width: 480px) {
+  .message-board-container {
+    padding: 8px;
+  }
+  
+  .messages-container {
+    gap: 12px;
+  }
+}

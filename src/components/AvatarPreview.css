@@ -1,0 +1,48 @@
+/* Container for the entire avatar preview section */
+.avatar-preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem; /* Add spacing between elements */
+  margin-top: 1rem;
+}
+
+/* Dropdown container for color and shape selectors */
+.dropdown-container {
+  display: flex;
+  gap: 1rem; /* Add spacing between dropdowns */
+  justify-content: center;
+}
+
+/* Styling for the dropdowns */
+.dropdown-container select {
+  padding: 0.5rem;
+  border: 1px solid var(--colour2); 
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: transparent;
+  color: var(--colour2); 
+  font-family: var(--font2);
+  cursor: pointer;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+
+/* Preview window for the avatar */
+.avatar-preview-window {
+  width: 150px; /* Fixed width for the preview window */
+  height: 150px; /* Fixed height for the preview window */
+  border-radius: 8px; /* Optional: Add rounded corners */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  overflow: hidden; /* Ensure the image doesn't overflow the container */
+}
+
+/* Avatar image inside the preview window */
+.avatar-preview-window img {
+  max-width: 100%; /* Ensure the image scales within the window */
+  max-height: 100%; /* Ensure the image scales within the window */
+  object-fit: contain; /* Maintain the aspect ratio of the image */
+}

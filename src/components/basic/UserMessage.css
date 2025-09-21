@@ -1,0 +1,134 @@
+/* UserMessage.css */
+
+.user-message {
+  display: flex;
+  background-color: var(--colour2);
+  border-radius: 12px;
+  padding: 16px;
+  color: var(--colour4);
+  font-family: var(--font2); 
+  width: 100%;
+  max-width: 600px;
+  margin: 8px 0;
+  position: relative;
+  box-sizing: border-box;
+  align-items: flex-start; 
+}
+
+.user-message-close-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+.user-message-sticker-container {
+  flex-shrink: 0; /* Prevent shrinking */
+  display: flex;
+  align-items: flex-start; /* Align to top */
+  justify-content: center;
+  padding-right: 10px;
+  padding-left: 0px;
+  padding-top: 2px;
+}
+
+.user-message-sticker {
+  line-height: 1;
+  text-align: center;
+  width: 80px; /* Adjust size as needed */
+  height: 80px;
+  object-fit: cover; /* Ensure the image fits within the container */
+  flex-shrink: 0; /* Prevent the sticker from shrinking */
+}
+
+.user-message-content {
+  flex: 1; /* Take remaining space */
+  display: flex;
+  flex-direction: column;
+  padding-right: 0; /* Reduced padding to allow text to extend */
+  /* Remove min-height: 100% which can cause layout issues */
+  /* Add min-width to prevent flex shrinking issues */
+  min-width: 0;
+}
+
+.user-message-username {
+  font-size: 1.2em;
+  font-weight: bold;
+  text-align: left;
+  margin-bottom: 4px;
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.user-message-timestamp {
+  font-size: 0.8em;
+  opacity: 0.8;
+  margin-bottom: 8px;
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.user-message-separator {
+  border-bottom: 4px dashed var(--colour5);
+  margin-bottom: 6px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.user-message-text {
+  font-size: 1em;
+  line-height: 1.4;
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  /* Ensure text doesn't overflow its container */
+  max-width: 100%;
+  white-space: pre-wrap;
+  /* Add hyphens for better word breaking */
+  hyphens: auto;
+  /* Ensure the text container can grow */
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .user-message {
+    padding: 12px; /* Slightly reduce padding on mobile */
+    /* Remove min-height: auto as we removed min-height entirely */
+  }
+
+  .user-message-content {
+    padding-right: 0; /* Adjust for smaller screens as well */
+  }
+
+  .user-message-text {
+    font-size: 0.9em;
+    line-height: 1.3;
+  }
+
+  .user-message-close-button {
+    top: 6px;
+    right: 6px;
+  }
+  
+  /* Ensure the sticker container doesn't force height */
+  .user-message-sticker-container {
+    align-items: flex-start;
+  }
+
+  /* Make the sticker smaller on mobile */
+  .user-message-sticker {
+    height: 56px; 
+    width: 56px; 
+  }
+}
+
+/* Add this to your existing UserMessage.css file */
+
+.user-message-sticker-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  font-size: 0.8em;
+  min-width: 40px;
+  min-height: 40px;
+}

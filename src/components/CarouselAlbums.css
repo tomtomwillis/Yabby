@@ -1,0 +1,120 @@
+/* Album slide specific styling - only affects carousel-albums */
+.carousel-albums .carousel__slide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 4px; 
+    box-sizing: border-box;
+    overflow: visible;
+    flex-direction: column;
+    text-align: center;
+    font-family: var(--font2); 
+}
+
+.carousel-albums .carousel__slide a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    width: 100%;
+    position: relative;
+    transition: transform 0.2s ease;
+    font-family: var(--font2); 
+}
+
+.carousel-albums .carousel__slide a:hover {
+    transform: translateY(-2px);
+}
+
+.carousel-albums .carousel__slide-image:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Album information container - hidden by default, shown on hover */
+.carousel-albums .carousel__slide-info {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.3) 70%, rgba(0, 0, 0, 0.8) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 12px 8px 12px; /* Only bottom padding */
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    font-family: var(--font2); 
+}
+
+.carousel-albums .carousel__slide a:hover .carousel__slide-info {
+    opacity: 1;
+}
+
+/* Single text element styling - overlay text */
+.carousel-albums .carousel__slide-text {
+    font-size: 0.85rem;
+    color: var(--colour4);
+    line-height: 1.1; /* Control spacing between lines */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+    font-family: var(--font2);
+    white-space: pre-line; /* Preserves line breaks */
+    margin: 0;
+    text-align: left;
+}
+
+/* Dark theme support - overlay text already white, no changes needed */
+@media (prefers-color-scheme: dark) {
+    .carousel-albums .carousel__slide-image {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .carousel-albums .carousel__slide-image:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* Responsive adjustments for text sizing */
+@media (max-width: 767px) {
+    .carousel-albums .carousel__slide-info {
+        min-height: 50px;
+        padding: 0 8px 6px 8px; /* Only bottom padding for mobile */
+    }
+    
+    .carousel-albums .carousel__slide-text {
+        font-size: 0.75rem;
+        line-height: 1.05; /* Slightly tighter on mobile */
+    }
+}
+
+/* Loading and error states */
+.carousel-albums p {
+    text-align: center;
+    padding: 2rem;
+    color: var(--colour5);
+    font-size: 1rem;
+    font-family: var(--font2);
+}
+
+/* Focus states for accessibility */
+.carousel-albums .carousel__slide a:focus {
+    outline: 2px solid var(--colour2);
+    outline-offset: 2px;
+    border-radius: 4px;
+    font-family: var(--font2);
+}
+
+/* Sticker placement styles */
+.sticker {
+    position: absolute;
+    cursor: move;
+    border-radius: 50%;
+    transition: transform 0.1s ease;
+    z-index: 3;
+}
+
+.sticker.dragging {
+    transform: translate(-50%, -50%) scale(1.1);
+    z-index: 4;
+}

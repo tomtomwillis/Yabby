@@ -1,0 +1,165 @@
+/* Popup styles - modal functionality */
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.popup-content {
+    background: var(--colour4);
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.popup-album-title {
+    font-family: var(--font1);
+    color: var(--colour2);
+    margin-bottom: 0.5rem;
+}
+
+.popup-album-artist {
+    font-family: var(--font1);
+    color: var(--colour5);
+    margin-bottom: 1rem;
+}
+
+.popup-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.popup-album-link {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    background: var(--colour1);
+    color: var(--colour4) !important;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.popup-album-link:hover {
+    background: var(--colour2);
+}
+
+/* Button positioning */
+.popup-close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+}
+
+.back-button {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+}
+
+/* Sticker messages list */
+.sticker-messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Place sticker interface */
+.album-section {
+    margin: 1.5rem 0;
+}
+
+.album-display {
+    position: relative;
+    display: inline-block;
+    max-width: 300px;
+    width: 100%;
+    cursor: crosshair;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.album-cover {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.sticker {
+    position: absolute;
+    cursor: move;
+    border-radius: 50%;
+    transition: transform 0.1s ease;
+    z-index: 3;
+}
+
+.sticker.dragging {
+    transform: translate(-50%, -50%) scale(1.1);
+    z-index: 4;
+}
+
+.instructions {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--colour5);
+    font-style: italic;
+}
+
+.sticker-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.sticker-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: var(--font1);
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.sticker-textarea:focus {
+    outline: none;
+    border-color: var(--colour1);
+}
+
+.submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .popup-content {
+        margin: 1rem;
+        padding: 1.5rem;
+        max-height: 90vh;
+    }
+
+    .popup-buttons {
+        flex-direction: column;
+    }
+
+    .album-display {
+        max-width: 250px;
+    }
+}
