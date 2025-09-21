@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Button from './Button'; // Import the pre-made Button component
+import Button from './Button'; 
 import './Header.css';
-import './TextAnimations.css'; // Import the text animations CSS
+import './TextAnimations.css'; 
 
 interface HeaderProps {
   title: string;
@@ -28,7 +28,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
 
     if (isMobileMenuOpen) {
       document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden'; // Prevent scrolling when menu is open
+      document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
@@ -50,9 +50,27 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         <nav className="desktop-nav">
           <ul className="nav-links top-links">
             <li><a href="/" className="links">🏠 </a></li>
-            <li><a href="https://music.yabbyville.xyz/" target="_blank" rel="noopener noreferrer" className="links">listen</a></li>
+            <li>
+              <a 
+                href={import.meta.env.VITE_NAVIDROME_SERVER_URL} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="links"
+              >
+                listen
+              </a>
+            </li>
             <li><a href="/upload" className="links">upload</a></li>
-            <li><a href="https://slsk.yabbyville.xyz/" target="_blank" rel="noopener noreferrer" className="links">request</a></li>
+            <li>
+              <a 
+                href={import.meta.env.VITE_SLSK_REQUEST_URL} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="links"
+              >
+                request
+              </a>
+            </li>
           </ul>        
           
           <ul className="nav-links bottom-links">
@@ -82,9 +100,23 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
       {/* Mobile Navigation Menu */}
       <div className={`mobile-nav ${isMobileMenuOpen ? 'active' : ''}`}>
         <a href="/" onClick={closeMobileMenu}>Home</a>
-        <a href="https://music.yabbyville.xyz/" target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu}>Listen</a>
+        <a 
+          href={import.meta.env.VITE_NAVIDROME_SERVER_URL} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          onClick={closeMobileMenu}
+        >
+          Listen
+        </a>
         <a href="/upload" onClick={closeMobileMenu}>Upload</a>
-        <a href="https://slsk.yabbyville.xyz/" target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu}>Request</a>
+        <a 
+          href={import.meta.env.VITE_SLSK_REQUEST_URL} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          onClick={closeMobileMenu}
+        >
+          Request
+        </a>
         <a href="/messageboard" onClick={closeMobileMenu}>Message Board</a>
         <a href="/profile" onClick={closeMobileMenu}>Profile</a>
         <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>

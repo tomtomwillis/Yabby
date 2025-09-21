@@ -4,6 +4,7 @@ import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
 import Stats from '../components/Stats';
 import CarouselStickers from '../components/CarouselStickers';
+import PlaceSticker from '../components/PlaceSticker';
 
 function App() {
   return (
@@ -12,6 +13,8 @@ function App() {
 
         <div className="title1">Stickers</div>
         <CarouselStickers />
+
+        <PlaceSticker />
 
         <hr />
 

@@ -1,0 +1,178 @@
+/* PlaceSticker.css */
+.place-sticker-container {
+  max-width: 70%; /* Set to full page width */
+  width: 100%; /* Ensure it spans the entire width */
+  margin: 0 auto; /* Center the container */
+  padding: 1rem;
+  background-color: var(--colour4); /* Replaced #fafafa */
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.place-sticker-container h2 {
+  margin-bottom: 0rem;
+  margin-top: 0%;
+}
+
+
+.album-section {
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.album-display {
+  position: relative;
+  display: inline-block;
+  cursor: crosshair;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  height: 300px;
+}
+
+.album-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid var(--colour5); 
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+.sticker {
+  position: absolute;
+  cursor: grab;
+  border-radius: 5%;
+  transition: transform 0.1s ease;
+  user-select: none;
+  z-index: 10;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.sticker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.sticker.dragging {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.2);
+  z-index: 20;
+}
+
+.album-info {
+  margin: 1rem 0;
+  font-size: 16px;
+  color: var(--colour5); 
+}
+
+.instructions {
+  margin: 0.5rem 0;
+  font-size: 14px;
+  color: var(--colour5);
+  font-style: italic;
+}
+
+.sticker-controls {
+  margin-top: 1rem;
+  position: relative;
+  z-index: 100;
+}
+
+textarea {
+  min-height: 40px;
+  resize: vertical;
+}
+
+
+button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+button:not(.submit-button) {
+  background-color: var(--colour1); 
+  color: var(--colour4); /
+}
+
+button:not(.submit-button):hover:not(:disabled) {
+  background-color: var(--colour2); 
+}
+
+.submit-button {
+  background-color: var(--colour2); 
+  color: var(--colour4); 
+  font-weight: bold;
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 101;
+}
+
+.submit-button:hover:not(:disabled) {
+  background-color: var(--colour3); 
+}
+
+
+button:disabled {
+  background-color: var(--colour5); 
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.sticker-preview {
+  display: none;
+}
+
+/* Pop-up styles */
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.popup-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  position: relative;
+}
+
+.popup-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .place-sticker-container {
+    max-width: 90%;
+    padding: 0.75rem;
+  }
+
+  .album-display {
+    width: 250px;
+    height: 250px;
+  }
+}

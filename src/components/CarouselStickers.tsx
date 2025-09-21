@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Carousel } from './basic/Carousel';
 import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
+import TextBox from './basic/MessageTextBox';
 import './CarouselStickers.css';
-import { collection, getDocs, query, orderBy, doc, getDoc, limit, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, getDoc, limit, addDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 
 interface Sticker {
@@ -72,31 +73,42 @@ const CarouselStickers: React.FC = () => {
 
       const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
       const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
+      const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; // Use the client ID from .env
 
-      // Fetch the 10 most recent stickers from Firestore
-      const stickersQuery = query(
+      // Step 1: Fetch the 10 most recent stickers to determine which albums to show
+      const recentStickersQuery = query(
         collection(db, 'stickers'),
         orderBy('timestamp', 'desc'),
         limit(10)
       );
-      const stickersSnapshot = await getDocs(stickersQuery);
+      const recentStickersSnapshot = await getDocs(recentStickersQuery);
+      const recentStickers: Sticker[] = recentStickersSnapshot.docs.map((doc) => doc.data() as Sticker);
 
-      const stickers: Sticker[] = stickersSnapshot.docs.map((doc) => doc.data() as Sticker);
+      // Step 2: Get unique album IDs from the recent stickers
+      const uniqueAlbumIds = [...new Set(recentStickers.map(sticker => sticker.albumId))];
 
-      // Group stickers by albumId
-      const groupedStickers = stickers.reduce((acc, sticker) => {
-        if (!acc[sticker.albumId]) {
-          acc[sticker.albumId] = [];
-        }
-        acc[sticker.albumId].push(sticker);
-        return acc;
-      }, {} as Record<string, Sticker[]>);
+      // Step 3: For each album, fetch ALL stickers for that album
+      const albumsWithAllStickers: AlbumWithStickers[] = await Promise.all(
+        uniqueAlbumIds.map(async (albumId) => {
+          // Fetch all stickers for this specific album
+          const albumStickersQuery = query(
+            collection(db, 'stickers'),
+            where('albumId', '==', albumId)
+          );
+          const albumStickersSnapshot = await getDocs(albumStickersQuery);
+          const allAlbumStickers: Sticker[] = albumStickersSnapshot.docs
+            .map((doc) => doc.data() as Sticker)
+            .sort((a, b) => {
+              // Sort by timestamp descending (most recent first)
+              const timestampA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
+              const timestampB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
+              return timestampB.getTime() - timestampA.getTime();
+            });
 
-      // Fetch album details for each group
-      const albumsWithStickers: AlbumWithStickers[] = await Promise.all(
-        Object.entries(groupedStickers).map(async ([albumId, stickers]) => {
+          // Fetch album details from Navidrome API
           const response = await fetch(
-            `https://music.yabbyville.xyz/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=YabbyVilleClient`,
+            `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
             {
               headers: {
                 Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
@@ -117,21 +129,21 @@ const CarouselStickers: React.FC = () => {
             throw new Error('Album not found in response');
           }
 
-          const albumCover = `https://music.yabbyville.xyz/rest/getCoverArt?id=${albumElement.getAttribute(
+          const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
             'coverArt'
-          )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=YabbyVilleClient`;
+          )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
 
           return {
             albumId,
             albumCover,
             albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
             albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
-            stickers,
+            stickers: allAlbumStickers, // Now contains ALL stickers for this album
           };
         })
       );
 
-      setAlbums(albumsWithStickers);
+      setAlbums(albumsWithAllStickers);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       console.error('Error fetching stickers:', errorMessage);
@@ -183,47 +195,48 @@ const CarouselStickers: React.FC = () => {
   }, []);
 
   const handleAlbumClick = async (album: AlbumWithStickers) => {
-    const stickerDetails = await Promise.all(
-      album.stickers.map(async (sticker) => {
-        try {
-          const userDoc = doc(db, 'users', sticker.userId);
-          const userSnapshot = await getDoc(userDoc);
-
-          const userData = userSnapshot.exists()
-            ? userSnapshot.data()
-            : { username: 'Anonymous', avatar: 'default-avatar.png' };
-
-          // Format timestamp
-          const timestamp = sticker.timestamp?.toDate
-            ? sticker.timestamp.toDate().toLocaleString()
-            : 'Unknown time';
-
-          return {
-            text: sticker.text,
-            username: userData.username || 'Anonymous',
-            // Extract the filename from the sticker path
-            avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
-            timestamp: timestamp,
-          };
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          return {
-            text: sticker.text,
-            username: 'Anonymous',
-            avatar: '/Stickers/avatar_tp_red.webp', // Fallback to default avatar
-            timestamp: 'Unknown time',
-          };
-        }
-      })
-    );
+    const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
+    const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
+    const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+    const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; // Use the client ID from .env
 
     setPopup({
-      stickers: stickerDetails,
+      stickers: await Promise.all(
+        album.stickers.map(async (sticker) => {
+          try {
+            const userDoc = doc(db, 'users', sticker.userId);
+            const userSnapshot = await getDoc(userDoc);
+
+            const userData = userSnapshot.exists()
+              ? userSnapshot.data()
+              : { username: 'Anonymous', avatar: 'default-avatar.png' };
+
+            const timestamp = sticker.timestamp?.toDate
+              ? sticker.timestamp.toDate().toLocaleString()
+              : 'Unknown time';
+
+            return {
+              text: sticker.text,
+              username: userData.username || 'Anonymous',
+              avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
+              timestamp: timestamp,
+            };
+          } catch (error) {
+            console.error('Error fetching user data:', error);
+            return {
+              text: sticker.text,
+              username: 'Anonymous',
+              avatar: '/Stickers/avatar_tp_red.webp',
+              timestamp: 'Unknown time',
+            };
+          }
+        })
+      ),
       visible: true,
       albumId: album.albumId,
       albumTitle: album.albumTitle,
       albumArtist: album.albumArtist,
-      albumCover: album.albumCover,
+      albumCover: `${SERVER_URL}/rest/getCoverArt?id=${album.albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`, // Updated to use CLIENT_ID
     });
   };
 
@@ -379,42 +392,6 @@ const CarouselStickers: React.FC = () => {
     }
   }, [isDragging, dragOffset]);
 
-  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!auth.currentUser || !popup.albumId || !stickerPos || !stickerText.trim() || !userSticker) {
-      return alert('Please complete all fields before submitting.');
-    }
-
-    if (isSubmitting) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await addDoc(collection(db, 'stickers'), {
-        userId: auth.currentUser.uid,
-        albumId: popup.albumId,
-        text: stickerText.trim(),
-        position: {
-          x: stickerPos.x,
-          y: stickerPos.y,
-        },
-        sticker: userSticker,
-        timestamp: serverTimestamp(),
-      });
-
-      alert('Sticker placed successfully!');
-      window.location.reload();
-    } catch (error) {
-      console.error('Error submitting sticker:', error);
-      alert('Failed to submit sticker. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const getStickerDisplayStyle = () => {
     if (!stickerPos) return {};
@@ -497,14 +474,6 @@ const CarouselStickers: React.FC = () => {
     );
   }
 
-  const isFormReady = !!(
-    auth.currentUser && 
-    popup.albumId && 
-    stickerPos && 
-    stickerText.trim() && 
-    userSticker && 
-    !isSubmitting
-  );
 
   return (
     <div className="sticker-album-carousel">
@@ -527,7 +496,7 @@ const CarouselStickers: React.FC = () => {
                   <Button
                     type="basic"
                     label="Click to listen"
-                    onClick={() => window.open(`https://music.yabbyville.xyz/app/#/album/${popup.albumId}/show`, '_blank')}
+                    onClick={() => window.open(`${import.meta.env.VITE_NAVIDROME_SERVER_URL}/app/#/album/${popup.albumId}/show`, '_blank')}
                     className="center-button" // Added center-button class
                   />
 
@@ -601,19 +570,47 @@ const CarouselStickers: React.FC = () => {
                 </div>
 
                 <div className="sticker-controls" onClick={(e) => e.stopPropagation()}>
-                  <textarea
+                  <TextBox
                     placeholder="Write something to go with your sticker..."
                     value={stickerText}
-                    onChange={(e) => setStickerText(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="sticker-textarea"
-                  />
-                  <Button 
-                    type="basic"
-                    label={isSubmitting ? 'Submitting...' : 'Submit Sticker'}
-                    onClick={() => handleSubmit}
-                    disabled={!isFormReady}
-                    className="center-button submit-button" // Added center-button class
+                    onChange={(text) => setStickerText(text)}
+                    onSend={async (text) => {
+                      if (!auth.currentUser || !popup.albumId || !stickerPos || !userSticker) {
+                        return alert('Please complete all fields before submitting.');
+                      }
+
+                      if (isSubmitting) {
+                        return;
+                      }
+
+                      setIsSubmitting(true);
+
+                      try {
+                        await addDoc(collection(db, 'stickers'), {
+                          userId: auth.currentUser.uid,
+                          albumId: popup.albumId,
+                          text: text.trim(),
+                          position: {
+                            x: stickerPos.x,
+                            y: stickerPos.y,
+                          },
+                          sticker: userSticker,
+                          timestamp: serverTimestamp(),
+                        });
+
+                        alert('Sticker placed successfully!');
+                        window.location.reload();
+                      } catch (error) {
+                        console.error('Error submitting sticker:', error);
+                        alert('Failed to submit sticker. Please try again.');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                    maxWords={100} // Adjust the maxWords as needed
+                    showSendButton={true} // Enable the send button
+                    showCounter={true} // Show the word/character counter
+                    className="sticker-textbox"
                   />
                 </div>
                 <Button 

@@ -7,6 +7,7 @@ import AddSticker from "./AddSticker";
 const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
 const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
 const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; 
 
 interface Album {
   id: string;
@@ -29,7 +30,7 @@ const CarouselAlbums: React.FC = () => {
         setError(null);
 
         const response = await fetch(
-          `${SERVER_URL}/rest/getAlbumList?type=newest&size=10&format=xml&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=YabbyVilleClient`,
+          `${SERVER_URL}/rest/getAlbumList?type=newest&size=10&format=xml&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`, 
           {
             headers: {
               Authorization: "Basic " + btoa(`${API_USERNAME}:${API_PASSWORD}`),
@@ -120,7 +121,7 @@ const CarouselAlbums: React.FC = () => {
         rel="noopener noreferrer"
       >
         <img
-          src={`${SERVER_URL}/rest/getCoverArt?id=${album.coverArt}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=YabbyVilleClient`}
+          src={`${SERVER_URL}/rest/getCoverArt?id=${album.coverArt}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`} 
           alt={album.name}
           className="carousel__slide-image"
           loading="lazy"

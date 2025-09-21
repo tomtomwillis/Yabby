@@ -16,10 +16,10 @@ const Stats: React.FC = () => {
   // Helper function to get API credentials
   const getApiConfig = () => {
     return {
-      serverUrl: "https://music.yabbyville.xyz",
+      serverUrl: import.meta.env.VITE_NAVIDROME_SERVER_URL,
       username: import.meta.env.VITE_NAVIDROME_API_USERNAME,
       password: import.meta.env.VITE_NAVIDROME_API_PASSWORD,
-      appName: "YabbyVilleClient",
+      appName: import.meta.env.VITE_NAVIDROME_CLIENT_ID,
     };
   };
 
@@ -27,17 +27,14 @@ const Stats: React.FC = () => {
     const { serverUrl, username, password, appName } = getApiConfig();
 
     try {
-      // Method 1: Try to get count with minimal data first
       let albumCount = await getAlbumCountEfficient(serverUrl, username, password, appName);
       let songCount = 0;
 
-      // If we couldn't get an efficient count, fall back to paginated approach
       if (albumCount === -1) {
         const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
         albumCount = stats.albumCount;
         songCount = stats.songCount;
       } else {
-        // If we got album count efficiently, we still need song count
         songCount = await getSongCountFromAlbums(serverUrl, username, password, appName);
       }
 
@@ -51,7 +48,6 @@ const Stats: React.FC = () => {
     }
   };
 
-  // Method 1: Try to get count with minimal data transfer
   const getAlbumCountEfficient = async (
     serverUrl: string,
     username: string,
@@ -59,7 +55,6 @@ const Stats: React.FC = () => {
     appName: string
   ): Promise<number> => {
     try {
-      // Try with size=0 to see if we get metadata with total count
       const response = await fetch(
         `${serverUrl}/rest/getAlbumList2?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&type=alphabeticalByName&size=0`,
         {
@@ -77,26 +72,23 @@ const Stats: React.FC = () => {
 
       if (data["subsonic-response"].status === "ok") {
         const albumList = data["subsonic-response"].albumList2;
-        
-        // Check if response includes total count metadata
+
         if (albumList.totalCount !== undefined) {
           return albumList.totalCount;
         }
-        
-        // If size=0 returns actual albums, count them
+
         if (albumList.album && Array.isArray(albumList.album)) {
           return albumList.album.length;
         }
       }
-      
-      return -1; // Indicates we need to use fallback method
+
+      return -1;
     } catch (error) {
       console.log("Efficient method failed, falling back to paginated approach");
       return -1;
     }
   };
 
-  // Method 2: Paginated approach for accurate counting
   const getAlbumCountPaginated = async (
     serverUrl: string,
     username: string,
@@ -106,7 +98,7 @@ const Stats: React.FC = () => {
     let totalAlbums = 0;
     let totalSongs = 0;
     let offset = 0;
-    const pageSize = 500; // Reasonable page size
+    const pageSize = 500;
     let hasMore = true;
 
     while (hasMore) {
@@ -127,20 +119,18 @@ const Stats: React.FC = () => {
 
       if (data["subsonic-response"].status === "ok") {
         const albums = data["subsonic-response"].albumList2.album || [];
-        
+
         if (albums.length === 0) {
           hasMore = false;
         } else {
           totalAlbums += albums.length;
-          
-          // Sum up song counts from this batch
+
           const batchSongCount = albums.reduce(
             (sum: number, album: any) => sum + (album.songCount || 0),
             0
           );
           totalSongs += batchSongCount;
-          
-          // If we got fewer albums than requested, we've reached the end
+
           if (albums.length < pageSize) {
             hasMore = false;
           } else {
@@ -157,15 +147,12 @@ const Stats: React.FC = () => {
     return { albumCount: totalAlbums, songCount: totalSongs };
   };
 
-  // Get song count when we have album count but need song totals
   const getSongCountFromAlbums = async (
     serverUrl: string,
     username: string,
     password: string,
     appName: string
   ): Promise<number> => {
-    // For now, we'll use the paginated approach to get song counts too
-    // In a real implementation, you might want to use other endpoints
     const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
     return stats.songCount;
   };
@@ -212,7 +199,7 @@ const Stats: React.FC = () => {
           title: song.title,
           artist: song.artist,
           album: song.album,
-          url: `https://music.yabbyville.xyz/app/#/album/${albumId}/show`,
+          url: `${serverUrl}/app/#/album/${albumId}/show`,
         };
 
         setSongOfTheDay(songData);
@@ -236,7 +223,6 @@ const Stats: React.FC = () => {
     fetchLibraryStats();
     fetchSongOfTheDay();
 
-    // ASCII dancing logic
     const interval = setInterval(() => {
       setAsciiPose((prevPose) => (prevPose + 1) % 2);
     }, 500);
@@ -253,7 +239,6 @@ const Stats: React.FC = () => {
     );
   }
 
-  // ASCII poses
   const asciiMan = [
     `
       ___
