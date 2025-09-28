@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Button from './Button';
 import './MessageTextBox.css';
+import MessageBox from './ForumMessageBox'
+import Editor,  {Toolbar, type ContentEditableEvent } from 'react-simple-wysiwyg';
+
+interface Result {
+  id: string;
+  name: string;
+}
 
 interface TextBoxProps {
   placeholder?: string;
@@ -27,6 +34,13 @@ const TextBox: React.FC<TextBoxProps> = ({
   showCounter = true, // Default to true to show the word/character counter
   children, // Custom children passed from the parent
 }) => {
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [artistResults, setArtistResults] = useState<Result[]>([]);
+  const [albumResults, setAlbumResults] = useState<Result[]>([]);
+  const [isSearching, setisSearching] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<string>("");
+  const [newMessage, setNewMessage] = useState('');
+  const [selectionEnd, setSelectionEnd] = useState(0);
   const [text, setText] = useState(value || ''); // Initialize with value if provided
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0); // Track character count

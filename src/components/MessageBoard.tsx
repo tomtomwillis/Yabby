@@ -4,6 +4,7 @@ import { db, auth } from '../firebaseConfig';
 import TextBox from './basic/MessageTextBox';
 import UserMessage from './basic/UserMessages';
 import './MessageBoard.css';
+import ForumBox from './basic/ForumMessageBox';
 
 interface Message {
   id: string;
@@ -110,6 +111,7 @@ const MessageBoard: React.FC = () => {
 
   return (
     <div className="message-board-container">
+      <ForumBox/>
       <TextBox
         value={newMessage}
         onChange={handleInputChange}

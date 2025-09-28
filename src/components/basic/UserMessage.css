@@ -132,3 +132,26 @@
   min-width: 40px;
   min-height: 40px;
 }
+
+/* Hyperlink styling within user messages */
+.user-message-link {
+  color: var(--colour5);
+  text-decoration: underline;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  transition: color 0.3s ease, text-decoration-color 0.3s ease;
+}
+
+.user-message-link:hover {
+  color: var(--colour1);
+  text-decoration-color: var(--colour1);
+}
+
+.user-message-link:visited {
+  color: var(--colour5);
+  opacity: 0.8;
+}
+
+.user-message-link:active {
+  color: var(--colour1);
+}
