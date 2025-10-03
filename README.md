@@ -193,70 +193,13 @@ The `TextAnimations.css` file provides reusable CSS classes for gentle and dynam
   <h1 class="animated-text float-gentle">Floating Text</h1>
   ```
 
-### ForumMessageBox
-
-The `ForumMessageBox` component is a rich text editor designed for posting messages with artist/album tagging functionality. It uses a WYSIWYG editor and integrates with the Navidrome API to search and tag artists and albums by typing `@` followed by a search query. In future updates, this could be refactored to also power sticker messages. 
-
-#### Props:
-
-- **placeholder**: Placeholder text for the input box (default: `"Type your message..."`).
-- **value**: The current value of the text box (for controlled input).
-- **onSend**: A callback function triggered when the send button is clicked.
-- **disabled**: Disables the text box and send button (default: `false`).
-- **maxWords**: Maximum number of words allowed (default: `250`).
-- **maxChars**: Maximum number of characters allowed (default: `1000`).
-- **className**: Additional CSS classes for custom styling.
-- **showSendButton**: Controls the visibility of the send button (default: `true`).
-
-#### Features:
-
-- **Rich Text Editing**: Uses a WYSIWYG editor for HTML content creation.
-- **Artist/Album Tagging**: Type `@` followed by a search term to search for artists and albums from Navidrome. Results appear as you type (minimum 3 characters).
-- **Hyperlink Creation**: Selected artists/albums are automatically converted into hyperlinks pointing to the Navidrome interface.
-- **Word and Character Limits**: Displays a counter and prevents input beyond specified limits.
-- **Search Results**: Shows top 3 matching artists and albums as clickable buttons.
-- **Hyperlink Protection**: Prevents accidental modification of inserted hyperlinks.
-
-#### Examples:
-
-- **Basic ForumMessageBox**:
-  ```tsx
-  <ForumMessageBox
-    placeholder="Share your thoughts..."
-    onSend={(html) => console.log("Message sent:", html)}
-  />
-  ```
-
-- **ForumMessageBox with Custom Limits**:
-  ```tsx
-  <ForumMessageBox
-    maxWords={150}
-    maxChars={750}
-    onSend={(html) => console.log("Message sent:", html)}
-  />
-  ```
-
-- **ForumMessageBox without Send Button**:
-  ```tsx
-  <ForumMessageBox
-    onSend={(html) => console.log("Message sent:", html)}
-    showSendButton={false}
-  />
-  ```
-
-#### Usage Example with Tagging:
-1. Type `@` followed by an artist or album name (e.g., `@Beatles`)
-2. Search results appear after 3 characters
-3. Click a result to insert it as a hyperlink
-4. The link format: `https://music.yabbyville.xyz/app/#/artist/{id}/show`
 
 ### UserMessages
-
-The `UserMessages` component is used to display messages from users. It's used for displaying the stickers and also for the messageboard. It includes their username, message content, timestamp, and an optional sticker (emoji or image). It also supports a close button for dismissing the message. 
+The `UserMessages` component is used to display messages from users. It's used for displaying the stickers and also for the messageboard. It includes their username, message content, timestamp, and an optional sticker (emoji or image). It also supports a close button for dismissing the message.
 
 #### Props:
 - **username**: The name of the user sending the message.
-- **message**: The content of the message. This renders HTML links so long as the link points to yabbyville.xyz.
+- **message**: The content of the message.
 - **timestamp**: The time the message was sent.
 - **userSticker**: An optional sticker (emoji or image URL) to represent the user.
 - **onClose**: A callback function triggered when the close button is clicked.

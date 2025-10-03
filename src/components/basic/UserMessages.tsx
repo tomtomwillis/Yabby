@@ -41,9 +41,8 @@ const normalizeAvatarPath = (avatarPath: string): string => {
 const isValidUrl = (url: string): boolean => {
   try {
     const urlObj = new URL(url);
-    // Only allow http and https protocols and must include 'music.yabbyville.xyz'
-    return (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') &&
-           url.includes('music.yabbyville.xyz');
+    // Only allow http and https protocols
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
   } catch {
     return false;
   }
