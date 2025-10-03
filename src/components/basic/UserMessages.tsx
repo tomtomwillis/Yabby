@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
-import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
 
 interface UserMessageProps {
   username: string;
@@ -34,65 +33,6 @@ const normalizeAvatarPath = (avatarPath: string): string => {
   } else {
     // Assume it's just a filename
     return `/Stickers/${cleanPath}`;
-  }
-};
-
-// Utility function to validate and sanitize URLs
-const isValidUrl = (url: string): boolean => {
-  try {
-    const urlObj = new URL(url);
-    // Only allow http and https protocols
-    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
-
-// Utility function to sanitize and parse HTML content safely
-const parseMessageHTML = (htmlString: string): React.ReactNode => {
-  // HTML parser options with security measures
-  const options: HTMLReactParserOptions = {
-    replace: (domNode) => {
-      if (domNode instanceof Element) {
-        const { name, attribs, children } = domNode;
-
-        // Only allow anchor tags
-        if (name === 'a') {
-          const href = attribs?.href;
-
-          // Validate the URL
-          if (!href || !isValidUrl(href)) {
-            // If invalid URL, render as plain text
-            return <span>{domToReact(children as DOMNode[], options)}</span>;
-          }
-
-          // Create safe link with security attributes
-          return (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="user-message-link"
-            >
-              {domToReact(children as DOMNode[], options)}
-            </a>
-          );
-        }
-
-        // For any other HTML tags, render as plain text
-        return <span>{domToReact(children as DOMNode[], options)}</span>;
-      }
-
-      // Return undefined to use default behavior for text nodes
-      return undefined;
-    }
-  };
-
-  try {
-    return parse(htmlString, options);
-  } catch (error) {
-    console.warn('Failed to parse HTML content, falling back to plain text:', error);
-    return htmlString;
   }
 };
 
@@ -162,7 +102,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
         <div className="user-message-username">{username}</div>
         <div className="user-message-timestamp">{timestamp}</div>
         <div className="user-message-separator"></div>
-        <div className="user-message-text">{parseMessageHTML(message)}</div>
+        <div className="user-message-text">{message}</div>
       </div>
       {!hideCloseButton && ( // Conditionally render the close button
         <Button type='close' onClick={onClose} className="custom-close-button" />
