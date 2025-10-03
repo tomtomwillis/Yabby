@@ -8,7 +8,26 @@ interface Result {
   name: string;
 }
 
-const ForumBox = () => {
+interface ForumMessageBoxProps {
+  placeholder?: string;
+  value?: string; // Add value prop for controlled input
+  onSend?: (text: string) => void;
+  disabled?: boolean;
+  maxWords?: number;
+  maxChars?: number;
+  className?: string;
+  showSendButton?: boolean; // New prop to control the visibility of the send button
+}
+
+const ForumBox: React.FC<ForumMessageBoxProps> = ({
+  placeholder = "Type your message...",
+  onSend,
+  disabled = false,
+  maxWords = 250,
+  maxChars = 1000,
+  className = '',
+  showSendButton = true, // Default to true to show the send button
+})  => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
   const [albumResults, setAlbumResults] = useState<Result[]>([]);
@@ -95,6 +114,13 @@ const ForumBox = () => {
     }
   }, [searchQuery]);
 
+  const handleSend = () => {
+    if (newMessage.trim() && onSend && !disabled) {
+      onSend(newMessage.trim());
+      setNewMessage('');
+    }
+  };
+
   const checkForHyperlinkModification = (editor: Element, selection: Selection, newValue: string): string | null => {
     if (selection.rangeCount === 0) return null;
 
@@ -174,6 +200,20 @@ const ForumBox = () => {
 
   const handleInputChange = (e: ContentEditableEvent, selection?: Selection | null): void => {
     const value = e.target.value;
+
+    // Check if content is truly empty
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = value;
+    const plainTextCheck = tempDiv.textContent || tempDiv.innerText || '';
+
+    // If content is empty, reset to empty string
+    if (!plainTextCheck.trim()) {
+      setNewMessage('');
+      setSearchQuery('');
+      setisSearching(false);
+      return;
+    }
+
     const wordCount = value.trim().split(/\s+/).length;
 
     if (wordCount <= 250) {
@@ -302,31 +342,38 @@ const ForumBox = () => {
   const plainText = getPlainText(newMessage);
   const wordCount = countWords(plainText);
   const charCount = plainText.length;
-  const maxWords = 250;
-  const maxChars = 1000;
+  maxWords = 250
+  maxChars = 1000;
+
+  // Check if content is truly empty (no meaningful text content)
+  const hasContent = plainText.trim().length > 0;
+  const canSend = hasContent && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
   return (
-    <div className="textbox-container">
+    <div className={`textbox-container ${disabled ? 'disabled' : ''} ${className}`}>
       <div className="input-area">
         <div style={{ flex: 1 }}>
           <Editor
-            value = {newMessage}
+            value = {hasContent ? newMessage : ''}
             name = "ChangeEvent"
-            placeholder = "Type your message..."
+            placeholder = {placeholder}
             onChange={handleInputChange}
+            disabled={disabled}
           >
           <Toolbar style={{display: "none"}}/>
           </Editor>
         </div>
+        {showSendButton && (
         <div className="send-button-container">
           <Button
             type="basic"
             label="Send"
-            onClick={() => {}}
+            onClick={handleSend}
             size="2.5em"
-            disabled={false}
+            disabled={!canSend}
           />
         </div>
+      )}
       </div>
 
       {isSearching && <p>{searchStatus}</p>}

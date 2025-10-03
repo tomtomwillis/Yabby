@@ -112,14 +112,6 @@ const MessageBoard: React.FC = () => {
   return (
     <div className="message-board-container">
       <ForumBox/>
-      <TextBox
-        value={newMessage}
-        onChange={handleInputChange}
-        onSend={handleSendMessage}
-        disabled={loading}
-        maxWords={250}
-        placeholder="Type your message..."
-      />
       <div className="messages-container">
         {messages.map((message) => (
           <UserMessage
