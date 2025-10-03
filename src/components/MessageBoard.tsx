@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import TextBox from './basic/MessageTextBox';
 import UserMessage from './basic/UserMessages';
 import './MessageBoard.css';
+import ForumBox from './basic/ForumMessageBox';
 
 interface Message {
   id: string;
@@ -110,14 +110,7 @@ const MessageBoard: React.FC = () => {
 
   return (
     <div className="message-board-container">
-      <TextBox
-        value={newMessage}
-        onChange={handleInputChange}
-        onSend={handleSendMessage}
-        disabled={loading}
-        maxWords={250}
-        placeholder="Type your message..."
-      />
+      <ForumBox/>
       <div className="messages-container">
         {messages.map((message) => (
           <UserMessage
