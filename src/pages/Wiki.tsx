@@ -53,29 +53,40 @@ const Wiki: React.FC = () => {
   const processHtmlContent = (html: string) => {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
-    
+
+    // Fix image paths - change relative paths to absolute paths
+    const images = tempDiv.querySelectorAll('img');
+    images.forEach((img) => {
+      const src = img.getAttribute('src');
+      if (src && !src.startsWith('http') && !src.startsWith('/')) {
+        img.setAttribute('src', `/wiki/${src}`);
+      }
+      // Remove inline styles that set fixed dimensions
+      img.removeAttribute('style');
+    });
+
     // Find all h1 elements and their content
     const h1Elements = tempDiv.querySelectorAll('h1, .c7');
     const sections: Array<{id: string, title: string, content: string}> = [];
-    
+
     let currentSectionContent = '';
     let currentTitle = '';
     let sectionId = '';
     let titleElement: Element | null = null;
-    
+
     // Get the title (first element)
     const titleElements = tempDiv.querySelectorAll('.title, .c16');
     const wikiTitle = titleElements.length > 0 ? titleElements[0].textContent || 'YabbyVille Wiki' : 'YabbyVille Wiki';
-    
+
     Array.from(tempDiv.children).forEach((element, index) => {
       const isH1 = element.matches('h1') || element.classList.contains('c7');
       const isTitle = element.classList.contains('title') || element.querySelector('.c16');
-      
+
       if (isTitle) {
         // Skip the main title
         return;
       }
-      
+
       if (isH1) {
         // Save previous section if it exists
         if (currentTitle && currentSectionContent) {
@@ -85,7 +96,7 @@ const Wiki: React.FC = () => {
             content: currentSectionContent
           });
         }
-        
+
         // Start new section
         currentTitle = element.textContent || `Section ${sections.length + 1}`;
         sectionId = `section-${sections.length}`;
@@ -96,7 +107,7 @@ const Wiki: React.FC = () => {
         currentSectionContent += element.outerHTML;
       }
     });
-    
+
     // Add the last section
     if (currentTitle && currentSectionContent) {
       sections.push({
@@ -105,7 +116,7 @@ const Wiki: React.FC = () => {
         content: currentSectionContent
       });
     }
-    
+
     return { wikiTitle, sections };
   };
 
