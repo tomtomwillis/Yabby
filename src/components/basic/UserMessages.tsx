@@ -121,11 +121,13 @@ const UserMessage: React.FC<UserMessageProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isLongPress, setIsLongPress] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const handleTouchStart = () => {
     longPressTimer.current = setTimeout(() => {
       setShowTooltip(true);
+      setIsLongPress(true);
     }, 500); // 500ms long press
   };
 
@@ -134,6 +136,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+    setIsLongPress(false);
   };
   
   // Check if userSticker is an image file
@@ -210,8 +213,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
           <div
             className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
             onClick={(e) => {
-              // Prevent reaction toggle if showing tooltip from long press
-              if (showTooltip && reactions && reactions.length > 0) {
+              // Prevent reaction toggle only during active long press on mobile
+              if (isLongPress && showTooltip) {
                 e.preventDefault();
                 return;
               }
