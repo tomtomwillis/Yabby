@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'; // Import Link from react-router-dom
 import Header from '../components/basic/Header'; // Import the Header component
 import '../App.css';
 import '../components/basic/TextAnimations.css';
@@ -11,7 +12,9 @@ function App() {
     <div className="app-container">
         <Header title="Welcome to YabbyVille" subtitle="We <3 you" />
 
-        <div className="title1">Stickers</div>
+        <div className="title1">
+          <Link to="/stickers">Stickers →</Link> 
+        </div>
         <CarouselStickers />
 
         <PlaceSticker />
