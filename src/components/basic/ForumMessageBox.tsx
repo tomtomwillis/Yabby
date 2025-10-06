@@ -36,15 +36,21 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [newMessage, setNewMessage] = useState('');
   const [selectionEnd, setSelectionEnd] = useState(0);
 
+  // API configuration from environment variables
+  const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
+  const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
+  const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+  const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
+
   const fetchResults = async (query: string): Promise<Result[][]> => {
     setSearchStatus("Searching...")
 
     // TODO: API currently returns all results and ignores count parameters
     const response = await fetch(
-      `https://music.yabbyville.xyz/rest/search3?query=${query}&artistCount=5&albumCount=5&u=api_call&p=api_password&v=1.16.1&c=YabbyVilleClient`,
+      `${SERVER_URL}/rest/search3?query=${query}&artistCount=5&albumCount=5&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
       {
         headers: {
-          Authorization: 'Basic ' + btoa('api_call:api_password'),
+          Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
         },
       }
     );
@@ -276,7 +282,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   };
 
   const selectResult = (result: Result, newMessage: string): void => {
-    const link = `https://music.yabbyville.xyz/app/#/artist/${result.id}/show`;
+    const link = `${SERVER_URL}/app/#/artist/${result.id}/show`;
 
     // Use the current search query directly
     if (searchQuery) {

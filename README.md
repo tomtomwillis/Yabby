@@ -375,21 +375,75 @@ Allows the information from the wiki.html file to be passed into the wiki page. 
 
 
 
+## Progressive Web App (PWA)
+
+YabbyVille is a Progressive Web App, which means users can install it on their devices and use it like a native app
+
+### Installation Instructions:
+
+**Android/Chrome:**
+1. Visit the deployed site
+2. Tap the "Add to Home Screen" prompt or browser menu
+3. Tap "Install"
+
+**iOS/Safari:**
+1. Visit the deployed site
+2. Tap the Share button
+3. Scroll down and tap "Add to Home Screen"
+4. Tap "Add"
+
+**Desktop (Chrome/Edge):**
+1. Visit the deployed site
+2. Look for install icon in address bar or browser menu
+3. Click "Install YabbyVille"
+
+### PWA Implementation Files:
+
+The PWA functionality is implemented through the following key files:
+
+- **`vite.config.ts`**
+  Configures the `vite-plugin-pwa` plugin with manifest settings, caching strategies, and service worker options. Defines which assets to cache and how API requests should be handled.
+
+- **`src/main.tsx`**
+  Registers the service worker when the app loads and handles update prompts and offline notifications.
+
+- **`src/vite-env.d.ts`**
+  TypeScript type declarations for the PWA virtual modules.
+
+- **`index.html`**
+  Contains PWA meta tags for theme colors, manifest link, and iOS-specific meta tags for home screen installation.
+
+- **`public/manifest.json`**
+  Web app manifest defining app name, icons, theme colors, and display mode for installation.
+
+- **`public/icons/`**
+  Contains app icons in various sizes:
+  - `icon-192x192.png` - Standard PWA icon
+  - `icon-512x512.png` - Large PWA icon
+  - `apple-touch-icon.png` - iOS home screen icon (180x180)
+
+### Technical Details:
+- Service worker automatically caches stickers, fonts, and app assets
+- API requests to music.yabbyville.xyz are cached with NetworkFirst strategy
+- Manifest configured for standalone display with custom theme colors
+- Icons optimized for all platforms (192x192, 512x512, Apple touch icon)
+- Auto-generated service worker handles precaching and runtime caching via Workbox
+
 ## Packages Used
 
-- **react-router-dom**  
+- **react-router-dom**
   This package is used to handle routing within the application. It allows for navigation between different pages or components without requiring a full page reload, enabling a seamless single-page application (SPA) experience. Features like `useNavigate` and `Route` make it easy to manage navigation and define routes in the app.
 
-- **react_icons**  
+- **react_icons**
   This package is used for adding basic icons like the close button, arrows, and other visual elements to enhance the user interface.
 
-- **firebase**  
+- **firebase**
   Firebase is used for authentication and backend services in the app. It simplifies user authentication, database management, and other backend functionalities, allowing for a seamless integration of these features into the application.
 
-- **react-firebase-hooks**  
+- **react-firebase-hooks**
   This package provides a set of reusable React hooks for Firebase. It simplifies the integration of Firebase services like authentication, Firestore, and Realtime Database into React applications. For example, the `useAuthState` hook is used to track the authentication state of the user, making it easy to determine if a user is logged in or not. This reduces boilerplate code and improves the readability of the app.
 
-- **embla-carousel-react**  
+- **embla-carousel-react**
   This package is used to create highly customizable and performant carousels in the application. It provides a lightweight and flexible carousel solution with smooth scrolling and touch support. Embla makes it easy to implement sliders for showcasing images, content, or other interactive elements.
 
 - **html-react-parser**
@@ -398,4 +452,8 @@ Allows the information from the wiki.html file to be passed into the wiki page. 
 
 - **react-simple-wysiwyg**
 
-  This package provides a simple WYSIWYG (What You See Is What You Get) rich text editor for React. It's used in the `ForumMessageBox` component to allow users to create formatted messages with bold, italic, links, and other text styling options. The editor outputs HTML that can be stored and displayed with formatting intact. 
+  This package provides a simple WYSIWYG (What You See Is What You Get) rich text editor for React. It's used in the `ForumMessageBox` component to allow users to create formatted messages with bold, italic, links, and other text styling options. The editor outputs HTML that can be stored and displayed with formatting intact.
+
+- **vite-plugin-pwa**
+
+  This Vite plugin enables Progressive Web App (PWA) functionality with zero-config service worker generation. It uses Workbox under the hood to create a service worker that precaches app assets and provides offline support. The plugin generates the web app manifest and handles service worker registration automatically. It's configured to cache all stickers, fonts, and API requests for optimal performance and offline capability. 
