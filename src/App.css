@@ -13,15 +13,23 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: 'AvaraItalic';
+  src: url('./assets/fonts/Avara-BoldItalic.otf') format('opentype'); /* Correct format for .otf */
+  font-weight: normal;
+  font-style: normal;
+}
 /* the main colour palette for the app */
 :root {
   --font1: 'WorkSans', Arial, sans-serif; /* Default font */
   --font2: 'NectoMono', monospace;       /* Secondary font */
+  --font3: 'AvaraItalic';                /* third font*/ 
   --colour1: #4CAF50;
   --colour2: #0000FF;
   --colour3: #FF9F65;
   --colour4: #FFFFFF;
   --colour5: #333333;
+  --colour6: #9933ff;
 }
 
 /* Set default font for the entire app */
