@@ -44,7 +44,6 @@
 .grid-sticker-overlay {
   position: absolute;
   transform: translate(-50%, -50%);
-  border-radius: 50%;
   z-index: 3;
   pointer-events: none;
 }
@@ -161,7 +160,7 @@
 
 .sticker {
   position: absolute;
-  border-radius: 50%;
+  border-radius: 10%;
   cursor: move;
   transition: transform 0.1s ease;
 }

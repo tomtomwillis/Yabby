@@ -298,6 +298,15 @@ Handles all the code for the messageboard. Uses the `UserMessages.tsx` and the `
 ### PlaceSticker
 Currently redundant. Eventually I want this component to handle all the sticker adding logic as this is currently being repeated in the `AddSticker` and `CarouselStickers` components.
 
+### StickerGrid
+The `StickerGrid` component displays all albums that have stickers on them in a grid layout. It fetches stickers from Firestore, groups them by album, and shows the album covers with stickers overlaid at their saved positions. The component supports two sorting modes (chronological and shuffle) and includes pagination for better performance.
+
+#### Props:
+- **sortMode**: `'chronological' | 'shuffle'` - Controls how albums are sorted in the grid
+- **shuffleKey**: A number that triggers a re-shuffle when changed
+
+The component uses the `UserMessages.tsx` component to display sticker messages in the popup and the `MessageTextBox.tsx` component for adding new stickers.
+
 ### PrivateRoute
 Allows the website to be kept secure. Prevents someone not logged into the site from accessing anything other than the login page.
 
@@ -329,4 +338,8 @@ Allows the information from the wiki.html file to be passed into the wiki page. 
 
 - **html-react-parser**
 
-  The `html-react-parser` package is used to safely convert HTML strings into React elements. It's used here for the Wiki Page so that it can be easily downloaded from google docs and updated. 
+  The `html-react-parser` package is used to safely convert HTML strings into React elements. It's used here for the Wiki Page so that it can be easily downloaded from google docs and updated.
+
+- **react-simple-wysiwyg**
+
+  This package provides a simple WYSIWYG (What You See Is What You Get) rich text editor for React. It's used in the `ForumMessageBox` component to allow users to create formatted messages with bold, italic, links, and other text styling options. The editor outputs HTML that can be stored and displayed with formatting intact. 
