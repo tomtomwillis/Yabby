@@ -193,6 +193,23 @@ The `TextAnimations.css` file provides reusable CSS classes for gentle and dynam
   <h1 class="animated-text float-gentle">Floating Text</h1>
   ```
 
+### Tips
+The `Tips` component displays helpful tips to users. Visibility can be configured for mobile and/or desktop devices.
+
+#### Props:
+- **text**: The tip text to display (can include emojis).
+- **showOnMobile**: Boolean to show tip on mobile devices (default: `true`).
+- **showOnDesktop**: Boolean to show tip on desktop (default: `false`).
+
+#### Example:
+```tsx
+<Tips
+  text="💡 Long press the heart to see who reacted"
+  showOnMobile={true}
+  showOnDesktop={false}
+/>
+```
+
 ### ForumMessageBox
 
 The `ForumMessageBox` component is a rich text editor designed for posting messages with artist/album tagging functionality. It uses a WYSIWYG editor and integrates with the Navidrome API to search and tag artists and albums by typing `@` followed by a search query. In future updates, this could be refactored to also power sticker messages. 
@@ -252,7 +269,7 @@ The `ForumMessageBox` component is a rich text editor designed for posting messa
 
 ### UserMessages
 
-The `UserMessages` component is used to display messages from users. It's used for displaying the stickers and also for the messageboard. It includes their username, message content, timestamp, and an optional sticker (emoji or image). It also supports a close button for dismissing the message. 
+The `UserMessages` component is used to display messages from users. It's used for displaying the stickers and also for the messageboard. It includes their username, message content, timestamp, and an optional sticker (emoji or image). It also supports a close button for dismissing the message.
 
 #### Props:
 - **username**: The name of the user sending the message.
@@ -261,6 +278,10 @@ The `UserMessages` component is used to display messages from users. It's used f
 - **userSticker**: An optional sticker (emoji or image URL) to represent the user.
 - **onClose**: A callback function triggered when the close button is clicked.
 - **hideCloseButton**: A boolean to hide the close button (default: `false`).
+- **reactions**: An optional array of reaction objects (each containing `userId`, `username`, `timestamp`) for displaying who reacted to the message.
+- **reactionCount**: An optional number indicating the total number of reactions.
+- **currentUserReacted**: An optional boolean indicating if the current user has reacted to the message.
+- **onToggleReaction**: An optional callback function triggered when the user clicks the heart reaction button.
 
 #### Example:
 
@@ -272,6 +293,21 @@ The `UserMessages` component is used to display messages from users. It's used f
   timestamp="2025-09-21 11:00 AM"
   userSticker="/Stickers/avatar.webp"
   onClose={() => console.log("Message closed")}
+  />
+  ```
+
+- **UserMessage with Reactions**:
+  ```tsx
+  <UserMessage
+  username="JaneDoe"
+  message="Check out my new album!"
+  timestamp="2025-09-21 11:00 AM"
+  userSticker="/Stickers/avatar.webp"
+  onClose={() => console.log("Message closed")}
+  reactions={[{ userId: '123', username: 'John', timestamp: {} }]}
+  reactionCount={1}
+  currentUserReacted={false}
+  onToggleReaction={() => console.log("Reaction toggled")}
   />
   ```
 
@@ -293,7 +329,27 @@ Fetches the 10 most recent stickers and displays them in the `Carousel.tsx` comp
 Sticker information displayed using the `UserMessages.tsx` component
 
 ### MessageBoard
-Handles all the code for the messageboard. Uses the `UserMessages.tsx` and the `MessageTextBox.tsx` component.
+Handles all the code for the messageboard. Uses the `UserMessages.tsx` and the `ForumMessageBox.tsx` component.
+
+#### Props:
+- **enableReactions**: A boolean to enable heart reactions on messages (default: `false`). When enabled, users can react to messages with a heart, and see who else has reacted.
+
+#### Features:
+- **Heart Reactions**: Users can react to messages once by clicking/tapping the heart icon. Clicking again removes their reaction.
+- **Reaction Count**: Displays the total number of reactions on each message.
+- **Reaction Tooltip**:
+  - Desktop: Hover over the reaction area to see usernames
+  - Mobile: Long press the reaction area (hold for 500ms) to see usernames
+- **Real-time Updates**: Reactions are stored in Firestore subcollections and update in real-time.
+
+#### Example:
+```tsx
+// Without reactions (default)
+<MessageBoard />
+
+// With reactions enabled
+<MessageBoard enableReactions={true} />
+```
 
 ### PlaceSticker
 Currently redundant. Eventually I want this component to handle all the sticker adding logic as this is currently being repeated in the `AddSticker` and `CarouselStickers` components.

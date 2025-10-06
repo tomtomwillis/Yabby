@@ -155,3 +155,83 @@
 .user-message-link:active {
   color: var(--colour1);
 }
+
+/* Reaction styles */
+.user-message-reaction-container {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+}
+
+.user-message-heart-button {
+  background: transparent;
+  border: none;
+  font-size: 1.6em;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+  line-height: 1;
+  color: var(--colour4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.user-message-heart-button.reacted {
+  color: #ff4757;
+}
+
+.user-message-heart-button:hover {
+  transform: scale(1.15);
+}
+
+.user-message-heart-button:active {
+  transform: scale(0.9);
+}
+
+.user-message-reaction-count {
+  position: absolute;
+  font-size: 0.5em;
+  color: var(--colour4);
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.user-message-reaction-tooltip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background-color: var(--colour1);
+  color: var(--colour4);
+  border: 2px solid var(--colour5);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85em;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.user-message-reaction-tooltip div {
+  margin: 2px 0;
+}
+
+@media (max-width: 768px) {
+  .user-message-reaction-container {
+    top: 6px;
+    right: 6px;
+  }
+
+  .user-message-heart-button {
+    font-size: 1.2em;
+  }
+
+  .user-message-reaction-count {
+    font-size: 0.55em;
+  }
+}

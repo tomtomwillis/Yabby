@@ -1,0 +1,14 @@
+.tip {
+  background-color: var(--colour4);
+  color: var(--colour2);
+  padding: 10px 16px;
+  margin: 16px auto;
+  max-width: 600px;
+  border-radius: 8px;
+  text-align: center;
+  font-family: var(--font2);
+  font-size: 0.9em;
+  border: 2px solid var(--colour4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 70%;
+}

@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
+import { FaHeart, FaRegHeart } from 'react-icons/fa';
+
+interface Reaction {
+  userId: string;
+  username: string;
+  timestamp: any;
+}
 
 interface UserMessageProps {
   username: string;
@@ -10,6 +17,10 @@ interface UserMessageProps {
   userSticker?: string; // Can be an emoji or an image URL
   onClose: () => void;
   hideCloseButton?: boolean; // New optional prop to hide the close button
+  reactions?: Reaction[];
+  reactionCount?: number;
+  currentUserReacted?: boolean;
+  onToggleReaction?: () => void;
 }
 
 // Utility function to normalize avatar paths
@@ -96,15 +107,34 @@ const parseMessageHTML = (htmlString: string): React.ReactNode => {
   }
 };
 
-const UserMessage: React.FC<UserMessageProps> = ({ 
-  username, 
-  message, 
-  timestamp, 
-  userSticker, 
-  onClose, 
-  hideCloseButton 
+const UserMessage: React.FC<UserMessageProps> = ({
+  username,
+  message,
+  timestamp,
+  userSticker,
+  onClose,
+  hideCloseButton,
+  reactions,
+  reactionCount,
+  currentUserReacted,
+  onToggleReaction
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTouchStart = () => {
+    longPressTimer.current = setTimeout(() => {
+      setShowTooltip(true);
+    }, 500); // 500ms long press
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
   
   // Check if userSticker is an image file
   const isImage = userSticker?.endsWith('.webp') || 
@@ -164,6 +194,53 @@ const UserMessage: React.FC<UserMessageProps> = ({
         <div className="user-message-separator"></div>
         <div className="user-message-text">{parseMessageHTML(message)}</div>
       </div>
+      {onToggleReaction && (
+        <div
+          className="user-message-reaction-container"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={() => {
+            handleTouchEnd();
+            // Hide tooltip after a short delay on touch end
+            setTimeout(() => setShowTooltip(false), 2000);
+          }}
+          onTouchCancel={handleTouchEnd}
+        >
+          <div
+            className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
+            onClick={(e) => {
+              // Prevent reaction toggle if showing tooltip from long press
+              if (showTooltip && reactions && reactions.length > 0) {
+                e.preventDefault();
+                return;
+              }
+              onToggleReaction();
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="React to message"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onToggleReaction();
+              }
+            }}
+          >
+            {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
+            {reactionCount !== undefined && reactionCount > 0 && (
+              <span className="user-message-reaction-count">{reactionCount}</span>
+            )}
+          </div>
+          {showTooltip && reactions && reactions.length > 0 && (
+            <div className="user-message-reaction-tooltip">
+              {reactions.map((reaction, index) => (
+                <div key={index}>{reaction.username}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {!hideCloseButton && ( // Conditionally render the close button
         <Button type='close' onClick={onClose} className="custom-close-button" />
       )}
