@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaTimes, FaArrowLeft, FaArrowRight } from 'react-icons/fa'; // Import icons
-import './button.css';
+import './Button.css';
 
 interface ButtonProps {
   label?: string; // Optional label for the button (not needed for 'close', 'arrow-left', or 'arrow-right' types)
