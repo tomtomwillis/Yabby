@@ -115,18 +115,21 @@ const Login = () => {
         </div>
 
         <div className="form-group" style={{ marginBottom: '20px' }}>
-          <TextBox
+          <div className="textbox-container">
+            <div className="input-area">
+          <input /* native HTML password field*/
+            type="password"
             placeholder="Password"
-            onChange={(text) => {
-              console.log('Password entered:', text); // Debug log to check the password value
-              setPassword(text);
+            value={password}
+            onChange={(e) => {
+              console.log('Password entered:', e.target.value);
+              setPassword(e.target.value);
             }}
             disabled={loading}
-            showSendButton={false}
-            showCounter={false}
-            maxWords={50}
-            className="form-input"
+            className="text-input form-input"
           />
+        </div>
+        </div>
         </div>
 
         {error && (
@@ -159,7 +162,8 @@ const Login = () => {
           <div className="form-group" style={{ marginBottom: '20px' }}>
             <TextBox
               placeholder="Enter your email address"
-              onSend={(text) => setResetEmail(text)}
+              value={resetEmail}
+              onChange={(text) => setResetEmail(text)}
               disabled={passwordResetLoading}
               showSendButton={false}
               showCounter={false}
