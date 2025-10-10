@@ -99,7 +99,7 @@ button {
 
 button:not(.submit-button) {
   background-color: var(--colour1); 
-  color: var(--colour4); /
+  color: var(--colour4);
 }
 
 button:not(.submit-button):hover:not(:disabled) {
