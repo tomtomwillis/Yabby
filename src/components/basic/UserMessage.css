@@ -135,7 +135,7 @@
 
 /* Hyperlink styling within user messages */
 .user-message-link {
-  color: var(--colour5);
+  color: var(--colour3);
   text-decoration: underline;
   word-break: break-all;
   overflow-wrap: break-word;
