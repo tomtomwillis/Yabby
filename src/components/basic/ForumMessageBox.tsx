@@ -6,6 +6,7 @@ import Button from './Button';
 interface Result {
   id: string;
   name: string;
+  type: string;
 }
 
 interface ForumMessageBoxProps {
@@ -79,15 +80,19 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
     const artistResults = Array.from(xmlDoc.getElementsByTagName('artist'));
     const albumResults = Array.from(xmlDoc.getElementsByTagName('album'));
+    const albumType = 'album'
+    const artistType = 'artist'
 
     const albums: Result[] = albumResults.map((album) => ({
       id: album.getAttribute('id') || '',
       name: album.getAttribute('name') || 'Unknown Album',
+      type: albumType || '',
     })).slice(0,3);
 
     const artists: Result[] = artistResults.map((artist) => ({
       id: artist.getAttribute('id') || '',
       name: artist.getAttribute('name') || 'Unknown Album',
+      type: artistType || '',
     })).slice(0,3);
 
     if (albums.length === 0 && artists.length === 0) {
@@ -282,7 +287,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   };
 
   const selectResult = (result: Result, newMessage: string): void => {
-    const link = `${SERVER_URL}/app/#/artist/${result.id}/show`;
+    const link = `${SERVER_URL}/app/#/${result.type}/${result.id}/show`;
 
     // Use the current search query directly
     if (searchQuery) {
