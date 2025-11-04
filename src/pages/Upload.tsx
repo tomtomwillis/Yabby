@@ -1,13 +1,16 @@
 import React from 'react';
 import Header from '../components/basic/Header';
+import CopypartyUpload from '../components/CopypartyUpload';
+import '../components/CopypartyUpload.css';
+
 
 const Upload: React.FC = () => {
     return (
-        <div className="app-container">
+        <div className="upload-page-container">
           <Header title="Upload" subtitle="Upload your files" />
-          <p style={{ textAlign: 'center', marginTop: '20px', color: 'gray' }}>
-            This page is a work in progress. Come back later!
-          </p>
+          <div className="upload-iframe-wrapper">
+            <CopypartyUpload height="100%" />
+          </div>
         </div>
       );
 };

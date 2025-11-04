@@ -1,0 +1,105 @@
+/* Upload page container styles */
+.upload-page-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  max-width: 100vw;
+  margin: 0;
+  padding: 0;
+}
+
+.upload-iframe-wrapper {
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Loading state container */
+.copyparty-upload-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #666;
+}
+
+.copyparty-upload-loading-text {
+  margin-bottom: 10px;
+}
+
+.copyparty-upload-loading-spinner-container {
+  text-align: center;
+}
+
+/* Spinner animation */
+.copyparty-upload-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: copyparty-spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes copyparty-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error state container */
+.copyparty-upload-error {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #d32f2f;
+  padding: 20px;
+  text-align: center;
+}
+
+.copyparty-upload-error-message {
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+/* Retry button */
+.copyparty-upload-retry-button {
+  padding: 10px 20px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.copyparty-upload-retry-button:hover {
+  background-color: #2980b9;
+}
+
+.copyparty-upload-retry-button:active {
+  background-color: #21618c;
+}
+
+/* Main container */
+.copyparty-upload-container {
+  position: relative;
+  width: 100%;
+  min-height: 500px;
+}
+
+/* Iframe styles */
+.copyparty-upload-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  display: block;
+}
