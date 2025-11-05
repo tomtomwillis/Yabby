@@ -2,12 +2,25 @@ import React, { useState, useRef } from 'react';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
-import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaPlus, FaMinus } from 'react-icons/fa';
+import ForumBox from './ForumMessageBox';
 
 interface Reaction {
   userId: string;
   username: string;
   timestamp: any;
+}
+
+interface Reply {
+  id: string;
+  text: string;
+  userId: string;
+  timestamp: any;
+  username: string;
+  avatar: string;
+  reactions?: Reaction[];
+  reactionCount?: number;
+  currentUserReacted?: boolean;
 }
 
 interface UserMessageProps {
@@ -21,6 +34,15 @@ interface UserMessageProps {
   reactionCount?: number;
   currentUserReacted?: boolean;
   onToggleReaction?: () => void;
+  replies?: Reply[];
+  replyCount?: number;
+  onReply?: (text: string) => void;
+  onToggleReplies?: () => void;
+  repliesExpanded?: boolean;
+  isReply?: boolean;
+  onToggleReplyReaction?: (replyId: string) => void;
+  replyingToUsername?: string;
+  enableReplies?: boolean;
 }
 
 // Utility function to normalize avatar paths
@@ -117,11 +139,21 @@ const UserMessage: React.FC<UserMessageProps> = ({
   reactions,
   reactionCount,
   currentUserReacted,
-  onToggleReaction
+  onToggleReaction,
+  replies,
+  replyCount,
+  onReply,
+  onToggleReplies,
+  repliesExpanded,
+  isReply,
+  onToggleReplyReaction,
+  replyingToUsername,
+  enableReplies
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isLongPress, setIsLongPress] = useState(false);
+  const [showReplyInput, setShowReplyInput] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const handleTouchStart = () => {
@@ -137,6 +169,15 @@ const UserMessage: React.FC<UserMessageProps> = ({
       longPressTimer.current = null;
     }
     setIsLongPress(false);
+  };
+
+  const formatTimestamp = (timestamp: any): string => {
+    if (!timestamp) return '';
+    try {
+      return new Date(timestamp.seconds * 1000).toLocaleString();
+    } catch (error) {
+      return '';
+    }
   };
   
   // Check if userSticker is an image file
@@ -187,7 +228,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   };
 
   return (
-    <div className="user-message">
+    <div className={`user-message ${isReply ? 'reply' : ''}`}>
       <div className="user-message-sticker-container">
         {renderUserSticker()}
       </div>
@@ -196,6 +237,80 @@ const UserMessage: React.FC<UserMessageProps> = ({
         <div className="user-message-timestamp">{timestamp}</div>
         <div className="user-message-separator"></div>
         <div className="user-message-text">{parseMessageHTML(message)}</div>
+
+        {/* Reply controls - only show for non-reply messages */}
+        {!isReply && enableReplies && (
+          <div className="user-message-reply-controls">
+            {replyCount !== undefined && replyCount > 0 && (
+              <div
+                className="user-message-reply-indicator"
+                onClick={onToggleReplies}
+                role="button"
+                tabIndex={0}
+                aria-label={repliesExpanded ? "Collapse replies" : "Expand replies"}
+              >
+                {repliesExpanded ? <FaMinus /> : <FaPlus />}
+                <span className="user-message-reply-count">{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+              </div>
+            )}
+            <button
+              className="user-message-reply-button"
+              onClick={() => setShowReplyInput(!showReplyInput)}
+            >
+              Reply
+            </button>
+          </div>
+        )}
+
+        {/* Reply input */}
+        {!isReply && showReplyInput && onReply && (
+          <div className="user-message-reply-input-container">
+            {replyingToUsername && (
+              <div className="user-message-reply-header">
+                Replying in thread to {replyingToUsername}
+              </div>
+            )}
+            <ForumBox
+              placeholder="Write a reply..."
+              onSend={(text) => {
+                onReply(text);
+                setShowReplyInput(false);
+              }}
+              maxWords={250}
+              maxChars={1000}
+              showSendButton={true}
+            />
+            <button
+              className="user-message-cancel-reply"
+              onClick={() => setShowReplyInput(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Replies container */}
+        {!isReply && repliesExpanded && replies && replies.length > 0 && (
+          <div className="user-message-replies-container">
+            {replies.map((reply) => (
+              <UserMessage
+                key={reply.id}
+                username={reply.username}
+                message={reply.text}
+                timestamp={formatTimestamp(reply.timestamp)}
+                userSticker={reply.avatar}
+                onClose={() => {}}
+                hideCloseButton={true}
+                reactions={reply.reactions}
+                reactionCount={reply.reactionCount}
+                currentUserReacted={reply.currentUserReacted}
+                onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
+                isReply={true}
+                enableReplies={false}
+              />
+            ))}
+          </div>
+        )}
       </div>
       {onToggleReaction && (
         <div

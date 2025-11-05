@@ -235,3 +235,135 @@
     font-size: 0.55em;
   }
 }
+
+/* Reply styles */
+.user-message.reply {
+  margin-left: 24px;
+  max-width: calc(100% - 24px);
+  background-color: var(--colour1);
+  padding: 12px;
+}
+
+.user-message.reply .user-message-sticker {
+  width: 56px;
+  height: 56px;
+}
+
+.user-message-reply-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+
+.user-message-reply-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--colour3);
+  font-size: 0.9em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.user-message-reply-indicator:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.user-message-reply-indicator svg {
+  font-size: 0.8em;
+}
+
+.user-message-reply-count {
+  font-weight: 500;
+}
+
+.user-message-reply-button {
+  background: transparent;
+  border: 1px solid var(--colour3);
+  color: var(--colour3);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font2);
+  font-size: 0.9em;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.user-message-reply-button:hover {
+  background-color: var(--colour3);
+  color: var(--colour2);
+}
+
+.user-message-reply-input-container {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px solid var(--colour5);
+}
+
+.user-message-reply-header {
+  font-size: 0.85em;
+  font-style: italic;
+  color: var(--colour3);
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+
+.user-message-cancel-reply {
+  background: transparent;
+  border: 1px solid var(--colour5);
+  color: var(--colour5);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font2);
+  font-size: 0.85em;
+  margin-top: 8px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.user-message-cancel-reply:hover {
+  background-color: var(--colour5);
+  color: var(--colour2);
+}
+
+.user-message-replies-container {
+  margin-top: 12px;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .user-message.reply {
+    margin-left: 16px;
+    max-width: calc(100% - 16px);
+    padding: 10px;
+  }
+
+  .user-message.reply .user-message-sticker {
+    width: 48px;
+    height: 48px;
+  }
+
+  .user-message-reply-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .user-message-reply-indicator {
+    font-size: 0.85em;
+  }
+
+  .user-message-reply-button,
+  .user-message-cancel-reply {
+    font-size: 0.85em;
+    padding: 5px 10px;
+  }
+}
