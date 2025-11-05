@@ -14,7 +14,7 @@ const MessageBoardPage: React.FC = () => {
             showOnDesktop={false}
           />
 
-          <MessageBoard enableReactions={true} />
+          <MessageBoard enableReactions={true} enableReplies={true} />
         </div>
       );
 };

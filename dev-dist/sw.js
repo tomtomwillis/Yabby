@@ -67,27 +67,41 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-93b0b973'], (function (workbox) { 'use strict';
+define(['./workbox-47da91e0'], (function (workbox) { 'use strict';
 
-	self.skipWaiting();
-	workbox.clientsClaim();
-	workbox.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i, new workbox.CacheFirst({
-	  "cacheName": "google-fonts-cache",
-	  plugins: [new workbox.ExpirationPlugin({
-	    maxEntries: 10,
-	    maxAgeSeconds: 31536000
-	  }), new workbox.CacheableResponsePlugin({
-	    statuses: [0, 200]
-	  })]
-	}), 'GET');
-	workbox.registerRoute(/^https:\/\/music\.yabbyville\.xyz\/.*/i, new workbox.NetworkFirst({
-	  "cacheName": "api-cache",
-	  plugins: [new workbox.ExpirationPlugin({
-	    maxEntries: 50,
-	    maxAgeSeconds: 86400
-	  }), new workbox.CacheableResponsePlugin({
-	    statuses: [0, 200]
-	  })]
-	}), 'GET');
+  self.skipWaiting();
+  workbox.clientsClaim();
+
+  /**
+   * The precacheAndRoute() method efficiently caches and responds to
+   * requests for URLs in the manifest.
+   * See https://goo.gl/S9QRab
+   */
+  workbox.precacheAndRoute([{
+    "url": "index.html",
+    "revision": "0.gt3c6ig1h3"
+  }], {});
+  workbox.cleanupOutdatedCaches();
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
+    allowlist: [/^\/$/]
+  }));
+  workbox.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i, new workbox.CacheFirst({
+    "cacheName": "google-fonts-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 10,
+      maxAgeSeconds: 31536000
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/music\.yabbyville\.xyz\/.*/i, new workbox.NetworkFirst({
+    "cacheName": "api-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 50,
+      maxAgeSeconds: 86400
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
 
 }));

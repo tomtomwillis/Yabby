@@ -156,12 +156,20 @@
   color: var(--colour1);
 }
 
-/* Reaction styles */
-.user-message-reaction-container {
+/* Action buttons container */
+.user-message-actions-container {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 5;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Reaction styles */
+.user-message-reaction-container {
+  position: relative;
 }
 
 .user-message-heart-button {
@@ -199,6 +207,7 @@
   text-align: center;
   pointer-events: none;
   text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  user-select: none;
 }
 
 .user-message-reaction-tooltip {
@@ -221,10 +230,35 @@
   margin: 2px 0;
 }
 
+/* Reply icon button */
+.user-message-reply-icon-button {
+  background: transparent;
+  border: none;
+  font-size: 1.6em;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+  line-height: 1;
+  color: var(--colour4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-message-reply-icon-button:hover {
+  transform: scale(1.15);
+  color: var(--colour3);
+}
+
+.user-message-reply-icon-button:active {
+  transform: scale(0.9);
+}
+
 @media (max-width: 768px) {
-  .user-message-reaction-container {
+  .user-message-actions-container {
     top: 6px;
     right: 6px;
+    gap: 10px;
   }
 
   .user-message-heart-button {
@@ -233,6 +267,10 @@
 
   .user-message-reaction-count {
     font-size: 0.55em;
+  }
+
+  .user-message-reply-icon-button {
+    font-size: 1.2em;
   }
 }
 
@@ -249,16 +287,9 @@
   height: 56px;
 }
 
-.user-message-reply-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-  padding-top: 8px;
-}
-
+/* Reply count indicator (the +/- toggle) */
 .user-message-reply-indicator {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
@@ -268,6 +299,7 @@
   border-radius: 6px;
   transition: background-color 0.2s ease;
   user-select: none;
+  margin-top: 8px;
 }
 
 .user-message-reply-indicator:hover {
@@ -280,43 +312,29 @@
 
 .user-message-reply-count {
   font-weight: 500;
-}
-
-.user-message-reply-button {
-  background: transparent;
-  border: 1px solid var(--colour3);
-  color: var(--colour3);
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: var(--font2);
-  font-size: 0.9em;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.user-message-reply-button:hover {
-  background-color: var(--colour3);
-  color: var(--colour2);
+  user-select: none;
 }
 
 .user-message-reply-input-container {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 2px solid var(--colour5);
+  background-color: var(--colour1);
+  padding: 12px;
+  border-radius: 8px;
 }
 
 .user-message-reply-header {
   font-size: 0.85em;
   font-style: italic;
-  color: var(--colour3);
+  color: var(--colour2);
   margin-bottom: 8px;
   opacity: 0.9;
 }
 
 .user-message-cancel-reply {
   background: transparent;
-  border: 1px solid var(--colour5);
-  color: var(--colour5);
+  border: 1px solid var(--colour2);
+  color: var(--colour2);
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
@@ -328,7 +346,8 @@
 
 .user-message-cancel-reply:hover {
   background-color: var(--colour5);
-  color: var(--colour2);
+  color: var(--colour4);
+  border: 1px solid var(--colour4);
 }
 
 .user-message-replies-container {
@@ -343,7 +362,7 @@
   .user-message.reply {
     margin-left: 16px;
     max-width: calc(100% - 16px);
-    padding: 10px;
+    padding: 15px;
   }
 
   .user-message.reply .user-message-sticker {
@@ -351,17 +370,10 @@
     height: 48px;
   }
 
-  .user-message-reply-controls {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
   .user-message-reply-indicator {
     font-size: 0.85em;
   }
 
-  .user-message-reply-button,
   .user-message-cancel-reply {
     font-size: 0.85em;
     padding: 5px 10px;

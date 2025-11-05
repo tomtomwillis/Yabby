@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
-import { FaHeart, FaRegHeart, FaPlus, FaMinus } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
 
 interface Reaction {
@@ -238,27 +238,17 @@ const UserMessage: React.FC<UserMessageProps> = ({
         <div className="user-message-separator"></div>
         <div className="user-message-text">{parseMessageHTML(message)}</div>
 
-        {/* Reply controls - only show for non-reply messages */}
-        {!isReply && enableReplies && (
-          <div className="user-message-reply-controls">
-            {replyCount !== undefined && replyCount > 0 && (
-              <div
-                className="user-message-reply-indicator"
-                onClick={onToggleReplies}
-                role="button"
-                tabIndex={0}
-                aria-label={repliesExpanded ? "Collapse replies" : "Expand replies"}
-              >
-                {repliesExpanded ? <FaMinus /> : <FaPlus />}
-                <span className="user-message-reply-count">{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
-              </div>
-            )}
-            <button
-              className="user-message-reply-button"
-              onClick={() => setShowReplyInput(!showReplyInput)}
-            >
-              Reply
-            </button>
+        {/* Reply count indicator - only show for non-reply messages with replies */}
+        {!isReply && enableReplies && replyCount !== undefined && replyCount > 0 && (
+          <div
+            className="user-message-reply-indicator"
+            onClick={onToggleReplies}
+            role="button"
+            tabIndex={0}
+            aria-label={repliesExpanded ? "Collapse replies" : "Expand replies"}
+          >
+            {repliesExpanded ? <FaMinus /> : <FaPlus />}
+            <span className="user-message-reply-count">{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
           </div>
         )}
 
@@ -312,53 +302,77 @@ const UserMessage: React.FC<UserMessageProps> = ({
           </div>
         )}
       </div>
-      {onToggleReaction && (
-        <div
-          className="user-message-reaction-container"
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={() => {
-            handleTouchEnd();
-            // Hide tooltip after a short delay on touch end
-            setTimeout(() => setShowTooltip(false), 2000);
-          }}
-          onTouchCancel={handleTouchEnd}
-        >
+
+      {/* Action buttons container (reactions and reply) */}
+      <div className="user-message-actions-container">
+        {onToggleReaction && (
           <div
-            className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
-            onClick={(e) => {
-              // Prevent reaction toggle only during active long press on mobile
-              if (isLongPress && showTooltip) {
-                e.preventDefault();
-                return;
-              }
-              onToggleReaction();
+            className="user-message-reaction-container"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={() => {
+              handleTouchEnd();
+              // Hide tooltip after a short delay on touch end
+              setTimeout(() => setShowTooltip(false), 2000);
             }}
+            onTouchCancel={handleTouchEnd}
+          >
+            <div
+              className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
+              onClick={(e) => {
+                // Prevent reaction toggle only during active long press on mobile
+                if (isLongPress && showTooltip) {
+                  e.preventDefault();
+                  return;
+                }
+                onToggleReaction();
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="React to message"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onToggleReaction();
+                }
+              }}
+            >
+              {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
+              {reactionCount !== undefined && reactionCount > 0 && (
+                <span className="user-message-reaction-count">{reactionCount}</span>
+              )}
+            </div>
+            {showTooltip && reactions && reactions.length > 0 && (
+              <div className="user-message-reaction-tooltip">
+                {reactions.map((reaction, index) => (
+                  <div key={index}>{reaction.username}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reply icon button - only show for non-reply messages */}
+        {!isReply && enableReplies && onReply && (
+          <div
+            className="user-message-reply-icon-button"
+            onClick={() => setShowReplyInput(!showReplyInput)}
             role="button"
             tabIndex={0}
-            aria-label="React to message"
+            aria-label="Reply to message"
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                onToggleReaction();
+                setShowReplyInput(!showReplyInput);
               }
             }}
           >
-            {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
-            {reactionCount !== undefined && reactionCount > 0 && (
-              <span className="user-message-reaction-count">{reactionCount}</span>
-            )}
+            <FaReply />
           </div>
-          {showTooltip && reactions && reactions.length > 0 && (
-            <div className="user-message-reaction-tooltip">
-              {reactions.map((reaction, index) => (
-                <div key={index}>{reaction.username}</div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
+
       {!hideCloseButton && ( // Conditionally render the close button
         <Button type='close' onClick={onClose} className="custom-close-button" />
       )}
