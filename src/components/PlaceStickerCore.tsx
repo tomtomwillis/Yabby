@@ -14,6 +14,13 @@ interface AlbumInfo {
   cover: string;
 }
 
+interface Track {
+  id: string;
+  title: string;
+  artist: string;
+  duration?: number;
+}
+
 interface PlaceStickerCoreProps {
   albumInfo: AlbumInfo;
   onSuccess?: () => void;
@@ -41,6 +48,10 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [userSticker, setUserSticker] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [isLoadingTracks, setIsLoadingTracks] = useState(false);
+  const [showTrackDropdown, setShowTrackDropdown] = useState(false);
   const albumRef = useRef<HTMLDivElement>(null);
 
   // Fetch user's sticker/avatar
@@ -64,8 +75,55 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     }
   };
 
+  // Fetch album tracks from Navidrome
+  const fetchAlbumTracks = async () => {
+    setIsLoadingTracks(true);
+    try {
+      const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
+      const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
+      const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
+
+      if (!SERVER_URL || !API_USERNAME || !API_PASSWORD) {
+        console.error('Missing Navidrome credentials');
+        return;
+      }
+
+      const response = await fetch(
+        `${SERVER_URL}/rest/getAlbum?u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}&f=json&id=${albumInfo.id}`,
+        {
+          headers: {
+            Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
+          },
+        }
+      );
+
+      const data = await response.json();
+      console.log('Album API response:', data);
+      const album = data['subsonic-response']?.album;
+      const songs = album?.song || [];
+
+      console.log('Fetched tracks:', songs);
+
+      const trackList: Track[] = songs.map((song: any) => ({
+        id: song.id,
+        title: song.title,
+        artist: song.artist || albumInfo.artist,
+        duration: song.duration,
+      }));
+
+      setTracks(trackList);
+      console.log('Track list set:', trackList);
+    } catch (error) {
+      console.error('Error fetching album tracks:', error);
+    } finally {
+      setIsLoadingTracks(false);
+    }
+  };
+
   useEffect(() => {
     fetchUserSticker();
+    fetchAlbumTracks();
   }, []);
 
   // Convert screen coordinates to normalized album coordinates (0-300 range)
@@ -204,7 +262,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     setIsSubmitting(true);
 
     try {
-      await addDoc(collection(db, 'stickers'), {
+      const stickerData: any = {
         userId: auth.currentUser.uid,
         albumId: albumInfo.id,
         text: stickerText.trim(),
@@ -214,7 +272,15 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         },
         sticker: userSticker,
         timestamp: serverTimestamp(),
-      });
+      };
+
+      // Add favorite track if selected
+      if (selectedTrack) {
+        stickerData.favoriteTrackId = selectedTrack.id;
+        stickerData.favoriteTrackTitle = selectedTrack.title;
+      }
+
+      await addDoc(collection(db, 'stickers'), stickerData);
 
       alert('Sticker placed successfully!');
 
@@ -276,6 +342,58 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         <p className="instructions">
           Click on the album cover to place your sticker, or drag the sticker to move it around
         </p>
+      </div>
+
+      <div className="track-selector-container">
+        <label className="track-selector-label">
+          Favorite Track (Optional)
+        </label>
+        <div className="track-selector">
+          <button
+            className="track-selector-button"
+            onClick={() => setShowTrackDropdown(!showTrackDropdown)}
+            disabled={isLoadingTracks || tracks.length === 0}
+          >
+            {isLoadingTracks ? (
+              'Loading tracks...'
+            ) : selectedTrack ? (
+              selectedTrack.title
+            ) : tracks.length === 0 ? (
+              'No tracks available'
+            ) : (
+              'Select a track'
+            )}
+            <span className="dropdown-arrow">{showTrackDropdown ? '▲' : '▼'}</span>
+          </button>
+          {showTrackDropdown && tracks.length > 0 && (
+            <div className="track-dropdown">
+              <ul>
+                <li
+                  className={!selectedTrack ? 'selected' : ''}
+                  onClick={() => {
+                    setSelectedTrack(null);
+                    setShowTrackDropdown(false);
+                  }}
+                >
+                  <span className="track-title">None selected</span>
+                </li>
+                {tracks.map((track, index) => (
+                  <li
+                    key={track.id}
+                    className={selectedTrack?.id === track.id ? 'selected' : ''}
+                    onClick={() => {
+                      setSelectedTrack(track);
+                      setShowTrackDropdown(false);
+                    }}
+                  >
+                    <span className="track-number">{index + 1}.</span>
+                    <span className="track-title">{track.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="sticker-controls" onClick={(e) => e.stopPropagation()}>

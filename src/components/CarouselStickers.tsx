@@ -14,6 +14,8 @@ interface Sticker {
   position: { x: number; y: number };
   sticker: string;
   timestamp: any;
+  favoriteTrackId?: string;
+  favoriteTrackTitle?: string;
 }
 
 interface AlbumWithStickers {
@@ -30,6 +32,7 @@ interface PopupData {
     username: string;
     avatar: string;
     timestamp: string;
+    favoriteTrackTitle?: string;
   }[];
   visible: boolean;
   albumId: string;
@@ -193,6 +196,7 @@ const CarouselStickers: React.FC = () => {
               username: userData.username || 'Anonymous',
               avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
               timestamp: timestamp,
+              favoriteTrackTitle: sticker.favoriteTrackTitle,
             };
           } catch (error) {
             console.error('Error fetching user data:', error);
@@ -201,6 +205,7 @@ const CarouselStickers: React.FC = () => {
               username: 'Anonymous',
               avatar: '/Stickers/avatar_tp_red.webp',
               timestamp: 'Unknown time',
+              favoriteTrackTitle: sticker.favoriteTrackTitle,
             };
           }
         })
@@ -369,15 +374,21 @@ const CarouselStickers: React.FC = () => {
 
             <div className="sticker-messages-list">
               {popup.stickers.map((sticker, index) => (
-                <UserMessage
-                  key={index}
-                  username={sticker.username}
-                  message={sticker.text}
-                  timestamp={sticker.timestamp}
-                  userSticker={sticker.avatar}
-                  onClose={() => {}}
-                  hideCloseButton={true}
-                />
+                <div key={index} className="sticker-message-item">
+                  <UserMessage
+                    username={sticker.username}
+                    message={sticker.text}
+                    timestamp={sticker.timestamp}
+                    userSticker={sticker.avatar}
+                    onClose={() => {}}
+                    hideCloseButton={true}
+                  />
+                  {sticker.favoriteTrackTitle && (
+                    <p className="favorite-track-display">
+                      🎵 Favorite track: <span className="track-name">{sticker.favoriteTrackTitle}</span>
+                    </p>
+                  )}
+                </div>
               ))}
             </div>
 

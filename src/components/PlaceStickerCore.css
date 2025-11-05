@@ -94,6 +94,131 @@
   font-style: italic;
 }
 
+/* Track selector container */
+.track-selector-container {
+  margin: 1.5rem 0;
+  text-align: left;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.track-selector-label {
+  display: block;
+  font-family: var(--font1);
+  color: var(--colour2);
+  font-size: 14px;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.track-selector {
+  position: relative;
+}
+
+.track-selector-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--colour4);
+  border: 2px solid var(--colour2);
+  border-radius: 8px;
+  color: var(--colour2);
+  font-family: var(--font1);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.track-selector-button:hover:not(:disabled) {
+  background-color: var(--colour4);
+  border-color: var(--colour1);
+}
+
+.track-selector-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dropdown-arrow {
+  margin-left: 0.5rem;
+  font-size: 10px;
+  color: var(--colour5);
+}
+
+.track-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  background-color: var(--colour4);
+  border: 2px solid var(--colour2);
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.track-dropdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.track-dropdown li {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--colour2);
+  transition: background-color 0.2s ease;
+}
+
+.track-dropdown li:last-child {
+  border-bottom: none;
+}
+
+.track-dropdown li:hover {
+  background-color: var(--colour2);
+  
+}
+
+.track-dropdown li.selected {
+  background-color: var(--colour2);
+  color: var(--colour4);
+}
+
+.track-number {
+  font-family: var(--font1);
+  color: var(--colour5);
+  font-size: 12px;
+  min-width: 24px;
+}
+
+.track-dropdown li.selected .track-number {
+  color: var(--colour4);
+}
+
+.track-title {
+  font-family: var(--font1);
+  color: var(--colour2);
+  font-size: 14px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-dropdown li.selected .track-title {
+  color: var(--colour4);
+  font-weight: 500;
+}
+
 /* Sticker controls */
 .sticker-controls {
   margin-top: 1rem;
@@ -106,5 +231,10 @@
   .album-display {
     width: 250px;
     height: 250px;
+  }
+
+  .track-selector-container {
+    max-width: 100%;
+    padding: 0 1rem;
   }
 }

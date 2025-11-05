@@ -127,6 +127,26 @@
   margin-top: 1rem;
 }
 
+.sticker-message-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.favorite-track-display {
+  font-family: var(--font1);
+  color: var(--colour5);
+  font-size: 0.85rem;
+  margin: 0;
+  padding-left: 3rem;
+  font-style: italic;
+}
+
+.favorite-track-display .track-name {
+  color: var(--colour1);
+  font-weight: 500;
+}
+
 .popup-close-button {
   position: absolute;
   top: 1rem;

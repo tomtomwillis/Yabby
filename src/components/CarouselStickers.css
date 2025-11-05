@@ -30,3 +30,23 @@
     z-index: 3; /* Ensure stickers appear above the album image */
     pointer-events: none; /* Prevent stickers from interfering with clicks */
 }
+
+.sticker-message-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.favorite-track-display {
+  font-family: var(--font1);
+  color: var(--colour5);
+  font-size: 0.85rem;
+  margin: 0;
+  padding-left: 3rem;
+  font-style: italic;
+}
+
+.favorite-track-display .track-name {
+  color: var(--colour1);
+  font-weight: 500;
+}
