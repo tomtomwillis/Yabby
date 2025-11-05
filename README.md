@@ -313,10 +313,6 @@ The `UserMessages` component is used to display messages from users. It's used f
 
 ## Complex Components
 
-### AddSticker
-The component on the homepage that lets users add stickers to an album by pasting a navidrome link. 
-Uses the `MessageTextBox.tsx` component.
-
 ### AvatarPreview
 Used to add the dropdown menu that lets users change their profile image on the profile page
 
@@ -351,8 +347,61 @@ Handles all the code for the messageboard. Uses the `UserMessages.tsx` and the `
 <MessageBoard enableReactions={true} />
 ```
 
-### PlaceSticker
-Currently redundant. Eventually I want this component to handle all the sticker adding logic as this is currently being repeated in the `AddSticker` and `CarouselStickers` components.
+### PlaceSticker & PlaceStickerCore
+
+The `PlaceSticker` component is a unified system for adding stickers to albums across the entire application. It has been refactored to eliminate code duplication and provide three different modes of operation.
+
+#### Architecture:
+
+- **PlaceStickerCore.tsx**: The core component containing all shared sticker placement logic (drag & drop, coordinate conversion, Firestore submission, user sticker fetching). This is the single source of truth for sticker placement functionality.
+
+- **PlaceSticker.tsx**: A wrapper component that provides three different modes by utilizing PlaceStickerCore:
+
+#### Modes:
+
+1. **url-input** (Home Page)
+   - Shows URL input field in a styled container
+   - User pastes Navidrome album URL
+   - Opens popup with PlaceStickerCore for sticker placement
+   ```tsx
+   <PlaceSticker /> // defaults to url-input mode
+   ```
+
+2. **popup** (CarouselStickers & StickerGrid)
+   - Receives pre-loaded album information via props
+   - Opens directly in popup mode
+   - Includes back button for dual-state popup navigation
+   ```tsx
+   <PlaceSticker
+     mode="popup"
+     albumInfo={selectedAlbum}
+     isVisible={true}
+     onClose={handleClose}
+     onBack={handleBack}
+     showBackButton={true}
+   />
+   ```
+
+3. **inline-url** (Stickers Page)
+   - Shows URL input without container styling
+   - Opens popup with PlaceStickerCore when album is fetched
+   ```tsx
+   <PlaceSticker mode="inline-url" />
+   ```
+
+#### Features:
+- Drag and drop sticker positioning
+- Normalized coordinate system (consistent positioning across all screen sizes)
+- Real-time position updates with visual feedback
+- Integration with Firebase/Firestore for sticker storage
+- User avatar/sticker fetching
+- Page reload on successful submission
+
+#### Components Using PlaceSticker:
+- **Home Page**: Uses `url-input` mode for standalone sticker placement
+- **CarouselStickers**: Uses `popup` mode when clicking "Place Sticker on Album"
+- **StickerGrid**: Uses `popup` mode when clicking "Place Sticker on Album"
+- **Stickers Page**: Uses `inline-url` mode for quick sticker placement at top of page
 
 ### StickerGrid
 The `StickerGrid` component displays all albums that have stickers on them in a grid layout. It fetches stickers from Firestore, groups them by album, and shows the album covers with stickers overlaid at their saved positions. The component supports two sorting modes (chronological and shuffle) and includes pagination for better performance.

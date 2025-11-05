@@ -1,0 +1,112 @@
+/* PlaceStickerCore.css */
+/* Core styles for sticker placement functionality */
+
+/* Album title and artist */
+.popup-album-title {
+  font-family: var(--font1);
+  color: var(--colour2);
+  margin-bottom: 0.5rem;
+  margin-top: 0;
+}
+
+.popup-album-artist {
+  font-family: var(--font1);
+  color: var(--colour5);
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+/* Button positioning */
+.popup-close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+}
+
+.back-button {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 10;
+}
+
+/* Album section container */
+.album-section {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+/* Album display area */
+.album-display {
+  position: relative;
+  display: inline-block;
+  cursor: crosshair;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  height: 300px;
+}
+
+.album-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid var(--colour5);
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Sticker element */
+.sticker {
+  position: absolute;
+  cursor: grab;
+  border-radius: 5%;
+  transition: transform 0.1s ease;
+  user-select: none;
+  z-index: 10;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.sticker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.sticker.dragging {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.2);
+  z-index: 20;
+}
+
+/* Album info text */
+.album-info {
+  margin: 1rem 0;
+  font-size: 16px;
+  color: var(--colour5);
+}
+
+/* Instructions text */
+.instructions {
+  margin: 0.5rem 0;
+  font-size: 14px;
+  color: var(--colour5);
+  font-style: italic;
+}
+
+/* Sticker controls */
+.sticker-controls {
+  margin-top: 1rem;
+  position: relative;
+  z-index: 100;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .album-display {
+    width: 250px;
+    height: 250px;
+  }
+}

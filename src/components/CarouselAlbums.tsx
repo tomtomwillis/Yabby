@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import Carousel from "./basic/Carousel";
 import "./basic/Carousel.css";
 import "./CarouselAlbums.css";
-import AddSticker from "./AddSticker";
 
 const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
 const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
@@ -147,7 +146,6 @@ const CarouselAlbums: React.FC = () => {
   return (
     <div className="carousel-albums">
       <Carousel slides={slides} loop autoplay />
-      <AddSticker />
     </div>
   );
 };

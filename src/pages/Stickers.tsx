@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Header from '../components/basic/Header';
 import StickerGrid from '../components/StickerGrid';
 import Button from '../components/basic/Button';
+import PlaceSticker from '../components/PlaceSticker';
 import '../App.css';
 
 const Stickers: React.FC = () => {
@@ -20,6 +21,14 @@ const Stickers: React.FC = () => {
   return (
     <div className="app-container">
       <Header title="Stickers" subtitle="All albums with stickers" />
+
+      <div style={{
+        maxWidth: '70%',
+        margin: '0 auto 2rem auto',
+        padding: '0 1rem'
+      }}>
+        <PlaceSticker mode="inline-url" />
+      </div>
 
       <div style={{
         display: 'flex',

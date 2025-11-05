@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
-import TextBox from './basic/MessageTextBox';
+import PlaceSticker from './PlaceSticker';
 import './StickerGrid.css';
-import { collection, getDocs, query, orderBy, doc, getDoc, limit, addDoc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 
 interface Sticker {
@@ -63,16 +63,14 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
     albumCover: '',
   });
 
-  // States for PlaceSticker functionality
-  const [showPlaceSticker, setShowPlaceSticker] = useState(false);
-  const [stickerText, setStickerText] = useState('');
-  const [stickerPos, setStickerPos] = useState<{ x: number; y: number } | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [userSticker, setUserSticker] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const albumRef = useRef<HTMLDivElement>(null);
+  // States for PlaceSticker component
+  const [placeStickerVisible, setPlaceStickerVisible] = useState(false);
+  const [selectedAlbumForSticker, setSelectedAlbumForSticker] = useState<{
+    id: string;
+    artist: string;
+    title: string;
+    cover: string;
+  } | null>(null);
 
   const fetchStickers = async () => {
     try {
@@ -207,31 +205,6 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
   const visibleAlbums = displayedAlbums.slice(0, visibleCount);
   const hasMore = visibleCount < displayedAlbums.length;
 
-  // Fetch user's sticker/avatar
-  const fetchUserSticker = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      const userDoc = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userDoc);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const stickerFilename = data.avatar?.split('/').pop();
-        setUserSticker(stickerFilename ? `/Stickers/${stickerFilename}` : null);
-      } else {
-        setUserSticker(null);
-      }
-    } catch (error) {
-      console.error('Error fetching user sticker:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchUserSticker();
-  }, []);
-
   const handleAlbumClick = async (album: AlbumWithStickers) => {
     const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
     const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
@@ -280,26 +253,28 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
 
   const closePopup = () => {
     setPopup({ stickers: [], visible: false, albumId: '', albumTitle: '', albumArtist: '', albumCover: '' });
-    setShowPlaceSticker(false);
-    setStickerText('');
-    setStickerPos(null);
-    setIsDragging(false);
-    setIsSubmitting(false);
+    setPlaceStickerVisible(false);
+    setSelectedAlbumForSticker(null);
   };
 
   const handlePlaceStickerClick = () => {
-    setShowPlaceSticker(true);
-    setStickerPos(null);
-    setStickerText('');
+    setSelectedAlbumForSticker({
+      id: popup.albumId,
+      title: popup.albumTitle,
+      artist: popup.albumArtist,
+      cover: popup.albumCover,
+    });
+    setPlaceStickerVisible(true);
+    setPopup({ ...popup, visible: false }); // Hide the view popup
   };
 
   const handleBackToPopup = () => {
-    setShowPlaceSticker(false);
-    setStickerPos(null);
-    setStickerText('');
+    setPlaceStickerVisible(false);
+    setSelectedAlbumForSticker(null);
+    setPopup({ ...popup, visible: true }); // Show view popup again
   };
 
-  // Convert normalized position to display coordinates
+  // Convert normalized position to display coordinates for any container size
   const getStickerStyle = (position: { x: number; y: number }, containerElement: HTMLElement | null) => {
     if (!containerElement) {
       const xPercent = (position.x / ALBUM_DISPLAY_SIZE) * 100;
@@ -328,118 +303,6 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
       width: `${actualSize}px`,
       height: `${actualSize}px`,
       transform: 'translate(-50%, -50%)',
-    };
-  };
-
-  // PlaceSticker functionality
-  const screenToAlbumCoords = (screenX: number, screenY: number, albumRect: DOMRect) => {
-    const relativeX = screenX - albumRect.left;
-    const relativeY = screenY - albumRect.top;
-
-    const normalizedX = (relativeX / albumRect.width) * ALBUM_DISPLAY_SIZE;
-    const normalizedY = (relativeY / albumRect.height) * ALBUM_DISPLAY_SIZE;
-
-    const halfSticker = STICKER_SIZE / 2;
-    const clampedX = Math.max(halfSticker, Math.min(ALBUM_DISPLAY_SIZE - halfSticker, normalizedX));
-    const clampedY = Math.max(halfSticker, Math.min(ALBUM_DISPLAY_SIZE - halfSticker, normalizedY));
-
-    return { x: clampedX, y: clampedY };
-  };
-
-  const albumToScreenCoords = (albumX: number, albumY: number) => {
-    const xPercent = (albumX / ALBUM_DISPLAY_SIZE) * 100;
-    const yPercent = (albumY / ALBUM_DISPLAY_SIZE) * 100;
-    return { x: xPercent, y: yPercent };
-  };
-
-  const handleAlbumClick_PlaceSticker = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isDragging) return;
-
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-      return;
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const normalizedPos = screenToAlbumCoords(e.clientX, e.clientY, rect);
-    setStickerPos(normalizedPos);
-  };
-
-  const handleStickerMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!albumRef.current || !stickerPos) return;
-
-    const albumRect = albumRef.current.getBoundingClientRect();
-    const stickerScreenPos = albumToScreenCoords(stickerPos.x, stickerPos.y);
-
-    const stickerCenterX = albumRect.left + (stickerScreenPos.x / 100) * albumRect.width;
-    const stickerCenterY = albumRect.top + (stickerScreenPos.y / 100) * albumRect.height;
-
-    const offsetX = e.clientX - stickerCenterX;
-    const offsetY = e.clientY - stickerCenterY;
-
-    setDragOffset({ x: offsetX, y: offsetY });
-    setIsDragging(true);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !albumRef.current) return;
-
-    const rect = albumRef.current.getBoundingClientRect();
-    const adjustedX = e.clientX - dragOffset.x;
-    const adjustedY = e.clientY - dragOffset.y;
-
-    const normalizedPos = screenToAlbumCoords(adjustedX, adjustedY, rect);
-    setStickerPos(normalizedPos);
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setDragOffset({ x: 0, y: 0 });
-  };
-
-  useEffect(() => {
-    if (isDragging) {
-      const handleGlobalMouseMove = (e: MouseEvent) => {
-        e.preventDefault();
-        if (!albumRef.current) return;
-
-        const rect = albumRef.current.getBoundingClientRect();
-        const adjustedX = e.clientX - dragOffset.x;
-        const adjustedY = e.clientY - dragOffset.y;
-
-        const normalizedPos = screenToAlbumCoords(adjustedX, adjustedY, rect);
-        setStickerPos(normalizedPos);
-      };
-
-      const handleGlobalMouseUp = (e: MouseEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-        setDragOffset({ x: 0, y: 0 });
-      };
-
-      document.addEventListener('mousemove', handleGlobalMouseMove, { capture: true });
-      document.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-
-      return () => {
-        document.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
-        document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-      };
-    }
-  }, [isDragging, dragOffset]);
-
-  const getStickerDisplayStyle = () => {
-    if (!stickerPos) return {};
-
-    const screenPos = albumToScreenCoords(stickerPos.x, stickerPos.y);
-    return {
-      left: `${screenPos.x}%`,
-      top: `${screenPos.y}%`,
-      width: `${(STICKER_SIZE / ALBUM_DISPLAY_SIZE) * 100}%`,
-      height: `${(STICKER_SIZE / ALBUM_DISPLAY_SIZE) * 100}%`,
-      transform: 'translate(-50%, -50%)'
     };
   };
 
@@ -527,140 +390,55 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
       {popup.visible && (
         <div className="popup-overlay" onClick={closePopup}>
           <div className="popup-content" onClick={(e) => e.stopPropagation()}>
-            {!showPlaceSticker ? (
-              <>
-                <h3 className="popup-album-title">{popup.albumTitle}</h3>
-                <p className="popup-album-artist">{popup.albumArtist}</p>
-                <div className="popup-buttons">
-                  <Button
-                    type="basic"
-                    label="Click to listen"
-                    onClick={() => window.open(`${import.meta.env.VITE_NAVIDROME_SERVER_URL}/app/#/album/${popup.albumId}/show`, '_blank')}
-                    className="center-button"
-                  />
+            <h3 className="popup-album-title">{popup.albumTitle}</h3>
+            <p className="popup-album-artist">{popup.albumArtist}</p>
+            <div className="popup-buttons">
+              <Button
+                type="basic"
+                label="Click to listen"
+                onClick={() => window.open(`${import.meta.env.VITE_NAVIDROME_SERVER_URL}/app/#/album/${popup.albumId}/show`, '_blank')}
+                className="center-button"
+              />
 
-                  <Button
-                    type="basic"
-                    label="Place Sticker on Album"
-                    onClick={handlePlaceStickerClick}
-                    className="center-button"
-                  />
-                </div>
+              <Button
+                type="basic"
+                label="Place Sticker on Album"
+                onClick={handlePlaceStickerClick}
+                className="center-button"
+              />
+            </div>
 
-                <div className="sticker-messages-list">
-                  {popup.stickers.map((sticker, index) => (
-                    <UserMessage
-                      key={index}
-                      username={sticker.username}
-                      message={sticker.text}
-                      timestamp={sticker.timestamp}
-                      userSticker={sticker.avatar}
-                      onClose={() => {}}
-                      hideCloseButton={true}
-                    />
-                  ))}
-                </div>
-
-                <Button
-                  type="close"
-                  onClick={closePopup}
-                  className="popup-close-button"
+            <div className="sticker-messages-list">
+              {popup.stickers.map((sticker, index) => (
+                <UserMessage
+                  key={index}
+                  username={sticker.username}
+                  message={sticker.text}
+                  timestamp={sticker.timestamp}
+                  userSticker={sticker.avatar}
+                  onClose={() => {}}
+                  hideCloseButton={true}
                 />
-              </>
-            ) : (
-              <>
-                <Button
-                  type="arrow-left"
-                  onClick={handleBackToPopup}
-                  className="back-button"
-                />
-                <h3 className="popup-album-title">Place Sticker</h3>
-                <p className="popup-album-artist">{popup.albumArtist} - {popup.albumTitle}</p>
+              ))}
+            </div>
 
-                <div className="album-section">
-                  <div
-                    className="album-display"
-                    ref={albumRef}
-                    onClick={handleAlbumClick_PlaceSticker}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                  >
-                    <img
-                      src={popup.albumCover}
-                      alt={popup.albumTitle}
-                      className="album-cover"
-                      draggable={false}
-                    />
-                    {stickerPos && (
-                      <img
-                        src={userSticker || 'default-sticker.png'}
-                        alt="Sticker"
-                        className={`sticker ${isDragging ? 'dragging' : ''}`}
-                        style={getStickerDisplayStyle()}
-                        onMouseDown={handleStickerMouseDown}
-                        draggable={false}
-                      />
-                    )}
-                  </div>
-                  <p className="instructions">
-                    Click on the album cover to place your sticker, or drag the sticker to move it around
-                  </p>
-                </div>
-
-                <div className="sticker-controls" onClick={(e) => e.stopPropagation()}>
-                  <TextBox
-                    placeholder="Write something to go with your sticker..."
-                    value={stickerText}
-                    onChange={(text) => setStickerText(text)}
-                    onSend={async (text) => {
-                      if (!auth.currentUser || !popup.albumId || !stickerPos || !userSticker) {
-                        return alert('Please complete all fields before submitting.');
-                      }
-
-                      if (isSubmitting) {
-                        return;
-                      }
-
-                      setIsSubmitting(true);
-
-                      try {
-                        await addDoc(collection(db, 'stickers'), {
-                          userId: auth.currentUser.uid,
-                          albumId: popup.albumId,
-                          text: text.trim(),
-                          position: {
-                            x: stickerPos.x,
-                            y: stickerPos.y,
-                          },
-                          sticker: userSticker,
-                          timestamp: serverTimestamp(),
-                        });
-
-                        alert('Sticker placed successfully!');
-                        window.location.reload();
-                      } catch (error) {
-                        console.error('Error submitting sticker:', error);
-                        alert('Failed to submit sticker. Please try again.');
-                      } finally {
-                        setIsSubmitting(false);
-                      }
-                    }}
-                    maxWords={100}
-                    showSendButton={true}
-                    showCounter={true}
-                    className="sticker-textbox"
-                  />
-                </div>
-                <Button
-                  type="close"
-                  onClick={closePopup}
-                  className="popup-close-button"
-                />
-              </>
-            )}
+            <Button
+              type="close"
+              onClick={closePopup}
+              className="popup-close-button"
+            />
           </div>
         </div>
       )}
+
+      <PlaceSticker
+        mode="popup"
+        albumInfo={selectedAlbumForSticker || undefined}
+        isVisible={placeStickerVisible}
+        onClose={closePopup}
+        onBack={handleBackToPopup}
+        showBackButton={true}
+      />
     </div>
   );
 };
