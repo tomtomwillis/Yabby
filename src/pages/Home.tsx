@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'; // Import Link from react-router-dom
+import { lazy, Suspense } from 'react';
 import Header from '../components/basic/Header'; // Import the Header component
 import '../App.css';
 import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
-import Stats from '../components/Stats';
 import CarouselStickers from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
+
+// Lazy load the Stats component for better performance
+const Stats = lazy(() => import('../components/Stats'));
 
 function App() {
   return (
@@ -27,7 +30,9 @@ function App() {
         <hr />
 
         <div className="title1">Stats</div>
-        <Stats />
+        <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
+          <Stats />
+        </Suspense>
 
     </div>
   );
