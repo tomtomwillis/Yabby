@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import './PlaceSticker.css';
 import PlaceStickerCore from './PlaceStickerCore';
-import MessageTextBox from './basic/MessageTextBox';
+import AlbumSearchBox from './basic/AlbumSearchBox';
 
 interface AlbumInfo {
   id: string;
@@ -30,7 +30,6 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
   onBack,
   showBackButton = false,
 }) => {
-  const [albumURL, setAlbumURL] = useState('');
   const [internalAlbumInfo, setInternalAlbumInfo] = useState<AlbumInfo | null>(null);
   const [showPopup, setShowPopup] = useState(false);
 
@@ -44,9 +43,8 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
     return match ? match[1] : null;
   };
 
-  const fetchAlbumInfo = async () => {
-    const albumId = extractAlbumId(albumURL);
-    if (!albumId) return alert('Invalid Navidrome album URL');
+  const fetchAlbumInfoById = async (albumId: string) => {
+    if (!albumId) return alert('Invalid album ID');
 
     try {
       const response = await fetch(
@@ -90,7 +88,18 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
   const handleClosePopup = () => {
     setShowPopup(false);
     setInternalAlbumInfo(null);
-    setAlbumURL('');
+  };
+
+  const handleAlbumSelect = async (albumId: string) => {
+    await fetchAlbumInfoById(albumId);
+  };
+
+  const handleUrlSubmit = async (url: string) => {
+    const albumId = extractAlbumId(url);
+    if (!albumId) {
+      return alert('Invalid Navidrome album URL');
+    }
+    await fetchAlbumInfoById(albumId);
   };
 
   // URL Input Mode (Home page)
@@ -98,13 +107,10 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
     return (
       <div className="place-sticker-container">
         <h2>Place a Sticker</h2>
-        <MessageTextBox
-          placeholder="Paste Navidrome album URL..."
-          value={albumURL}
-          onChange={(text) => setAlbumURL(text)}
-          onSend={fetchAlbumInfo}
-          showSendButton={true}
-          showCounter={false}
+        <AlbumSearchBox
+          placeholder="Type an album title or paste a Navidrome URL..."
+          onAlbumSelect={handleAlbumSelect}
+          onUrlSubmit={handleUrlSubmit}
         />
 
         {showPopup && internalAlbumInfo && (
@@ -145,13 +151,10 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
   if (mode === 'inline-url') {
     return (
       <>
-        <MessageTextBox
-          placeholder="Paste Navidrome album URL..."
-          value={albumURL}
-          onChange={(text) => setAlbumURL(text)}
-          onSend={fetchAlbumInfo}
-          showSendButton={true}
-          showCounter={false}
+        <AlbumSearchBox
+          placeholder="Search for an album or paste URL..."
+          onAlbumSelect={handleAlbumSelect}
+          onUrlSubmit={handleUrlSubmit}
         />
 
         {showPopup && internalAlbumInfo && (

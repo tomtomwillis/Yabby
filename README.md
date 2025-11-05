@@ -267,6 +267,65 @@ The `ForumMessageBox` component is a rich text editor designed for posting messa
 3. Click a result to insert it as a hyperlink
 4. The link format: `https://music.yabbyville.xyz/app/#/artist/{id}/show`
 
+### AlbumSearchBox
+
+The `AlbumSearchBox` component is a dual-purpose input field that allows users to either search for albums by typing their name OR paste a Navidrome album URL. It automatically detects which input method is being used and handles them appropriately.
+
+#### Props:
+
+- **placeholder**: Placeholder text for the input box (default: `"Search for an album or paste URL..."`).
+- **onAlbumSelect**: A callback function triggered when a user selects an album from search results. Receives the album ID as a parameter.
+- **onUrlSubmit**: A callback function triggered when a user submits a URL. Receives the full URL as a parameter.
+
+#### Features:
+
+- **Auto-Search**: Automatically searches for albums as the user types (minimum 3 characters).
+- **URL Detection**: Intelligently detects when user is pasting a URL (starts with "https:") and disables search.
+- **Album Search**: Searches only albums (not artists) from the Navidrome API.
+- **Debounced Search**: 300ms delay prevents excessive API calls while typing.
+- **Results Dropdown**: Shows up to 5 matching albums with album name and artist.
+- **Clean UI**: Search results appear below the input with clear album/artist information.
+- **Automatic Cleanup**: Clears input and results after selection or submission.
+
+#### Examples:
+
+- **Basic AlbumSearchBox**:
+  ```tsx
+  <AlbumSearchBox
+    onAlbumSelect={(albumId) => fetchAlbumDetails(albumId)}
+    onUrlSubmit={(url) => handleUrlPaste(url)}
+  />
+  ```
+
+- **AlbumSearchBox with Custom Placeholder**:
+  ```tsx
+  <AlbumSearchBox
+    placeholder="Find an album to add a sticker..."
+    onAlbumSelect={(albumId) => console.log("Selected album:", albumId)}
+    onUrlSubmit={(url) => console.log("URL pasted:", url)}
+  />
+  ```
+
+#### Usage Flow:
+
+**Searching by Album Name:**
+1. User starts typing an album name (e.g., "Abbey Road")
+2. After 3 characters, search results appear automatically
+3. Up to 5 albums shown with name and artist
+4. User clicks a result
+5. `onAlbumSelect` callback fires with the album ID
+
+**Pasting URL:**
+1. User pastes a Navidrome album URL (e.g., "https://music.yabbyville.xyz/app/#/album/123/show")
+2. Search is automatically disabled (URL detected)
+3. Send button appears
+4. User clicks send or presses Enter
+5. `onUrlSubmit` callback fires with the URL
+
+#### Integration:
+
+This component is used by `PlaceSticker.tsx` in both `url-input` and `inline-url` modes to provide a flexible album selection experience.
+
 ### UserMessages
 
 The `UserMessages` component is used to display messages from users. It's used for displaying the stickers and also for the messageboard. It includes their username, message content, timestamp, and an optional sticker (emoji or image). It also supports a close button for dismissing the message.
@@ -360,8 +419,8 @@ The `PlaceSticker` component is a unified system for adding stickers to albums a
 #### Modes:
 
 1. **url-input** (Home Page)
-   - Shows URL input field in a styled container
-   - User pastes Navidrome album URL
+   - Shows `AlbumSearchBox` in a styled container
+   - User can either search for albums by name OR paste a Navidrome album URL
    - Opens popup with PlaceStickerCore for sticker placement
    ```tsx
    <PlaceSticker /> // defaults to url-input mode
@@ -383,19 +442,22 @@ The `PlaceSticker` component is a unified system for adding stickers to albums a
    ```
 
 3. **inline-url** (Stickers Page)
-   - Shows URL input without container styling
-   - Opens popup with PlaceStickerCore when album is fetched
+   - Shows `AlbumSearchBox` without container styling
+   - User can search for albums by name OR paste URL
+   - Opens popup with PlaceStickerCore when album is selected
    ```tsx
    <PlaceSticker mode="inline-url" />
    ```
 
 #### Features:
-- Drag and drop sticker positioning
-- Normalized coordinate system (consistent positioning across all screen sizes)
-- Real-time position updates with visual feedback
-- Integration with Firebase/Firestore for sticker storage
-- User avatar/sticker fetching
-- Page reload on successful submission
+- **Album Search**: Type album names to search and select from Navidrome library (powered by `AlbumSearchBox`)
+- **URL Support**: Paste Navidrome album URLs for quick album selection
+- **Drag and Drop**: Interactive sticker positioning on album covers
+- **Normalized Coordinates**: Consistent positioning across all screen sizes
+- **Real-time Updates**: Visual feedback during sticker placement
+- **Firebase Integration**: Sticker storage and retrieval via Firestore
+- **User Stickers**: Automatic fetching of user's selected avatar/sticker
+- **Auto-refresh**: Page reloads on successful submission to show new sticker
 
 #### Components Using PlaceSticker:
 - **Home Page**: Uses `url-input` mode for standalone sticker placement
