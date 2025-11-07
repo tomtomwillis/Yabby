@@ -1,0 +1,28 @@
+{
+  "name": "upload-folder-monitor",
+  "version": "3.0.0",
+  "description": "Monitor local folder for user uploads, validate files, and move to destination automatically",
+  "main": "monitor.js",
+  "scripts": {
+    "start": "node monitor.js",
+    "dev": "nodemon monitor.js"
+  },
+  "keywords": [
+    "file-monitor",
+    "upload-watcher",
+    "audio-validation",
+    "image-validation",
+    "folder-watch"
+  ],
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "fluent-ffmpeg": "^2.1.2",
+    "file-type": "^18.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
