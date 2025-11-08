@@ -6,15 +6,31 @@ const crypto = require('crypto');
 const app = express();
 
 // Initialize Firebase Admin SDK
+// Load credentials from environment variable (file path) or use inline credentials
+let firebaseCredential;
+if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+  // Load from file path specified in environment variable
+  firebaseCredential = admin.credential.cert(require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH));
+} else if (process.env.FIREBASE_ADMIN_PROJECT_ID && process.env.FIREBASE_ADMIN_CLIENT_EMAIL && process.env.FIREBASE_ADMIN_PRIVATE_KEY) {
+  // Load from individual environment variables
+  firebaseCredential = admin.credential.cert({
+    projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
+  });
+} else {
+  throw new Error('Firebase credentials not configured. Set either FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_ADMIN_* environment variables');
+}
+
 admin.initializeApp({
-  credential: admin.credential.cert(require('./serviceAccountKey.json'))
+  credential: firebaseCredential
 });
 
 app.use(cookieParser());
 
 // Session store (in production, use Redis or similar)
 const sessions = new Map();
-const SESSION_DURATION = 3600000; // 1 hour
+const SESSION_DURATION = process.env.SESSION_DURATION || 3600000; // 1 hour (default)
 
 // Store IP-based authentication temporarily
 const authenticatedIPs = new Map();
@@ -137,7 +153,7 @@ setInterval(() => {
 
 // Proxy to copyparty with authentication (all routes)
 app.use('/', authenticate, createProxyMiddleware({
-  target: 'https://uploads.yabbyville.xyz',
+  target: process.env.COPYPARTY_TARGET_URL || 'https://uploads.yabbyville.xyz',
   changeOrigin: true,
   ws: true, // WebSocket support
   onProxyReq: (proxyReq, req) => {
@@ -153,7 +169,7 @@ app.use('/', authenticate, createProxyMiddleware({
   }
 }));
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.COPYPARTY_AUTH_PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Auth proxy running on port ${PORT}`);
 });

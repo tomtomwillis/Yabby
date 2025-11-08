@@ -14,7 +14,11 @@ dist-ssr
 
 # Environment files
 .env
-.env.*
+
+# Firebase Admin SDK credentials
+serviceAccountKey.json
+*serviceAccount*.json
+firebase-adminsdk-*.json
 
 
 # Editor directories and files

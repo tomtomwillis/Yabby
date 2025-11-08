@@ -1,32 +1,110 @@
-# YabbyVilleV2 Documentation
+# YabbyVille Monorepo
 
-## App Structure
+> A monorepo containing the YabbyVille web application and supporting microservices.
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js >= 16.0.0
+- npm >= 7.0.0 (for workspaces support)
+- FFmpeg (system dependency for file-mover)
+
+### Installation & Running
+
+```bash
+# Install all workspace dependencies
+npm install
+
+# Run frontend only (development)
+npm run dev
+
+# Run specific service
+npm run dev:web        # Frontend
+npm run dev:auth       # Auth proxy
+npm run dev:monitor    # File monitor
+
+# Run all services simultaneously
+npm run dev:all
+
+# Build all packages
+npm run build
+```
+
+---
+
+## 📦 Monorepo Structure
+
+This project uses npm workspaces to manage multiple packages:
+
+```
+yabbyville-monorepo/
+├── packages/
+│   ├── web/                    # React frontend application
+│   ├── copyparty-auth/         # Authentication proxy service
+│   ├── file-mover/             # File monitoring & validation service
+│   └── common/                 # Shared TypeScript utilities
+├── package.json                # Root workspace configuration
+├── .env                        # Environment variables (not in git)
+└── README.md                   # This file
+```
+
+### Package Details
+
+#### `@yabbyville/web` - Frontend Application
+- **Location:** `packages/web/`
+- **Framework:** React 19 + Vite 7 + TypeScript
+- **Port:** 5173 (default)
+- **Purpose:** Main web interface with Firebase auth, Navidrome integration, PWA support
+- **Documentation:** See detailed component documentation below
+
+#### `@yabbyville/copyparty-auth` - Auth Proxy
+- **Location:** `packages/copyparty-auth/`
+- **Framework:** Express.js (Node.js)
+- **Port:** 3001 (configurable)
+- **Purpose:** Firebase authentication middleware for Copyparty uploads server
+- **Documentation:** [CopypartyAuth README](./packages/copyparty-auth/README.md)
+
+#### `@yabbyville/file-mover` - File Monitor
+- **Location:** `packages/file-mover/`
+- **Runtime:** Node.js
+- **Dependencies:** FFmpeg (system), chokidar, fluent-ffmpeg
+- **Purpose:** Automated file validation and organization for user uploads
+- **Documentation:** [File Mover README](./packages/file-mover/README.md)
+
+#### `@yabbyville/common` - Shared Utilities
+- **Location:** `packages/common/`
+- **Language:** TypeScript
+- **Purpose:** Shared types and utility functions across all packages
+
+---
+
+## App Structure (Frontend)
 
 I've tried to keep the app as clean as possible so it's easy to find everything.
 The main elements of the app are split into:
 
-### Components (src/components)
+### Components (packages/web/src/components)
 - The chunks of code that are responsible for a specific task.
 - I've separated components into Basic and Complex components
   - Basic Components are ones that get reused lots throughout the app like buttons and textboxes
   - The Complex components do a more complex and specific job. A complex component might use a Basic component to complete it's job
 - css Stylings for the components are stored with the tsx files of the components
 
-### Pages (src/pages)
+### Pages (packages/web/src/pages)
   - The code that represents the different pages of the website
   - Where possible these are kept as simple as possible and just made up from different components
   - There are no stylings for pages - these are managed either by the component stylings or by the app.css styling
 
 
 ### Other significant files/folders
-- Assets (folder -> src/assets)
+- Assets (folder -> packages/web/src/assets)
   - Where the fonts are stored
-- public
+- public (packages/web/public)
   - public/Stickers contains the files for all the stickers
   - public/wiki contains the files associated with the wiki page
     - this folder is excluded by the gitignore currently for security and will need to be added manually to the public folder
-- .env
-  - This stores all the secure information about the system and is not included in the github files. It will need to be manually added to the root folder of the album.
+- .env (root level)
+  - This stores all the secure information about the system and is not included in the github files. It will need to be manually added to the root folder.
   - I've made efforts to ensure that all references to the server are in here so it can be easily swapped out for another project
   - I've created a file called example.env that can be used to see the structure of the current env
 

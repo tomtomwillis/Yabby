@@ -1,5 +1,6 @@
 {
-  "name": "upload-folder-monitor",
+  "name": "@yabbyville/file-mover",
+  "private": true,
   "version": "3.0.0",
   "description": "Monitor local folder for user uploads, validate files, and move to destination automatically",
   "main": "monitor.js",

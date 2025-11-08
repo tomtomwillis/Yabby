@@ -2,8 +2,7 @@
 /* Wrapper-specific styles for PlaceSticker component modes */
 
 .place-sticker-container {
-  max-width: 70%;
-  width: 100%;
+  width: 90%;
   margin: 0 auto;
   padding: 1rem;
   background-color: var(--colour4);

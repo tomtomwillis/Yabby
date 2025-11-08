@@ -1,8 +1,0 @@
-# Ignore the downloads folder and its contents
-downloads/
-
-# Ignore the node_modules folder
-node_modules/
-
-# log file
-*.log
