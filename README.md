@@ -373,7 +373,7 @@ The `UserMessages` component is used to display messages from users. It's used f
 ## Complex Components
 
 ### AvatarPreview
-Used to add the dropdown menu that lets users change their profile image on the profile page
+Used to add the dropdown menu that lets users change their profile image on the profile page. Uses a flexible data structure (avatarOptions.ts) that maps each avatar shape to its available colors, automatically filtering the color dropdown to show only valid options for the selected shape. Avatar selections are stored in Firestore and displayed throughout the application in user messages and profiles. Avatar images are in public/Stickers and are 1000x1000 webp files.
 
 ### CarouselAlbums
 Fetches the 10 most recent albums from Navidrome and displays them in the basic `Carousel.tsx` component.

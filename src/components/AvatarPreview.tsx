@@ -1,13 +1,6 @@
 import React, { useEffect } from 'react';
 import './AvatarPreview.css'; // Import the CSS file
-
-const colors = ['blue', 'green', 'pink', 'red']; // Available colors
-const shapes = [
-  'star', 'circle', 'pointy', 'dog', 'ghost', 'gremlin', 'astro', 'makina', 
-  'frog', 'miffy', 'caroline', 'charli', 'crest', 'devilboy', 'duck', 
-  'italia', 'loukeman', 'overmonodog', 'starfish', 'tooth', 'tp', 
-  'trebleclef', 'unsmiley'
-]; // Available shapes
+import { getAllShapes, getAvailableColors, isValidCombination, getDefaultColorForShape } from './avatarOptions';
 
 interface AvatarPreviewProps {
   selectedColor: string;
@@ -26,35 +19,61 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({
   onShapeChange,
   onAvatarChange,
 }) => {
+  const shapes = getAllShapes(); // Get all available shapes
+  const availableColors = getAvailableColors(selectedShape); // Get colors for current shape
+
+  // Validate and auto-correct color when shape changes
+  useEffect(() => {
+    if (!isValidCombination(selectedShape, selectedColor)) {
+      // If current color isn't valid for this shape, switch to default color
+      const defaultColor = getDefaultColorForShape(selectedShape);
+      onColorChange(defaultColor);
+    }
+  }, [selectedShape, selectedColor, onColorChange]);
+
   // Update avatar dynamically based on selected color and shape
   useEffect(() => {
-    const newAvatar = `/Stickers/avatar_${selectedShape}_${selectedColor}.webp`;
-    onAvatarChange(newAvatar); // Notify parent component of the new avatar
+    // Only update if the combination is valid
+    if (isValidCombination(selectedShape, selectedColor)) {
+      const newAvatar = `/Stickers/avatar_${selectedShape}_${selectedColor}.webp`;
+      onAvatarChange(newAvatar); // Notify parent component of the new avatar
+    }
   }, [selectedColor, selectedShape, onAvatarChange]);
+
+  const handleShapeChange = (newShape: string) => {
+    onShapeChange(newShape);
+    
+    // Check if current color is valid for new shape
+    if (!isValidCombination(newShape, selectedColor)) {
+      // Auto-select the first available color for this shape
+      const defaultColor = getDefaultColorForShape(newShape);
+      onColorChange(defaultColor);
+    }
+  };
 
   return (
     <div className="avatar-preview-container">
       <label>Choose Avatar:</label>
       <div className="dropdown-container">
         <select
-          id="color"
-          value={selectedColor}
-          onChange={(e) => onColorChange(e.target.value)}
-        >
-          {colors.map((color) => (
-            <option key={color} value={color}>
-              {color.charAt(0).toUpperCase() + color.slice(1)}
-            </option>
-          ))}
-        </select>
-        <select
           id="shape"
           value={selectedShape}
-          onChange={(e) => onShapeChange(e.target.value)}
+          onChange={(e) => handleShapeChange(e.target.value)}
         >
           {shapes.map((shape) => (
             <option key={shape} value={shape}>
               {shape.charAt(0).toUpperCase() + shape.slice(1)}
+            </option>
+          ))}
+        </select>
+        <select
+          id="color"
+          value={selectedColor}
+          onChange={(e) => onColorChange(e.target.value)}
+        >
+          {availableColors.map((color) => (
+            <option key={color} value={color}>
+              {color.charAt(0).toUpperCase() + color.slice(1)}
             </option>
           ))}
         </select>
