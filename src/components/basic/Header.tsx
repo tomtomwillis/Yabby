@@ -75,6 +75,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           
           <ul className="nav-links bottom-links">
             <li><a href="/messageboard" className="links">message&nbsp;board</a></li>
+            <li><a href="/lists" className="links">lists</a></li>
             <li><a href="/profile" className="links">profile</a></li>
             <li><a href="/wiki" className="links">wiki</a></li>
           </ul>
@@ -118,6 +119,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           Request
         </a>
         <a href="/messageboard" onClick={closeMobileMenu}>Message Board</a>
+        <a href="/lists" onClick={closeMobileMenu}>Lists</a>
         <a href="/profile" onClick={closeMobileMenu}>Profile</a>
         <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>
       </div>

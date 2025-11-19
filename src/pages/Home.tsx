@@ -24,6 +24,12 @@ function App() {
 
         <hr />
 
+        <div className="title1">
+          <Link to="/lists">Album Lists →</Link> 
+        </div>
+
+        <hr />
+
         <div className="title1">Recently Added</div>
         <CarouselAlbums />
 
