@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import './AvatarPreview.css'; // Import the CSS file
-import { getAllShapes, getAvailableColors, isValidCombination, getDefaultColorForShape } from './avatarOptions';
+import { getAllShapes, getAvailableColors, isValidCombination, getDefaultColorForShape } from './AvatarOptions';
 
 interface AvatarPreviewProps {
   selectedColor: string;
