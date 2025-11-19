@@ -13,7 +13,7 @@ const Stats = lazy(() => import('../components/Stats'));
 function App() {
   return (
     <div className="app-container">
-        <Header title="Welcome to YabbyVille" subtitle="We <3 you" />
+        <Header title="Welcome to YabbyVille" subtitle="🏴󠁧󠁢󠁳󠁣󠁴󠁿 Yes Sir, I Can Boogie 🏴󠁧󠁢󠁳󠁣󠁴󠁿" />
 
         <div className="title1">
           <Link to="/stickers">Stickers →</Link> 
