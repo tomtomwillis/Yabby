@@ -337,14 +337,23 @@ const CreateList: React.FC<CreateListProps> = ({
     setEditingLinkUrl('');
   };
 
-  const handleEditKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveEditedText();
-    } else if (e.key === 'Escape') {
-      cancelEditing();
+  // Add keyboard event listener for editing
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (editingItemIndex !== null) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelEditing();
+        }
+        // Note: We don't use Enter to save since MessageTextBox needs Enter for line breaks
+      }
+    };
+
+    if (editingItemIndex !== null) {
+      document.addEventListener('keydown', handleKeyPress);
+      return () => document.removeEventListener('keydown', handleKeyPress);
     }
-  };
+  }, [editingItemIndex]);
 
   // Save list to Firestore with subcollection
   const handleSaveList = async () => {
@@ -576,7 +585,6 @@ const CreateList: React.FC<CreateListProps> = ({
             <div style={{ 
               marginBottom: '20px', 
               padding: '16px', 
-              backgroundColor: '#f8f9fa', 
               borderRadius: '8px',
               display: 'flex',
               gap: '12px',
@@ -618,7 +626,6 @@ const CreateList: React.FC<CreateListProps> = ({
         <div style={{ 
           marginBottom: '20px', 
           padding: '16px', 
-          backgroundColor: '#f8f9fa', 
           borderRadius: '8px'
         }}>
           <h4 style={{ color: 'var(--colour5)', marginTop: 0, marginBottom: '12px' }}>
@@ -762,7 +769,7 @@ const CreateList: React.FC<CreateListProps> = ({
                 )}
                 
                 <div style={{ flex: 1, paddingRight: '24px' }}>
-                  <div style={{ fontWeight: 'bold', color: 'var(--colour4)', marginBottom: '2px' }}>
+                  <div style={{ fontWeight: 'bold', color: 'var(--colour2)', marginBottom: '2px' }}>
                     {item.type === 'album' ? (
                       item.albumTitle
                     ) : item.linkUrl ? (
@@ -785,70 +792,45 @@ const CreateList: React.FC<CreateListProps> = ({
                     )}
                   </div>
                   {item.type === 'album' && (
-                    <div style={{ color: 'var(--colour4)', opacity: 0.8, fontSize: '0.9em', marginBottom: '4px' }}>
+                    <div style={{ color: 'var(--colour2)', opacity: 0.8, fontSize: '0.9em', marginBottom: '4px' }}>
                       by {item.albumArtist}
                     </div>
                   )}
                   {editingItemIndex === index ? (
-                    <div style={{ marginBottom: '8px' }}>
+                    <div style={{ marginBottom: '8px', backgroundColor: 'var(--colour1)' }}>
                       {/* Show image and link URL inputs for custom items */}
                       {item.type === 'custom' && (
                         <>
-                          <input
-                            type="text"
-                            value={editingImageUrl}
-                            onChange={(e) => setEditingImageUrl(e.target.value)}
-                            placeholder="Image URL (leave empty to remove image)"
-                            style={{
-                              width: '100%',
-                              padding: '8px',
-                              marginBottom: '8px',
-                              borderRadius: '4px',
-                              border: '1px solid var(--colour3)',
-                              backgroundColor: 'var(--colour2)',
-                              color: 'var(--colour4)',
-                              fontSize: '0.9em',
-                              fontFamily: 'inherit'
-                            }}
-                          />
-                          <input
-                            type="text"
-                            value={editingLinkUrl}
-                            onChange={(e) => setEditingLinkUrl(e.target.value)}
-                            placeholder="Link URL (leave empty to remove link)"
-                            style={{
-                              width: '100%',
-                              padding: '8px',
-                              marginBottom: '8px',
-                              borderRadius: '4px',
-                              border: '1px solid var(--colour3)',
-                              backgroundColor: 'var(--colour2)',
-                              color: 'var(--colour4)',
-                              fontSize: '0.9em',
-                              fontFamily: 'inherit'
-                            }}
-                          />
+                          <div style={{ marginBottom: '8px' }}>
+                            <MessageTextBox
+                              value={editingImageUrl}
+                              onChange={setEditingImageUrl}
+                              placeholder="Image URL (leave empty to remove image)"
+                              showSendButton={false}
+                              showCounter={false}
+                            />
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <MessageTextBox
+                              value={editingLinkUrl}
+                              onChange={setEditingLinkUrl}
+                              placeholder="Link URL (leave empty to remove link)"
+                              showSendButton={false}
+                              showCounter={false}
+                            />
+                          </div>
                         </>
                       )}
-                      <textarea
-                        value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
-                        onKeyDown={handleEditKeyPress}
-                        placeholder="Enter description..."
-                        autoFocus={item.type === 'album'}
-                        style={{
-                          width: '100%',
-                          minHeight: '60px',
-                          padding: '8px',
-                          borderRadius: '4px',
-                          border: '1px solid var(--colour3)',
-                          backgroundColor: 'var(--colour2)',
-                          color: 'var(--colour4)',
-                          fontSize: '0.9em',
-                          fontFamily: 'inherit',
-                          resize: 'vertical'
-                        }}
-                      />
+                      <div>
+                        <MessageTextBox
+                          value={editingText}
+                          onChange={setEditingText}
+                          placeholder="Enter description..."
+                          showSendButton={false}
+                          showCounter={false}
+                          rows={4}
+                        />
+                      </div>
                       <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                         <button
                           onClick={saveEditedText}
