@@ -22,6 +22,7 @@ interface CustomListItemProps extends BaseListItemProps {
   type: 'custom';
   title: string;
   imageUrl?: string;
+  linkUrl?: string;
 }
 
 type ListItemProps = AlbumListItemProps | CustomListItemProps;
@@ -29,13 +30,16 @@ type ListItemProps = AlbumListItemProps | CustomListItemProps;
 const ListItem: React.FC<ListItemProps> = (props) => {
   const { type, userText, username, timestamp, onRemove, showRemoveButton = false } = props;
 
-  const handleAlbumClick = () => {
-    // Open album in Navidrome (only for album items)
+  const handleItemClick = () => {
     if (type === 'album') {
+      // Open album in Navidrome
       const NAVIDROME_SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
       if (NAVIDROME_SERVER_URL && props.albumId) {
         window.open(`${NAVIDROME_SERVER_URL}/app/#/album/${props.albumId}/show`, '_blank');
       }
+    } else if (type === 'custom' && props.linkUrl) {
+      // Open custom item link
+      window.open(props.linkUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -61,7 +65,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         subtitle: null,
         imageUrl: props.imageUrl,
         imageAlt: props.title,
-        clickable: false,
+        clickable: !!props.linkUrl,
         typeLabel: '📝 Custom Item'
       };
     }
@@ -70,33 +74,48 @@ const ListItem: React.FC<ListItemProps> = (props) => {
   const itemDetails = getItemDetails();
 
   return (
-    <div className="user-message">
+    <div className="user-message" style={{ flexDirection: 'column', padding: '0' }}>
       {showRemoveButton && onRemove && (
         <button 
           className="user-message-close-button"
           onClick={onRemove}
           aria-label="Remove album from list"
+          style={{ top: '8px', right: '8px', zIndex: 20 }}
         >
           ✕
         </button>
       )}
 
-      {/* Image container (for both album covers and custom images) */}
+      {/* Full-width header image */}
       {itemDetails.imageUrl && (
-        <div className="user-message-sticker-container">
+        <div 
+          style={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: '12px 12px 0 0',
+            position: 'relative',
+            backgroundColor: 'var(--colour1)'
+          }}
+        >
           <img
             src={itemDetails.imageUrl}
             alt={itemDetails.imageAlt}
-            className="user-message-sticker list-item-album-cover"
-            onClick={itemDetails.clickable ? handleAlbumClick : undefined}
+            onClick={itemDetails.clickable ? handleItemClick : undefined}
             onError={handleImageError}
-            style={{ cursor: itemDetails.clickable ? 'pointer' : 'default' }}
+            style={{ 
+              maxWidth: '100%',
+              objectFit: 'contain',
+              cursor: itemDetails.clickable ? 'pointer' : 'default',
+              borderRadius: '12px 12px 0 0'
+            }}
           />
         </div>
       )}
 
       {/* Content container */}
-      <div className="user-message-content">
+      <div className="user-message-content" style={{ padding: '16px' }}>
         {/* Item title (replaces username) */}
         <div className="user-message-username">
           {itemDetails.title}
@@ -106,12 +125,6 @@ const ListItem: React.FC<ListItemProps> = (props) => {
             </span>
           )}
         </div>
-
-        {/* Timestamp, user info, and type label */}
-        <div className="user-message-timestamp">
-          Added by {username} • {timestamp} • {itemDetails.typeLabel}
-        </div>
-
         {/* Separator */}
         <div className="user-message-separator"></div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, onSnapshot, orderBy, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
@@ -39,10 +40,11 @@ interface List {
 }
 
 const ListsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
 
   // Fetch lists from Firestore
   useEffect(() => {
@@ -66,51 +68,9 @@ const ListsPage: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch items for a specific list
-  const fetchItemsForList = async (listId: string) => {
-    try {
-      const itemsQuery = query(
-        collection(db, 'lists', listId, 'items'),
-        orderBy('order', 'asc')
-      );
-      
-      const snapshot = await getDocs(itemsQuery);
-      const items: ListItem[] = [];
-      
-      snapshot.forEach((doc) => {
-        items.push(doc.data() as ListItem);
-      });
 
-      return items;
-    } catch (error) {
-      console.error('Error fetching items:', error);
-      return [];
-    }
-  };
 
-  // Toggle list expansion and fetch albums if needed
-  const toggleListExpansion = async (listId: string) => {
-    const newExpandedLists = new Set(expandedLists);
-    
-    if (expandedLists.has(listId)) {
-      newExpandedLists.delete(listId);
-    } else {
-      newExpandedLists.add(listId);
-      
-      // Fetch items for this list if not already loaded
-      const list = lists.find(l => l.id === listId);
-      if (list && !list.items) {
-        const items = await fetchItemsForList(listId);
-        setLists(prevLists => 
-          prevLists.map(l => 
-            l.id === listId ? { ...l, items } : l
-          )
-        );
-      }
-    }
-    
-    setExpandedLists(newExpandedLists);
-  };
+
 
   // Format timestamp for display
   const formatTimestamp = (timestamp: any) => {
@@ -136,31 +96,11 @@ const ListsPage: React.FC = () => {
     // The list will automatically appear via the real-time listener
   };
 
-  // Delete a list (only allow users to delete their own lists)
-  const handleDeleteList = async (listId: string, listTitle: string, listUserId: string) => {
-    // Check if the current user owns this list
-    if (!auth.currentUser || auth.currentUser.uid !== listUserId) {
-      alert('You can only delete your own lists');
-      return;
-    }
 
-    // Confirm deletion
-    if (!confirm(`Are you sure you want to delete the list "${listTitle}"? This cannot be undone.`)) {
-      return;
-    }
 
-    try {
-      // Delete the main list document (subcollections are automatically deleted due to Firestore rules)
-      await deleteDoc(doc(db, 'lists', listId));
-      
-      // Note: In production, you might want to also manually delete the subcollection
-      // for cleaner data management, but for this use case the main doc deletion is sufficient
-      
-      alert('List deleted successfully');
-    } catch (error) {
-      console.error('Error deleting list:', error);
-      alert('Failed to delete list. Please try again.');
-    }
+  // Handle edit completion
+  const handleEditComplete = () => {
+    setEditingListId(null);
   };
 
   if (loading) {
@@ -173,12 +113,12 @@ const ListsPage: React.FC = () => {
 
   return (
     <div className="app-container">
-      <Header title="Album Lists" subtitle={''} />
+      <Header title="Lists" subtitle={''} />
       
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
         {/* Create List Section */}
         <div style={{ marginBottom: '30px' }}>
-          {!showCreateForm ? (
+          {!showCreateForm && !editingListId ? (
             <div style={{ textAlign: 'center' }}>
               <Button
                 onClick={() => setShowCreateForm(true)}
@@ -186,7 +126,7 @@ const ListsPage: React.FC = () => {
                 type="basic"
               />
             </div>
-          ) : (
+          ) : showCreateForm ? (
             <div>
               <div style={{ 
                 display: 'flex', 
@@ -203,7 +143,31 @@ const ListsPage: React.FC = () => {
               </div>
               <CreateList onListCreated={handleListCreated} />
             </div>
-          )}
+          ) : editingListId ? (
+            <div>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '20px' 
+              }}>
+                <h2 style={{ color: 'var(--colour2)', margin: 0 }}>
+                  Edit List: {lists.find(l => l.id === editingListId)?.title}
+                </h2>
+                <Button
+                  onClick={() => setEditingListId(null)}
+                  label="Cancel"
+                  type="basic"
+                />
+              </div>
+              <CreateList 
+                onListCreated={handleEditComplete}
+                editMode={true}
+                existingListId={editingListId}
+                existingList={lists.find(l => l.id === editingListId)}
+              />
+            </div>
+          ) : null}
         </div>
 
         {/* Lists Display */}
@@ -243,12 +207,11 @@ const ListsPage: React.FC = () => {
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: expandedLists.has(list.id) ? '16px' : '0'
+                  alignItems: 'flex-start'
                 }}>
-                  {/* Clickable expand/collapse area */}
+                  {/* Clickable list area */}
                   <div 
-                    onClick={() => toggleListExpansion(list.id)}
+                    onClick={() => navigate(`/lists/${list.id}`)}
                     style={{
                       cursor: 'pointer',
                       display: 'flex',
@@ -281,95 +244,12 @@ const ListsPage: React.FC = () => {
                       </div>
                     </div>
                     <div style={{ fontSize: '1.2em' }}>
-                      {expandedLists.has(list.id) ? '▼' : '▶'}
+                      →
                     </div>
                   </div>
-                  
-                  {/* Delete button (only show for list owner) */}
-                  {auth.currentUser && auth.currentUser.uid === list.userId && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent expanding/collapsing when clicking delete
-                        handleDeleteList(list.id, list.title, list.userId);
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: '1px solid #dc3545',
-                        color: '#dc3545',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.backgroundColor = '#dc3545';
-                        e.currentTarget.style.color = 'white';
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#dc3545';
-                      }}
-                      title={`Delete "${list.title}"`}
-                    >
-                      Delete
-                    </button>
-                  )}
                 </div>
 
-                {/* Expanded Albums */}
-                {expandedLists.has(list.id) && (
-                  <div>
-                    {!list.items ? (
-                      <div style={{ textAlign: 'center', padding: '20px', opacity: 0.7 }}>
-                        Loading items...
-                      </div>
-                    ) : list.items.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '20px', opacity: 0.7 }}>
-                        No items in this list.
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {list.items
-                          .sort((a, b) => a.order - b.order)
-                          .map((item, index) => {
-                            const key = item.type === 'album' ? `${item.albumId}-${index}` : `${item.title}-${index}`;
-                            
-                            if (item.type === 'album') {
-                              return (
-                                <ListItem
-                                  key={key}
-                                  type="album"
-                                  albumId={item.albumId}
-                                  albumTitle={item.albumTitle}
-                                  albumArtist={item.albumArtist}
-                                  albumCover={item.albumCover}
-                                  userText={item.userText}
-                                  username={list.username}
-                                  timestamp={`#${index + 1} in list`}
-                                  showRemoveButton={false}
-                                />
-                              );
-                            } else {
-                              return (
-                                <ListItem
-                                  key={key}
-                                  type="custom"
-                                  title={item.title}
-                                  imageUrl={item.imageUrl}
-                                  userText={item.userText}
-                                  username={list.username}
-                                  timestamp={`#${index + 1} in list`}
-                                  showRemoveButton={false}
-                                />
-                              );
-                            }
-                          })}
-                      </div>
-                    )}
-                  </div>
-                )}
+
               </div>
             ))
           )}

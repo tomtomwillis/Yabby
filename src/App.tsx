@@ -7,6 +7,7 @@ import MessageBoard from './pages/MessageBoardPage';
 import Upload from './pages/Upload';
 import Stickers from './pages/Stickers';
 import ListsPage from './pages/ListsPage';
+import ListDetailPage from './pages/ListDetailPage';
 import './App.css';
 import './components/basic/TextAnimations.css';
 import Test from './pages/Test';
@@ -30,6 +31,7 @@ function App() {
           <Route path="/upload" element={<PrivateRoute><Upload /></PrivateRoute>} />
           <Route path="/stickers" element={<PrivateRoute><Stickers /></PrivateRoute>} />
           <Route path="/lists" element={<PrivateRoute><ListsPage /></PrivateRoute>} />
+          <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
         </Routes>
       </div>

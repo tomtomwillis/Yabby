@@ -12,6 +12,7 @@ interface TextBoxProps {
   className?: string;
   showSendButton?: boolean; // New prop to control the visibility of the send button
   showCounter?: boolean; // New prop to control the visibility of the word/character counter
+  rows?: number; // Number of rows for the textarea
   children?: React.ReactElement<{ onClick?: () => void; disabled?: boolean }>; // Ensure children support onClick and disabled props
 }
 
@@ -25,6 +26,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   className = '',
   showSendButton = true, // Default to true to show the send button
   showCounter = true, // Default to true to show the word/character counter
+  rows = 1, // Default to 1 row
   children, // Custom children passed from the parent
 }) => {
   const [text, setText] = useState(value || ''); // Initialize with value if provided
@@ -179,7 +181,7 @@ const TextBox: React.FC<TextBoxProps> = ({
           onKeyDown={handleKeyPress}
           placeholder={placeholder}
           disabled={disabled}
-          rows={1}
+          rows={rows}
         />
         {showSendButton && (
           <div className="send-button-container">

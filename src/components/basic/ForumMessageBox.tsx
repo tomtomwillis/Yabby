@@ -2,6 +2,8 @@ import React, { useEffect, useState, type ChangeEvent } from 'react';
 import './ForumMessageBox.css';
 import Editor,  {Toolbar, type ContentEditableEvent } from 'react-simple-wysiwyg';
 import Button from './Button';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 interface Result {
   id: string;
@@ -30,9 +32,12 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   showSendButton = true, // Default to true to show the send button
 })  => {
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [listSearchQuery, setListSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
   const [albumResults, setAlbumResults] = useState<Result[]>([]);
+  const [listResults, setListResults] = useState<Result[]>([]);
   const [isSearching, setisSearching] = useState(false);
+  const [isSearchingLists, setIsSearchingLists] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState('');
   const [selectionEnd, setSelectionEnd] = useState(0);
@@ -42,6 +47,37 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
   const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
   const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
+
+  const fetchListResults = async (searchTerm: string): Promise<Result[]> => {
+    try {
+      // Search lists by title (case-insensitive partial match)
+      const listsQuery = query(
+        collection(db, 'lists'),
+        orderBy('title'),
+        limit(3)
+      );
+      
+      const snapshot = await getDocs(listsQuery);
+      const lists: Result[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        // Filter by query string (case-insensitive)
+        if (data.title && data.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+          lists.push({
+            id: doc.id,
+            name: data.title,
+            type: 'list'
+          });
+        }
+      });
+      
+      return lists.slice(0, 3); // Limit to 3 results
+    } catch (error) {
+      console.error('Error fetching lists:', error);
+      return [];
+    }
+  };
 
   const fetchResults = async (query: string): Promise<Result[][]> => {
     setSearchStatus("Searching...")
@@ -124,6 +160,19 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       setArtistResults([]);
     }
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (listSearchQuery.length >= 2) {
+      setIsSearchingLists(true);
+      fetchListResults(listSearchQuery).then((lists) => {
+        setListResults(lists);
+        setIsSearchingLists(false);
+      });
+    } else {
+      setListResults([]);
+      setIsSearchingLists(false);
+    }
+  }, [listSearchQuery]);
 
   const handleSend = () => {
     if (newMessage.trim() && onSend && !disabled) {
@@ -266,40 +315,78 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       tempDiv.innerHTML = value;
       const plainText = tempDiv.textContent || tempDiv.innerText || '';
 
-      // Find the last @ symbol before the caret position
+      // Find the last @ symbol before the caret position for artists/albums
       const atIndex = plainText.lastIndexOf("@", caretPositionInText - 1);
+      // Find the last # symbol before the caret position for lists
+      const hashIndex = plainText.lastIndexOf("#", caretPositionInText - 1);
+      
       console.log("HTML value:", value)
       console.log("plainText:", plainText)
       console.log("caretPositionInText:", caretPositionInText)
       console.log("atIndex:", atIndex)
+      console.log("hashIndex:", hashIndex)
 
-      if (atIndex !== -1 && atIndex < caretPositionInText) {
+      // Check for @ symbol (artists/albums)
+      if (atIndex !== -1 && atIndex < caretPositionInText && (hashIndex === -1 || atIndex > hashIndex)) {
         // Extract query from @ to caret position
         const query = plainText.slice(atIndex + 1, caretPositionInText);
-        console.log("query:", query)
+        console.log("artist/album query:", query)
         setSearchQuery(query);
         setisSearching(true);
-      } else {
+        setListSearchQuery("");
+        setIsSearchingLists(false);
+      } 
+      // Check for # symbol (lists)
+      else if (hashIndex !== -1 && hashIndex < caretPositionInText && (atIndex === -1 || hashIndex > atIndex)) {
+        // Extract query from # to caret position
+        const query = plainText.slice(hashIndex + 1, caretPositionInText);
+        console.log("list query:", query)
+        setListSearchQuery(query);
+        setIsSearchingLists(true);
         setSearchQuery("");
         setisSearching(false);
+      } 
+      else {
+        setSearchQuery("");
+        setisSearching(false);
+        setListSearchQuery("");
+        setIsSearchingLists(false);
       }
     }
   };
 
   const selectResult = (result: Result, newMessage: string): void => {
-    const link = `${SERVER_URL}/app/#/${result.type}/${result.id}/show`;
+    let link: string;
+    let searchPattern: string;
+    
+    if (result.type === 'list') {
+      // For lists, link to the list detail page in the app
+      link = `${window.location.origin}/lists/${result.id}`;
+      searchPattern = "#" + listSearchQuery;
+    } else {
+      // For artists/albums, link to Navidrome
+      link = `${SERVER_URL}/app/#/${result.type}/${result.id}/show`;
+      searchPattern = "@" + searchQuery;
+    }
 
-    // Use the current search query directly
-    if (searchQuery) {
-      const searchPattern = "@" + searchQuery;
+    // Use the appropriate search query
+    const queryToUse = result.type === 'list' ? listSearchQuery : searchQuery;
+    
+    if (queryToUse) {
       const replacement = `<a href="${link}">${result.name}</a> `;
 
       // Simple string replacement in the HTML content
       const updatedMessage = newMessage.replace(searchPattern, replacement);
 
       setNewMessage(updatedMessage);
-      setisSearching(false);
-      setSearchQuery("");
+      
+      if (result.type === 'list') {
+        setIsSearchingLists(false);
+        setListSearchQuery("");
+      } else {
+        setisSearching(false);
+        setSearchQuery("");
+      }
 
       // Focus the editor and position caret after the hyperlink
       setTimeout(() => {
@@ -388,6 +475,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       </div>
 
       {isSearching && <p>{searchStatus}</p>}
+      {isSearchingLists && <p>Searching for lists...</p>}
       {artistResults.length > 0 && (
         <figure>
           <figcaption>Artists</figcaption>
@@ -413,6 +501,26 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           <figcaption>Albums</figcaption>
           <ul style={{ marginTop: "10px", listStyleType: "none", padding:0 }}>
             {albumResults.map((result, index) => (
+              <li
+                key = {index}
+                style={{
+                  padding: "5px 10px",
+                  background: "#f0f0f0",
+                  marginBottom: "1px",
+                  borderRadius: "1px",
+                }}
+                >
+                  <button onClick = {() => selectResult(result, newMessage)}>{result.name}</button>
+              </li>
+            ))}
+          </ul>
+        </figure>
+      )}
+      {listResults.length > 0 && (
+        <figure>
+          <figcaption>Lists</figcaption>
+          <ul style={{ marginTop: "10px", listStyleType: "none", padding:0 }}>
+            {listResults.map((result, index) => (
               <li
                 key = {index}
                 style={{

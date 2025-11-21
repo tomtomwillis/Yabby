@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { collection, addDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, addDoc, doc, serverTimestamp, getDoc, updateDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import Button from './basic/Button';
@@ -31,16 +31,35 @@ interface CustomListItem extends BaseListItem {
   type: 'custom';
   title: string;
   imageUrl?: string;
+  linkUrl?: string;
 }
 
 type ListItem = AlbumListItem | CustomListItem;
 
-interface CreateListProps {
-  onListCreated?: (listId: string) => void;
+interface List {
+  id: string;
+  title: string;
+  userId: string;
+  username: string;
+  timestamp: any;
+  itemCount: number;
+  items?: ListItem[];
 }
 
-const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
-  const [listTitle, setListTitle] = useState('');
+interface CreateListProps {
+  onListCreated?: (listId: string) => void;
+  editMode?: boolean;
+  existingListId?: string;
+  existingList?: List;
+}
+
+const CreateList: React.FC<CreateListProps> = ({ 
+  onListCreated, 
+  editMode = false, 
+  existingListId, 
+  existingList 
+}) => {
+  const [listTitle, setListTitle] = useState(existingList?.title || '');
   const [items, setItems] = useState<ListItem[]>([]);
   const [currentItemText, setCurrentItemText] = useState('');
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumInfo | null>(null);
@@ -50,6 +69,47 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
   // Custom item form state
   const [customTitle, setCustomTitle] = useState('');
   const [customImageUrl, setCustomImageUrl] = useState('');
+  const [customLinkUrl, setCustomLinkUrl] = useState('');
+  
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  
+  // Inline editing state
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [editingImageUrl, setEditingImageUrl] = useState('');
+  const [editingLinkUrl, setEditingLinkUrl] = useState('');
+
+  // Load existing items when in edit mode
+  useEffect(() => {
+    if (editMode && existingListId) {
+      loadExistingItems();
+    }
+  }, [editMode, existingListId]);
+
+  // Function to load existing items from Firestore
+  const loadExistingItems = async () => {
+    if (!existingListId) return;
+    
+    try {
+      const itemsQuery = query(
+        collection(db, 'lists', existingListId, 'items'),
+        orderBy('order', 'asc')
+      );
+      
+      const snapshot = await getDocs(itemsQuery);
+      const existingItems: ListItem[] = [];
+      
+      snapshot.forEach((doc) => {
+        existingItems.push({ ...doc.data(), id: doc.id } as unknown as ListItem);
+      });
+      
+      setItems(existingItems);
+    } catch (error) {
+      console.error('Error loading existing items:', error);
+    }
+  };
 
   // Environment variables for Navidrome API
   const NAVIDROME_SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
@@ -155,6 +215,7 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
       type: 'custom',
       title: customTitle.trim(),
       ...(customImageUrl.trim() && { imageUrl: customImageUrl.trim() }),
+      ...(customLinkUrl.trim() && { linkUrl: customLinkUrl.trim() }),
       userText: currentItemText,
       order: items.length
     };
@@ -162,6 +223,7 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
     setItems([...items, newCustomItem]);
     setCustomTitle('');
     setCustomImageUrl('');
+    setCustomLinkUrl('');
     setCurrentItemText('');
   };
 
@@ -174,6 +236,114 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
       order: i
     }));
     setItems(reorderedItems);
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', '');
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newItems = [...items];
+    const draggedItem = newItems[draggedIndex];
+    
+    // Remove the dragged item
+    newItems.splice(draggedIndex, 1);
+    
+    // Insert at new position
+    newItems.splice(dropIndex, 0, draggedItem);
+    
+    // Update order indices
+    const reorderedItems = newItems.map((item, index) => ({
+      ...item,
+      order: index
+    }));
+    
+    setItems(reorderedItems);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // Inline editing handlers
+  const startEditingItem = (index: number, currentText: string) => {
+    setEditingItemIndex(index);
+    setEditingText(currentText || '');
+    
+    // If it's a custom item, also set the image and link URLs for editing
+    const item = items[index];
+    if (item.type === 'custom') {
+      setEditingImageUrl(item.imageUrl || '');
+      setEditingLinkUrl(item.linkUrl || '');
+    }
+  };
+
+  const saveEditedText = () => {
+    if (editingItemIndex !== null) {
+      const updatedItems = [...items];
+      const currentItem = updatedItems[editingItemIndex];
+      
+      if (currentItem.type === 'custom') {
+        // Update text, image URL, and link URL for custom items
+        updatedItems[editingItemIndex] = {
+          ...currentItem,
+          userText: editingText.trim(),
+          imageUrl: editingImageUrl.trim() || undefined,
+          linkUrl: editingLinkUrl.trim() || undefined
+        };
+      } else {
+        // Update only text for album items
+        updatedItems[editingItemIndex] = {
+          ...currentItem,
+          userText: editingText.trim()
+        };
+      }
+      
+      setItems(updatedItems);
+    }
+    setEditingItemIndex(null);
+    setEditingText('');
+    setEditingImageUrl('');
+  };
+
+  const cancelEditing = () => {
+    setEditingItemIndex(null);
+    setEditingText('');
+    setEditingImageUrl('');
+    setEditingLinkUrl('');
+  };
+
+  const handleEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEditedText();
+    } else if (e.key === 'Escape') {
+      cancelEditing();
+    }
   };
 
   // Save list to Firestore with subcollection
@@ -196,26 +366,72 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
     setLoading(true);
 
     try {
-      // Fetch username from user profile (same pattern as MessageBoard)
-      let username = 'Anonymous';
-      try {
-        const userDocRef = doc(db, 'users', auth.currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          username = userDoc.data().username || 'Anonymous';
-        }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      }
+      if (editMode && existingListId) {
+        // Update existing list
+        await updateDoc(doc(db, 'lists', existingListId), {
+          title: listTitle.trim(),
+          itemCount: items.length
+        });
 
-      // Create main list document
-      const listDocRef = await addDoc(collection(db, 'lists'), {
-        title: listTitle.trim(),
-        userId: auth.currentUser.uid,
-        username: username,
-        timestamp: serverTimestamp(),
-        itemCount: items.length
-      });
+        // Delete all existing items
+        const existingItemsQuery = query(collection(db, 'lists', existingListId, 'items'));
+        const existingItemsSnapshot = await getDocs(existingItemsQuery);
+        
+        for (const itemDoc of existingItemsSnapshot.docs) {
+          await deleteDoc(itemDoc.ref);
+        }
+
+        // Add updated items
+        const itemsCollection = collection(db, 'lists', existingListId, 'items');
+        
+        for (const item of items) {
+          const cleanItemData: any = {
+            type: item.type,
+            userText: item.userText,
+            order: item.order,
+            timestamp: serverTimestamp()
+          };
+
+          if (item.type === 'album') {
+            cleanItemData.albumId = item.albumId;
+            cleanItemData.albumTitle = item.albumTitle;
+            cleanItemData.albumArtist = item.albumArtist;
+            cleanItemData.albumCover = item.albumCover;
+          } else if (item.type === 'custom') {
+            cleanItemData.title = item.title;
+            if (item.imageUrl && item.imageUrl.trim()) {
+              cleanItemData.imageUrl = item.imageUrl;
+            }
+            if (item.linkUrl && item.linkUrl.trim()) {
+              cleanItemData.linkUrl = item.linkUrl;
+            }
+          }
+
+          await addDoc(itemsCollection, cleanItemData);
+        }
+
+        alert('List updated successfully!');
+      } else {
+        // Fetch username from user profile (same pattern as MessageBoard)
+        let username = 'Anonymous';
+        try {
+          const userDocRef = doc(db, 'users', auth.currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            username = userDoc.data().username || 'Anonymous';
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+        }
+
+        // Create main list document
+        const listDocRef = await addDoc(collection(db, 'lists'), {
+          title: listTitle.trim(),
+          userId: auth.currentUser.uid,
+          username: username,
+          timestamp: serverTimestamp(),
+          itemCount: items.length
+        });
 
       // Add items as subcollection
       const itemsCollection = collection(listDocRef, 'items');
@@ -240,24 +456,44 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
           if (item.imageUrl && item.imageUrl.trim()) {
             cleanItemData.imageUrl = item.imageUrl;
           }
+          // Only add linkUrl if it exists and is not empty
+          if (item.linkUrl && item.linkUrl.trim()) {
+            cleanItemData.linkUrl = item.linkUrl;
+          }
         }
 
         await addDoc(itemsCollection, cleanItemData);
       }
 
-      alert('List created successfully!');
-      
-      // Reset form
-      setListTitle('');
-      setItems([]);
-      setSelectedAlbum(null);
-      setCurrentItemText('');
-      setCustomTitle('');
-      setCustomImageUrl('');
+        alert('List created successfully!');
+        
+        // Reset form
+        setListTitle('');
+        setItems([]);
+        setSelectedAlbum(null);
+        setCurrentItemText('');
+        setCustomTitle('');
+        setCustomImageUrl('');
+        setCustomLinkUrl('');
 
-      // Notify parent component
-      if (onListCreated) {
-        onListCreated(listDocRef.id);
+        // Notify parent component
+        if (onListCreated) {
+          onListCreated(listDocRef.id);
+        }
+      }
+      
+      // Reset form for edit mode
+      if (editMode) {
+        setSelectedAlbum(null);
+        setCurrentItemText('');
+        setCustomTitle('');
+        setCustomImageUrl('');
+        setCustomLinkUrl('');
+        
+        // Notify parent component (edit complete)
+        if (onListCreated) {
+          onListCreated(existingListId || '');
+        }
       }
 
     } catch (error) {
@@ -269,10 +505,7 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-      <h2 style={{ color: 'var(--colour2)', fontFamily: 'var(--font2)', marginBottom: '20px' }}>
-        Create New Album List
-      </h2>
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
 
       {/* List Title Input */}
       <div style={{ marginBottom: '20px' }}>
@@ -280,6 +513,8 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
           value={listTitle}
           onChange={setListTitle}
           placeholder="Enter list title..."
+          showSendButton={false}
+          showCounter={false}
         />
       </div>
 
@@ -364,6 +599,9 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
                     value={currentItemText}
                     onChange={setCurrentItemText}
                     placeholder="Add your thoughts about this album..."
+                    showSendButton={false}
+                    showCounter={false}
+                    rows={4}
                   />
                 </div>
                 <div style={{ marginTop: '8px' }}>
@@ -392,6 +630,8 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
               value={customTitle}
               onChange={setCustomTitle}
               placeholder="Enter title (required)"
+              showSendButton={false}
+              showCounter={false}
             />
           </div>
           
@@ -400,6 +640,18 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
               value={customImageUrl}
               onChange={setCustomImageUrl}
               placeholder="Image URL (optional)"
+              showSendButton={false}
+              showCounter={false}
+            />
+          </div>
+          
+          <div style={{ marginBottom: '12px' }}>
+            <MessageTextBox
+              value={customLinkUrl}
+              onChange={setCustomLinkUrl}
+              placeholder="Link URL (optional)"
+              showSendButton={false}
+              showCounter={false}
             />
           </div>
           
@@ -408,6 +660,9 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
               value={currentItemText}
               onChange={setCurrentItemText}
               placeholder="Add your thoughts about this item..."
+              showSendButton={false}
+              showCounter={false}
+              rows={4}
             />
           </div>
           
@@ -421,64 +676,243 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
           <h3 style={{ color: 'var(--colour2)', fontFamily: 'var(--font2)', marginBottom: '12px' }}>
             Items in List ({items.length})
           </h3>
-          {items.map((item, index) => (
-            <div 
-              key={index}
-              style={{ 
-                marginBottom: '12px', 
-                padding: '12px', 
-                backgroundColor: 'var(--colour1)', 
-                borderRadius: '8px',
-                display: 'flex',
-                gap: '12px',
-                alignItems: 'flex-start',
-                position: 'relative'
-              }}
-            >
-              <button
-                onClick={() => handleRemoveItem(index)}
-                style={{
-                  position: 'absolute',
-                  top: '8px',
-                  right: '8px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--colour4)',
-                  cursor: 'pointer',
-                  fontSize: '16px'
+          <div style={{ marginBottom: '16px', fontSize: '14px', color: 'var(--colour2)', fontStyle: 'italic' }}>
+            💡 Drag items by the handle to reorder them
+          </div>
+          {items.map((item, index) => {
+            const isDragging = draggedIndex === index;
+            const isDragOver = dragOverIndex === index;
+            
+            return (
+              <div 
+                key={index}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                style={{ 
+                  marginBottom: '12px', 
+                  padding: '12px', 
+                  backgroundColor: isDragging ? 'var(--colour3)' : 'var(--colour1)', 
+                  borderRadius: '8px',
+                  border: isDragOver ? '2px dashed var(--colour4)' : '1px solid var(--colour3)',
+                  display: 'flex',
+                  gap: '12px',
+                  alignItems: 'flex-start',
+                  position: 'relative',
+                  opacity: isDragging ? 0.5 : 1,
+                  transform: isDragOver ? 'translateY(-2px)' : 'none',
+                  transition: 'all 0.2s ease'
                 }}
-                aria-label="Remove item"
               >
-                ✕
-              </button>
-              
-              {/* Image for both album and custom items */}
-              {((item.type === 'album' && item.albumCover) || (item.type === 'custom' && item.imageUrl)) && (
-                <img 
-                  src={item.type === 'album' ? item.albumCover : item.imageUrl} 
-                  alt={item.type === 'album' ? `${item.albumTitle} by ${item.albumArtist}` : item.title}
-                  style={{ width: '50px', height: '50px', borderRadius: '4px', objectFit: 'cover' }}
-                />
-              )}
-              
-              <div style={{ flex: 1, paddingRight: '24px' }}>
-                <div style={{ fontWeight: 'bold', color: 'var(--colour4)', marginBottom: '2px' }}>
-                  {item.type === 'album' ? item.albumTitle : item.title}
+                {/* Drag handle */}
+                <div 
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragEnd={handleDragEnd}
+                  style={{
+                    color: 'var(--colour4)',
+                    fontSize: '16px',
+                    cursor: 'grab',
+                    padding: '5px',
+                    userSelect: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    minWidth: '30px'
+                  }}
+                >
+                  <span style={{ lineHeight: 1 }}>⋮⋮</span>
+                  <span style={{ fontSize: '12px', marginTop: '2px' }}>{index + 1}</span>
                 </div>
-                {item.type === 'album' && (
-                  <div style={{ color: 'var(--colour4)', opacity: 0.8, fontSize: '0.9em', marginBottom: '4px' }}>
-                    by {item.albumArtist}
-                  </div>
+
+                <button
+                  onClick={() => handleRemoveItem(index)}
+                  style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--colour4)',
+                    cursor: 'pointer',
+                    fontSize: '16px'
+                  }}
+                  aria-label="Remove item"
+                >
+                  ✕
+                </button>
+                
+                {/* Image for both album and custom items */}
+                {((item.type === 'album' && item.albumCover) || (item.type === 'custom' && item.imageUrl)) && (
+                  item.type === 'custom' && item.linkUrl ? (
+                    <a href={item.linkUrl} target="_blank" rel="noopener noreferrer">
+                      <img 
+                        src={item.imageUrl} 
+                        alt={item.title}
+                        style={{ width: '50px', height: '50px', borderRadius: '4px', objectFit: 'cover', cursor: 'pointer' }}
+                      />
+                    </a>
+                  ) : (
+                    <img 
+                      src={item.type === 'album' ? item.albumCover : item.imageUrl} 
+                      alt={item.type === 'album' ? `${item.albumTitle} by ${item.albumArtist}` : item.title}
+                      style={{ width: '50px', height: '50px', borderRadius: '4px', objectFit: 'cover' }}
+                    />
+                  )
                 )}
-                <div style={{ color: 'var(--colour4)', fontSize: '0.9em' }}>
-                  {item.userText || 'No description'}
-                </div>
-                <div style={{ color: 'var(--colour4)', opacity: 0.6, fontSize: '0.8em', marginTop: '4px' }}>
-                  {item.type === 'album' ? '🎵 Album' : '📝 Custom Item'}
+                
+                <div style={{ flex: 1, paddingRight: '24px' }}>
+                  <div style={{ fontWeight: 'bold', color: 'var(--colour4)', marginBottom: '2px' }}>
+                    {item.type === 'album' ? (
+                      item.albumTitle
+                    ) : item.linkUrl ? (
+                      <a 
+                        href={item.linkUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.textDecoration = 'underline';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.textDecoration = 'none';
+                        }}
+                      >
+                        {item.title}
+                      </a>
+                    ) : (
+                      item.title
+                    )}
+                  </div>
+                  {item.type === 'album' && (
+                    <div style={{ color: 'var(--colour4)', opacity: 0.8, fontSize: '0.9em', marginBottom: '4px' }}>
+                      by {item.albumArtist}
+                    </div>
+                  )}
+                  {editingItemIndex === index ? (
+                    <div style={{ marginBottom: '8px' }}>
+                      {/* Show image and link URL inputs for custom items */}
+                      {item.type === 'custom' && (
+                        <>
+                          <input
+                            type="text"
+                            value={editingImageUrl}
+                            onChange={(e) => setEditingImageUrl(e.target.value)}
+                            placeholder="Image URL (leave empty to remove image)"
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              marginBottom: '8px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--colour3)',
+                              backgroundColor: 'var(--colour2)',
+                              color: 'var(--colour4)',
+                              fontSize: '0.9em',
+                              fontFamily: 'inherit'
+                            }}
+                          />
+                          <input
+                            type="text"
+                            value={editingLinkUrl}
+                            onChange={(e) => setEditingLinkUrl(e.target.value)}
+                            placeholder="Link URL (leave empty to remove link)"
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              marginBottom: '8px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--colour3)',
+                              backgroundColor: 'var(--colour2)',
+                              color: 'var(--colour4)',
+                              fontSize: '0.9em',
+                              fontFamily: 'inherit'
+                            }}
+                          />
+                        </>
+                      )}
+                      <textarea
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={handleEditKeyPress}
+                        placeholder="Enter description..."
+                        autoFocus={item.type === 'album'}
+                        style={{
+                          width: '100%',
+                          minHeight: '60px',
+                          padding: '8px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--colour3)',
+                          backgroundColor: 'var(--colour2)',
+                          color: 'var(--colour4)',
+                          fontSize: '0.9em',
+                          fontFamily: 'inherit',
+                          resize: 'vertical'
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <button
+                          onClick={saveEditedText}
+                          style={{
+                            backgroundColor: 'var(--colour4)',
+                            color: 'var(--colour1)',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          style={{
+                            backgroundColor: 'var(--colour3)',
+                            color: 'var(--colour4)',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      style={{ 
+                        color: 'var(--colour4)', 
+                        fontSize: '0.9em',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        borderRadius: '4px',
+                        border: '1px solid transparent',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--colour2)';
+                        e.currentTarget.style.border = '1px solid var(--colour3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.border = '1px solid transparent';
+                      }}
+                      onClick={() => startEditingItem(index, item.userText)}
+                      title="Click to edit description"
+                    >
+                      {item.userText || 'Click to add description...'}
+                      <span style={{ marginLeft: '8px', opacity: 0.6, fontSize: '0.8em' }}>✏️</span>
+                    </div>
+                  )}
+                  <div style={{ color: 'var(--colour4)', opacity: 0.6, fontSize: '0.8em', marginTop: '4px' }}>
+                    {item.type === 'album' ? '🎵 Album' : '📝 Custom Item'}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -487,7 +921,7 @@ const CreateList: React.FC<CreateListProps> = ({ onListCreated }) => {
         <Button 
           onClick={handleSaveList}
           disabled={loading || !listTitle.trim() || items.length === 0}
-          label={loading ? 'Creating List...' : 'Save List'}
+          label={loading ? (editMode ? 'Updating List...' : 'Creating List...') : (editMode ? 'Update List' : 'Save List')}
         />
       </div>
     </div>

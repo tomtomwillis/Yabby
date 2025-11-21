@@ -25,7 +25,7 @@ function App() {
         <hr />
 
         <div className="title1">
-          <Link to="/lists">Album Lists →</Link> 
+          <Link to="/lists">Lists →</Link> 
         </div>
 
         <hr />
