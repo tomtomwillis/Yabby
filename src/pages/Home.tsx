@@ -6,6 +6,7 @@ import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
 import CarouselStickers from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
+import RadioPlayer from '../components/RadioPlayer';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -13,27 +14,30 @@ const Stats = lazy(() => import('../components/Stats'));
 function App() {
   return (
     <div className="app-container">
-        <Header title="Welcome to YabbyVille" subtitle="🏴󠁧󠁢󠁳󠁣󠁴󠁿 Yes Sir, I Can Boogie 🏴󠁧󠁢󠁳󠁣󠁴󠁿" />
+      <Header title="Welcome to YabbyVille" subtitle="🏴 Yes Sir, I Can Boogie 🏴" />
 
-        <div className="title1">
-          <Link to="/stickers">Stickers →</Link> 
-        </div>
-        <CarouselStickers />
+      <div className="title1">
+        <Link to="/stickers">Stickers →</Link>
+      </div>
+      <CarouselStickers />
 
-        <PlaceSticker />
+      <PlaceSticker />
 
-        <hr />
+      <hr />
 
-        <div className="title1">Recently Added</div>
-        <CarouselAlbums />
+      <div className="title1">Recently Added</div>
+      <CarouselAlbums />
 
-        <hr />
+      <hr />
 
-        <div className="title1">Stats</div>
-        <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
-          <Stats />
-        </Suspense>
+      <RadioPlayer />
 
+      <hr />
+
+      <div className="title1">Stats</div>
+      <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
+        <Stats />
+      </Suspense>
     </div>
   );
 }
