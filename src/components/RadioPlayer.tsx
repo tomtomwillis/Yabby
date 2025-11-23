@@ -36,7 +36,7 @@ const RadioPlayer: React.FC = () => {
       const reader = response.body.getReader();
 
       const meta = new IcecastMetadataReader({
-        metadataTypes: ["ogg"],
+        metadataTypes: ["icy"],
         onMetadata: (value: any) => {
           const title = value?.metadata?.TITLE;
           if (!title) return;
