@@ -1,7 +1,7 @@
 /* Define a base font size for the header */
 :root {
     --header-font-size: clamp(2rem, 5vw, 3.5rem); /* Responsive header size */
-    --subtitle-font-size: calc(var(--header-font-size) * 0.4); /* % of header size */
+    --subtitle-font-size: calc(var(--header-font-size) * 0.33); /* % of header size */
     --link-font-size: calc(var(--header-font-size) * 0.4); /* % of header size */
 }
 
