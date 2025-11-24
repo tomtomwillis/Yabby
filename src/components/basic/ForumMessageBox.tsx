@@ -63,7 +63,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       snapshot.forEach((doc) => {
         const data = doc.data();
         // Filter by query string (case-insensitive)
-        if (data.title && data.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+        const isPublic = data.isPublic !== false;
+        if (isPublic && data.title && data.title.toLowerCase().includes(searchTerm.toLowerCase())) {
           lists.push({
             id: doc.id,
             name: data.title,
