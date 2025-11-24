@@ -43,6 +43,7 @@ interface List {
   username: string;
   timestamp: any;
   itemCount: number;
+  isPublic?: boolean;
   items?: ListItem[];
 }
 
@@ -65,7 +66,9 @@ const CreateList: React.FC<CreateListProps> = ({
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [addMode, setAddMode] = useState<'album' | 'custom'>('album');
+  const [isPublic, setIsPublic] = useState(existingList?.isPublic ?? true);
   
+
   // Custom item form state
   const [customTitle, setCustomTitle] = useState('');
   const [customImageUrl, setCustomImageUrl] = useState('');
@@ -379,7 +382,8 @@ const CreateList: React.FC<CreateListProps> = ({
         // Update existing list
         await updateDoc(doc(db, 'lists', existingListId), {
           title: listTitle.trim(),
-          itemCount: items.length
+          itemCount: items.length,
+          isPublic: isPublic
         });
 
         // Delete all existing items
@@ -439,7 +443,8 @@ const CreateList: React.FC<CreateListProps> = ({
           userId: auth.currentUser.uid,
           username: username,
           timestamp: serverTimestamp(),
-          itemCount: items.length
+          itemCount: items.length,
+          isPublic: isPublic
         });
 
       // Add items as subcollection
@@ -897,7 +902,17 @@ const CreateList: React.FC<CreateListProps> = ({
           })}
         </div>
       )}
-
+{/* Public/Private Toggle */}
+          <div style={{ marginBottom: '20px' }}>
+             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--colour2)' }}>
+               <input
+                 type="checkbox"
+                 checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+               Make this list public
+              </label>
+          </div>
       {/* Save Button */}
       <div style={{ textAlign: 'center' }}>
         <Button 

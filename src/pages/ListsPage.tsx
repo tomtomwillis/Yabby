@@ -36,6 +36,7 @@ interface List {
   username: string;
   timestamp: any;
   itemCount: number;
+  isPublic?: boolean;
   items?: ListItem[];
 }
 
@@ -55,11 +56,21 @@ const ListsPage: React.FC = () => {
 
     const unsubscribe = onSnapshot(listsQuery, (snapshot) => {
       const listsData: List[] = [];
-      snapshot.forEach((doc) => {
-        listsData.push({
-          id: doc.id,
-          ...doc.data()
-        } as List);
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as List;
+
+        // Treat missing isPublic as public by default
+        const isOwner = auth.currentUser && data.userId === auth.currentUser.uid;
+        const isPublic = data.isPublic !== false; // <-- undefined or true => public
+
+        const visible = isOwner || isPublic;
+
+        if (visible) {
+          listsData.push({
+            ...data,
+            id: docSnap.id // ensure doc ID wins
+          });
+        }
       });
       setLists(listsData);
       setLoading(false);
@@ -225,9 +236,15 @@ const ListsPage: React.FC = () => {
                       <h3 style={{ 
                         margin: '0 0 8px 0', 
                         fontSize: '1.3em',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                       }}>
                         {list.title}
+                        {list.isPublic === false && (
+                          <span title="Private list" aria-label="Private">🔒</span>
+                        )}
                       </h3>
                       <div style={{ 
                         fontSize: '0.9em', 
