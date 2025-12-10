@@ -65,6 +65,24 @@ const Wiki: React.FC = () => {
       img.removeAttribute('style');
     });
 
+    // Fix Google Docs redirect URLs
+    const links = tempDiv.querySelectorAll('a');
+    links.forEach((link) => {
+      const href = link.getAttribute('href');
+      if (href && href.includes('google.com/url?q=')) {
+        try {
+          // Extract the actual URL from Google's redirect URL
+          const url = new URL(href);
+          const actualUrl = url.searchParams.get('q');
+          if (actualUrl) {
+            link.setAttribute('href', actualUrl);
+          }
+        } catch (e) {
+          console.error('Error parsing URL:', e);
+        }
+      }
+    });
+
     // Find all h1 elements and their content
     const h1Elements = tempDiv.querySelectorAll('h1, .c7');
     const sections: Array<{id: string, title: string, content: string}> = [];

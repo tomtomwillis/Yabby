@@ -164,8 +164,7 @@
 }
 
 /* Content within sections */
-.wiki-section-content h2,
-.wiki-section-content .c14.c12 {
+.wiki-section-content h2 {
     font-size: 1.2rem;
     font-weight: 700;
     margin-top: 1.5rem;
@@ -174,10 +173,19 @@
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--colour2);
     text-align: left;
+    display: block;
 }
 
-.wiki-section-content h2:first-child,
-.wiki-section-content .c14.c12:first-child {
+/* c4 used in h2 context */
+.wiki-section-content h2 .c4 {
+    font-size: inherit;
+    font-weight: inherit;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.wiki-section-content h2:first-child {
     margin-top: 0;
 }
 
@@ -194,11 +202,25 @@
     margin-bottom: 1rem;
     font-size: 1rem;
     line-height: 1.6;
+    display: block;
 }
 
-.wiki-section-content .c8,
+/* Empty paragraphs (line breaks) */
+.wiki-section-content p.c3,
+.wiki-section-content p:empty {
+    margin-bottom: 0.5rem;
+    min-height: 0.5rem;
+    display: block;
+}
+
 .wiki-section-content .c18 {
     margin-bottom: 1rem;
+}
+
+/* c8 is used for list containers in Google Docs */
+.wiki-section-content .c8 {
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Lists within sections */
@@ -206,11 +228,27 @@
 .wiki-section-content ol {
     margin-bottom: 1.5rem;
     padding-left: 2rem;
+    display: block;
+}
+
+/* Override Google Docs list styling to show bullets/numbers */
+.wiki-section-content ul {
+    list-style-type: disc !important;
+}
+
+.wiki-section-content ol {
+    list-style-type: decimal !important;
 }
 
 .wiki-section-content li {
     margin-bottom: 0.5rem;
     line-height: 1.5;
+    display: list-item !important;
+}
+
+/* Ensure list items show markers */
+.wiki-section-content li:before {
+    content: none !important;
 }
 
 .wiki-section-content .c2 {
@@ -231,9 +269,65 @@
 }
 
 .wiki-section-content .c6 a,
-.wiki-section-content .c3 a {
+.wiki-section-content .c2 a {
     color: var(--colour2) !important;
     text-decoration: underline !important;
+}
+
+/* Bold text styling - override Google Docs classes */
+.wiki-section-content p span.c5,
+.wiki-section-content p span.c1,
+.wiki-section-content p span.c4,
+.wiki-section-content p strong,
+.wiki-section-content p b {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    text-decoration: none !important;
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    color: inherit !important;
+}
+
+/* Google Docs uses c14 for bold text */
+.wiki-section-content p span.c14 {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    text-decoration: none !important;
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    color: inherit !important;
+}
+
+/* Ensure c22 (bold marker) doesn't add extra styling */
+.wiki-section-content p span.c22 {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    text-decoration: none !important;
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    color: inherit !important;
+}
+
+/* Bold text in list items */
+.wiki-section-content li span.c5,
+.wiki-section-content li span.c1,
+.wiki-section-content li span.c4,
+.wiki-section-content li span.c14,
+.wiki-section-content li span.c22 {
+    font-weight: 700 !important;
+    font-size: inherit !important;
+    text-decoration: none !important;
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    color: inherit !important;
 }
 
 /* Images within sections */
@@ -346,12 +440,17 @@
 .wiki-section-content span,
 .wiki-section-content .c23,
 .wiki-section-content .c9,
-.wiki-section-content .c0,
-.wiki-section-content .c6,
-.wiki-section-content .c4 {
+.wiki-section-content .c6 {
     max-width: 100% !important;
     box-sizing: border-box !important;
     display: inline !important;
+}
+
+/* c0 is used for paragraphs - ensure block display */
+.wiki-section-content .c0 {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    display: block !important;
 }
 
 /* Aggressive catch-all for any Google Docs classes */
@@ -371,6 +470,26 @@
 .wiki-section-content .c13 {
     text-decoration: line-through;
     opacity: 0.6;
+}
+
+/* Google Docs list classes - override to show proper lists */
+.wiki-section-content ul[class*="lst-"],
+.wiki-section-content ol[class*="lst-"] {
+    list-style-position: outside !important;
+    margin-left: 0 !important;
+    padding-left: 2rem !important;
+}
+
+.wiki-section-content li[class*="li-bullet"],
+.wiki-section-content li.c11 {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* Override the c11 class which Google Docs uses for list items */
+.wiki-section-content .c11 {
+    display: list-item !important;
+    margin-left: 0 !important;
 }
 
 /* Loading and error states */
@@ -452,8 +571,7 @@
         margin: 0 !important;
     }
 
-    .wiki-section-content p:has(img),
-    .wiki-section-content .c8:has(img) {
+    .wiki-section-content p:has(img) {
         margin: 0 !important;
         padding: 0 !important;
         line-height: 0 !important;
@@ -500,8 +618,7 @@
         margin: 0 !important;
     }
 
-    .wiki-section-content p:has(img),
-    .wiki-section-content .c8:has(img) {
+    .wiki-section-content p:has(img) {
         margin: 0 !important;
         padding: 0 !important;
         line-height: 0 !important;
