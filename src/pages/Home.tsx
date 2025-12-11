@@ -5,6 +5,7 @@ import '../App.css';
 import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
 import CarouselStickers from '../components/CarouselStickers';
+import CarouselLists from '../components/CarouselLists';
 import PlaceSticker from '../components/PlaceSticker';
 
 // Lazy load the Stats component for better performance
@@ -46,8 +47,9 @@ function App() {
         <hr />
 
         <div className="title1">
-          <Link to="/lists">Lists →</Link> 
+          <Link to="/lists">Lists →</Link>
         </div>
+        <CarouselLists />
 
         <hr />
 
