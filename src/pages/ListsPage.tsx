@@ -4,6 +4,7 @@ import { collection, query, onSnapshot, orderBy, getDocs, doc, deleteDoc } from 
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
+import Tips from '../components/basic/Tips';
 import CreateList from '../components/CreateList';
 import ListItem from '../components/ListItem';
 
@@ -37,6 +38,9 @@ interface List {
   timestamp: any;
   itemCount: number;
   isPublic?: boolean;
+  isCommunal?: boolean;
+  contributors?: string[];
+  contributorUsernames?: { [uid: string]: string };
   items?: ListItem[];
 }
 
@@ -192,6 +196,12 @@ const ListsPage: React.FC = () => {
             All Lists ({lists.length})
           </h2>
 
+          <Tips 
+            text="💬 Click on any list to view details and join the conversation! You can now comment on lists and react to other users' comments."
+            showOnMobile={true}
+            showOnDesktop={true}
+          />
+
           {lists.length === 0 ? (
             <div style={{ 
               textAlign: 'center', 
@@ -244,6 +254,22 @@ const ListsPage: React.FC = () => {
                         {list.title}
                         {list.isPublic === false && (
                           <span title="Private list" aria-label="Private">🔒</span>
+                        )}
+                        {list.isCommunal === true && (
+                          <span 
+                            title="Communal list - others can add items" 
+                            aria-label="Communal"
+                            style={{
+                              backgroundColor: 'var(--colour2)',
+                              color: 'var(--colour1)',
+                              fontSize: '0.7em',
+                              padding: '2px 6px',
+                              borderRadius: '8px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            👥 COMMUNAL
+                          </span>
                         )}
                       </h3>
                       <div style={{ 

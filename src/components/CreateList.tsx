@@ -17,6 +17,10 @@ interface BaseListItem {
   type: 'album' | 'custom';
   userText: string;
   order: number;
+  userId: string;
+  username: string;
+  userAvatar?: string;
+  timestamp?: any;
 }
 
 interface AlbumListItem extends BaseListItem {
@@ -44,6 +48,9 @@ interface List {
   timestamp: any;
   itemCount: number;
   isPublic?: boolean;
+  isCommunal?: boolean;
+  contributors?: string[];
+  contributorUsernames?: { [uid: string]: string };
   items?: ListItem[];
 }
 
@@ -67,6 +74,7 @@ const CreateList: React.FC<CreateListProps> = ({
   const [loading, setLoading] = useState(false);
   const [addMode, setAddMode] = useState<'album' | 'custom'>('album');
   const [isPublic, setIsPublic] = useState(existingList?.isPublic ?? true);
+  const [isCommunal, setIsCommunal] = useState(existingList?.isCommunal === true);
   
 
   // Custom item form state
@@ -199,7 +207,11 @@ const CreateList: React.FC<CreateListProps> = ({
       albumArtist: selectedAlbum.artist,
       albumCover: selectedAlbum.cover,
       userText: currentItemText,
-      order: items.length
+      order: items.length,
+      userId: auth.currentUser?.uid || '',
+      username: auth.currentUser?.displayName || 'Anonymous',
+      userAvatar: auth.currentUser?.photoURL || '',
+      timestamp: new Date()
     };
 
     setItems([...items, newAlbum]);
@@ -220,7 +232,11 @@ const CreateList: React.FC<CreateListProps> = ({
       ...(customImageUrl.trim() && { imageUrl: customImageUrl.trim() }),
       ...(customLinkUrl.trim() && { linkUrl: customLinkUrl.trim() }),
       userText: currentItemText,
-      order: items.length
+      order: items.length,
+      userId: auth.currentUser?.uid || '',
+      username: auth.currentUser?.displayName || 'Anonymous',
+      userAvatar: auth.currentUser?.photoURL || '',
+      timestamp: new Date()
     };
 
     setItems([...items, newCustomItem]);
@@ -383,7 +399,8 @@ const CreateList: React.FC<CreateListProps> = ({
         await updateDoc(doc(db, 'lists', existingListId), {
           title: listTitle.trim(),
           itemCount: items.length,
-          isPublic: isPublic
+          isPublic: isPublic,
+          isCommunal: isCommunal
         });
 
         // Delete all existing items
@@ -444,7 +461,10 @@ const CreateList: React.FC<CreateListProps> = ({
           username: username,
           timestamp: serverTimestamp(),
           itemCount: items.length,
-          isPublic: isPublic
+          isPublic: isPublic,
+          isCommunal: isCommunal,
+          contributors: isCommunal ? [auth.currentUser?.uid] : [],
+          contributorUsernames: isCommunal ? { [auth.currentUser?.uid || '']: username } : {}
         });
 
       // Add items as subcollection
@@ -911,6 +931,18 @@ const CreateList: React.FC<CreateListProps> = ({
                 onChange={(e) => setIsPublic(e.target.checked)}
               />
                Make this list public
+              </label>
+          </div>
+
+          {/* Communal Toggle */}
+          <div style={{ marginBottom: '20px' }}>
+             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--colour2)' }}>
+               <input
+                 type="checkbox"
+                 checked={isCommunal}
+                onChange={(e) => setIsCommunal(e.target.checked)}
+              />
+               👥 Allow others to add items (Communal List)
               </label>
           </div>
       {/* Save Button */}

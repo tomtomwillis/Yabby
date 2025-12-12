@@ -6,8 +6,14 @@ interface BaseListItemProps {
   userText: string;
   username: string;
   timestamp: string;
+  userId: string;
+  userAvatar?: string;
   onRemove?: () => void;
+  onEdit?: () => void;
   showRemoveButton?: boolean;
+  showEditButton?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 interface AlbumListItemProps extends BaseListItemProps {
@@ -28,7 +34,20 @@ interface CustomListItemProps extends BaseListItemProps {
 type ListItemProps = AlbumListItemProps | CustomListItemProps;
 
 const ListItem: React.FC<ListItemProps> = (props) => {
-  const { type, userText, username, timestamp, onRemove, showRemoveButton = false } = props;
+  const { 
+    type, 
+    userText, 
+    username = '', 
+    timestamp = '', 
+    userId = '',
+    userAvatar,
+    onRemove, 
+    onEdit,
+    showRemoveButton = false,
+    showEditButton = false,
+    canEdit = false,
+    canDelete = false
+  } = props;
 
   const handleItemClick = () => {
     if (type === 'album') {
@@ -132,6 +151,98 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         <div className="user-message-text">
           {userText || 'No description provided.'}
         </div>
+
+        {/* User attribution section - only show on communal lists */}
+        {(userId && username) && (
+          <div style={{
+            marginTop: '12px',
+            paddingTop: '8px',
+            borderTop: '1px solid var(--colour3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {userAvatar ? (
+                <img 
+                  src={userAvatar} 
+                  alt={username || 'User'}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    objectFit: 'cover'
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--colour4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  color: 'var(--colour1)'
+                }}>
+                  {(username || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span style={{ 
+                fontSize: '0.85em',
+                color: 'var(--colour4)',
+                opacity: 0.8
+              }}>
+                Added by {username || 'Anonymous'}
+              </span>
+            </div>
+
+            {/* Edit/Delete buttons for item owner */}
+            {(canEdit || canDelete) && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {canEdit && onEdit && (
+                  <button
+                    onClick={onEdit}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--colour3)',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '0.8em',
+                      color: 'var(--colour2)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--colour3)'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    ✏️ Edit
+                  </button>
+                )}
+                {canDelete && onRemove && (
+                  <button
+                    onClick={onRemove}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--colour3)',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '0.8em',
+                      color: 'var(--colour2)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--colour3)'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    🗑️ Delete
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
