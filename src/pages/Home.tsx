@@ -21,6 +21,8 @@ const SUBTITLES = [
   "They say Glasgow's full of speccy bams",
   "Make Hardcore Happy Again",
   "Built by community, for community",
+  "🇵🇸 Free Palestine!! 🇵🇸",
+  "Until Forever Fades Away",
 ];
 
 function App() {
