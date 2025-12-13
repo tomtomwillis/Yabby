@@ -428,15 +428,17 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   return (
     <div className="message-board-container">
-      <div style={{ 
-        marginBottom: '16px', 
-        padding: '12px',  
-        borderRadius: '8px',
-        fontSize: '14px',
-        color: 'var(--colour2)',
-        fontStyle: 'italic',
-        textAlign: 'center'
-      }}>
+      <div
+        style={{
+          marginBottom: '16px',
+          padding: '12px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          color: 'var(--colour2)',
+          fontStyle: 'italic',
+          textAlign: 'center'
+        }}
+      >
         💡 <strong>Tip:</strong> Type <code>@</code> to tag artists/albums or <code>#</code> to tag lists in your messages!
       </div>
       <ForumBox onSend={handleSendMessage} disabled={loading} />
