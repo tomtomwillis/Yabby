@@ -2,7 +2,7 @@ import React, { useEffect, useState, type ChangeEvent } from 'react';
 import './ForumMessageBox.css';
 import Editor,  {Toolbar, type ContentEditableEvent } from 'react-simple-wysiwyg';
 import Button from './Button';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 
 interface Result {
@@ -36,6 +36,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [artistResults, setArtistResults] = useState<Result[]>([]);
   const [albumResults, setAlbumResults] = useState<Result[]>([]);
   const [listResults, setListResults] = useState<Result[]>([]);
+  const [allLists, setAllLists] = useState<Result[]>([]); // Cache all lists
   const [isSearching, setisSearching] = useState(false);
   const [isSearchingLists, setIsSearchingLists] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string>("");
@@ -48,23 +49,19 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
   const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
-  const fetchListResults = async (searchTerm: string): Promise<Result[]> => {
-    try {
-      // Search lists by title (case-insensitive partial match)
-      const listsQuery = query(
-        collection(db, 'lists'),
-        orderBy('title'),
-        limit(3)
-      );
-      
-      const snapshot = await getDocs(listsQuery);
+  // Set up real-time listener for all public lists
+  useEffect(() => {
+    const listsQuery = query(
+      collection(db, 'lists'),
+      where('isPublic', '!=', false) // Get all public lists
+    );
+    
+    const unsubscribe = onSnapshot(listsQuery, (snapshot) => {
       const lists: Result[] = [];
       
       snapshot.forEach((doc) => {
         const data = doc.data();
-        // Filter by query string (case-insensitive)
-        const isPublic = data.isPublic !== false;
-        if (isPublic && data.title && data.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+        if (data.title) {
           lists.push({
             id: doc.id,
             name: data.title,
@@ -73,11 +70,30 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         }
       });
       
-      return lists.slice(0, 3); // Limit to 3 results
-    } catch (error) {
-      console.error('Error fetching lists:', error);
+      // Sort lists alphabetically by title
+      lists.sort((a, b) => a.name.localeCompare(b.name));
+      
+      setAllLists(lists);
+    }, (error) => {
+      console.error('Error listening to lists:', error);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  const fetchListResults = (searchTerm: string): Result[] => {
+    if (!searchTerm.trim()) {
       return [];
     }
+    
+    // Filter cached lists by search term (case-insensitive)
+    const filtered = allLists.filter(list => 
+      list.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    // Return top 3 results
+    return filtered.slice(0, 3);
   };
 
   const fetchResults = async (query: string): Promise<Result[][]> => {
@@ -165,15 +181,15 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   useEffect(() => {
     if (listSearchQuery.length >= 2) {
       setIsSearchingLists(true);
-      fetchListResults(listSearchQuery).then((lists) => {
-        setListResults(lists);
-        setIsSearchingLists(false);
-      });
+      // Use the synchronous filter function instead of async fetch
+      const results = fetchListResults(listSearchQuery);
+      setListResults(results);
+      setIsSearchingLists(false);
     } else {
       setListResults([]);
       setIsSearchingLists(false);
     }
-  }, [listSearchQuery]);
+  }, [listSearchQuery, allLists]); // Add allLists as dependency
 
   const handleSend = () => {
     if (newMessage.trim() && onSend && !disabled) {
@@ -272,6 +288,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       setNewMessage('');
       setSearchQuery('');
       setisSearching(false);
+      setListSearchQuery('');
+      setIsSearchingLists(false);
       return;
     }
 
