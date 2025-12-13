@@ -57,34 +57,55 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [loadingMore, setLoadingMore] = useState(false);
   
   // Cache for user profiles to avoid redundant fetches
-  const userCacheRef = useRef<Map<string, { username: string; avatar: string }>>(new Map());
+  // Cache expires after 5 minutes to allow profile updates to show
+  const userCacheRef = useRef<Map<string, { 
+    username: string; 
+    avatar: string; 
+    timestamp: number 
+  }>>(new Map());
+  
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-  // Helper function to get user data (with caching)
+  // Helper function to get user data (with caching and expiration)
   const getUserData = async (userId: string): Promise<{ username: string; avatar: string }> => {
-    // Check cache first
-    if (userCacheRef.current.has(userId)) {
-      return userCacheRef.current.get(userId)!;
+    const now = Date.now();
+    const cached = userCacheRef.current.get(userId);
+    
+    // Check if cache exists and is still fresh (less than 5 minutes old)
+    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+      return { username: cached.username, avatar: cached.avatar };
     }
 
-    // Fetch from Firestore if not cached
+    // Fetch from Firestore if not cached or cache expired
     try {
       const userDocRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userDocRef);
       let userData: { username: string; avatar: string };
       
       if (userDoc.exists()) {
-        userData = userDoc.data() as { username: string; avatar: string };
+        const data = userDoc.data();
+        userData = {
+          username: data.username || 'Anonymous',
+          avatar: data.avatar || ''
+        };
       } else {
         userData = { username: 'Anonymous', avatar: '' };
       }
       
-      // Cache the result
-      userCacheRef.current.set(userId, userData);
+      // Cache the result with current timestamp
+      userCacheRef.current.set(userId, {
+        ...userData,
+        timestamp: now
+      });
+      
       return userData;
     } catch (error) {
       console.error('Error fetching user profile:', error);
       const fallback = { username: 'Anonymous', avatar: '' };
-      userCacheRef.current.set(userId, fallback);
+      userCacheRef.current.set(userId, {
+        ...fallback,
+        timestamp: now
+      });
       return fallback;
     }
   };
@@ -120,18 +141,17 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         const messagePromises = snapshot.docs.map(async (docSnapshot) => {
           const messageData = docSnapshot.data();
           
-          // Use username and avatar already stored in the message document
-          // No need to fetch user profile separately - this saves database reads!
-          const username = messageData.username || 'Anonymous';
-          const avatar = messageData.avatar || '';
+          // Fetch CURRENT user profile data (with caching)
+          // This ensures we always show the latest username/avatar
+          const userData = await getUserData(messageData.userId);
 
           return {
             id: docSnapshot.id,
             text: messageData.text,
             userId: messageData.userId,
             timestamp: messageData.timestamp,
-            username: username,
-            avatar: avatar,
+            username: userData.username,
+            avatar: userData.avatar,
             reactions: [] as Reaction[],
             reactionCount: 0,
             currentUserReacted: false,
@@ -180,17 +200,16 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
               const replyPromises = repliesSnapshot.docs.map(async (replyDoc) => {
                 const replyData = replyDoc.data();
                 
-                // Use username and avatar already stored in the reply document
-                const replyUsername = replyData.username || 'Anonymous';
-                const replyAvatar = replyData.avatar || '';
+                // Fetch CURRENT user profile data for reply authors
+                const userData = await getUserData(replyData.userId);
 
                 return {
                   id: replyDoc.id,
                   text: replyData.text,
                   userId: replyData.userId,
                   timestamp: replyData.timestamp,
-                  username: replyUsername,
-                  avatar: replyAvatar,
+                  username: userData.username,
+                  avatar: userData.avatar,
                   reactions: [] as Reaction[],
                   reactionCount: 0,
                   currentUserReacted: false,
@@ -291,17 +310,16 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       const newMessagePromises = snapshot.docs.map(async (docSnapshot) => {
         const messageData = docSnapshot.data();
         
-        // Use username and avatar already stored in the message document
-        const username = messageData.username || 'Anonymous';
-        const avatar = messageData.avatar || '';
+        // Fetch CURRENT user profile data
+        const userData = await getUserData(messageData.userId);
 
         return {
           id: docSnapshot.id,
           text: messageData.text,
           userId: messageData.userId,
           timestamp: messageData.timestamp,
-          username: username,
-          avatar: avatar,
+          username: userData.username,
+          avatar: userData.avatar,
           reactions: [] as Reaction[],
           reactionCount: 0,
           currentUserReacted: false,
@@ -348,17 +366,16 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             const replyPromises = repliesSnapshot.docs.map(async (replyDoc) => {
               const replyData = replyDoc.data();
               
-              // Use username and avatar already stored in the reply document
-              const replyUsername = replyData.username || 'Anonymous';
-              const replyAvatar = replyData.avatar || '';
+              // Fetch CURRENT user profile data for replies
+              const userData = await getUserData(replyData.userId);
 
               return {
                 id: replyDoc.id,
                 text: replyData.text,
                 userId: replyData.userId,
                 timestamp: replyData.timestamp,
-                username: replyUsername,
-                avatar: replyAvatar,
+                username: userData.username,
+                avatar: userData.avatar,
                 reactions: [] as Reaction[],
                 reactionCount: 0,
                 currentUserReacted: false,
