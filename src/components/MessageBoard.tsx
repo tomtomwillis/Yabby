@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
+import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import UserMessage from './basic/UserMessages';
 import './MessageBoard.css';
 import ForumBox from './basic/ForumMessageBox';
+import Button from './basic/Button';
 
 interface Reaction {
   userId: string;
@@ -42,48 +44,94 @@ interface MessageBoardProps {
   enableReplies?: boolean;
 }
 
+const MESSAGES_PER_PAGE = 20;
+
 const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, enableReplies = false }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [activeReplyInput, setActiveReplyInput] = useState<string | null>(null);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  // Cache for user profiles to avoid redundant fetches
+  const userCacheRef = useRef<Map<string, { username: string; avatar: string }>>(new Map());
+
+  // Helper function to get user data (with caching)
+  const getUserData = async (userId: string): Promise<{ username: string; avatar: string }> => {
+    // Check cache first
+    if (userCacheRef.current.has(userId)) {
+      return userCacheRef.current.get(userId)!;
+    }
+
+    // Fetch from Firestore if not cached
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      let userData: { username: string; avatar: string };
+      
+      if (userDoc.exists()) {
+        userData = userDoc.data() as { username: string; avatar: string };
+      } else {
+        userData = { username: 'Anonymous', avatar: '' };
+      }
+      
+      // Cache the result
+      userCacheRef.current.set(userId, userData);
+      return userData;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      const fallback = { username: 'Anonymous', avatar: '' };
+      userCacheRef.current.set(userId, fallback);
+      return fallback;
+    }
+  };
 
   useEffect(() => {
-    const q = query(collection(db, 'messages'), orderBy('timestamp', 'desc'));
+    loadInitialMessages();
+    
+    // Cleanup function
+    return () => {
+      // Clean up listeners if needed
+    };
+  }, [enableReactions, enableReplies]);
+
+  const loadInitialMessages = async () => {
+    const q = query(
+      collection(db, 'messages'), 
+      orderBy('timestamp', 'desc'),
+      limit(MESSAGES_PER_PAGE)
+    );
+    
     const unsubscribeMessages = onSnapshot(q, async (snapshot) => {
       try {
-        const userCache = new Map<string, { username: string; avatar: string }>();
         const reactionUnsubscribers: (() => void)[] = [];
+
+        // Store last document for pagination
+        if (snapshot.docs.length > 0) {
+          setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+          setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
+        } else {
+          setHasMore(false);
+        }
 
         const messagePromises = snapshot.docs.map(async (docSnapshot) => {
           const messageData = docSnapshot.data();
-          const userId = messageData.userId;
-
-          let userData = userCache.get(userId);
-          if (!userData) {
-            try {
-              const userDocRef = doc(db, 'users', userId);
-              const userDoc = await getDoc(userDocRef);
-              if (userDoc.exists()) {
-                userData = userDoc.data() as { username: string; avatar: string };
-              } else {
-                userData = { username: 'Anonymous', avatar: '' };
-              }
-              userCache.set(userId, userData);
-            } catch (error) {
-              console.error('Error fetching user profile:', error);
-              userData = { username: 'Anonymous', avatar: '' };
-            }
-          }
+          
+          // Use username and avatar already stored in the message document
+          // No need to fetch user profile separately - this saves database reads!
+          const username = messageData.username || 'Anonymous';
+          const avatar = messageData.avatar || '';
 
           return {
             id: docSnapshot.id,
             text: messageData.text,
-            userId,
+            userId: messageData.userId,
             timestamp: messageData.timestamp,
-            username: userData.username,
-            avatar: userData.avatar,
+            username: username,
+            avatar: avatar,
             reactions: [] as Reaction[],
             reactionCount: 0,
             currentUserReacted: false,
@@ -131,32 +179,18 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
               const replyPromises = repliesSnapshot.docs.map(async (replyDoc) => {
                 const replyData = replyDoc.data();
-                const replyUserId = replyData.userId;
-
-                let replyUserData = userCache.get(replyUserId);
-                if (!replyUserData) {
-                  try {
-                    const userDocRef = doc(db, 'users', replyUserId);
-                    const userDoc = await getDoc(userDocRef);
-                    if (userDoc.exists()) {
-                      replyUserData = userDoc.data() as { username: string; avatar: string };
-                    } else {
-                      replyUserData = { username: 'Anonymous', avatar: '' };
-                    }
-                    userCache.set(replyUserId, replyUserData);
-                  } catch (error) {
-                    console.error('Error fetching user profile for reply:', error);
-                    replyUserData = { username: 'Anonymous', avatar: '' };
-                  }
-                }
+                
+                // Use username and avatar already stored in the reply document
+                const replyUsername = replyData.username || 'Anonymous';
+                const replyAvatar = replyData.avatar || '';
 
                 return {
                   id: replyDoc.id,
                   text: replyData.text,
-                  userId: replyUserId,
+                  userId: replyData.userId,
                   timestamp: replyData.timestamp,
-                  username: replyUserData.username,
-                  avatar: replyUserData.avatar,
+                  username: replyUsername,
+                  avatar: replyAvatar,
                   reactions: [] as Reaction[],
                   reactionCount: 0,
                   currentUserReacted: false,
@@ -225,7 +259,169 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     return () => {
       unsubscribeMessages();
     };
-  }, [enableReactions, enableReplies]);
+  };
+
+  const loadMoreMessages = async () => {
+    if (!lastDoc || !hasMore || loadingMore) return;
+
+    setLoadingMore(true);
+
+    try {
+      const q = query(
+        collection(db, 'messages'),
+        orderBy('timestamp', 'desc'),
+        startAfter(lastDoc),
+        limit(MESSAGES_PER_PAGE)
+      );
+
+      const snapshot = await getDocs(q);
+
+      if (snapshot.docs.length === 0) {
+        setHasMore(false);
+        setLoadingMore(false);
+        return;
+      }
+
+      // Update last document
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
+
+      const reactionUnsubscribers: (() => void)[] = [];
+
+      const newMessagePromises = snapshot.docs.map(async (docSnapshot) => {
+        const messageData = docSnapshot.data();
+        
+        // Use username and avatar already stored in the message document
+        const username = messageData.username || 'Anonymous';
+        const avatar = messageData.avatar || '';
+
+        return {
+          id: docSnapshot.id,
+          text: messageData.text,
+          userId: messageData.userId,
+          timestamp: messageData.timestamp,
+          username: username,
+          avatar: avatar,
+          reactions: [] as Reaction[],
+          reactionCount: 0,
+          currentUserReacted: false,
+          replies: [] as Reply[],
+          replyCount: 0,
+        };
+      });
+
+      const newMessages = await Promise.all(newMessagePromises);
+
+      // Set up listeners for the new messages
+      if (enableReactions) {
+        snapshot.docs.forEach((docSnapshot) => {
+          const messageId = docSnapshot.id;
+          const reactionsCollectionRef = collection(db, 'messages', messageId, 'reactions');
+
+          const unsubscribeReactions = onSnapshot(reactionsCollectionRef, (reactionsSnapshot) => {
+            const reactions = reactionsSnapshot.docs.map((reactionDoc) => reactionDoc.data() as Reaction);
+            const reactionCount = reactions.length;
+            const currentUserReacted = reactions.some(r => r.userId === auth.currentUser?.uid);
+
+            setMessages((prevMessages) =>
+              prevMessages.map((msg) =>
+                msg.id === messageId
+                  ? { ...msg, reactions, reactionCount, currentUserReacted }
+                  : msg
+              )
+            );
+          });
+
+          reactionUnsubscribers.push(unsubscribeReactions);
+        });
+      }
+
+      if (enableReplies) {
+        snapshot.docs.forEach((docSnapshot) => {
+          const messageId = docSnapshot.id;
+          const repliesCollectionRef = collection(db, 'messages', messageId, 'replies');
+          const repliesQuery = query(repliesCollectionRef, orderBy('timestamp', 'asc'));
+
+          const unsubscribeReplies = onSnapshot(repliesQuery, async (repliesSnapshot) => {
+            const replyReactionUnsubscribers: (() => void)[] = [];
+
+            const replyPromises = repliesSnapshot.docs.map(async (replyDoc) => {
+              const replyData = replyDoc.data();
+              
+              // Use username and avatar already stored in the reply document
+              const replyUsername = replyData.username || 'Anonymous';
+              const replyAvatar = replyData.avatar || '';
+
+              return {
+                id: replyDoc.id,
+                text: replyData.text,
+                userId: replyData.userId,
+                timestamp: replyData.timestamp,
+                username: replyUsername,
+                avatar: replyAvatar,
+                reactions: [] as Reaction[],
+                reactionCount: 0,
+                currentUserReacted: false,
+              };
+            });
+
+            const replies = await Promise.all(replyPromises);
+            const replyCount = replies.length;
+
+            setMessages((prevMessages) =>
+              prevMessages.map((msg) =>
+                msg.id === messageId
+                  ? { ...msg, replies, replyCount }
+                  : msg
+              )
+            );
+
+            if (enableReactions) {
+              repliesSnapshot.docs.forEach((replyDoc) => {
+                const replyId = replyDoc.id;
+                const replyReactionsCollectionRef = collection(db, 'messages', messageId, 'replies', replyId, 'reactions');
+
+                const unsubscribeReplyReactions = onSnapshot(replyReactionsCollectionRef, (replyReactionsSnapshot) => {
+                  const replyReactions = replyReactionsSnapshot.docs.map((reactionDoc) => reactionDoc.data() as Reaction);
+                  const replyReactionCount = replyReactions.length;
+                  const currentUserReactedToReply = replyReactions.some(r => r.userId === auth.currentUser?.uid);
+
+                  setMessages((prevMessages) =>
+                    prevMessages.map((msg) =>
+                      msg.id === messageId
+                        ? {
+                            ...msg,
+                            replies: msg.replies?.map((reply) =>
+                              reply.id === replyId
+                                ? { ...reply, reactions: replyReactions, reactionCount: replyReactionCount, currentUserReacted: currentUserReactedToReply }
+                                : reply
+                            ),
+                          }
+                        : msg
+                    )
+                  );
+                });
+
+                replyReactionUnsubscribers.push(unsubscribeReplyReactions);
+              });
+            }
+
+            reactionUnsubscribers.push(...replyReactionUnsubscribers);
+          });
+
+          reactionUnsubscribers.push(unsubscribeReplies);
+        });
+      }
+
+      // Append new messages to existing ones
+      setMessages((prev) => [...prev, ...newMessages]);
+
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -236,28 +432,15 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
     setLoading(true);
     try {
-      // Fetch username and avatar from Firestore users collection
-      let username = 'Anonymous';
-      let avatar = '';
-
-      try {
-        const userDocRef = doc(db, 'users', auth.currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          username = userData.username || 'Anonymous';
-          avatar = userData.avatar || '';
-        }
-      } catch (error) {
-        console.error('Error fetching user profile for message:', error);
-      }
+      // Fetch username and avatar from cache or Firestore
+      const userData = await getUserData(auth.currentUser.uid);
 
       await addDoc(collection(db, 'messages'), {
         text: text,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
-        username: username,
-        avatar: avatar,
+        username: userData.username,
+        avatar: userData.avatar,
       });
       setNewMessage('');
     } catch (error) {
@@ -299,22 +482,13 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         // Remove reaction
         await deleteDoc(reactionDocRef);
       } else {
-        // Fetch username from Firestore users collection
-        let username = 'Anonymous';
-        try {
-          const userDocRef = doc(db, 'users', auth.currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            username = userDoc.data().username || 'Anonymous';
-          }
-        } catch (error) {
-          console.error('Error fetching user profile for reaction:', error);
-        }
+        // Fetch username from cache
+        const userData = await getUserData(auth.currentUser.uid);
 
         // Add reaction
         await setDoc(reactionDocRef, {
           userId: auth.currentUser.uid,
-          username: username,
+          username: userData.username,
           timestamp: serverTimestamp(),
         });
       }
@@ -354,28 +528,15 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
 
     try {
-      // Fetch username and avatar from Firestore users collection
-      let username = 'Anonymous';
-      let avatar = '';
-
-      try {
-        const userDocRef = doc(db, 'users', auth.currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          username = userData.username || 'Anonymous';
-          avatar = userData.avatar || '';
-        }
-      } catch (error) {
-        console.error('Error fetching user profile for reply:', error);
-      }
+      // Fetch username and avatar from cache
+      const userData = await getUserData(auth.currentUser.uid);
 
       await addDoc(collection(db, 'messages', messageId, 'replies'), {
         text: text,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
-        username: username,
-        avatar: avatar,
+        username: userData.username,
+        avatar: userData.avatar,
       });
 
       // Close reply input after sending
@@ -401,22 +562,13 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         // Remove reaction
         await deleteDoc(reactionDocRef);
       } else {
-        // Fetch username from Firestore users collection
-        let username = 'Anonymous';
-        try {
-          const userDocRef = doc(db, 'users', auth.currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            username = userDoc.data().username || 'Anonymous';
-          }
-        } catch (error) {
-          console.error('Error fetching user profile for reaction:', error);
-        }
+        // Fetch username from cache
+        const userData = await getUserData(auth.currentUser.uid);
 
         // Add reaction
         await setDoc(reactionDocRef, {
           userId: auth.currentUser.uid,
-          username: username,
+          username: userData.username,
           timestamp: serverTimestamp(),
         });
       }
@@ -428,17 +580,15 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   return (
     <div className="message-board-container">
-      <div
-        style={{
-          marginBottom: '16px',
-          padding: '12px',
-          borderRadius: '8px',
-          fontSize: '14px',
-          color: 'var(--colour2)',
-          fontStyle: 'italic',
-          textAlign: 'center'
-        }}
-      >
+      <div style={{ 
+        marginBottom: '16px', 
+        padding: '12px',  
+        borderRadius: '8px',
+        fontSize: '14px',
+        color: 'var(--colour2)',
+        fontStyle: 'italic',
+        textAlign: 'center'
+      }}>
         💡 <strong>Tip:</strong> Type <code>@</code> to tag artists/albums or <code>#</code> to tag lists in your messages!
       </div>
       <ForumBox onSend={handleSendMessage} disabled={loading} />
@@ -449,9 +599,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             username={message.username || 'Anonymous'}
             message={message.text}
             timestamp={formatTimestamp(message.timestamp)}
-            userSticker={message.avatar || 'default-avatar.png'} // Using avatar as userSticker
-            onClose={() => {}} // Empty function since we don't want close functionality for message board
-            hideCloseButton={true} // Hide the close button for message board messages
+            userSticker={message.avatar || 'default-avatar.png'}
+            onClose={() => {}}
+            hideCloseButton={true}
             reactions={enableReactions ? message.reactions : undefined}
             reactionCount={enableReactions ? message.reactionCount : undefined}
             currentUserReacted={enableReactions ? message.currentUserReacted : undefined}
@@ -467,6 +617,34 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           />
         ))}
       </div>
+      
+      {/* Load More Button */}
+      {hasMore && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          marginTop: '20px',
+          marginBottom: '20px'
+        }}>
+          <Button
+            type="basic"
+            label={loadingMore ? 'Loading...' : 'Load More Messages'}
+            onClick={loadMoreMessages}
+            disabled={loadingMore}
+          />
+        </div>
+      )}
+      
+      {!hasMore && messages.length > 0 && (
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          color: 'var(--colour4)',
+          fontStyle: 'italic'
+        }}>
+          No more messages to load
+        </div>
+      )}
     </div>
   );
 };
