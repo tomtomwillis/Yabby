@@ -1,4 +1,3 @@
-// Login.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import {
@@ -9,7 +8,6 @@ import { auth } from '../firebaseConfig';
 import BackgroundStar from '../components/basic/Star';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Button from '../components/basic/Button';
-// import TextBox from '../components/basic/MessageTextBox';   // <-- removed
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -109,7 +107,6 @@ const Login = () => {
       <h2 className="header">Login</h2>
 
       <form onSubmit={handleSubmit} className="login-form">
-        {/* ----------- Email field – now a native input ------------- */}
         <div className="form-group" style={{ marginBottom: '20px' }}>
           <div className="textbox-container">
             <div className="input-area">
@@ -127,7 +124,6 @@ const Login = () => {
               />
             </div>
           </div>
-        {/* ----------- Password field (unchanged) ------------- */}
         <div className="form-group" style={{ marginBottom: '20px' }}>
           <div className="textbox-container">
             <div className="input-area">
