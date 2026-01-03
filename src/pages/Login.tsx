@@ -5,6 +5,7 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
+import { useRateLimit } from '../utils/useRateLimit.ts';
 import BackgroundStar from '../components/basic/Star';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Button from '../components/basic/Button';
@@ -23,6 +24,12 @@ const Login = () => {
   const [passwordResetMessage, setPasswordResetMessage] = useState('');
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
 
+  // Rate limiting: 5 attempts per 15 minutes
+  const { checkRateLimit, getRemainingAttempts, reset } = useRateLimit({
+    maxAttempts: 5,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+  });
+  
   useEffect(() => {
     if (auth.currentUser) {
       navigate('/');
@@ -33,6 +40,15 @@ const Login = () => {
     e: React.FormEvent<HTMLFormElement>
   ) => {
     e.preventDefault();
+
+    // Check rate limit BEFORE attempting login
+    if (!checkRateLimit()) {
+      const remaining = getRemainingAttempts();
+      setError(
+        `Too many login attempts. Please wait 15 minutes before trying again. `
+      );
+      return;
+    }
     console.log('Login form submitted');
     console.log('Email:', email, 'Password:', password);
 
@@ -49,13 +65,29 @@ const Login = () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log('User logged in successfully');
+      reset();
       navigate('/');
     } catch (error) {
       console.error('Login failed:', error);
+      
+      // Show remaining attempts in error message
+      const remaining = getRemainingAttempts();
+      
       if (error instanceof Error) {
-        setError(error.message);
+        // Customize error messages to be more user-friendly
+        let errorMessage = 'Login failed. ';
+        
+        if (error.message.includes('wrong-password') || error.message.includes('user-not-found')) {
+          errorMessage += 'Invalid email or password. ';
+        } else if (error.message.includes('too-many-requests')) {
+          errorMessage += 'Too many failed attempts. Your account has been temporarily locked. ';
+        } else {
+          errorMessage += 'Please try again. ';
+        }
+
+        setError(errorMessage);
       } else {
-        setError('An unknown error occurred');
+        setError('An unknown error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
