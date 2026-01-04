@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { sanitizeHtml } from '../utils/sanitise'; 
 import UserMessage from './basic/UserMessages';
 import './MessageBoard.css';
 import ForumBox from './basic/ForumMessageBox';
@@ -441,39 +442,50 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!text.trim()) return;
-    if (!auth.currentUser) {
-      alert('You must be logged in to send messages.');
+  if (!text.trim()) return;
+  if (!auth.currentUser) {
+    alert('You must be logged in to send messages.');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    // Sanitize the message BEFORE saving to database
+    const sanitizedText = sanitizeHtml(text.trim());
+    
+    // Check if sanitization removed everything (was all malicious code)
+    if (!sanitizedText.trim()) {
+      alert('Your message contains invalid content. Please try again.');
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    try {
-      // Fetch username and avatar from cache or Firestore
-      const userData = await getUserData(auth.currentUser.uid);
+    // Fetch username and avatar from cache or Firestore
+    const userData = await getUserData(auth.currentUser.uid);
 
-      await addDoc(collection(db, 'messages'), {
-        text: text,
-        userId: auth.currentUser.uid,
-        timestamp: serverTimestamp(),
-        username: userData.username,
-        avatar: userData.avatar,
-      });
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    await addDoc(collection(db, 'messages'), {
+      text: sanitizedText, 
+      userId: auth.currentUser.uid,
+      timestamp: serverTimestamp(),
+      username: userData.username,
+      avatar: userData.avatar,
+    });
+    
+    setNewMessage('');
+  } catch (error) {
+    console.error('Error sending message:', error);
+    alert('Failed to send message. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleInputChange = (value: string) => {
+  function handleInputChange(value: string) {
     const wordCount = value.trim().split(/\s+/).length;
     if (wordCount <= 250) {
       setNewMessage(value);
     }
-  };
+  }
 
   const formatTimestamp = (timestamp: any): string => {
     if (!timestamp) return '';
@@ -545,6 +557,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
 
     try {
+      const sanitizedText = sanitizeHtml(text.trim());
+    
+    if (!sanitizedText.trim()) {
+      alert('Your reply contains invalid content. Please try again.');
+      return;
+    }
       // Fetch username and avatar from cache
       const userData = await getUserData(auth.currentUser.uid);
 
@@ -555,7 +573,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         username: userData.username,
         avatar: userData.avatar,
       });
-
+      
       // Close reply input after sending
       setActiveReplyInput(null);
     } catch (error) {

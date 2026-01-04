@@ -4,6 +4,7 @@ import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
 import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
+import { sanitizeHtml } from '../../utils/sanitise';
 
 interface Reaction {
   userId: string;
@@ -83,6 +84,7 @@ const isValidUrl = (url: string): boolean => {
 
 // Utility function to sanitize and parse HTML content safely
 const parseMessageHTML = (htmlString: string): React.ReactNode => {
+  const sanitized = sanitizeHtml(htmlString);
   // HTML parser options with security measures
   const options: HTMLReactParserOptions = {
     replace: (domNode) => {
@@ -111,7 +113,7 @@ const parseMessageHTML = (htmlString: string): React.ReactNode => {
             </a>
           );
         }
-
+        
         // For any other HTML tags, render as plain text
         return <span>{domToReact(children as DOMNode[], options)}</span>;
       }
@@ -120,12 +122,13 @@ const parseMessageHTML = (htmlString: string): React.ReactNode => {
       return undefined;
     }
   };
+  
 
   try {
-    return parse(htmlString, options);
+    return parse(sanitized, options); // Parse the sanitized HTML
   } catch (error) {
     console.warn('Failed to parse HTML content, falling back to plain text:', error);
-    return htmlString;
+    return sanitized; // Return sanitized text as fallback
   }
 };
 
