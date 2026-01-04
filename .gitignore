@@ -12,7 +12,7 @@ node_modules
 dist
 dist-ssr
 *.local
-/dev-dist
+dev-dist/*
 
 # Environment files
 .env
