@@ -239,7 +239,18 @@ const UserMessage: React.FC<UserMessageProps> = ({
         <div className="user-message-username">{username}</div>
         <div className="user-message-timestamp">{timestamp}</div>
         <div className="user-message-separator"></div>
-        <div className="user-message-text">{parseMessageHTML(message)}</div>
+        <div
+        className="user-message-text"
+        style={{
+          whiteSpace: 'pre-wrap',
+          hyphens: 'none',
+          wordBreak: 'normal',
+          overflowWrap: 'normal'
+        }}
+        >
+        {parseMessageHTML(message)}
+        </div>
+
 
         {/* Reply count indicator - only show for non-reply messages with replies */}
         {!isReply && enableReplies && replyCount !== undefined && replyCount > 0 && (
