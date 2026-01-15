@@ -30,3 +30,4 @@ dist-ssr
 
 # Ignore public/wiki folder
 public/wiki/
+dev-dist/sw.js
