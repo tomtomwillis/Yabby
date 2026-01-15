@@ -1,22 +1,30 @@
 import React, { useEffect, useRef, useState } from "react";
-import { IcecastMetadataReader } from "icecast-metadata-js";
 import "./RadioPlayer.css";
 
-const STREAM_URL = "https://radio.yabbyville.xyz/"; // Caddy proxies / → /live
+const STREAM_URL = "https://radio.yabbyville.xyz/live";
+const STATUS_URL = "https://radio.yabbyville.xyz/status-json.xsl";
+
+interface StreamMetadata {
+  artist: string;
+  track: string;
+}
+
+const DEFAULT_METADATA: StreamMetadata = {
+  artist: "YabbyVille Radio",
+  track: "",
+};
 
 const RadioPlayer: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [metadata, setMetadata] = useState({
-    artist: "YabbyVille Radio",
-    track: "",
-  });
+  const [metadata, setMetadata] = useState<StreamMetadata>(DEFAULT_METADATA);
   const [volume, setVolume] = useState(0.7);
   const [isMuted, setIsMuted] = useState(false);
 
   //
-  // Sync volume + mute with the audio element
+  // Sync volume + mute
   //
   useEffect(() => {
     if (audioRef.current) {
@@ -25,71 +33,51 @@ const RadioPlayer: React.FC = () => {
   }, [volume, isMuted]);
 
   //
-  // Metadata reader setup for MP3 ICY metadata
+  // Fetch metadata via Icecast status JSON
   //
-  useEffect(() => {
-    const controller = new AbortController();
+  const fetchMetadata = async () => {
+    try {
+      const res = await fetch(STATUS_URL, { cache: "no-store" });
+      if (!res.ok) return;
 
-    async function start() {
-      try {
-        // Request stream with metadata enabled
-        const response = await fetch(STREAM_URL, {
-          headers: { "Icy-MetaData": "1" },
-          signal: controller.signal,
+      const data = await res.json();
+
+      const source = data?.icestats?.source;
+      const title =
+        Array.isArray(source)
+          ? source[0]?.title
+          : source?.title;
+
+      if (typeof title === "string" && title.trim() !== "") {
+        setMetadata({
+          artist: "YabbyVille Radio",
+          track: title.trim(),
         });
-
-        if (!response.body) {
-          console.warn("No response body from stream");
-          return;
-        }
-
-        const reader = response.body.getReader();
-
-        // ICY metadata parser
-        const metadataReader = new IcecastMetadataReader({
-  metadataTypes: ["icy"],
-  onMetadata: (meta: any) => {
-    console.log("RAW META:", meta);
-
-    let title: string | null = null;
-
-    if (meta.StreamTitle) {
-      // ICY MP3 metadata
-      title = meta.StreamTitle.replace(/'/g, "").trim();
-    } else if (meta.ARTIST || meta.TITLE) {
-      // Ogg-style metadata
-      title = `${meta.ARTIST || ""} - ${meta.TITLE || ""}`.trim();
+      }
+    } catch (err) {
+      // Network or transient Icecast failure — ignore quietly
+      console.debug("Metadata poll skipped:", err);
     }
+  };
 
-    if (!title) return;
-
-    const parts = title.split(" - ");
-
-    setMetadata({
-      artist: parts[0] || "YabbyVille Radio",
-      track: parts.slice(1).join(" - ") || "",
-    });
-  },
-});
-
-        // Read stream chunks
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          await metadataReader.asyncReadAll(value);
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          console.error("Metadata error:", err);
-        }
+  useEffect(() => {
+    if (isPlaying) {
+      fetchMetadata();
+      pollTimerRef.current = window.setInterval(fetchMetadata, 30_000);
+    } else {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
       }
     }
 
-    start();
-
-    return () => controller.abort();
-  }, []);
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [isPlaying]);
 
   //
   // Play / Pause
@@ -110,23 +98,37 @@ const RadioPlayer: React.FC = () => {
 
   return (
     <div className="radio-player-container">
-      {/* Audio element */}
-      <audio ref={audioRef} src={STREAM_URL} />
+      <audio ref={audioRef} src={STREAM_URL} preload="none" />
 
-      {/* Metadata */}
       <div className="metadata">
-        <strong>{metadata.artist}</strong>
-        {metadata.track && <div>{metadata.track}</div>}
+        <div className="station-left">
+          <strong className="station-title">YabbyVille Radio</strong>
+        </div>
+
+        <div className="station-right">
+          {metadata.track ? (
+            <div className="now-playing">
+              Now Playing:{" "}
+              <span className="now-playing-track">
+                {metadata.track}
+              </span>
+            </div>
+          ) : (
+            <div className="now-playing muted">Now Playing: —</div>
+          )}
+        </div>
       </div>
 
-      {/* Controls */}
       <div className="player-controls">
         <button className="play-button" onClick={togglePlay}>
           {isPlaying ? "Pause" : "Play"}
         </button>
 
         <div className="volume-control">
-          <button className="mute-button" onClick={() => setIsMuted(!isMuted)}>
+          <button
+            className="mute-button"
+            onClick={() => setIsMuted((m) => !m)}
+          >
             {isMuted ? "Unmute" : "Mute"}
           </button>
 
@@ -141,7 +143,8 @@ const RadioPlayer: React.FC = () => {
               setVolume(v);
               if (v > 0 && isMuted) setIsMuted(false);
             }}
-            className="volume-slider"
+            className="volume-slider funky"
+            aria-label="Volume"
           />
         </div>
       </div>
