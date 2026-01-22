@@ -40,14 +40,14 @@ function App() {
     <div className="app-container">
         <Header title="Welcome to YabbyVille" subtitle={subtitle} />
 
-        <div className="title1">
-          <Link to="/stickers">Stickers →</Link> 
-        </div>
-        <CarouselStickers />
+      <div className="title1">
+        <Link to="/stickers">Stickers →</Link>
+      </div>
+      <CarouselStickers />
 
-        <PlaceSticker />
+      <PlaceSticker />
 
-        <hr />
+      <hr />
 
         <div className="title1">
           <Link to="/lists">Lists →</Link> 
@@ -58,7 +58,7 @@ function App() {
         <div className="title1">Recently Added</div>
         <CarouselAlbums />
 
-        <hr />
+      <hr />
 
       <RadioPlayer />
 
