@@ -9,7 +9,7 @@
     padding-top: 1rem;
     box-sizing: border-box;
   }
-  
+
   /* Input Area Container */
   .input-area {
     display: flex;
@@ -17,15 +17,15 @@
     gap: 0.5rem;
     padding: 0.75rem;
     border-radius: 12px;
-    background-color: transparent; /* Set background to transparent */
-    border: 1px solid var(--colour2); /* Set border color to colour5 */
+    background-color: transparent;
+    border: 1px solid var(--colour2);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .input-area:focus-within {
-    border-color: var(--colour5); /* Ensure focus border color matches */
+    border-color: var(--colour5);
   }
-  
+
   /* Text Area Styling */
   .text-input {
     flex: 1;
@@ -38,15 +38,15 @@
     font-size: 1rem;
     line-height: 1.5;
     color: var(--colour2);
-    background-color: transparent; /* Ensure text area background is transparent */
+    background-color: transparent;
     resize: none;
     overflow-y: auto;
   }
-  
+
   .text-input::placeholder {
     color: var(--colour2);
   }
-  
+
   /* Send Button Container */
   .send-button-container {
     display: flex;
@@ -57,8 +57,8 @@
 
   /* Send Button Styling */
   .send-button-container button {
-    background-color: var(--colour2); /* Normal state */
-    color: var(--colour4); /* Text color */
+    background-color: var(--colour2);
+    color: var(--colour4);
     border: none;
     border-radius: 8px;
     padding: 0.5rem 1rem;
@@ -69,18 +69,18 @@
   }
 
   .send-button-container button:hover {
-    background-color: var(--colour1); /* Hover state */
+    background-color: var(--colour1);
   }
 
   .send-button-container button:active {
-    background-color: var(--colour1); /* Active state */
+    background-color: var(--colour1);
   }
 
   .send-button-container button:focus {
-    outline: 2px solid var(--colour1); /* Optional focus outline */
+    outline: 2px solid var(--colour1);
     outline-offset: 2px;
   }
-  
+
   /* Word Counter */
   .word-counter {
     display: flex;
@@ -91,57 +91,13 @@
     color: var(--colour2);
     padding-right: 5px;
   }
-  
+
   .word-counter.warning {
     color: var(--colour3);
   }
-  
+
   .word-counter.error {
     color: var(--colour3);
-  }
-
-  /* Editor Content Alignment */
-  .textbox-container [contenteditable="true"] {
-    text-align: left !important;
-    width: 100%;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    white-space: pre-wrap;
-    min-height: 1.5rem;
-    max-height: 200px;
-    overflow-y: auto;
-    box-sizing: border-box;
-  }
-
-  .textbox-container [contenteditable="true"] * {
-    text-align: left !important;
-    max-width: 100%;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-
-  /* Ensure links within the editor wrap properly */
-  .textbox-container [contenteditable="true"] a {
-    word-break: break-all;
-    overflow-wrap: break-word;
-    display: inline;
-    max-width: 100%;
-  }
-
-  /* RSW Editor Styling */
-  .rsw-editor {
-    border: 1px solid transparent !important;
-    min-height: 1.5rem !important;
-    font-family: var(--font2) !important;
-    font-size: 1rem !important;
-    color: var(--colour2) !important;
-    line-height: 1.5 !important;
-  }
-
-  .rsw-editor:focus {
-    border: 1px solid transparent !important;
-    outline: none !important;
   }
 
   /* Search Results Styling */

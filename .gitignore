@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-#dev items
+# Dev items
 node_modules
 dist/
 dist-ssr
@@ -18,6 +18,17 @@ dev-dist/
 .env
 .env.*
 
+# Firebase
+.firebase/
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+pubsub-debug.log
+storage.rules
+
+*.rules
 
 # Editor directories and files
 .vscode/*
@@ -29,6 +40,23 @@ dev-dist/
 *.njsproj
 *.sln
 *.sw?
+*.md
 
 # Ignore public/wiki folder
 public/wiki/
+
+# Test and coverage
+coverage/
+.nyc_output/
+*.test.js.snap
+
+# OS files
+Thumbs.db
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~

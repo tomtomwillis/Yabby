@@ -1,8 +1,7 @@
-import React, { useEffect, useState, type ChangeEvent } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import './ForumMessageBox.css';
-import Editor,  {Toolbar, type ContentEditableEvent } from 'react-simple-wysiwyg';
 import Button from './Button';
-import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 
 interface Result {
@@ -13,13 +12,12 @@ interface Result {
 
 interface ForumMessageBoxProps {
   placeholder?: string;
-  value?: string; // Add value prop for controlled input
   onSend?: (text: string) => void;
   disabled?: boolean;
   maxWords?: number;
   maxChars?: number;
   className?: string;
-  showSendButton?: boolean; // New prop to control the visibility of the send button
+  showSendButton?: boolean;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -29,19 +27,22 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   maxWords = 250,
   maxChars = 1000,
   className = '',
-  showSendButton = true, // Default to true to show the send button
-})  => {
+  showSendButton = true,
+}) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [listSearchQuery, setListSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
   const [albumResults, setAlbumResults] = useState<Result[]>([]);
   const [listResults, setListResults] = useState<Result[]>([]);
-  const [allLists, setAllLists] = useState<Result[]>([]); // Cache all lists
-  const [isSearching, setisSearching] = useState(false);
+  const [allLists, setAllLists] = useState<Result[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [isSearchingLists, setIsSearchingLists] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState('');
-  const [selectionEnd, setSelectionEnd] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Track the position of the trigger character (@ or #) for replacement
+  const triggerPositionRef = useRef<number>(-1);
 
   // API configuration from environment variables
   const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
@@ -53,12 +54,11 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   useEffect(() => {
     const listsQuery = query(
       collection(db, 'lists'),
-      where('isPublic', '!=', false) // Get all public lists
+      where('isPublic', '!=', false)
     );
-    
+
     const unsubscribe = onSnapshot(listsQuery, (snapshot) => {
       const lists: Result[] = [];
-      
       snapshot.forEach((doc) => {
         const data = doc.data();
         if (data.title) {
@@ -69,37 +69,25 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           });
         }
       });
-      
-      // Sort lists alphabetically by title
       lists.sort((a, b) => a.name.localeCompare(b.name));
-      
       setAllLists(lists);
     }, (error) => {
       console.error('Error listening to lists:', error);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
   const fetchListResults = (searchTerm: string): Result[] => {
-    if (!searchTerm.trim()) {
-      return [];
-    }
-    
-    // Filter cached lists by search term (case-insensitive)
-    const filtered = allLists.filter(list => 
+    if (!searchTerm.trim()) return [];
+    const filtered = allLists.filter(list =>
       list.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    
-    // Return top 3 results
     return filtered.slice(0, 3);
   };
 
   const fetchResults = async (query: string): Promise<Result[][]> => {
-    setSearchStatus("Searching...")
-
-    // TODO: API currently returns all results and ignores count parameters
+    setSearchStatus("Searching...");
     const response = await fetch(
       `${SERVER_URL}/rest/search3?query=${query}&artistCount=5&albumCount=5&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
       {
@@ -116,14 +104,11 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(text, 'application/xml');
 
-
-    // Check for XML parsing errors
     const parserError = xmlDoc.querySelector('parsererror');
     if (parserError) {
       throw new Error('XML parsing error: ' + parserError.textContent);
     }
 
-    // Check for API errors in the response
     const subsonicResponse = xmlDoc.querySelector('subsonic-response');
     if (subsonicResponse?.getAttribute('status') === 'failed') {
       const errorElement = xmlDoc.querySelector('error');
@@ -133,41 +118,35 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
     const artistResults = Array.from(xmlDoc.getElementsByTagName('artist'));
     const albumResults = Array.from(xmlDoc.getElementsByTagName('album'));
-    const albumType = 'album'
-    const artistType = 'artist'
 
     const albums: Result[] = albumResults.map((album) => ({
       id: album.getAttribute('id') || '',
       name: album.getAttribute('name') || 'Unknown Album',
-      type: albumType || '',
-    })).slice(0,3);
+      type: 'album',
+    })).slice(0, 3);
 
     const artists: Result[] = artistResults.map((artist) => ({
       id: artist.getAttribute('id') || '',
-      name: artist.getAttribute('name') || 'Unknown Album',
-      type: artistType || '',
-    })).slice(0,3);
+      name: artist.getAttribute('name') || 'Unknown Artist',
+      type: 'artist',
+    })).slice(0, 3);
 
     if (albums.length === 0 && artists.length === 0) {
-      setSearchStatus("No results :(")
-    }
-    else {
-      setSearchStatus("Tag an artist or album!")
+      setSearchStatus("No results :(");
+    } else {
+      setSearchStatus("Tag an artist or album!");
     }
 
     return new Promise((resolve) => {
       setTimeout(() => {
-        resolve([
-          albums,
-          artists
-        ]);
+        resolve([albums, artists]);
       }, 500);
     });
   };
 
   useEffect(() => {
     if (searchQuery.length >= 3) {
-      setisSearching(true);
+      setIsSearching(true);
       fetchResults(searchQuery).then((data) => {
         setAlbumResults(data[0]);
         setArtistResults(data[1]);
@@ -181,7 +160,6 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   useEffect(() => {
     if (listSearchQuery.length >= 2) {
       setIsSearchingLists(true);
-      // Use the synchronous filter function instead of async fetch
       const results = fetchListResults(listSearchQuery);
       setListResults(results);
       setIsSearchingLists(false);
@@ -189,308 +167,147 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       setListResults([]);
       setIsSearchingLists(false);
     }
-  }, [listSearchQuery, allLists]); // Add allLists as dependency
+  }, [listSearchQuery, allLists]);
 
   const handleSend = () => {
     if (newMessage.trim() && onSend && !disabled) {
       onSend(newMessage.trim());
       setNewMessage('');
+      clearSearch();
     }
   };
 
-  const checkForHyperlinkModification = (editor: Element, selection: Selection, newValue: string): string | null => {
-    if (selection.rangeCount === 0) return null;
-
-    const range = selection.getRangeAt(0);
-    let currentNode: Node | null = range.startContainer;
-
-    // Walk up the DOM to find if we're inside a link
-    while (currentNode && currentNode !== editor) {
-      if (currentNode.nodeType === Node.ELEMENT_NODE && (currentNode as Element).tagName === 'A') {
-        const linkElement = currentNode as HTMLAnchorElement;
-
-        // Get the position of this link in the plain text
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = newValue;
-        const plainText = tempDiv.textContent || tempDiv.innerText || '';
-
-        // Find the link text in the plain text
-        const linkText = linkElement.textContent || '';
-        const linkStart = plainText.indexOf(linkText);
-
-        if (linkStart !== -1) {
-          // Remove the entire link and position cursor where it started
-          const beforeLink = newValue.substring(0, newValue.indexOf(linkElement.outerHTML));
-          const afterLink = newValue.substring(newValue.indexOf(linkElement.outerHTML) + linkElement.outerHTML.length);
-          const updatedValue = beforeLink + afterLink;
-
-          // Set cursor position to where the link started
-          setTimeout(() => {
-            const newSelection = window.getSelection();
-            if (newSelection && editor) {
-              const newRange = document.createRange();
-              const beforeLinkDiv = document.createElement('div');
-              beforeLinkDiv.innerHTML = beforeLink;
-              const textLength = (beforeLinkDiv.textContent || '').length;
-
-              // Find the text node and position at the correct character
-              const walker = document.createTreeWalker(
-                editor,
-                NodeFilter.SHOW_TEXT,
-                null
-              );
-
-              let currentLength = 0;
-              let targetNode = null;
-              let targetOffset = 0;
-
-              while (walker.nextNode()) {
-                const node = walker.currentNode as Text;
-                const nodeLength = node.textContent?.length || 0;
-
-                if (currentLength + nodeLength >= textLength) {
-                  targetNode = node;
-                  targetOffset = textLength - currentLength;
-                  break;
-                }
-                currentLength += nodeLength;
-              }
-
-              if (targetNode) {
-                newRange.setStart(targetNode, targetOffset);
-                newRange.collapse(true);
-                newSelection.removeAllRanges();
-                newSelection.addRange(newRange);
-              }
-            }
-          }, 0);
-
-          return updatedValue;
-        }
-        break;
-      }
-      currentNode = currentNode.parentNode;
-    }
-
-    return null;
+  const clearSearch = () => {
+    setSearchQuery('');
+    setIsSearching(false);
+    setListSearchQuery('');
+    setIsSearchingLists(false);
+    triggerPositionRef.current = -1;
   };
 
-  const handleInputChange = (e: ContentEditableEvent, selection?: Selection | null): void => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
+    const cursorPos = e.target.selectionStart;
 
-    // Check if content is truly empty
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = value;
-    const plainTextCheck = tempDiv.textContent || tempDiv.innerText || '';
+    if (value.length > maxChars) return;
 
-    // If content is empty, reset to empty string
-    if (!plainTextCheck.trim()) {
-      setNewMessage('');
-      setSearchQuery('');
-      setisSearching(false);
-      setListSearchQuery('');
-      setIsSearchingLists(false);
+    const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
+    if (wordCount > maxWords) return;
+
+    setNewMessage(value);
+
+    if (!value.trim()) {
+      clearSearch();
       return;
     }
 
-    const wordCount = value.trim().split(/\s+/).length;
+    // Find the last @ or # before the cursor position
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atIndex = textBeforeCursor.lastIndexOf('@');
+    const hashIndex = textBeforeCursor.lastIndexOf('#');
 
-    if (wordCount <= 250) {
-      // Check if we're trying to modify a hyperlink
-      const currentSelection = selection || window.getSelection();
-      const editor = document.querySelector('[contenteditable="true"]');
-
-      if (currentSelection && editor) {
-        const protectedValue = checkForHyperlinkModification(editor, currentSelection, value);
-        if (protectedValue !== null) {
-          setNewMessage(protectedValue);
-          return;
-        }
-      }
-
-      setNewMessage(value);
-
-      // Get the actual cursor position in terms of visible text
-      let caretPositionInText = 0;
-
-      if (currentSelection && currentSelection.rangeCount > 0) {
-        const range = currentSelection.getRangeAt(0);
-
-        // Create a range from start of contenteditable to cursor position
-        const preCaretRange = range.cloneRange();
-
-        if (editor) {
-          preCaretRange.selectNodeContents(editor);
-          preCaretRange.setEnd(range.startContainer, range.startOffset);
-
-          // Get only the text content (no HTML) up to cursor - this handles HTML entities properly
-          const textBeforeCursor = preCaretRange.toString();
-          caretPositionInText = textBeforeCursor.length;
-        }
-      }
-
-      // Convert HTML to plain text
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = value;
-      const plainText = tempDiv.textContent || tempDiv.innerText || '';
-
-      // Find the last @ symbol before the caret position for artists/albums
-      const atIndex = plainText.lastIndexOf("@", caretPositionInText - 1);
-      // Find the last # symbol before the caret position for lists
-      const hashIndex = plainText.lastIndexOf("#", caretPositionInText - 1);
-      
-      console.log("HTML value:", value)
-      console.log("plainText:", plainText)
-      console.log("caretPositionInText:", caretPositionInText)
-      console.log("atIndex:", atIndex)
-      console.log("hashIndex:", hashIndex)
-
-      // Check for @ symbol (artists/albums)
-      if (atIndex !== -1 && atIndex < caretPositionInText && (hashIndex === -1 || atIndex > hashIndex)) {
-        // Extract query from @ to caret position
-        const query = plainText.slice(atIndex + 1, caretPositionInText);
-        console.log("artist/album query:", query)
-        setSearchQuery(query);
-        setisSearching(true);
-        setListSearchQuery("");
+    // Check for @ (artists/albums) — must be at start of text or preceded by whitespace
+    if (atIndex !== -1 && atIndex > hashIndex && (atIndex === 0 || /\s/.test(value[atIndex - 1]))) {
+      const queryText = textBeforeCursor.slice(atIndex + 1);
+      // Only search if there's no space break after the trigger (user is still typing the query)
+      if (!/\n/.test(queryText)) {
+        triggerPositionRef.current = atIndex;
+        setSearchQuery(queryText);
+        setIsSearching(true);
+        setListSearchQuery('');
         setIsSearchingLists(false);
-      } 
-      // Check for # symbol (lists)
-      else if (hashIndex !== -1 && hashIndex < caretPositionInText && (atIndex === -1 || hashIndex > atIndex)) {
-        // Extract query from # to caret position
-        const query = plainText.slice(hashIndex + 1, caretPositionInText);
-        console.log("list query:", query)
-        setListSearchQuery(query);
+        return;
+      }
+    }
+
+    // Check for # (lists)
+    if (hashIndex !== -1 && hashIndex > atIndex && (hashIndex === 0 || /\s/.test(value[hashIndex - 1]))) {
+      const queryText = textBeforeCursor.slice(hashIndex + 1);
+      if (!/\n/.test(queryText)) {
+        triggerPositionRef.current = hashIndex;
+        setListSearchQuery(queryText);
         setIsSearchingLists(true);
-        setSearchQuery("");
-        setisSearching(false);
-      } 
-      else {
-        setSearchQuery("");
-        setisSearching(false);
-        setListSearchQuery("");
-        setIsSearchingLists(false);
+        setSearchQuery('');
+        setIsSearching(false);
+        return;
       }
     }
+
+    clearSearch();
   };
 
-  const selectResult = (result: Result, newMessage: string): void => {
+  const selectResult = (result: Result) => {
     let link: string;
-    let searchPattern: string;
-    
+
     if (result.type === 'list') {
-      // For lists, link to the list detail page in the app
       link = `${window.location.origin}/lists/${result.id}`;
-      searchPattern = "#" + listSearchQuery;
     } else {
-      // For artists/albums, link to Navidrome
       link = `${SERVER_URL}/app/#/${result.type}/${result.id}/show`;
-      searchPattern = "@" + searchQuery;
     }
 
-    // Use the appropriate search query
-    const queryToUse = result.type === 'list' ? listSearchQuery : searchQuery;
-    
-    if (queryToUse) {
-      const replacement = `<a href="${link}">${result.name}</a> `;
+    const triggerPos = triggerPositionRef.current;
+    if (triggerPos === -1) return;
 
-      // Simple string replacement in the HTML content
-      const updatedMessage = newMessage.replace(searchPattern, replacement);
+    const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
+    const replacement = `[${result.name}](${link}) `;
+    const before = newMessage.slice(0, triggerPos);
+    const after = newMessage.slice(cursorPos);
+    const updatedMessage = before + replacement + after;
 
-      setNewMessage(updatedMessage);
-      
-      if (result.type === 'list') {
-        setIsSearchingLists(false);
-        setListSearchQuery("");
-      } else {
-        setisSearching(false);
-        setSearchQuery("");
+    setNewMessage(updatedMessage);
+    clearSearch();
+
+    // Focus textarea and position cursor after the inserted link
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const newCursorPos = triggerPos + replacement.length;
+        textareaRef.current.focus();
+        textareaRef.current.selectionStart = newCursorPos;
+        textareaRef.current.selectionEnd = newCursorPos;
       }
+    }, 0);
+  };
 
-      // Focus the editor and position caret after the hyperlink
-      setTimeout(() => {
-        const editor = document.querySelector('.textbox-container [contenteditable="true"]') as HTMLElement;
-        if (editor) {
-          editor.focus();
-
-          // Find the link element that was just inserted
-          const linkElement = editor.querySelector('a[href="' + link + '"]');
-          if (linkElement) {
-            const selection = window.getSelection();
-            if (selection) {
-              const range = document.createRange();
-
-              // Position cursor after the link and its trailing space
-              const nextSibling = linkElement.nextSibling;
-              if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
-                // If there's a text node after the link, position at the start of it
-                range.setStart(nextSibling, 1); // Position after the space
-                range.collapse(true);
-              } else {
-                // If no text node after link, create one and position there
-                const textNode = document.createTextNode(' ');
-                linkElement.parentNode?.insertBefore(textNode, linkElement.nextSibling);
-                range.setStart(textNode, 1);
-                range.collapse(true);
-              }
-
-              selection.removeAllRanges();
-              selection.addRange(range);
-            }
-          }
-        }
-      }, 0);
+  // Auto-resize textarea to fit content
+  const autoResize = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
     }
-  }
-
-  // Count words in text - matching MessageTextBox functionality
-  const countWords = (text: string): number => {
-    if (!text.trim()) return 0;
-    return text.trim().split(/\s+/).length;
   };
 
-  // Get plain text from HTML content for word counting
-  const getPlainText = (html: string): string => {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    return tempDiv.textContent || tempDiv.innerText || '';
-  };
+  useEffect(() => {
+    autoResize();
+  }, [newMessage]);
 
-  const plainText = getPlainText(newMessage);
-  const wordCount = countWords(plainText);
-  const charCount = plainText.length;
-  maxWords = 250
-  maxChars = 1000;
-
-  // Check if content is truly empty (no meaningful text content)
-  const hasContent = plainText.trim().length > 0;
-  const canSend = hasContent && wordCount <= maxWords && charCount <= maxChars && !disabled;
+  const wordCount = newMessage.trim() ? newMessage.trim().split(/\s+/).length : 0;
+  const charCount = newMessage.length;
+  const canSend = newMessage.trim().length > 0 && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
   return (
     <div className={`textbox-container ${disabled ? 'disabled' : ''} ${className}`}>
       <div className="input-area">
-        <div style={{ flex: 1 }}>
-          <Editor
-            value = {hasContent ? newMessage : ''}
-            name = "ChangeEvent"
-            placeholder = {placeholder}
-            onChange={handleInputChange}
-            disabled={disabled}
-          >
-          <Toolbar style={{display: "none"}}/>
-          </Editor>
-        </div>
+        <textarea
+          ref={textareaRef}
+          className="text-input"
+          value={newMessage}
+          onChange={handleInputChange}
+          placeholder={placeholder}
+          disabled={disabled}
+          rows={1}
+        />
         {showSendButton && (
-        <div className="send-button-container">
-          <Button
-            type="basic"
-            label="Send"
-            onClick={handleSend}
-            size="2.5em"
-            disabled={!canSend}
-          />
-        </div>
-      )}
+          <div className="send-button-container">
+            <Button
+              type="basic"
+              label="Send"
+              onClick={handleSend}
+              size="2.5em"
+              disabled={!canSend}
+            />
+          </div>
+        )}
       </div>
 
       {isSearching && <p>{searchStatus}</p>}
@@ -498,18 +315,10 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       {artistResults.length > 0 && (
         <figure>
           <figcaption>Artists</figcaption>
-          <ul style={{ marginTop: "10px", listStyleType: "none", padding:0 }}>
+          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
             {artistResults.map((result, index) => (
-              <li
-                key = {index}
-                style={{
-                  padding: "5px 10px",
-                  background: "#f0f0f0",
-                  marginBottom: "1px",
-                  borderRadius: "1px",
-                }}
-                >
-                  <button onClick = {() => selectResult(result, newMessage)}>{result.name}</button>
+              <li key={index}>
+                <button onClick={() => selectResult(result)}>{result.name}</button>
               </li>
             ))}
           </ul>
@@ -518,18 +327,10 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       {albumResults.length > 0 && (
         <figure>
           <figcaption>Albums</figcaption>
-          <ul style={{ marginTop: "10px", listStyleType: "none", padding:0 }}>
+          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
             {albumResults.map((result, index) => (
-              <li
-                key = {index}
-                style={{
-                  padding: "5px 10px",
-                  background: "#f0f0f0",
-                  marginBottom: "1px",
-                  borderRadius: "1px",
-                }}
-                >
-                  <button onClick = {() => selectResult(result, newMessage)}>{result.name}</button>
+              <li key={index}>
+                <button onClick={() => selectResult(result)}>{result.name}</button>
               </li>
             ))}
           </ul>
@@ -538,18 +339,10 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       {listResults.length > 0 && (
         <figure>
           <figcaption>Lists</figcaption>
-          <ul style={{ marginTop: "10px", listStyleType: "none", padding:0 }}>
+          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
             {listResults.map((result, index) => (
-              <li
-                key = {index}
-                style={{
-                  padding: "5px 10px",
-                  background: "#f0f0f0",
-                  marginBottom: "1px",
-                  borderRadius: "1px",
-                }}
-                >
-                  <button onClick = {() => selectResult(result, newMessage)}>{result.name}</button>
+              <li key={index}>
+                <button onClick={() => selectResult(result)}>{result.name}</button>
               </li>
             ))}
           </ul>
@@ -560,8 +353,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         {wordCount}/{maxWords} words | {charCount}/{maxChars} characters
       </div>
     </div>
-  )
-
-}
+  );
+};
 
 export default ForumBox;

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { sanitizeHtml } from '../utils/sanitise'; 
+import { sanitizeHtml } from '../utils/sanitise';
 import UserMessage from './basic/UserMessages';
 import './MessageBoard.css';
 import ForumBox from './basic/ForumMessageBox';
 import Button from './basic/Button';
+import { useRateLimit } from '../utils/useRateLimit';
 
 interface Reaction {
   userId: string;
@@ -56,15 +57,21 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  
+
+  // Rate limiting: 10 messages per 5 minutes
+  const { checkRateLimit, getRemainingAttempts } = useRateLimit({
+    maxAttempts: 10,
+    windowMs: 5 * 60 * 1000, // 5 minutes
+  });
+
   // Cache for user profiles to avoid redundant fetches
   // Cache expires after 5 minutes to allow profile updates to show
-  const userCacheRef = useRef<Map<string, { 
-    username: string; 
-    avatar: string; 
-    timestamp: number 
+  const userCacheRef = useRef<Map<string, {
+    username: string;
+    avatar: string;
+    timestamp: number
   }>>(new Map());
-  
+
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   // Helper function to get user data (with caching and expiration)
@@ -448,11 +455,18 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     return;
   }
 
+  // Check rate limit before sending
+  if (!checkRateLimit()) {
+    const remaining = getRemainingAttempts();
+    alert(`You're posting too quickly! Please wait a few minutes before posting again.`);
+    return;
+  }
+
   setLoading(true);
   try {
     // Sanitize the message BEFORE saving to database
     const sanitizedText = sanitizeHtml(text.trim());
-    
+
     // Check if sanitization removed everything (was all malicious code)
     if (!sanitizedText.trim()) {
       alert('Your message contains invalid content. Please try again.');
@@ -558,7 +572,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
     try {
       const sanitizedText = sanitizeHtml(text.trim());
-    
+
     if (!sanitizedText.trim()) {
       alert('Your reply contains invalid content. Please try again.');
       return;
@@ -567,7 +581,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       const userData = await getUserData(auth.currentUser.uid);
 
       await addDoc(collection(db, 'messages', messageId, 'replies'), {
-        text: text,
+        text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         username: userData.username,

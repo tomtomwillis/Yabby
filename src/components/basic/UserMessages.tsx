@@ -4,7 +4,7 @@ import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
 import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
-import { sanitizeHtml } from '../../utils/sanitise';
+import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
 
 interface Reaction {
   userId: string;
@@ -82,26 +82,32 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
-// Utility function to sanitize and parse HTML content safely
+// Utility function to format message text for display.
+// Handles both legacy HTML messages (with <a>, <br> tags) and new plain text messages.
 const parseMessageHTML = (htmlString: string): React.ReactNode => {
-  const sanitized = sanitizeHtml(htmlString);
-  // HTML parser options with security measures
+  // 1. Sanitize HTML (preserves safe tags like <a>, <br> from legacy messages)
+  let processed = sanitizeHtml(htmlString);
+
+  // 2. Convert \n to <br> (for new plain text messages; legacy HTML messages don't have \n)
+  processed = processed.replace(/\n/g, '<br>');
+
+  // 3. Parse markdown-style [text](url) links (from @/# tagging in new messages)
+  processed = parseMarkdownLinks(processed);
+
+  // 4. Auto-detect bare URLs and wrap in <a> tags (skips URLs already in <a> tags)
+  processed = linkifyText(processed);
+
+  // HTML parser options — enforce safe link rendering
   const options: HTMLReactParserOptions = {
     replace: (domNode) => {
       if (domNode instanceof Element) {
         const { name, attribs, children } = domNode;
 
-        // Only allow anchor tags
         if (name === 'a') {
           const href = attribs?.href;
-
-          // Validate the URL
           if (!href || !isValidUrl(href)) {
-            // If invalid URL, render as plain text
             return <span>{domToReact(children as DOMNode[], options)}</span>;
           }
-
-          // Create safe link with security attributes
           return (
             <a
               href={href}
@@ -113,22 +119,24 @@ const parseMessageHTML = (htmlString: string): React.ReactNode => {
             </a>
           );
         }
-        
+
+        // Allow <br> tags through
+        if (name === 'br') {
+          return <br />;
+        }
+
         // For any other HTML tags, render as plain text
         return <span>{domToReact(children as DOMNode[], options)}</span>;
       }
-
-      // Return undefined to use default behavior for text nodes
       return undefined;
     }
   };
-  
 
   try {
-    return parse(sanitized, options); // Parse the sanitized HTML
+    return parse(processed, options);
   } catch (error) {
-    console.warn('Failed to parse HTML content, falling back to plain text:', error);
-    return sanitized; // Return sanitized text as fallback
+    console.warn('Failed to parse message content, falling back to plain text:', error);
+    return htmlString;
   }
 };
 
@@ -239,16 +247,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
         <div className="user-message-username">{username}</div>
         <div className="user-message-timestamp">{timestamp}</div>
         <div className="user-message-separator"></div>
-        <div
-        className="user-message-text"
-        style={{
-          whiteSpace: 'pre-wrap',
-          hyphens: 'none',
-          wordBreak: 'normal',
-          overflowWrap: 'normal'
-        }}
-        >
-        {parseMessageHTML(message)}
+        <div className="user-message-text">
+          {parseMessageHTML(message)}
         </div>
 
 
