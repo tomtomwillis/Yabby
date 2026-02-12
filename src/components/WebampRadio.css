@@ -1,0 +1,56 @@
+.webamp-radio-section {
+  width: 100%;
+}
+
+/* Title row: Radio link + Now Playing on the same line */
+.webamp-radio-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Clickable Radio link — match the <Link> style of Stickers/Lists */
+.webamp-radio-link {
+  cursor: pointer;
+  user-select: none;
+  color: var(--colour2);
+  text-decoration: none;
+}
+
+.webamp-radio-link:hover {
+  opacity: 0.7;
+}
+
+/* Now Playing text inline with title */
+.webamp-radio-now-playing {
+  font-family: var(--font2);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--colour2);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Container for Webamp's rendered DOM */
+.webamp-radio-container {
+  position: relative;
+  width: 100%;
+}
+
+/*
+ * Webamp renders with position: absolute by default.
+ * Keep its windows within our container.
+ */
+.webamp-radio-container #webamp {
+  position: relative !important;
+}
+
+.webamp-radio-error {
+  color: #ff6b6b;
+  font-family: var(--font2);
+  text-align: center;
+  padding: 1rem;
+}

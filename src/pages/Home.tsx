@@ -6,8 +6,7 @@ import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
 import CarouselStickers from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
-import RadioPlayer from '../components/RadioPlayer';
-import Webamp from "webamp";
+import WebampRadio from '../components/WebampRadio';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -60,7 +59,7 @@ function App() {
 
       <hr />
 
-      <RadioPlayer />
+      <WebampRadio />
 
         <hr />
 
@@ -69,9 +68,6 @@ function App() {
           <Stats />
         </Suspense>
 
-      <div id="winamp-container"></div>
-      
-      
     </div>
   );
 }
