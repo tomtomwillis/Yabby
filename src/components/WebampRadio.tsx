@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
+import RadioPlayer from "./RadioPlayer";
 import "./WebampRadio.css";
 
 const STREAM_URL = "https://radio.yabbyville.xyz/live";
@@ -7,17 +8,31 @@ const STATUS_URL = "https://radio.yabbyville.xyz/status-json.xsl";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WebampInstance = any;
 
-const WebampRadio: React.FC = () => {
+const DESKTOP_QUERY = "(min-width: 768px)";
+
+interface WebampRadioProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+const WebampRadio: React.FC<WebampRadioProps> = ({ containerRef }) => {
   const [nowPlaying, setNowPlaying] = useState("");
-  const [webampLoaded, setWebampLoaded] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(
+    () => window.matchMedia(DESKTOP_QUERY).matches
+  );
   const [webampLoading, setWebampLoading] = useState(false);
-  const [webampClosed, setWebampClosed] = useState(false);
   const [webampError, setWebampError] = useState<string | null>(null);
 
   const webampRef = useRef<WebampInstance>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const hasRenderedRef = useRef(false);
   const pollAbortRef = useRef<AbortController | null>(null);
+
+  // --- Responsive: track desktop vs mobile ---
+  useEffect(() => {
+    const mql = window.matchMedia(DESKTOP_QUERY);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
 
   // --- Poll status-json.xsl on mount, every 30 seconds ---
   useEffect(() => {
@@ -60,99 +75,99 @@ const WebampRadio: React.FC = () => {
     };
   }, []);
 
-  // --- Load webamp on click, or reopen if closed ---
-  const handleRadioClick = useCallback(async () => {
-    // If webamp was closed, reopen it
-    if (webampLoaded && webampClosed && webampRef.current) {
-      webampRef.current.reopen();
-      setWebampClosed(false);
-      return;
-    }
-
-    // First-time load
-    if (hasRenderedRef.current || webampLoading) return;
+  // --- Auto-load Webamp on desktop ---
+  useEffect(() => {
+    if (!isDesktop) return;
+    if (hasRenderedRef.current) return;
     if (!containerRef.current) return;
 
     const container = containerRef.current;
-    setWebampLoading(true);
-    setWebampError(null);
+    let disposed = false;
 
-    try {
-      const mod = await import("webamp/butterchurn");
-      const WebampClass = mod.default || mod;
+    const initWebamp = async () => {
+      setWebampLoading(true);
+      setWebampError(null);
 
-      const butterchurn = await import("butterchurn");
-      const presetsMod = await import("butterchurn-presets");
-      const presetMap = presetsMod.default || presetsMod;
+      try {
+        const mod = await import("webamp/butterchurn");
+        const WebampClass = mod.default || mod;
 
-      const webamp = new WebampClass({
-        initialTracks: [
-          {
-            metaData: {
-              artist: "YabbyVille",
-              title: "Radio",
+        const butterchurn = await import("butterchurn");
+        const presetsMod = await import("butterchurn-presets");
+        const presetMap = presetsMod.default || presetsMod;
+
+        if (disposed) return;
+
+        const webamp = new WebampClass({
+          initialTracks: [
+            {
+              metaData: {
+                artist: "YabbyVille",
+                title: "Radio",
+              },
+              url: STREAM_URL,
             },
-            url: STREAM_URL,
+          ],
+          windowLayout: {
+            main: {
+              position: { top: 0, left: 0 },
+              shadeMode: false,
+              closed: false,
+            },
+            equalizer: {
+              position: { top: 230, left: 0 },
+              shadeMode: false,
+              closed: true,
+            },
+            playlist: {
+              position: { top: 28, left: 0 },
+              shadeMode: false,
+              size: { extraHeight: 3, extraWidth: 11 },
+              closed: true,
+            },
+            milkdrop: {
+              position: { top: 0, left: 550 },
+              size: { extraWidth: 8, extraHeight: 4 },
+              closed: false,
+            },
           },
-        ],
-        windowLayout: {
-          main: {
-            position: { top: 0, left: 0 },
-            shadeMode: false,
-            closed: false,
+          enableDoubleSizeMode: true,
+          __butterchurnOptions: {
+            importButterchurn: () => Promise.resolve(butterchurn),
+            getPresets: async () => {
+              return Object.keys(presetMap).map((name) => ({
+                name,
+                butterchurnPresetObject: presetMap[name],
+              }));
+            },
+            butterchurnOpen: true,
           },
-          equalizer: {
-            position: { top: 230, left: 0 },
-            shadeMode: false,
-            closed: true,
-          },
-          playlist: {
-            position: { top: 28, left: 0 },
-            shadeMode: false,
-            size: { extraHeight: 3, extraWidth: 11 },
-            closed: true,
-          },
-          milkdrop: {
-            position: { top: 230, left: 0 },
-            size: { extraWidth: 11, extraHeight: 5 },
-            closed: false,
-          },
-        },
-        enableDoubleSizeMode: true,
-        __butterchurnOptions: {
-          importButterchurn: () => Promise.resolve(butterchurn),
-          getPresets: async () => {
-            return Object.keys(presetMap).map((name) => ({
-              name,
-              butterchurnPresetObject: presetMap[name],
-            }));
-          },
-          butterchurnOpen: true,
-        },
-      });
+        });
 
-      // Intercept the default close (which disposes) — cancel and use .close() instead
-      webamp.onWillClose((cancel: () => void) => {
-        cancel();
-        webamp.close();
-      });
+        if (disposed) return;
 
-      webamp.onClose(() => {
-        setWebampClosed(true);
-      });
+        await webamp.renderWhenReady(container);
 
-      await webamp.renderWhenReady(container);
+        webampRef.current = webamp;
+        hasRenderedRef.current = true;
+      } catch (err) {
+        if (!disposed) {
+          console.error("Webamp init failed:", err);
+          setWebampError("Failed to initialize the radio player.");
+        }
+      } finally {
+        if (!disposed) {
+          setWebampLoading(false);
+        }
+      }
+    };
 
-      webampRef.current = webamp;
-      hasRenderedRef.current = true;
-      setWebampLoaded(true);
-    } catch (err) {
-      console.error("Webamp init failed:", err);
-      setWebampError("Failed to initialize the radio player.");
-    } finally {
-      setWebampLoading(false);
-    }
-  }, [webampLoading, webampLoaded, webampClosed]);
+    initWebamp();
+
+    return () => {
+      disposed = true;
+    };
+  }, [isDesktop]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -170,38 +185,29 @@ const WebampRadio: React.FC = () => {
     };
   }, []);
 
-  const showLink = !webampLoaded || webampClosed;
-
   return (
     <div className="webamp-radio-section">
-      <div className="title1 webamp-radio-title-row">
-        {showLink ? (
-          <span
-            className="webamp-radio-link"
-            onClick={handleRadioClick}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") handleRadioClick();
-            }}
-          >
-            Radio {webampLoading ? "(Loading...)" : "→"}
-          </span>
-        ) : (
-          <span>Radio</span>
-        )}
-        {nowPlaying && (
-          <span className="webamp-radio-now-playing">
-            Now Playing: {nowPlaying}
-          </span>
-        )}
-      </div>
+      <div className="title1">Radio</div>
 
-      {webampError && (
-        <p className="webamp-radio-error">{webampError}</p>
+      {isDesktop ? (
+        <>
+          {webampLoading && (
+            <p className="webamp-radio-loading">Loading player...</p>
+          )}
+
+          {webampError && (
+            <p className="webamp-radio-error">{webampError}</p>
+          )}
+
+          {nowPlaying && (
+            <div className="webamp-radio-now-playing">
+              Now Playing: {nowPlaying}
+            </div>
+          )}
+        </>
+      ) : (
+        <RadioPlayer nowPlaying={nowPlaying} />
       )}
-
-      <div ref={containerRef} className="webamp-radio-container" />
     </div>
   );
 };

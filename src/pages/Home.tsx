@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import Header from '../components/basic/Header';
 import '../App.css';
 import '../components/basic/TextAnimations.css';
@@ -28,6 +28,7 @@ const SUBTITLES = [
 
 function App() {
   const [subtitle, setSubtitle] = useState('');
+  const radioContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Select a random subtitle when component mounts
@@ -59,7 +60,8 @@ function App() {
 
       <hr />
 
-      <WebampRadio />
+      <WebampRadio containerRef={radioContainerRef} />
+      <div ref={radioContainerRef} className="webamp-radio-container" />
 
         <hr />
 

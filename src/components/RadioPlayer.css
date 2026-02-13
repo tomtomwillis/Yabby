@@ -1,183 +1,131 @@
-.radio-player-container {
-    width: 100%;
-    max-width: 720px;
-    margin: 1rem auto;
-    padding: 1rem;
-    border: 1px solid var(--colour2);
-    border-radius: 12px;
-    background-color: transparent;
-    box-sizing: border-box;
-    font-family: var(--font2);
-    color: var(--colour2);
+.radio-player {
+  width: 100%;
+  padding: 0.75rem 15px;
+  box-sizing: border-box;
 }
 
-/* METADATA ROW: title at left, now playing at right */
-.metadata {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
+/* Controls: play, mute, volume in a row */
+.radio-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.station-title {
-    font-size: 1.05rem;
-    color: var(--colour2);
+/* Shared button style */
+.radio-player-play,
+.radio-player-mute {
+  background-color: var(--colour2);
+  color: var(--colour4);
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.now-playing {
-    font-size: 0.95rem;
-    font-weight: 500;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-
-    /* allow wrapping */
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-
-    max-width: 60%;
-    line-height: 1.3;
+.radio-player-play:hover,
+.radio-player-mute:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
-
-.now-playing-track {
-    font-weight: 600;
-    opacity: 0.95;
-    padding: 0.2rem 0.55rem;
-    border-radius: 12px;
-
-    background: linear-gradient(
-        90deg,
-        rgba(255,255,255,0.04),
-        rgba(255,255,255,0.015)
-    );
-    border: 1px solid rgba(255,255,255,0.04);
-
-    /* wrapping behaviour */
-    white-space: normal;
-    word-break: break-word;
+.radio-player-mute {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
 }
 
-
-/* make the 'no track' state subtle */
-.now-playing.muted {
-    color: rgba(255,255,255,0.5);
-}
-
-/* Controls layout */
-.player-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-/* Play/Pause Button */
-.play-button {
-    background-color: var(--colour2);
-    color: var(--colour4);
-    border: none;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-family: var(--font2);
-    cursor: pointer;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12), inset 0 -2px 4px rgba(0,0,0,0.06);
-}
-
-.play-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 22px rgba(0,0,0,0.16);
-}
-
-/* Volume area: keep compact */
-.volume-control {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* Mute button */
-.mute-button {
-    background-color: var(--colour2);
-    color: var(--colour4);
-    border: none;
-    border-radius: 8px;
-    padding: 0.35rem 0.6rem;
-    cursor: pointer;
-    transition: transform 0.12s ease;
-}
-
-.mute-button:hover {
-    transform: translateY(-1px);
-}
-
-/* Funky small slider */
-.volume-slider.funky {
-    width: 160px;        /* reduced width */
-    height: 18px;        /* smaller overall footprint */
-    -webkit-appearance: none;
-    appearance: none;
-    background: transparent;
-    cursor: pointer;
-    outline: none;
+/* Volume slider */
+.radio-player-volume {
+  flex: 1;
+  max-width: 140px;
+  height: 18px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
 }
 
 /* WebKit track */
-.volume-slider.funky::-webkit-slider-runnable-track {
-    height: 8px;
-    border-radius: 999px;
-    box-shadow: inset 0 0 12px rgba(0,0,0,0.4);
-    background: linear-gradient(90deg, #00f5ff 0%, #9bffb8 40%, #ffd86b 70%, #ff6b6b 100%);
-    border: 1px solid rgba(255,255,255,0.08);
+.radio-player-volume::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #00f5ff 0%,
+    #9bffb8 40%,
+    #ffd86b 70%,
+    #ff6b6b 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* WebKit thumb */
-.volume-slider.funky::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    margin-top: -6px; /* center the bigger thumb over the track */
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.95);
-    box-shadow:
-        0 6px 18px rgba(0,0,0,0.28),
-        0 0 12px rgba(255,255,255,0.06) inset;
-    border: 2px solid rgba(255,255,255,0.9);
-    transition: transform 0.08s ease, box-shadow 0.12s ease;
-}
-
-.volume-slider.funky:active::-webkit-slider-thumb {
-    transform: scale(0.96);
+.radio-player-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.9);
 }
 
 /* Firefox track */
-.volume-slider.funky::-moz-range-track {
-    height: 8px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, #00f5ff 0%, #9bffb8 40%, #ffd86b 70%, #ff6b6b 100%);
-    border: 1px solid rgba(255,255,255,0.08);
+.radio-player-volume::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #00f5ff 0%,
+    #9bffb8 40%,
+    #ffd86b 70%,
+    #ff6b6b 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Firefox thumb */
-.volume-slider.funky::-moz-range-thumb {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.95);
-    border: 2px solid rgba(255,255,255,0.9);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+.radio-player-volume::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
-/* Small screens: stack the metadata */
-@media (max-width: 520px) {
-    .metadata {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
-    }
-    .now-playing {
-        max-width: 100%;
-    }
+/* Now playing below controls */
+.radio-player-now-playing {
+  font-family: var(--font2);
+  font-size: 0.9rem;
+  color: var(--colour2);
+  opacity: 0.7;
+  margin-top: 0.6rem;
+  line-height: 1.4;
+}
+
+.radio-player-track {
+  font-weight: 600;
+}
+
+/* Very small screens: tighten up */
+@media (max-width: 480px) {
+  .radio-player-controls {
+    gap: 0.5rem;
+  }
+
+  .radio-player-play,
+  .radio-player-mute {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .radio-player-volume {
+    max-width: 100px;
+  }
 }
