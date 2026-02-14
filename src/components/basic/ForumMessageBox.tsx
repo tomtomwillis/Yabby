@@ -18,6 +18,7 @@ interface ForumMessageBoxProps {
   maxChars?: number;
   className?: string;
   showSendButton?: boolean;
+  initialValue?: string;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -28,6 +29,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   maxChars = 1000,
   className = '',
   showSendButton = true,
+  initialValue = '',
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [listSearchQuery, setListSearchQuery] = useState<string>("");
@@ -38,7 +40,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchingLists, setIsSearchingLists] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string>("");
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Track the position of the trigger character (@ or #) for replacement
