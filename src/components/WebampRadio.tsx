@@ -3,28 +3,58 @@ import RadioPlayer from "./RadioPlayer";
 import "./WebampRadio.css";
 
 const STREAM_URL = "https://radio.yabbyville.xyz/live";
-const STATUS_URL = "https://radio.yabbyville.xyz/status-json.xsl";
+const SKINS_PATH = "/skins";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WebampInstance = any;
 
 const DESKTOP_QUERY = "(min-width: 768px)";
 
-interface WebampRadioProps {
-  containerRef: React.RefObject<HTMLDivElement | null>;
+interface Skin {
+  url: string;
+  name: string;
 }
 
-const WebampRadio: React.FC<WebampRadioProps> = ({ containerRef }) => {
-  const [nowPlaying, setNowPlaying] = useState("");
+// Format filename to readable name (e.g., "My_Cool_Skin.wsz" -> "My Cool Skin")
+const formatSkinName = (filename: string): string =>
+  filename.replace(".wsz", "").replace(/_/g, " ");
+
+// Generate skin list from public/skins folder
+const generateSkinsList = (): Skin[] => [
+  { url: `${SKINS_PATH}/Construction_Paper_Beach.wsz`, name: formatSkinName("Construction_Paper_Beach.wsz") },
+  { url: `${SKINS_PATH}/Dolphin_Trio.wsz`, name: formatSkinName("Dolphin_Trio.wsz") },
+  { url: `${SKINS_PATH}/Flat_Slopey_Green_and_Black_Version.wsz`, name: formatSkinName("Flat_Slopey_Green_and_Black_Version.wsz") },
+  { url: `${SKINS_PATH}/Frutiger Aero.wsz`, name: formatSkinName("Frutiger Aero.wsz") },
+  { url: `${SKINS_PATH}/Infinite.wsz`, name: formatSkinName("Infinite.wsz") },
+  { url: `${SKINS_PATH}/Mac-AMP-r2.wsz`, name: formatSkinName("Mac-AMP-r2.wsz") },
+  { url: `${SKINS_PATH}/MountainDew_v1.1.wsz`, name: formatSkinName("MountainDew_v1.1.wsz") },
+  { url: `${SKINS_PATH}/New_Idea_3_-_Alien_Metalloid_.wsz`, name: formatSkinName("New_Idea_3_-_Alien_Metalloid_.wsz") },
+  { url: `${SKINS_PATH}/OS8 AMP - Aquamarine.wsz`, name: formatSkinName("OS8 AMP - Aquamarine.wsz") },
+  { url: `${SKINS_PATH}/Perpenvertiagonal_Perspectives.wsz`, name: formatSkinName("Perpenvertiagonal_Perspectives.wsz") },
+  { url: `${SKINS_PATH}/Simpsons.wsz`, name: formatSkinName("Simpsons.wsz") },
+  { url: `${SKINS_PATH}/Warner_Bros_Scooby-Doo.wsz`, name: formatSkinName("Warner_Bros_Scooby-Doo.wsz") },
+  { url: `${SKINS_PATH}/cuteamp.wsz`, name: formatSkinName("cuteamp.wsz") },
+  { url: `${SKINS_PATH}/forums_winamp_com.wsz`, name: formatSkinName("forums_winamp_com.wsz") },
+  { url: `${SKINS_PATH}/os8_amp_v1_5.wsz`, name: formatSkinName("os8_amp_v1_5.wsz") },
+];
+
+interface WebampRadioProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  onLoadingChange?: (loading: boolean) => void;
+  onErrorChange?: (error: string | null) => void;
+}
+
+const WebampRadio: React.FC<WebampRadioProps> = ({
+  containerRef,
+  onLoadingChange,
+  onErrorChange,
+}) => {
   const [isDesktop, setIsDesktop] = useState(
     () => window.matchMedia(DESKTOP_QUERY).matches
   );
-  const [webampLoading, setWebampLoading] = useState(false);
-  const [webampError, setWebampError] = useState<string | null>(null);
 
   const webampRef = useRef<WebampInstance>(null);
   const hasRenderedRef = useRef(false);
-  const pollAbortRef = useRef<AbortController | null>(null);
 
   // --- Responsive: track desktop vs mobile ---
   useEffect(() => {
@@ -32,47 +62,6 @@ const WebampRadio: React.FC<WebampRadioProps> = ({ containerRef }) => {
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
     mql.addEventListener("change", handler);
     return () => mql.removeEventListener("change", handler);
-  }, []);
-
-  // --- Poll status-json.xsl on mount, every 30 seconds ---
-  useEffect(() => {
-    const abortController = new AbortController();
-    pollAbortRef.current = abortController;
-
-    const poll = async () => {
-      try {
-        const res = await fetch(STATUS_URL, {
-          cache: "no-store",
-          signal: abortController.signal,
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const source = data?.icestats?.source;
-        const title = Array.isArray(source)
-          ? source[0]?.title
-          : source?.title;
-        if (typeof title === "string" && title.trim() !== "") {
-          setNowPlaying(title.trim());
-        }
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        console.debug("Metadata poll skipped:", err);
-      }
-    };
-
-    poll();
-    const interval = window.setInterval(() => {
-      if (abortController.signal.aborted) {
-        clearInterval(interval);
-        return;
-      }
-      poll();
-    }, 30_000);
-
-    return () => {
-      abortController.abort();
-      clearInterval(interval);
-    };
   }, []);
 
   // --- Auto-load Webamp on desktop ---
@@ -85,8 +74,8 @@ const WebampRadio: React.FC<WebampRadioProps> = ({ containerRef }) => {
     let disposed = false;
 
     const initWebamp = async () => {
-      setWebampLoading(true);
-      setWebampError(null);
+      onLoadingChange?.(true);
+      onErrorChange?.(null);
 
       try {
         const mod = await import("webamp/butterchurn");
@@ -98,7 +87,12 @@ const WebampRadio: React.FC<WebampRadioProps> = ({ containerRef }) => {
 
         if (disposed) return;
 
+        const skins = generateSkinsList();
+        const randomSkin = skins[Math.floor(Math.random() * skins.length)];
+
         const webamp = new WebampClass({
+          initialSkin: randomSkin,
+          availableSkins: skins,
           initialTracks: [
             {
               metaData: {
@@ -153,11 +147,11 @@ const WebampRadio: React.FC<WebampRadioProps> = ({ containerRef }) => {
       } catch (err) {
         if (!disposed) {
           console.error("Webamp init failed:", err);
-          setWebampError("Failed to initialize the radio player.");
+          onErrorChange?.("Failed to initialize the radio player.");
         }
       } finally {
         if (!disposed) {
-          setWebampLoading(false);
+          onLoadingChange?.(false);
         }
       }
     };
@@ -179,37 +173,12 @@ const WebampRadio: React.FC<WebampRadioProps> = ({ containerRef }) => {
           // Webamp dispose may fail silently
         }
       }
-      if (pollAbortRef.current) {
-        pollAbortRef.current.abort();
-      }
     };
   }, []);
 
-  return (
-    <div className="webamp-radio-section">
-      <div className="title1">Radio</div>
-
-      {isDesktop ? (
-        <>
-          {webampLoading && (
-            <p className="webamp-radio-loading">Loading player...</p>
-          )}
-
-          {webampError && (
-            <p className="webamp-radio-error">{webampError}</p>
-          )}
-
-          {nowPlaying && (
-            <div className="webamp-radio-now-playing">
-              Now Playing: {nowPlaying}
-            </div>
-          )}
-        </>
-      ) : (
-        <RadioPlayer nowPlaying={nowPlaying} />
-      )}
-    </div>
-  );
+  // On desktop, Webamp renders directly into containerRef (return null)
+  // On mobile, render RadioPlayer
+  return isDesktop ? null : <RadioPlayer />;
 };
 
 export default WebampRadio;

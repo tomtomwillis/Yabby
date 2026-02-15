@@ -3,11 +3,7 @@ import "./RadioPlayer.css";
 
 const STREAM_URL = "https://radio.yabbyville.xyz/live";
 
-interface RadioPlayerProps {
-  nowPlaying: string;
-}
-
-const RadioPlayer: React.FC<RadioPlayerProps> = ({ nowPlaying }) => {
+const RadioPlayer: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -65,12 +61,6 @@ const RadioPlayer: React.FC<RadioPlayerProps> = ({ nowPlaying }) => {
           aria-label="Volume"
         />
       </div>
-
-      {nowPlaying && (
-        <div className="radio-player-now-playing">
-          Now Playing: <span className="radio-player-track">{nowPlaying}</span>
-        </div>
-      )}
     </div>
   );
 };
