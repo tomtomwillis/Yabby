@@ -102,6 +102,7 @@ const Profile: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [flagSearch, setFlagSearch] = useState('');
   const [flagDropdownOpen, setFlagDropdownOpen] = useState(false);
+  const [limitError, setLimitError] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -155,6 +156,7 @@ const Profile: React.FC = () => {
     setEditLocationText(locationText);
     setIsEditing(true);
     setSaveMessage('');
+    setLimitError('');
   };
 
   const handleCancel = () => {
@@ -162,6 +164,7 @@ const Profile: React.FC = () => {
     setFlagDropdownOpen(false);
     setFlagSearch('');
     setSaveMessage('');
+    setLimitError('');
   };
 
   const handleSave = async () => {
@@ -254,6 +257,17 @@ const Profile: React.FC = () => {
     opt.label.toLowerCase().includes(flagSearch.toLowerCase())
   );
 
+  const handleLimitExceeded = (type: 'words' | 'chars', field: string) => {
+    const errorMsg = type === 'words'
+      ? `${field} word limit exceeded`
+      : `${field} character limit exceeded`;
+    setLimitError(errorMsg);
+
+    setTimeout(() => {
+      setLimitError('');
+    }, 3000);
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -269,10 +283,10 @@ const Profile: React.FC = () => {
           <Link
             to={`/user/${user.uid}`}
             style={{
-              color: 'var(--colour3)',
-              textDecoration: 'none',
+              color: 'var(--colour6)',
+              textDecoration: 'underline',
               fontFamily: 'var(--font2)',
-              fontSize: '0.9em',
+              fontSize: '1em',
             }}
           >
             View your public profile page
@@ -291,9 +305,11 @@ const Profile: React.FC = () => {
                 value={editUsername}
                 onChange={setEditUsername}
                 maxWords={5}
+                maxChars={50}
                 showSendButton={false}
                 showCounter={false}
                 className="form-input"
+                onLimitExceeded={(type) => handleLimitExceeded(type, 'Username')}
               />
 
               <div style={{ height: '1rem' }}></div>
@@ -315,9 +331,11 @@ const Profile: React.FC = () => {
                 value={editBio}
                 onChange={setEditBio}
                 maxWords={100}
+                maxChars={500}
                 showSendButton={false}
                 showCounter={true}
                 rows={3}
+                onLimitExceeded={(type) => handleLimitExceeded(type, 'Bio')}
               />
 
               <div style={{ height: '0.75rem' }}></div>
@@ -448,14 +466,35 @@ const Profile: React.FC = () => {
               </div>
 
               <MessageTextBox
-                placeholder="City, country, etc..."
+                placeholder="Where are you located?"
                 value={editLocationText}
                 onChange={setEditLocationText}
                 maxWords={10}
+                maxChars={100}
                 showSendButton={false}
                 showCounter={true}
                 rows={1}
+                onLimitExceeded={(type) => handleLimitExceeded(type, 'Location')}
               />
+
+              {limitError && (
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f8d7da',
+                    color: '#721c24',
+                    border: '1px solid #f5c6cb',
+                    textAlign: 'center',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    fontFamily: 'var(--font2)',
+                  }}
+                >
+                  {limitError}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '16px' }}>
                 <Button
