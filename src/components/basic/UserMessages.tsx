@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
-import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
-import { sanitizeHtml } from '../../utils/sanitise';
+import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
 
 interface Reaction {
   userId: string;
@@ -44,15 +45,24 @@ interface UserMessageProps {
   onToggleReplyReaction?: (replyId: string) => void;
   replyingToUsername?: string;
   enableReplies?: boolean;
+  // New props for edit/delete and profile links
+  userId?: string;
+  currentUserId?: string;
+  isAdmin?: boolean;
+  onEdit?: (newText: string) => void;
+  onDelete?: () => void;
+  onEditReply?: (replyId: string, newText: string) => void;
+  onDeleteReply?: (replyId: string) => void;
+  edited?: boolean;
 }
 
 // Utility function to normalize avatar paths
 const normalizeAvatarPath = (avatarPath: string): string => {
   if (!avatarPath) return '';
-  
+
   // Remove leading slash if present
   const cleanPath = avatarPath.startsWith('/') ? avatarPath.substring(1) : avatarPath;
-  
+
   // Handle different path formats
   if (cleanPath.startsWith('Stickers/')) {
     // Path is already in correct format: "Stickers/avatar_name.webp"
@@ -82,26 +92,32 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
-// Utility function to sanitize and parse HTML content safely
+// Utility function to format message text for display.
+// Handles both legacy HTML messages (with <a>, <br> tags) and new plain text messages.
 const parseMessageHTML = (htmlString: string): React.ReactNode => {
-  const sanitized = sanitizeHtml(htmlString);
-  // HTML parser options with security measures
+  // 1. Sanitize HTML (preserves safe tags like <a>, <br> from legacy messages)
+  let processed = sanitizeHtml(htmlString);
+
+  // 2. Convert \n to <br> (for new plain text messages; legacy HTML messages don't have \n)
+  processed = processed.replace(/\n/g, '<br>');
+
+  // 3. Parse markdown-style [text](url) links (from @/# tagging in new messages)
+  processed = parseMarkdownLinks(processed);
+
+  // 4. Auto-detect bare URLs and wrap in <a> tags (skips URLs already in <a> tags)
+  processed = linkifyText(processed);
+
+  // HTML parser options — enforce safe link rendering
   const options: HTMLReactParserOptions = {
     replace: (domNode) => {
       if (domNode instanceof Element) {
         const { name, attribs, children } = domNode;
 
-        // Only allow anchor tags
         if (name === 'a') {
           const href = attribs?.href;
-
-          // Validate the URL
           if (!href || !isValidUrl(href)) {
-            // If invalid URL, render as plain text
             return <span>{domToReact(children as DOMNode[], options)}</span>;
           }
-
-          // Create safe link with security attributes
           return (
             <a
               href={href}
@@ -113,22 +129,24 @@ const parseMessageHTML = (htmlString: string): React.ReactNode => {
             </a>
           );
         }
-        
+
+        // Allow <br> tags through
+        if (name === 'br') {
+          return <br />;
+        }
+
         // For any other HTML tags, render as plain text
         return <span>{domToReact(children as DOMNode[], options)}</span>;
       }
-
-      // Return undefined to use default behavior for text nodes
       return undefined;
     }
   };
-  
 
   try {
-    return parse(sanitized, options); // Parse the sanitized HTML
+    return parse(processed, options);
   } catch (error) {
-    console.warn('Failed to parse HTML content, falling back to plain text:', error);
-    return sanitized; // Return sanitized text as fallback
+    console.warn('Failed to parse message content, falling back to plain text:', error);
+    return htmlString;
   }
 };
 
@@ -151,13 +169,27 @@ const UserMessage: React.FC<UserMessageProps> = ({
   isReply,
   onToggleReplyReaction,
   replyingToUsername,
-  enableReplies
+  enableReplies,
+  userId,
+  currentUserId,
+  isAdmin,
+  onEdit,
+  onDelete,
+  onEditReply,
+  onDeleteReply,
+  edited
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isLongPress, setIsLongPress] = useState(false);
   const [showReplyInput, setShowReplyInput] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const isOwner = userId !== undefined && currentUserId !== undefined && userId === currentUserId;
+  const canEdit = isOwner && onEdit;
+  const canDelete = onDelete && (isOwner || isAdmin);
 
   const handleTouchStart = () => {
     longPressTimer.current = setTimeout(() => {
@@ -182,10 +214,31 @@ const UserMessage: React.FC<UserMessageProps> = ({
       return '';
     }
   };
-  
+
+  const handleStartEdit = () => {
+    setEditText(message);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    const sanitized = sanitizeHtml(editText.trim());
+    if (!sanitized.trim()) {
+      alert('Your message contains invalid content. Please try again.');
+      return;
+    }
+    onEdit?.(sanitized);
+    setIsEditing(false);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm('Are you sure you want to delete this? This cannot be undone.')) {
+      onDelete?.();
+    }
+  };
+
   // Check if userSticker is an image file
-  const isImage = userSticker?.endsWith('.webp') || 
-                  userSticker?.endsWith('.png') || 
+  const isImage = userSticker?.endsWith('.webp') ||
+                  userSticker?.endsWith('.png') ||
                   userSticker?.endsWith('.jpg') ||
                   userSticker?.endsWith('.jpeg');
 
@@ -200,17 +253,17 @@ const UserMessage: React.FC<UserMessageProps> = ({
   const renderUserSticker = () => {
     if (isImage && !imageError) {
       return (
-        <img 
-          src={normalizedStickerPath} 
+        <img
+          src={normalizedStickerPath}
           alt={`${username}'s avatar`}
-          className="user-message-sticker" 
+          className="user-message-sticker"
           onError={handleImageError}
         />
       );
     } else if (isImage && imageError) {
       // Fallback for failed image loads - show user initial
       return (
-        <div 
+        <div
           className="user-message-sticker user-message-sticker-fallback"
           style={{
             backgroundColor: '#ccc',
@@ -236,20 +289,51 @@ const UserMessage: React.FC<UserMessageProps> = ({
         {renderUserSticker()}
       </div>
       <div className="user-message-content">
-        <div className="user-message-username">{username}</div>
-        <div className="user-message-timestamp">{timestamp}</div>
-        <div className="user-message-separator"></div>
-        <div
-        className="user-message-text"
-        style={{
-          whiteSpace: 'pre-wrap',
-          hyphens: 'none',
-          wordBreak: 'normal',
-          overflowWrap: 'normal'
-        }}
-        >
-        {parseMessageHTML(message)}
+        <div className="user-message-username">
+          {userId ? (
+            <Link to={`/user/${userId}`} className="user-message-username-link">
+              {username}
+            </Link>
+          ) : (
+            username
+          )}
         </div>
+        <div className="user-message-timestamp">
+          {timestamp}
+          {edited && <span className="user-message-edited-indicator"> (edited)</span>}
+        </div>
+        <div className="user-message-separator"></div>
+
+        {isEditing ? (
+          <div className="user-message-edit-container">
+            <ForumBox
+              placeholder="Edit your message..."
+              initialValue={editText}
+              onSend={(text) => {
+                const sanitized = sanitizeHtml(text.trim());
+                if (!sanitized.trim()) {
+                  alert('Your message contains invalid content. Please try again.');
+                  return;
+                }
+                onEdit?.(sanitized);
+                setIsEditing(false);
+              }}
+              maxWords={250}
+              maxChars={10000}
+              showSendButton={true}
+            />
+            <button
+              className="user-message-cancel-reply"
+              onClick={() => setIsEditing(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="user-message-text">
+            {parseMessageHTML(message)}
+          </div>
+        )}
 
 
         {/* Reply count indicator - only show for non-reply messages with replies */}
@@ -303,6 +387,11 @@ const UserMessage: React.FC<UserMessageProps> = ({
                 message={reply.text}
                 timestamp={formatTimestamp(reply.timestamp)}
                 userSticker={reply.avatar}
+                userId={reply.userId}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                onEdit={onEditReply ? (newText: string) => onEditReply(reply.id, newText) : undefined}
+                onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
                 onClose={() => {}}
                 hideCloseButton={true}
                 reactions={reply.reactions}
@@ -317,8 +406,46 @@ const UserMessage: React.FC<UserMessageProps> = ({
         )}
       </div>
 
-      {/* Action buttons container (reactions and reply) */}
+      {/* Action buttons container (reactions, reply, edit, delete) */}
       <div className="user-message-actions-container">
+        {/* Edit button - owner only */}
+        {canEdit && !isEditing && (
+          <div
+            className="user-message-edit-button"
+            onClick={handleStartEdit}
+            role="button"
+            tabIndex={0}
+            aria-label="Edit message"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleStartEdit();
+              }
+            }}
+          >
+            <FaEdit />
+          </div>
+        )}
+
+        {/* Delete button - owner or admin */}
+        {canDelete && !isEditing && (
+          <div
+            className="user-message-delete-button"
+            onClick={handleDelete}
+            role="button"
+            tabIndex={0}
+            aria-label="Delete message"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleDelete();
+              }
+            }}
+          >
+            <FaTrash />
+          </div>
+        )}
+
         {onToggleReaction && (
           <div
             className="user-message-reaction-container"

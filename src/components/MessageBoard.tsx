@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
+import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { sanitizeHtml } from '../utils/sanitise'; 
+import { sanitizeHtml } from '../utils/sanitise';
 import UserMessage from './basic/UserMessages';
 import './MessageBoard.css';
 import ForumBox from './basic/ForumMessageBox';
 import Button from './basic/Button';
+import { useRateLimit } from '../utils/useRateLimit';
+import { useAdmin } from '../utils/useAdmin';
 
 interface Reaction {
   userId: string;
@@ -24,6 +26,7 @@ interface Reply {
   reactions?: Reaction[];
   reactionCount?: number;
   currentUserReacted?: boolean;
+  editedAt?: any;
 }
 
 interface Message {
@@ -38,6 +41,7 @@ interface Message {
   currentUserReacted?: boolean;
   replies?: Reply[];
   replyCount?: number;
+  editedAt?: any;
 }
 
 interface MessageBoardProps {
@@ -56,15 +60,23 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  
+
+  const { isAdmin } = useAdmin();
+
+  // Rate limiting: 10 messages per 5 minutes
+  const { checkRateLimit, getRemainingAttempts } = useRateLimit({
+    maxAttempts: 10,
+    windowMs: 5 * 60 * 1000, // 5 minutes
+  });
+
   // Cache for user profiles to avoid redundant fetches
   // Cache expires after 5 minutes to allow profile updates to show
-  const userCacheRef = useRef<Map<string, { 
-    username: string; 
-    avatar: string; 
-    timestamp: number 
+  const userCacheRef = useRef<Map<string, {
+    username: string;
+    avatar: string;
+    timestamp: number
   }>>(new Map());
-  
+
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   // Helper function to get user data (with caching and expiration)
@@ -158,6 +170,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             currentUserReacted: false,
             replies: [] as Reply[],
             replyCount: 0,
+            editedAt: messageData.editedAt,
           };
         });
 
@@ -214,6 +227,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
                   reactions: [] as Reaction[],
                   reactionCount: 0,
                   currentUserReacted: false,
+                  editedAt: replyData.editedAt,
                 };
               });
 
@@ -326,6 +340,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           currentUserReacted: false,
           replies: [] as Reply[],
           replyCount: 0,
+          editedAt: messageData.editedAt,
         };
       });
 
@@ -380,6 +395,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
                 reactions: [] as Reaction[],
                 reactionCount: 0,
                 currentUserReacted: false,
+                editedAt: replyData.editedAt,
               };
             });
 
@@ -448,11 +464,18 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     return;
   }
 
+  // Check rate limit before sending
+  if (!checkRateLimit()) {
+    const remaining = getRemainingAttempts();
+    alert(`You're posting too quickly! Please wait a few minutes before posting again.`);
+    return;
+  }
+
   setLoading(true);
   try {
     // Sanitize the message BEFORE saving to database
     const sanitizedText = sanitizeHtml(text.trim());
-    
+
     // Check if sanitization removed everything (was all malicious code)
     if (!sanitizedText.trim()) {
       alert('Your message contains invalid content. Please try again.');
@@ -558,7 +581,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
     try {
       const sanitizedText = sanitizeHtml(text.trim());
-    
+
     if (!sanitizedText.trim()) {
       alert('Your reply contains invalid content. Please try again.');
       return;
@@ -567,7 +590,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       const userData = await getUserData(auth.currentUser.uid);
 
       await addDoc(collection(db, 'messages', messageId, 'replies'), {
-        text: text,
+        text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         username: userData.username,
@@ -613,6 +636,60 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
   };
 
+  const handleEditMessage = async (messageId: string, newText: string) => {
+    if (!auth.currentUser) return;
+
+    try {
+      const messageRef = doc(db, 'messages', messageId);
+      await updateDoc(messageRef, {
+        text: newText,
+        editedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error editing message:', error);
+      alert('Failed to edit message. Please try again.');
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!auth.currentUser) return;
+
+    try {
+      const messageRef = doc(db, 'messages', messageId);
+      await deleteDoc(messageRef);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      alert('Failed to delete message. Please try again.');
+    }
+  };
+
+  const handleEditReply = async (messageId: string, replyId: string, newText: string) => {
+    if (!auth.currentUser) return;
+
+    try {
+      const replyRef = doc(db, 'messages', messageId, 'replies', replyId);
+      await updateDoc(replyRef, {
+        text: newText,
+        editedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error editing reply:', error);
+      alert('Failed to edit reply. Please try again.');
+    }
+  };
+
+  const handleDeleteReply = async (messageId: string, replyId: string) => {
+    if (!auth.currentUser) return;
+
+    try {
+      const replyRef = doc(db, 'messages', messageId, 'replies', replyId);
+      await deleteDoc(replyRef);
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+      alert('Failed to delete reply. Please try again.');
+    }
+  };
+
   return (
     <div className="message-board-container">
       <div style={{ 
@@ -635,6 +712,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             message={message.text}
             timestamp={formatTimestamp(message.timestamp)}
             userSticker={message.avatar || 'default-avatar.png'}
+            userId={message.userId}
+            currentUserId={auth.currentUser?.uid}
+            isAdmin={isAdmin}
+            onEdit={(newText: string) => handleEditMessage(message.id, newText)}
+            onDelete={() => handleDeleteMessage(message.id)}
+            onEditReply={(replyId: string, newText: string) => handleEditReply(message.id, replyId, newText)}
+            onDeleteReply={(replyId: string) => handleDeleteReply(message.id, replyId)}
+            edited={!!message.editedAt}
             onClose={() => {}}
             hideCloseButton={true}
             reactions={enableReactions ? message.reactions : undefined}

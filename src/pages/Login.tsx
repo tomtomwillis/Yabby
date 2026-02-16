@@ -49,8 +49,6 @@ const Login = () => {
       );
       return;
     }
-    console.log('Login form submitted');
-    console.log('Email:', email, 'Password:', password);
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -146,10 +144,7 @@ const Login = () => {
                 type="email"
                 placeholder="Email"
                 value={email}
-                onChange={(e) => {
-                  console.log('Email entered:', e.target.value);
-                  setEmail(e.target.value);
-                }}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 autoComplete="email"
                 className="text-input form-input"
@@ -163,10 +158,7 @@ const Login = () => {
                 type="password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => {
-                  console.log('Password entered:', e.target.value);
-                  setPassword(e.target.value);
-                }}
+                onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
                 className="text-input form-input"
               />

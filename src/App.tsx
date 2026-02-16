@@ -12,6 +12,7 @@ import './App.css';
 import './components/basic/TextAnimations.css';
 import Test from './pages/Test';
 import Login from './pages/Login';
+import UserProfile from './pages/UserProfile';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
           <Route path="/stickers" element={<PrivateRoute><Stickers /></PrivateRoute>} />
           <Route path="/lists" element={<PrivateRoute><ListsPage /></PrivateRoute>} />
           <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
+          <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
         </Routes>
       </div>

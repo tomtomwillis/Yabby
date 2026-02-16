@@ -380,6 +380,72 @@
   }
 }
 
+/* Username link styles */
+.user-message-username-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.user-message-username-link:hover {
+  text-decoration: underline;
+  color: var(--colour3);
+}
+
+/* Edit and delete button styles */
+.user-message-edit-button,
+.user-message-delete-button {
+  background: transparent;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+  line-height: 1;
+  color: var(--colour4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+}
+
+.user-message-edit-button:hover {
+  transform: scale(1.15);
+  color: var(--colour3);
+  opacity: 1;
+}
+
+.user-message-delete-button:hover {
+  transform: scale(1.15);
+  color: #ff4757;
+  opacity: 1;
+}
+
+.user-message-edit-button:active,
+.user-message-delete-button:active {
+  transform: scale(0.9);
+}
+
+/* Edit container */
+.user-message-edit-container {
+  margin-top: 4px;
+  width: 100%;
+}
+
+/* Edited indicator */
+.user-message-edited-indicator {
+  font-style: italic;
+  opacity: 0.6;
+  font-size: 0.9em;
+}
+
+@media (max-width: 768px) {
+  .user-message-edit-button,
+  .user-message-delete-button {
+    font-size: 1em;
+  }
+}
+
 /* Album list item specific styles */
 .list-item-album-cover {
   border-radius: 8px;

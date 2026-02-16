@@ -4,10 +4,12 @@ import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import './CarouselStickers.css';
-import { collection, getDocs, query, orderBy, doc, getDoc, limit, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, getDoc, deleteDoc, limit, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { useAdmin } from '../utils/useAdmin';
 
 interface Sticker {
+  stickerId: string;
   userId: string;
   albumId: string;
   text: string;
@@ -28,6 +30,8 @@ interface AlbumWithStickers {
 
 interface PopupData {
   stickers: {
+    stickerId: string;
+    userId: string;
     text: string;
     username: string;
     avatar: string;
@@ -67,6 +71,8 @@ const CarouselStickers: React.FC = () => {
     cover: string;
   } | null>(null);
 
+  const { isAdmin } = useAdmin();
+
   const fetchStickers = async () => {
     try {
       setLoading(true);
@@ -84,7 +90,10 @@ const CarouselStickers: React.FC = () => {
         limit(10)
       );
       const recentStickersSnapshot = await getDocs(recentStickersQuery);
-      const recentStickers: Sticker[] = recentStickersSnapshot.docs.map((doc) => doc.data() as Sticker);
+      const recentStickers: Sticker[] = recentStickersSnapshot.docs.map((d) => ({
+        ...(d.data() as Omit<Sticker, 'stickerId'>),
+        stickerId: d.id,
+      }));
 
       // Step 2: Get unique album IDs from the recent stickers
       const uniqueAlbumIds = [...new Set(recentStickers.map(sticker => sticker.albumId))];
@@ -99,7 +108,10 @@ const CarouselStickers: React.FC = () => {
           );
           const albumStickersSnapshot = await getDocs(albumStickersQuery);
           const allAlbumStickers: Sticker[] = albumStickersSnapshot.docs
-            .map((doc) => doc.data() as Sticker)
+            .map((d) => ({
+              ...(d.data() as Omit<Sticker, 'stickerId'>),
+              stickerId: d.id,
+            }))
             .sort((a, b) => {
               // Sort by timestamp descending (most recent first)
               const timestampA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
@@ -192,6 +204,8 @@ const CarouselStickers: React.FC = () => {
               : 'Unknown time';
 
             return {
+              stickerId: sticker.stickerId,
+              userId: sticker.userId,
               text: sticker.text,
               username: userData.username || 'Anonymous',
               avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
@@ -201,6 +215,8 @@ const CarouselStickers: React.FC = () => {
           } catch (error) {
             console.error('Error fetching user data:', error);
             return {
+              stickerId: sticker.stickerId,
+              userId: sticker.userId,
               text: sticker.text,
               username: 'Anonymous',
               avatar: '/Stickers/avatar_tp_red.webp',
@@ -216,6 +232,24 @@ const CarouselStickers: React.FC = () => {
       albumArtist: album.albumArtist,
       albumCover: `${SERVER_URL}/rest/getCoverArt?id=${album.albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`, // Updated to use CLIENT_ID
     });
+  };
+
+  const handleDeleteSticker = async (stickerId: string) => {
+    if (!window.confirm('Are you sure you want to delete this sticker? This cannot be undone.')) return;
+
+    try {
+      await deleteDoc(doc(db, 'stickers', stickerId));
+      // Remove from popup state
+      setPopup(prev => ({
+        ...prev,
+        stickers: prev.stickers.filter(s => s.stickerId !== stickerId),
+      }));
+      // Refresh the carousel
+      fetchStickers();
+    } catch (error) {
+      console.error('Error deleting sticker:', error);
+      alert('Failed to delete sticker. Please try again.');
+    }
   };
 
   const closePopup = () => {
@@ -321,10 +355,10 @@ const CarouselStickers: React.FC = () => {
       <div className="sticker-album-carousel">
         <div className="error-container">
           <p>Error loading albums: {error}</p>
-          <Button 
-            type="basic" 
-            label="Retry" 
-            onClick={() => window.location.reload()} 
+          <Button
+            type="basic"
+            label="Retry"
+            onClick={() => window.location.reload()}
           />
         </div>
       </div>
@@ -344,7 +378,7 @@ const CarouselStickers: React.FC = () => {
 
   return (
     <div className="sticker-album-carousel">
-      <Carousel 
+      <Carousel
         slides={carouselSlides}
         loop={albums.length > 4}
         autoplay={true}
@@ -380,6 +414,14 @@ const CarouselStickers: React.FC = () => {
                     message={sticker.text}
                     timestamp={sticker.timestamp}
                     userSticker={sticker.avatar}
+                    userId={sticker.userId}
+                    currentUserId={auth.currentUser?.uid}
+                    isAdmin={isAdmin}
+                    onDelete={
+                      (sticker.userId === auth.currentUser?.uid || isAdmin)
+                        ? () => handleDeleteSticker(sticker.stickerId)
+                        : undefined
+                    }
                     onClose={() => {}}
                     hideCloseButton={true}
                   />

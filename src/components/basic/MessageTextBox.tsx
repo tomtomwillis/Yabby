@@ -9,11 +9,13 @@ interface TextBoxProps {
   onChange?: (text: string) => void; // Add onChange prop for controlled input
   disabled?: boolean;
   maxWords?: number;
+  maxChars?: number; // Character limit
   className?: string;
   showSendButton?: boolean; // New prop to control the visibility of the send button
   showCounter?: boolean; // New prop to control the visibility of the word/character counter
   rows?: number; // Number of rows for the textarea
   children?: React.ReactElement<{ onClick?: () => void; disabled?: boolean }>; // Ensure children support onClick and disabled props
+  onLimitExceeded?: (type: 'words' | 'chars') => void; // Callback when limit is exceeded
 }
 
 const TextBox: React.FC<TextBoxProps> = ({
@@ -23,18 +25,18 @@ const TextBox: React.FC<TextBoxProps> = ({
   onChange,
   disabled = false,
   maxWords = 250,
+  maxChars = 1000, // Default character limit
   className = '',
   showSendButton = true, // Default to true to show the send button
   showCounter = true, // Default to true to show the word/character counter
   rows = 1, // Default to 1 row
   children, // Custom children passed from the parent
+  onLimitExceeded,
 }) => {
   const [text, setText] = useState(value || ''); // Initialize with value if provided
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0); // Track character count
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const maxChars = 1000; // Character limit
 
   // Count words in text
   const countWords = (text: string): number => {
@@ -89,6 +91,16 @@ const TextBox: React.FC<TextBoxProps> = ({
         if (onChange) {
           onChange(newText);
         }
+      } else {
+        // Word limit exceeded - notify parent
+        if (onLimitExceeded) {
+          onLimitExceeded('words');
+        }
+      }
+    } else {
+      // Character limit exceeded - notify parent
+      if (onLimitExceeded) {
+        onLimitExceeded('chars');
       }
     }
   };
@@ -129,6 +141,16 @@ const TextBox: React.FC<TextBoxProps> = ({
             textarea.focus();
           }
         }, 0);
+      } else {
+        // Word limit would be exceeded - notify parent
+        if (onLimitExceeded) {
+          onLimitExceeded('words');
+        }
+      }
+    } else {
+      // Character limit would be exceeded - notify parent
+      if (onLimitExceeded) {
+        onLimitExceeded('chars');
       }
     }
   };
