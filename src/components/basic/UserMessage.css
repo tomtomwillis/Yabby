@@ -318,9 +318,15 @@
 .user-message-reply-input-container {
   margin-top: 12px;
   padding-top: 12px;
+}
+
+.user-message-reply-input-container .input-area {
   background-color: var(--colour4);
-  padding: 12px;
-  border-radius: 8px;
+}
+
+.user-message-reply-input-container .text-input {
+  background-color: var(--colour4);
+  color: var(--colour2);
 }
 
 .user-message-reply-header {
@@ -332,9 +338,9 @@
 }
 
 .user-message-cancel-reply {
-  background: transparent;
-  border: 1px solid var(--colour2);
-  color: var(--colour2);
+  background: #ff4757;
+  border: 1px solid #ff4757;
+  color: var(--colour4);
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
@@ -345,9 +351,9 @@
 }
 
 .user-message-cancel-reply:hover {
-  background-color: var(--colour5);
+  background-color: #d63447;
   color: var(--colour4);
-  border: 1px solid var(--colour4);
+  border: 1px solid #d63447;
 }
 
 .user-message-replies-container {
@@ -430,6 +436,15 @@
 .user-message-edit-container {
   margin-top: 4px;
   width: 100%;
+}
+
+.user-message-edit-container .input-area {
+  background-color: var(--colour4);
+}
+
+.user-message-edit-container .text-input {
+  background-color: var(--colour4);
+  color: var(--colour2);
 }
 
 /* Edited indicator */
