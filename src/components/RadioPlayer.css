@@ -1,0 +1,117 @@
+.radio-player {
+  width: 100%;
+  padding: 0.75rem 15px;
+  box-sizing: border-box;
+}
+
+/* Controls: play, mute, volume in a row */
+.radio-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Shared button style */
+.radio-player-play,
+.radio-player-mute {
+  background-color: var(--colour2);
+  color: var(--colour4);
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.radio-player-play:hover,
+.radio-player-mute:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.radio-player-mute {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+/* Volume slider */
+.radio-player-volume {
+  flex: 1;
+  max-width: 140px;
+  height: 18px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+/* WebKit track */
+.radio-player-volume::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #00f5ff 0%,
+    #9bffb8 40%,
+    #ffd86b 70%,
+    #ff6b6b 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* WebKit thumb */
+.radio-player-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+/* Firefox track */
+.radio-player-volume::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #00f5ff 0%,
+    #9bffb8 40%,
+    #ffd86b 70%,
+    #ff6b6b 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Firefox thumb */
+.radio-player-volume::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Very small screens: tighten up */
+@media (max-width: 480px) {
+  .radio-player-controls {
+    gap: 0.5rem;
+  }
+
+  .radio-player-play,
+  .radio-player-mute {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .radio-player-volume {
+    max-width: 100px;
+  }
+}
