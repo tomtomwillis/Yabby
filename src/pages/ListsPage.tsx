@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, onSnapshot, orderBy, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
 import CreateList from '../components/CreateList';
-import ListItem from '../components/ListItem';
 
 interface BaseListItem {
   type: 'album' | 'custom';
@@ -27,7 +26,7 @@ interface CustomListItem extends BaseListItem {
   imageUrl?: string;
 }
 
-type ListItem = AlbumListItem | CustomListItem;
+type ListItemType = AlbumListItem | CustomListItem;
 
 interface List {
   id: string;
@@ -37,7 +36,7 @@ interface List {
   timestamp: any;
   itemCount: number;
   isPublic?: boolean;
-  items?: ListItem[];
+  items?: ListItemType[];
 }
 
 const ListsPage: React.FC = () => {
@@ -47,37 +46,53 @@ const ListsPage: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingListId, setEditingListId] = useState<string | null>(null);
 
-  // Fetch lists from Firestore
-  useEffect(() => {
-    const listsQuery = query(
-      collection(db, 'lists'),
-      orderBy('timestamp', 'desc')
-    );
+  const fetchLists = useCallback(async () => {
+    try {
+      setLoading(true);
+      const listsQuery = query(
+        collection(db, 'lists'),
+        orderBy('timestamp', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(listsQuery, (snapshot) => {
+      const snapshot = await getDocs(listsQuery);
       const listsData: List[] = [];
+
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data() as List;
+        const data = docSnap.data();
 
-        // Treat missing isPublic as public by default
+        // Client-side visibility filtering:
+        // Show public lists (isPublic undefined or true) and the current user's own lists
         const isOwner = auth.currentUser && data.userId === auth.currentUser.uid;
-        const isPublic = data.isPublic !== false; // <-- undefined or true => public
+        const isPublic = data.isPublic !== false;
 
-        const visible = isOwner || isPublic;
-
-        if (visible) {
+        if (isOwner || isPublic) {
           listsData.push({
             ...data,
-            id: docSnap.id // ensure doc ID wins
-          });
+            id: docSnap.id,
+          } as List);
         }
       });
+
       setLists(listsData);
+    } catch (err) {
+      console.error('Error fetching lists:', err);
+    } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // Fetch lists when auth state is ready (matching the stickers pattern)
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        fetchLists();
+      } else {
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [fetchLists]);
 
 
 
@@ -104,14 +119,13 @@ const ListsPage: React.FC = () => {
   // Handle list creation completion
   const handleListCreated = (listId: string) => {
     setShowCreateForm(false);
-    // The list will automatically appear via the real-time listener
+    fetchLists(); // Re-fetch to show the new/updated list
   };
-
-
 
   // Handle edit completion
   const handleEditComplete = () => {
     setEditingListId(null);
+    fetchLists(); // Re-fetch to show updates
   };
 
   if (loading) {
