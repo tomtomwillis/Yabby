@@ -235,7 +235,7 @@ const ListsPage: React.FC = () => {
                   alignItems: 'flex-start'
                 }}>
                   {/* Clickable list area */}
-                  <div 
+                  <div
                     onClick={() => navigate(`/lists/${list.id}`)}
                     style={{
                       cursor: 'pointer',
@@ -246,13 +246,14 @@ const ListsPage: React.FC = () => {
                       paddingRight: '12px'
                     }}
                   >
-                    <div>
-                      <h3 style={{ 
-                        margin: '0 0 8px 0', 
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                      <h3 style={{
+                        margin: '0 0 8px 0',
                         fontSize: '1.3em',
                         fontWeight: 'bold',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '8px'
                       }}>
                         {list.title}
@@ -260,16 +261,16 @@ const ListsPage: React.FC = () => {
                           <span title="Private list" aria-label="Private">🔒</span>
                         )}
                       </h3>
-                      <div style={{ 
-                        fontSize: '0.9em', 
+                      <div style={{
+                        fontSize: '0.9em',
                         opacity: 0.8,
                         marginBottom: '4px'
                       }}>
                         by {list.username} • {formatTimestamp(list.timestamp)}
                       </div>
-                      <div style={{ 
-                        fontSize: '0.9em', 
-                        opacity: 0.8 
+                      <div style={{
+                        fontSize: '0.9em',
+                        opacity: 0.8
                       }}>
                         {list.itemCount} item{list.itemCount !== 1 ? 's' : ''}
                       </div>
