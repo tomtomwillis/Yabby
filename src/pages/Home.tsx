@@ -22,6 +22,7 @@ const SUBTITLES = [
   "3000 watts of xenon strobe power!",
   "They say Glasgow's full of speccy bams",
   "Make Hardcore Happy Again",
+  "I just fucking love files",
   "Built by community, for community",
   "🇵🇸 Free Palestine!! 🇵🇸",
   "Until Forever Fades Away",
