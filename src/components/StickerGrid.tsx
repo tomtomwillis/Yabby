@@ -96,6 +96,8 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
       // Get unique album IDs
       const uniqueAlbumIds = [...new Set(allStickers.map(sticker => sticker.albumId))];
 
+      console.log(uniqueAlbumIds);
+
       // For each album, fetch ALL stickers for that album
       const albumsWithAllStickers: AlbumWithStickers[] = await Promise.all(
         uniqueAlbumIds.map(async (albumId) => {

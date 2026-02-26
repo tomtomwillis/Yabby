@@ -6,6 +6,7 @@ import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
+import CreateStickerPlaylistButton from '../components/CreateStickerPlaylistButton';
 
 const Profile: React.FC = () => {
   const auth = getAuth();
@@ -261,6 +262,11 @@ const Profile: React.FC = () => {
             type="basic"
             className="submit-button center-button"
           />
+        </div>
+
+        {/* Developer/Admin Tools */}
+        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid var(--colour3)' }}>
+          <CreateStickerPlaylistButton />
         </div>
       </div>
     </div>
