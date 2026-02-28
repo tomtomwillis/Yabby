@@ -94,7 +94,7 @@ const isValidUrl = (url: string): boolean => {
 
 // Utility function to format message text for display.
 // Handles both legacy HTML messages (with <a>, <br> tags) and new plain text messages.
-const parseMessageHTML = (htmlString: string): React.ReactNode => {
+export const parseMessageHTML = (htmlString: string): React.ReactNode => {
   // 1. Sanitize HTML (preserves safe tags like <a>, <br> from legacy messages)
   let processed = sanitizeHtml(htmlString);
 

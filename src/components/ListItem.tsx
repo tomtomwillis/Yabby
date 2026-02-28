@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import './basic/UserMessage.css';
+import { parseMessageHTML } from './basic/UserMessages';
 
 const normalizeAvatarPath = (avatarPath: string): string => {
   if (!avatarPath) return '';
@@ -149,7 +150,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
 
         {/* User's description text */}
         <div className="user-message-text">
-          {userText || 'No description provided.'}
+          {userText ? parseMessageHTML(userText) : 'No description provided.'}
         </div>
 
         {/* Attribution - who added this item */}
