@@ -14,6 +14,8 @@ interface List {
   username: string;
   timestamp: any;
   itemCount: number;
+  isPublic?: boolean;
+  isCollaborative?: boolean;
   items?: any[];
 }
 
@@ -110,7 +112,8 @@ const ListDetailPage: React.FC = () => {
     loadList(); // Reload the list to show updated data
   };
 
-  const canEdit = auth.currentUser && list && list.userId === auth.currentUser.uid;
+  const isOwner = auth.currentUser && list && list.userId === auth.currentUser.uid;
+  const canEdit = isOwner || (auth.currentUser && list && list.isCollaborative);
 
   if (loading) {
     return (
@@ -169,6 +172,7 @@ const ListDetailPage: React.FC = () => {
             existingListId={list.id}
             existingList={list}
             onListCreated={handleEditComplete}
+            isCollaborativeEdit={!isOwner && !!list.isCollaborative}
           />
         </div>
       ) : (
@@ -182,13 +186,30 @@ const ListDetailPage: React.FC = () => {
               />
             </div>
             
-            <h1 style={{ 
-              color: 'var(--colour2)', 
-              fontFamily: 'var(--font2)', 
+            <h1 style={{
+              color: 'var(--colour2)',
+              fontFamily: 'var(--font2)',
               marginBottom: '8px',
-              fontSize: '2em'
+              fontSize: '2em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              flexWrap: 'wrap'
             }}>
               {list.title}
+              {list.isCollaborative && (
+                <span style={{
+                  fontSize: '0.4em',
+                  padding: '4px 10px',
+                  backgroundColor: 'var(--colour4)',
+                  color: 'var(--colour1)',
+                  borderRadius: '12px',
+                  fontWeight: 'normal',
+                  fontFamily: 'var(--font2)'
+                }}>
+                  Collaborative
+                </span>
+              )}
             </h1>
             
             <div style={{ 
@@ -205,15 +226,17 @@ const ListDetailPage: React.FC = () => {
             {/* Action Buttons */}
             {canEdit && (
               <div style={{ display: 'flex', gap: '12px' }}>
-                <Button 
-                  onClick={() => setIsEditing(true)} 
-                  label="Edit List" 
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  label="Edit List"
                 />
-                <Button 
-                  onClick={handleDelete} 
-                  label="Delete List" 
-                  type="basic"
-                />
+                {isOwner && (
+                  <Button
+                    onClick={handleDelete}
+                    label="Delete List"
+                    type="basic"
+                  />
+                )}
               </div>
             )}
           </div>
@@ -255,10 +278,13 @@ const ListDetailPage: React.FC = () => {
 
                     {/* Item Content */}
                     <div style={{ flex: 1 }}>
-                      <ListItem 
-                        {...item} 
+                      <ListItem
+                        {...item}
                         username=""
                         timestamp=""
+                        addedByUsername={item.addedByUsername}
+                        addedByAvatar={item.addedByAvatar}
+                        addedByUserId={item.addedByUserId}
                       />
                     </div>
                   </div>

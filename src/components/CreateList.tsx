@@ -17,6 +17,9 @@ interface BaseListItem {
   type: 'album' | 'custom';
   userText: string;
   order: number;
+  addedByUserId?: string;
+  addedByUsername?: string;
+  addedByAvatar?: string;
 }
 
 interface AlbumListItem extends BaseListItem {
@@ -44,6 +47,7 @@ interface List {
   timestamp: any;
   itemCount: number;
   isPublic?: boolean;
+  isCollaborative?: boolean;
   items?: ListItem[];
 }
 
@@ -52,13 +56,15 @@ interface CreateListProps {
   editMode?: boolean;
   existingListId?: string;
   existingList?: List;
+  isCollaborativeEdit?: boolean;
 }
 
-const CreateList: React.FC<CreateListProps> = ({ 
-  onListCreated, 
-  editMode = false, 
-  existingListId, 
-  existingList 
+const CreateList: React.FC<CreateListProps> = ({
+  onListCreated,
+  editMode = false,
+  existingListId,
+  existingList,
+  isCollaborativeEdit = false
 }) => {
   const [listTitle, setListTitle] = useState(existingList?.title || '');
   const [items, setItems] = useState<ListItem[]>([]);
@@ -67,7 +73,8 @@ const CreateList: React.FC<CreateListProps> = ({
   const [loading, setLoading] = useState(false);
   const [addMode, setAddMode] = useState<'album' | 'custom'>('album');
   const [isPublic, setIsPublic] = useState(existingList?.isPublic ?? true);
-  
+  const [isCollaborative, setIsCollaborative] = useState(existingList?.isCollaborative ?? false);
+  const [currentUserData, setCurrentUserData] = useState<{ username: string; avatar: string } | null>(null);
 
   // Custom item form state
   const [customTitle, setCustomTitle] = useState('');
@@ -83,6 +90,34 @@ const CreateList: React.FC<CreateListProps> = ({
   const [editingText, setEditingText] = useState('');
   const [editingImageUrl, setEditingImageUrl] = useState('');
   const [editingLinkUrl, setEditingLinkUrl] = useState('');
+
+  // Fetch current user's profile data for item attribution
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!auth.currentUser) return;
+      try {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setCurrentUserData({
+            username: data.username || 'Anonymous',
+            avatar: data.avatar || ''
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  // Collaborative lists must be public
+  useEffect(() => {
+    if (isCollaborative) {
+      setIsPublic(true);
+    }
+  }, [isCollaborative]);
 
   // Load existing items when in edit mode
   useEffect(() => {
@@ -199,7 +234,10 @@ const CreateList: React.FC<CreateListProps> = ({
       albumArtist: selectedAlbum.artist,
       albumCover: selectedAlbum.cover,
       userText: currentItemText,
-      order: items.length
+      order: items.length,
+      addedByUserId: auth.currentUser?.uid || '',
+      addedByUsername: currentUserData?.username || 'Anonymous',
+      addedByAvatar: currentUserData?.avatar || ''
     };
 
     setItems([...items, newAlbum]);
@@ -220,7 +258,10 @@ const CreateList: React.FC<CreateListProps> = ({
       ...(customImageUrl.trim() && { imageUrl: customImageUrl.trim() }),
       ...(customLinkUrl.trim() && { linkUrl: customLinkUrl.trim() }),
       userText: currentItemText,
-      order: items.length
+      order: items.length,
+      addedByUserId: auth.currentUser?.uid || '',
+      addedByUsername: currentUserData?.username || 'Anonymous',
+      addedByAvatar: currentUserData?.avatar || ''
     };
 
     setItems([...items, newCustomItem]);
@@ -380,11 +421,21 @@ const CreateList: React.FC<CreateListProps> = ({
     try {
       if (editMode && existingListId) {
         // Update existing list
-        await updateDoc(doc(db, 'lists', existingListId), {
-          title: listTitle.trim(),
-          itemCount: items.length,
-          isPublic: isPublic
-        });
+        if (isCollaborativeEdit) {
+          // Non-owner: only update fields allowed by Firestore rules
+          await updateDoc(doc(db, 'lists', existingListId), {
+            title: listTitle.trim(),
+            itemCount: items.length
+          });
+        } else {
+          // Owner: update everything
+          await updateDoc(doc(db, 'lists', existingListId), {
+            title: listTitle.trim(),
+            itemCount: items.length,
+            isPublic: isPublic,
+            isCollaborative: isCollaborative
+          });
+        }
 
         // Delete all existing items
         const existingItemsQuery = query(collection(db, 'lists', existingListId, 'items'));
@@ -402,7 +453,10 @@ const CreateList: React.FC<CreateListProps> = ({
             type: item.type,
             userText: item.userText,
             order: item.order,
-            timestamp: serverTimestamp()
+            timestamp: serverTimestamp(),
+            ...(item.addedByUserId && { addedByUserId: item.addedByUserId }),
+            ...(item.addedByUsername && { addedByUsername: item.addedByUsername }),
+            ...(item.addedByAvatar && { addedByAvatar: item.addedByAvatar })
           };
 
           if (item.type === 'album') {
@@ -444,7 +498,8 @@ const CreateList: React.FC<CreateListProps> = ({
           username: username,
           timestamp: serverTimestamp(),
           itemCount: items.length,
-          isPublic: isPublic
+          isPublic: isPublic,
+          isCollaborative: isCollaborative
         });
 
       // Add items as subcollection
@@ -456,7 +511,10 @@ const CreateList: React.FC<CreateListProps> = ({
           type: item.type,
           userText: item.userText,
           order: item.order,
-          timestamp: serverTimestamp()
+          timestamp: serverTimestamp(),
+          ...(item.addedByUserId && { addedByUserId: item.addedByUserId }),
+          ...(item.addedByUsername && { addedByUsername: item.addedByUsername }),
+          ...(item.addedByAvatar && { addedByAvatar: item.addedByAvatar })
         };
 
         if (item.type === 'album') {
@@ -531,6 +589,42 @@ const CreateList: React.FC<CreateListProps> = ({
           showCounter={false}
         />
       </div>
+
+      {/* Public/Private and Collaborative Toggles - hidden for non-owner collaborative edits */}
+      {!isCollaborativeEdit && (
+        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--colour2)' }}>
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              disabled={isCollaborative}
+            />
+            Make this list public
+          </label>
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--colour2)' }}>
+              <input
+                type="checkbox"
+                checked={isCollaborative}
+                onChange={(e) => setIsCollaborative(e.target.checked)}
+              />
+              Make this list collaborative (anyone can add/edit items)
+            </label>
+            {isCollaborative && (
+              <div style={{
+                marginTop: '4px',
+                fontSize: '0.85em',
+                color: 'var(--colour2)',
+                opacity: 0.7,
+                marginLeft: '24px'
+              }}>
+                Collaborative lists are always public.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mode Toggle */}
       <div style={{ marginBottom: '20px', textAlign: 'center' }}>
@@ -902,17 +996,6 @@ const CreateList: React.FC<CreateListProps> = ({
           })}
         </div>
       )}
-{/* Public/Private Toggle */}
-          <div style={{ marginBottom: '20px' }}>
-             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--colour2)' }}>
-               <input
-                 type="checkbox"
-                 checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-              />
-               Make this list public
-              </label>
-          </div>
       {/* Save Button */}
       <div style={{ textAlign: 'center' }}>
         <Button 

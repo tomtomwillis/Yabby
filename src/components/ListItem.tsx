@@ -1,5 +1,21 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import './basic/UserMessage.css';
+
+const normalizeAvatarPath = (avatarPath: string): string => {
+  if (!avatarPath) return '';
+  const cleanPath = avatarPath.startsWith('/') ? avatarPath.substring(1) : avatarPath;
+  if (cleanPath.startsWith('Stickers/')) return `/${cleanPath}`;
+  if (cleanPath.startsWith('assets/')) {
+    const fileName = cleanPath.replace('assets/', '');
+    return `/Stickers/${fileName}`;
+  }
+  if (cleanPath.includes('/')) {
+    const fileName = cleanPath.split('/').pop() || '';
+    return `/Stickers/${fileName}`;
+  }
+  return `/Stickers/${cleanPath}`;
+};
 
 interface BaseListItemProps {
   type: 'album' | 'custom';
@@ -8,6 +24,9 @@ interface BaseListItemProps {
   timestamp: string;
   onRemove?: () => void;
   showRemoveButton?: boolean;
+  addedByUserId?: string;
+  addedByUsername?: string;
+  addedByAvatar?: string;
 }
 
 interface AlbumListItemProps extends BaseListItemProps {
@@ -132,6 +151,42 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         <div className="user-message-text">
           {userText || 'No description provided.'}
         </div>
+
+        {/* Attribution - who added this item */}
+        {props.addedByUsername && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            marginTop: '8px',
+            fontSize: '0.8em',
+            opacity: 0.7
+          }}>
+            {props.addedByAvatar && (
+              <img
+                src={normalizeAvatarPath(props.addedByAvatar)}
+                alt={`${props.addedByUsername}'s avatar`}
+                style={{
+                  width: '1em',
+                  height: '1em',
+                  borderRadius: '50%',
+                  objectFit: 'cover'
+                }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            )}
+            {props.addedByUserId ? (
+              <Link
+                to={`/user/${props.addedByUserId}`}
+                style={{ color: 'inherit', textDecoration: 'none' }}
+              >
+                Added by {props.addedByUsername}
+              </Link>
+            ) : (
+              <span>Added by {props.addedByUsername}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

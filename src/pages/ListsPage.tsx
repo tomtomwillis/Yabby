@@ -36,6 +36,7 @@ interface List {
   timestamp: any;
   itemCount: number;
   isPublic?: boolean;
+  isCollaborative?: boolean;
   items?: ListItemType[];
 }
 
@@ -259,6 +260,22 @@ const ListsPage: React.FC = () => {
                         {list.title}
                         {list.isPublic === false && (
                           <span title="Private list" aria-label="Private">🔒</span>
+                        )}
+                        {list.isCollaborative && (
+                          <span
+                            title="Collaborative list - anyone can edit"
+                            aria-label="Collaborative"
+                            style={{
+                              fontSize: '0.55em',
+                              padding: '2px 8px',
+                              backgroundColor: 'var(--colour4)',
+                              color: 'var(--colour2)',
+                              borderRadius: '10px',
+                              fontWeight: 'normal'
+                            }}
+                          >
+                            Collab
+                          </span>
                         )}
                       </h3>
                       <div style={{
