@@ -34,6 +34,7 @@ interface Message {
   text: string;
   userId: string;
   timestamp: any;
+  lastActivityAt?: any;
   username: string;
   avatar: string;
   reactions?: Reaction[];
@@ -134,7 +135,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   const loadInitialMessages = async () => {
     const q = query(
-      collection(db, 'messages'), 
+      collection(db, 'messages'),
       orderBy('timestamp', 'desc'),
       limit(MESSAGES_PER_PAGE)
     );
@@ -163,6 +164,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             text: messageData.text,
             userId: messageData.userId,
             timestamp: messageData.timestamp,
+            lastActivityAt: messageData.lastActivityAt,
             username: userData.username,
             avatar: userData.avatar,
             reactions: [] as Reaction[],
@@ -175,6 +177,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         });
 
         const initialMessages = await Promise.all(messagePromises);
+        // Sort by bump order: lastActivityAt if available, otherwise fall back to timestamp
+        initialMessages.sort((a, b) => {
+          const aTime = (a.lastActivityAt ?? a.timestamp)?.seconds ?? 0;
+          const bTime = (b.lastActivityAt ?? b.timestamp)?.seconds ?? 0;
+          return bTime - aTime;
+        });
         setMessages(initialMessages);
 
         // Set up real-time listeners for reactions if enabled
@@ -333,6 +341,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           text: messageData.text,
           userId: messageData.userId,
           timestamp: messageData.timestamp,
+          lastActivityAt: messageData.lastActivityAt,
           username: userData.username,
           avatar: userData.avatar,
           reactions: [] as Reaction[],
@@ -487,9 +496,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     const userData = await getUserData(auth.currentUser.uid);
 
     await addDoc(collection(db, 'messages'), {
-      text: sanitizedText, 
+      text: sanitizedText,
       userId: auth.currentUser.uid,
       timestamp: serverTimestamp(),
+      lastActivityAt: serverTimestamp(),
       username: userData.username,
       avatar: userData.avatar,
     });
@@ -596,7 +606,13 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         username: userData.username,
         avatar: userData.avatar,
       });
-      
+
+      // Bump the parent message to the top of the board
+      const messageRef = doc(db, 'messages', messageId);
+      await updateDoc(messageRef, {
+        lastActivityAt: serverTimestamp(),
+      });
+
       // Close reply input after sending
       setActiveReplyInput(null);
     } catch (error) {
