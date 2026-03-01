@@ -295,6 +295,12 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           className="text-input"
           value={newMessage}
           onChange={handleInputChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && canSend) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
