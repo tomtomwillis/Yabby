@@ -127,29 +127,89 @@ const Oneko: React.FC = () => {
 
     const state = stateRef.current;
 
-    const onNekoClick = () => {
+    // Drag state
+    let isDragging = false;
+    let didDrag = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    const onNekoMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      isDragging = true;
+      didDrag = false;
+      dragOffsetX = e.clientX - state.nekoPosX;
+      dragOffsetY = e.clientY - state.nekoPosY;
+      nekoEl.style.cursor = 'grabbing';
+    };
+    nekoEl.addEventListener('mousedown', onNekoMouseDown);
+
+    const onDocMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        const newX = Math.min(Math.max(16, e.clientX - dragOffsetX), window.innerWidth - 16);
+        const newY = Math.min(Math.max(16, e.clientY - dragOffsetY), window.innerHeight - 16);
+        if (!didDrag && (Math.abs(newX - state.nekoPosX) > 2 || Math.abs(newY - state.nekoPosY) > 2)) {
+          didDrag = true;
+        }
+        state.nekoPosX = newX;
+        state.nekoPosY = newY;
+        // Mirror mouse pos to cat pos so the cat stays put on release
+        state.mousePosX = newX;
+        state.mousePosY = newY;
+        nekoEl.style.left = `${state.nekoPosX - 16}px`;
+        nekoEl.style.top = `${state.nekoPosY - 16}px`;
+      } else {
+        state.mousePosX = e.clientX;
+        state.mousePosY = e.clientY;
+      }
+    };
+    document.addEventListener('mousemove', onDocMouseMove);
+
+    const onDocMouseUp = () => {
+      if (isDragging) {
+        isDragging = false;
+        nekoEl.style.cursor = 'pointer';
+      }
+    };
+    document.addEventListener('mouseup', onDocMouseUp);
+
+    // Double-click to pin/unpin. Ignore if the mouse just finished a drag.
+    const onNekoDblClick = () => {
+      if (didDrag) {
+        didDrag = false;
+        return;
+      }
       pinnedRef.current = !pinnedRef.current;
-      // When unpinning, snap mouse tracking to current position so the
-      // cat doesn't immediately sprint across the screen
       if (!pinnedRef.current) {
+        // Wake up: reset idle so the cat reacts naturally to the cursor
         state.idleTime = 0;
         state.idleAnimation = null;
         state.idleAnimationFrame = 0;
+      } else {
+        // Go to sleep immediately
+        state.idleAnimation = 'sleeping';
+        state.idleAnimationFrame = 0;
       }
     };
-    nekoEl.addEventListener('click', onNekoClick);
-
-    const onMouseMove = (e: MouseEvent) => {
-      state.mousePosX = e.clientX;
-      state.mousePosY = e.clientY;
-    };
-    document.addEventListener('mousemove', onMouseMove);
+    nekoEl.addEventListener('dblclick', onNekoDblClick);
 
     function setSprite(name: string, frame: number) {
       const sprites = SPRITE_SETS[name];
       if (!sprites) return;
       const sprite = sprites[frame % sprites.length];
       nekoEl.style.backgroundPosition = `${sprite[0] * 32}px ${sprite[1] * 32}px`;
+    }
+
+    function sleep() {
+      if (state.idleAnimationFrame < 8) {
+        setSprite('tired', 0);
+      } else {
+        setSprite('sleeping', Math.floor(state.idleAnimationFrame / 4));
+      }
+      state.idleAnimationFrame += 1;
+      // After the tired intro, loop the sleeping frames indefinitely
+      if (state.idleAnimationFrame > 192) {
+        state.idleAnimationFrame = 8;
+      }
     }
 
     function resetIdleAnimation() {
@@ -201,7 +261,7 @@ const Oneko: React.FC = () => {
       state.frameCount += 1;
 
       if (pinnedRef.current) {
-        idle();
+        sleep();
         return;
       }
 
@@ -254,8 +314,10 @@ const Oneko: React.FC = () => {
     animFrameRef.current = window.requestAnimationFrame(onAnimationFrame);
 
     return () => {
-      nekoEl.removeEventListener('click', onNekoClick);
-      document.removeEventListener('mousemove', onMouseMove);
+      nekoEl.removeEventListener('mousedown', onNekoMouseDown);
+      nekoEl.removeEventListener('dblclick', onNekoDblClick);
+      document.removeEventListener('mousemove', onDocMouseMove);
+      document.removeEventListener('mouseup', onDocMouseUp);
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = 0;
