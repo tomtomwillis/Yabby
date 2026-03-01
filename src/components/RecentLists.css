@@ -3,6 +3,8 @@
   gap: 20px;
   padding: 0 15px;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .recent-lists-loading {
@@ -12,16 +14,14 @@
 }
 
 .recent-list-card {
-  flex: 0 0 calc(33.33% - 14px);
-  max-width: calc(33.33% - 14px);
+  flex: 0 0 calc(50% - 10px);
+  max-width: calc(50% - 10px);
 }
 
 .recent-list-image-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Match the carousel slide image height: 95% container width / 3 slides - padding */
-  height: calc((95vw - 16px) / 3);
   border-radius: 5px;
   cursor: pointer;
   transition: transform 0.2s ease;
@@ -62,35 +62,13 @@
 }
 
 @media (min-width: 768px) {
-  .recent-list-image-wrapper {
-    height: calc((95vw - 16px) / 4);
-  }
-}
-
-@media (min-width: 1200px) {
-  .recent-list-image-wrapper {
-    height: calc((95vw - 16px) / 5);
-  }
-}
-
-@media (min-width: 1600px) {
-  .recent-list-image-wrapper {
-    height: calc((95vw - 16px) / 6);
-  }
-}
-
-@media (min-width: 2000px) {
-  .recent-list-image-wrapper {
-    height: calc((95vw - 16px) / 8);
+  .recent-list-card {
+    flex: 0 0 calc(33.33% - 14px);
+    max-width: calc(33.33% - 14px);
   }
 }
 
 @media (max-width: 500px) {
-  .recent-list-card {
-    flex: 0 0 calc(50% - 10px);
-    max-width: calc(50% - 10px);
-  }
-
   .recent-list-title-bar {
     font-size: 0.7rem;
     padding: 5px 8px;

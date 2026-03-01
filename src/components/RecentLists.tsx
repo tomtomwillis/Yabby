@@ -62,10 +62,21 @@ const fetchLastItemForList = async (listId: string): Promise<{ image: string; li
   return { image: '', link: '', avatar: '' };
 };
 
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return isMobile;
+};
+
 const RecentLists: React.FC = () => {
   const [lists, setLists] = useState<RecentList[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchRecentLists = async () => {
@@ -156,9 +167,11 @@ const RecentLists: React.FC = () => {
     return '';
   };
 
+  const displayedLists = isMobile ? lists.slice(0, 2) : lists;
+
   return (
     <div className="recent-lists-container">
-      {lists.map((list) => {
+      {displayedLists.map((list) => {
         const imageSrc = getImageSrc(list);
         return (
           <div key={list.id} className="recent-list-card">

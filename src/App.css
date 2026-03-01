@@ -45,6 +45,14 @@ body {
   margin: 0 auto;
   padding: 3rem;
   text-align: center;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  #root {
+    padding: 1rem;
+  }
 }
 
 .app-container {
