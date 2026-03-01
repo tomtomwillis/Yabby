@@ -7,6 +7,7 @@ import CarouselAlbums from '../components/CarouselAlbums';
 import CarouselStickers from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
 import WebampRadio from '../components/WebampRadio';
+import RecentLists from '../components/RecentLists';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
 
 // Lazy load the Stats component for better performance
@@ -98,12 +99,8 @@ function App() {
       <hr />
 
         <div className="title1">
-          <Link to="/lists">Lists →</Link> 
+          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
         </div>
-
-        <hr />
-
-        <div className="title1">Recently Added</div>
         <CarouselAlbums />
 
       <hr />
@@ -144,7 +141,6 @@ function App() {
         {showPlayer ? 'Close Player' : 'Show Player'}
       </button>
 
-      {/* Container always renders, animation controlled by CSS class */}
       <div
         ref={radioContainerRef}
         className={`webamp-radio-container ${showPlayer ? 'expanded' : ''}`}
@@ -158,6 +154,13 @@ function App() {
           onErrorChange={setWebampError}
         />
       )}
+
+      <hr />
+
+      <div className="title1">
+        <Link to="/lists">Lists →</Link>
+      </div>
+      <RecentLists />
 
       <hr />
 

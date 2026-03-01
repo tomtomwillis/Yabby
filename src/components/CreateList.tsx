@@ -399,6 +399,36 @@ const CreateList: React.FC<CreateListProps> = ({
     }
   }, [editingItemIndex]);
 
+  // Compute metadata about the most recent item with an image for home page preview
+  const computeLastItemMetadata = (listItems: ListItem[]) => {
+    // Search from end of list for an item with an image
+    for (let i = listItems.length - 1; i >= 0; i--) {
+      const item = listItems[i];
+      if (item.type === 'album' && item.albumCover) {
+        return {
+          lastItemImage: item.albumCover,
+          lastItemLink: NAVIDROME_SERVER_URL
+            ? `${NAVIDROME_SERVER_URL}/app/#/album/${item.albumId}/show`
+            : '',
+          lastItemAddedByAvatar: item.addedByAvatar || '',
+        };
+      } else if (item.type === 'custom' && item.imageUrl) {
+        return {
+          lastItemImage: item.imageUrl,
+          lastItemLink: item.linkUrl || '',
+          lastItemAddedByAvatar: item.addedByAvatar || '',
+        };
+      }
+    }
+    // No item with an image found - use last item's avatar as fallback
+    const lastItem = listItems[listItems.length - 1];
+    return {
+      lastItemImage: '',
+      lastItemLink: '',
+      lastItemAddedByAvatar: lastItem?.addedByAvatar || '',
+    };
+  };
+
   // Save list to Firestore with subcollection
   const handleSaveList = async () => {
     if (!auth.currentUser) {
@@ -421,11 +451,17 @@ const CreateList: React.FC<CreateListProps> = ({
     try {
       if (editMode && existingListId) {
         // Update existing list
+        const lastItemMeta = computeLastItemMetadata(items);
+
         if (isCollaborativeEdit) {
           // Non-owner: only update fields allowed by Firestore rules
           await updateDoc(doc(db, 'lists', existingListId), {
             title: listTitle.trim(),
-            itemCount: items.length
+            itemCount: items.length,
+            lastUpdated: serverTimestamp(),
+            lastItemImage: lastItemMeta.lastItemImage,
+            lastItemLink: lastItemMeta.lastItemLink,
+            lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
           });
         } else {
           // Owner: update everything
@@ -433,7 +469,11 @@ const CreateList: React.FC<CreateListProps> = ({
             title: listTitle.trim(),
             itemCount: items.length,
             isPublic: isPublic,
-            isCollaborative: isCollaborative
+            isCollaborative: isCollaborative,
+            lastUpdated: serverTimestamp(),
+            lastItemImage: lastItemMeta.lastItemImage,
+            lastItemLink: lastItemMeta.lastItemLink,
+            lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
           });
         }
 
@@ -491,6 +531,8 @@ const CreateList: React.FC<CreateListProps> = ({
           console.error('Error fetching user profile:', error);
         }
 
+        const lastItemMeta = computeLastItemMetadata(items);
+
         // Create main list document
         const listDocRef = await addDoc(collection(db, 'lists'), {
           title: listTitle.trim(),
@@ -499,7 +541,11 @@ const CreateList: React.FC<CreateListProps> = ({
           timestamp: serverTimestamp(),
           itemCount: items.length,
           isPublic: isPublic,
-          isCollaborative: isCollaborative
+          isCollaborative: isCollaborative,
+          lastUpdated: serverTimestamp(),
+          lastItemImage: lastItemMeta.lastItemImage,
+          lastItemLink: lastItemMeta.lastItemLink,
+          lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
         });
 
       // Add items as subcollection

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
 import Header from '../components/basic/Header';
@@ -103,6 +103,7 @@ const Profile: React.FC = () => {
   const [flagSearch, setFlagSearch] = useState('');
   const [flagDropdownOpen, setFlagDropdownOpen] = useState(false);
   const [limitError, setLimitError] = useState('');
+  const [nekoEnabled, setNekoEnabled] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -126,6 +127,7 @@ const Profile: React.FC = () => {
             setBio(data.bio || '');
             setLocationFlag(data.locationFlag || '');
             setLocationText(data.locationText || '');
+            setNekoEnabled(data.nekoEnabled === true);
           }
         } catch (error) {
           console.error('Error fetching profile:', error);
@@ -250,6 +252,23 @@ const Profile: React.FC = () => {
       await signOut(auth);
     } catch (error) {
       console.error('Error logging out:', error);
+    }
+  };
+
+  const handleNekoToggle = async () => {
+    if (!user) return;
+    const newValue = !nekoEnabled;
+    setNekoEnabled(newValue);
+    localStorage.setItem('nekoEnabled', String(newValue));
+    window.dispatchEvent(new CustomEvent('oneko-toggle', { detail: newValue }));
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { nekoEnabled: newValue });
+    } catch {
+      // Revert on failure
+      setNekoEnabled(!newValue);
+      localStorage.setItem('nekoEnabled', String(!newValue));
+      window.dispatchEvent(new CustomEvent('oneko-toggle', { detail: !newValue }));
     }
   };
 
@@ -652,6 +671,31 @@ const Profile: React.FC = () => {
               {passwordResetMessage}
             </div>
           )}
+        </div>
+
+        <div style={{ height: '1rem' }}></div>
+
+        <div className="form-group" style={{ textAlign: 'center' }}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              fontFamily: 'var(--font2)',
+              fontSize: '0.95em',
+              color: 'var(--colour5)',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={nekoEnabled}
+              onChange={handleNekoToggle}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            Oneko
+          </label>
         </div>
 
         <div style={{ height: '1rem' }}></div>

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Star from './components/basic/Star';
+import Oneko from './components/Oneko';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
 import Wiki from './pages/Wiki';
@@ -14,12 +15,15 @@ import Test from './pages/Test';
 import Login from './pages/Login';
 import UserProfile from './pages/UserProfile';
 import PrivateRoute from './components/PrivateRoute';
+import CustomCursor from './components/CustomCursor';
 
 function App() {
   return (
     <Router>
       <div className="app-container">
+        <CustomCursor />
         <Star />
+        <Oneko />
         <Routes>
           {/* Public route */}
           <Route path="/login" element={<Login />} />
