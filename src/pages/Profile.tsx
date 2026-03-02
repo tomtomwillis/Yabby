@@ -673,30 +673,34 @@ const Profile: React.FC = () => {
           )}
         </div>
 
-        <div style={{ height: '1rem' }}></div>
+        {!window.matchMedia('(pointer: coarse)').matches && (
+          <>
+            <div style={{ height: '1rem' }}></div>
 
-        <div className="form-group" style={{ textAlign: 'center' }}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              cursor: 'pointer',
-              fontFamily: 'var(--font2)',
-              fontSize: '0.95em',
-              color: 'var(--colour5)',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={nekoEnabled}
-              onChange={handleNekoToggle}
-              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            />
-            Oneko
-          </label>
-        </div>
+            <div className="form-group" style={{ textAlign: 'center' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font2)',
+                  fontSize: '0.95em',
+                  color: 'var(--colour5)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={nekoEnabled}
+                  onChange={handleNekoToggle}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                Oneko
+              </label>
+            </div>
+          </>
+        )}
 
         <div style={{ height: '1rem' }}></div>
 

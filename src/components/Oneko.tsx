@@ -101,10 +101,11 @@ const Oneko: React.FC = () => {
       return;
     }
 
-    // Respect reduced motion
+    // No cat on mobile or when reduced motion is preferred
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
     const isReducedMotion =
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (isReducedMotion) return;
+    if (isMobile || isReducedMotion) return;
 
     // Create neko element
     const nekoEl = document.createElement('div');
