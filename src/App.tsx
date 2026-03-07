@@ -15,6 +15,7 @@ import Test from './pages/Test';
 import Login from './pages/Login';
 import UserProfile from './pages/UserProfile';
 import PrivateRoute from './components/PrivateRoute';
+import MediaManager from './pages/MediaManager';
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
           <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
           <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
+          <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
         </Routes>
       </div>
     </Router>
