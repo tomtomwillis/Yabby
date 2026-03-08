@@ -294,7 +294,7 @@ const Profile: React.FC = () => {
   const hasLocation = locationFlag || locationText;
 
   return (
-    <div className="Page">
+    <div className="app-container">
       <Header title="Profile Settings" subtitle="Edit Your Profile" />
 
       {user && (

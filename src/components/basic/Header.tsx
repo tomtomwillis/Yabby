@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Button from './Button'; 
+import Button from './Button';
+import { useMediaManager } from '../../utils/useMediaManager';
 import './Header.css';
-import './TextAnimations.css'; 
+import './TextAnimations.css';
 
 interface HeaderProps {
   title: string;
@@ -9,6 +10,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
+  const { isMediaManager } = useMediaManager();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -79,6 +81,11 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
             <li><a href="/profile" className="links">profile</a></li>
             <li><a href="/wiki" className="links">wiki</a></li>
           </ul>
+          {isMediaManager && (
+            <ul className="nav-links bottom-links">
+              <li><a href="/media" className="links">media&nbsp;management</a></li>
+            </ul>
+          )}
         </nav>
 
         <hr />
@@ -122,6 +129,9 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         <a href="/lists" onClick={closeMobileMenu}>Lists</a>
         <a href="/profile" onClick={closeMobileMenu}>Profile</a>
         <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>
+        {isMediaManager && (
+          <a href="/media" onClick={closeMobileMenu}>Media Management</a>
+        )}
       </div>
     </>
   );
