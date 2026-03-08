@@ -221,7 +221,7 @@ const MediaManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="Page">
+      <div className="app-container">
         <Header title="Media Manager" subtitle="Loading..." />
         <p style={{ textAlign: 'center', color: 'var(--colour2)', padding: '40px' }}>
           Checking permissions...
@@ -232,7 +232,7 @@ const MediaManager: React.FC = () => {
 
   if (!isMediaManager) {
     return (
-      <div className="Page">
+      <div className="app-container">
         <Header title="Media Manager" subtitle="Access Denied" />
         <p style={{ textAlign: 'center', color: 'var(--colour5)', padding: '40px' }}>
           You do not have media manager permissions.
@@ -246,7 +246,7 @@ const MediaManager: React.FC = () => {
   // -------------------------------------------------------------------------
 
   return (
-    <div className="Page">
+    <div className="app-container">
       <Header title="Media Manager" subtitle="Update Album Cover Art" />
 
       <div style={{
@@ -264,7 +264,7 @@ const MediaManager: React.FC = () => {
               color: 'var(--colour5)',
               fontSize: '0.9em',
               marginBottom: '20px',
-              textAlign: 'left',
+              textAlign: 'center',
             }}>
               Search for an album to update its cover art.
             </p>
@@ -283,7 +283,7 @@ const MediaManager: React.FC = () => {
             <div style={{
               display: 'flex',
               gap: '16px',
-              alignItems: 'flex-start',
+              alignItems: 'center',
               marginBottom: '24px',
               padding: '16px',
               borderRadius: '8px',
@@ -299,7 +299,7 @@ const MediaManager: React.FC = () => {
                   objectFit: 'cover',
                 }}
               />
-              <div style={{ flex: 1, textAlign: 'left' }}>
+              <div style={{ flex: 1, textAlign: 'center' }}>
                 <div style={{
                   fontWeight: 'bold',
                   color: 'var(--colour5)',
@@ -336,7 +336,7 @@ const MediaManager: React.FC = () => {
                 fontSize: '0.9em',
                 display: 'block',
                 marginBottom: '8px',
-                textAlign: 'left',
+                textAlign: 'center',
               }}>
                 Paste a link to the new cover image:
               </label>
@@ -368,7 +368,7 @@ const MediaManager: React.FC = () => {
                   color: 'var(--colour5)',
                   fontSize: '0.85em',
                   marginBottom: '8px',
-                  textAlign: 'left',
+                  textAlign: 'center',
                 }}>
                   Preview:
                 </p>
