@@ -27,6 +27,8 @@ const SUBTITLES = [
   "Built by community, for community",
   "🇵🇸 Free Palestine!! 🇵🇸",
   "Until Forever Fades Away",
+  "And if I asked you to stop me from falling, Would you save me?",
+  "Hardcore will never day, but you will",
 ];
 
 function App() {
