@@ -29,6 +29,17 @@ const SUBTITLES = [
   "Until Forever Fades Away",
   "And if I asked you to stop me from falling, Would you save me?",
   "Hardcore will never day, but you will",
+  "RIP orca, gone but not forgotten",
+  "Don't be daft, take a half",
+  "Because steel is heavier than feathers",
+  "The world is a vampire",
+  "Excellent value for money!"
+  "My face is the front of shop",
+  "Recommended by 9 out of 10 dentists",
+  "Final release moving fast!",
+  "for f in *.flac; do ffmpeg -i \"$f\" -b:a 320k \"${f%.flac}.mp3\"; done",
+  "Put a donk on it!",
+  "More peers than the house of lords",
 ];
 
 function App() {
