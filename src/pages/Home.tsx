@@ -33,7 +33,7 @@ const SUBTITLES = [
   "Because steel is heavier than feathers",
   "Benny Harvey RIP",
   "The world is a vampire",
-  "Excellent value for money!"
+  "Excellent value for money!",
   "My face is the front of shop",
   "Recommended by 9 out of 10 dentists",
   "Final release moving fast!",
