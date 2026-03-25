@@ -98,6 +98,11 @@ interface MonthDoc {
   currentFilm?: FilmData;
   nextFilm?: FilmData;
   winnerCalculated?: boolean;
+  downloadLinks?: {
+    small?: string;
+    medium?: string;
+    large?: string;
+  };
 }
 
 interface Submission {
@@ -129,12 +134,26 @@ function FilmClub() {
   const [currentFilmTrailerUrl, setCurrentFilmTrailerUrl] = useState<string | null>(null);
 
   // Admin state
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminFilmSelection, setAdminFilmSelection] = useState<FilmResult | null>(null);
   const [adminSaveStatus, setAdminSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [allSubmissions, setAllSubmissions] = useState<(Submission & { docId: string })[]>([]);
+  const [adminDownloadLinks, setAdminDownloadLinks] = useState({ small: '', medium: '', large: '' });
+  const [downloadSaveStatus, setDownloadSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Guard against duplicate IRV runs
   const irvTriggeredRef = useRef(false);
+
+  // Pre-populate download links from Firestore when monthData loads
+  useEffect(() => {
+    if (monthData?.downloadLinks) {
+      setAdminDownloadLinks({
+        small: monthData.downloadLinks.small ?? '',
+        medium: monthData.downloadLinks.medium ?? '',
+        large: monthData.downloadLinks.large ?? '',
+      });
+    }
+  }, [monthData?.downloadLinks]);
 
   // ── Fetch trailer for current film ──────────────────────────────────────
   useEffect(() => {
@@ -256,6 +275,18 @@ function FilmClub() {
     }
   };
 
+  // ── Admin: save download links ───────────────────────────────────────────
+  const handleAdminSaveDownloadLinks = async () => {
+    setDownloadSaveStatus('saving');
+    try {
+      await setDoc(doc(db, 'filmClub', monthId), { downloadLinks: adminDownloadLinks }, { merge: true });
+      setDownloadSaveStatus('saved');
+    } catch (err) {
+      console.error('Download links save error:', err);
+      setDownloadSaveStatus('error');
+    }
+  };
+
   // ── Admin: delete submission ─────────────────────────────────────────────
   const handleAdminDeleteSubmission = async (docId: string) => {
     try {
@@ -300,6 +331,7 @@ function FilmClub() {
               submittedByUsername={monthData.currentFilm.submittedByUsername || undefined}
               leaveDate={leavingDate}
               trailerUrl={currentFilmTrailerUrl ?? undefined}
+              downloadLinks={monthData.downloadLinks}
             />
           </div>
         ) : (
@@ -358,7 +390,7 @@ function FilmClub() {
               </div>
               {userSubmissions.length > 0 && (
                 <p className="normal-text" style={{ marginTop: '0.5rem' }}>
-                  Your submission{userSubmissions.length > 1 ? 's' : ''}: <strong>{userSubmissions.map((s) => s.title).join(', ')}</strong>
+                  Your {nextMonthName} Film Club submission{userSubmissions.length > 1 ? 's' : ''}: <strong>{userSubmissions.map((s) => s.title).join(', ')}</strong>
                 </p>
               )}
               <p className="film-club-deadline">
@@ -368,8 +400,21 @@ function FilmClub() {
           )}
         </div>
 
-        {/* Admin panel */}
+        {/* Admin toggle */}
         {isAdmin && (
+          <div style={{ textAlign: 'right', marginBottom: '0.5rem' }}>
+            <button
+              onClick={() => setShowAdminPanel((v) => !v)}
+              className="film-club-btn"
+              style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}
+            >
+              {showAdminPanel ? 'Hide admin' : 'Admin'}
+            </button>
+          </div>
+        )}
+
+        {/* Admin panel */}
+        {isAdmin && showAdminPanel && (
           <div className="film-club-section film-club-admin">
             <p className="film-club-admin-label">Admin — set current film</p>
             {allSubmissions.length > 0 && (
@@ -391,6 +436,36 @@ function FilmClub() {
                 ))}
               </div>
             )}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Download links</p>
+              {(['small', 'medium', 'large'] as const).map((size) => (
+                <div key={size} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                  <label className="normal-text" style={{ fontSize: '0.875rem', width: '4rem', flexShrink: 0, textTransform: 'capitalize' }}>{size}</label>
+                  <input
+                    type="url"
+                    value={adminDownloadLinks[size]}
+                    onChange={(e) => setAdminDownloadLinks((prev) => ({ ...prev, [size]: e.target.value }))}
+                    placeholder="https://…"
+                    style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={handleAdminSaveDownloadLinks}
+                disabled={downloadSaveStatus === 'saving'}
+                className="film-club-btn film-club-btn-primary"
+                style={{ marginTop: '0.5rem' }}
+              >
+                {downloadSaveStatus === 'saving' ? 'Saving…' : 'Save download links'}
+              </button>
+              {downloadSaveStatus === 'saved' && (
+                <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+              )}
+              {downloadSaveStatus === 'error' && (
+                <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+              )}
+            </div>
+
             <FilmSearchBox onFilmSelect={handleAdminSetCurrentFilm} />
             {adminFilmSelection && (
               <div style={{ marginTop: '1rem' }}>

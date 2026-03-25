@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, setDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { getUserData } from '../utils/userCache';
+import { useAdmin } from '../utils/useAdmin';
 import Header from '../components/basic/Header';
 import FilmSearchBox from '../components/basic/FilmSearchBox';
 import type { FilmResult } from '../components/basic/FilmSearchBox';
@@ -27,6 +28,7 @@ interface ExistingSubmission {
 }
 
 function FilmClubSubmit() {
+  const { isAdmin } = useAdmin();
   const [existingSubmissions, setExistingSubmissions] = useState<ExistingSubmission[]>([]);
   const [loadingExisting, setLoadingExisting] = useState(true);
   const [selectedFilm, setSelectedFilm] = useState<FilmResult | null>(null);
@@ -88,9 +90,9 @@ function FilmClubSubmit() {
         const without = prev.filter((s) => s.title !== newSub.title);
         return [...without, newSub];
       });
-      setStatus('success');
       setSelectedFilm(null);
       setPitch('');
+      window.location.href = '/film-club';
     } catch (err) {
       console.error('Submit error:', err);
       setErrorMsg('Something went wrong. Please try again.');
@@ -111,7 +113,7 @@ function FilmClubSubmit() {
 
         <a href="/film-club" className="links" style={{ fontSize: '1rem' }}>← back to film club</a>
 
-        {!loadingExisting && hasSubmissions && status !== 'success' && (
+        {!loadingExisting && hasSubmissions && (
           <>
             <p className="normal-text">
               Your submission{existingSubmissions.length > 1 ? 's' : ''} for {nextMonthName}:
@@ -128,9 +130,11 @@ function FilmClubSubmit() {
                 />
               </div>
             ))}
-            <p className="normal-text" style={{ marginTop: '1.5rem' }}>
-              Submit another film:
-            </p>
+            {isAdmin && (
+              <p className="normal-text" style={{ marginTop: '1.5rem' }}>
+                Submit another film:
+              </p>
+            )}
           </>
         )}
 
@@ -140,9 +144,9 @@ function FilmClubSubmit() {
           </p>
         )}
 
-        <FilmSearchBox onFilmSelect={handleFilmSelect} />
+        {(!hasSubmissions || isAdmin) && <FilmSearchBox onFilmSelect={handleFilmSelect} />}
 
-        {selectedFilm && (
+        {selectedFilm && (!hasSubmissions || isAdmin) && (
           <div style={{ marginTop: '1.5rem' }}>
             <FilmCard
               posterPath={selectedFilm.posterPath}
@@ -153,7 +157,7 @@ function FilmClubSubmit() {
           </div>
         )}
 
-        {selectedFilm && status !== 'success' && (
+        {selectedFilm && (!hasSubmissions || isAdmin) && status !== 'success' && (
           <div style={{ marginTop: '1rem' }}>
             <p className="normal-text" style={{ marginBottom: '0.5rem' }}>Why this film?</p>
             <TextBox
@@ -167,7 +171,7 @@ function FilmClubSubmit() {
           </div>
         )}
 
-        {selectedFilm && status !== 'success' && (
+        {selectedFilm && (!hasSubmissions || isAdmin) && status !== 'success' && (
           <button
             onClick={handleSubmit}
             disabled={status === 'submitting'}

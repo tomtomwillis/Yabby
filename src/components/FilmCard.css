@@ -4,13 +4,20 @@
   text-align: left;
 }
 
+.film-card-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
 .film-card-label {
   font-family: var(--font2);
   font-size: 0.75rem;
   color: var(--colour6);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
 }
 
 .film-card-inner {
@@ -107,6 +114,26 @@
   font-size: 0.8rem;
   color: var(--colour3);
   margin: 0;
+}
+
+.film-card-download-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.film-card-download-label {
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  color: var(--colour5);
+}
+
+.film-card-download-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 @media (max-width: 480px) {

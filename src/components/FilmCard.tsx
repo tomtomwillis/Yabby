@@ -13,6 +13,11 @@ interface FilmCardProps {
   label?: string;
   leaveDate?: string;
   trailerUrl?: string;
+  downloadLinks?: {
+    small?: string;
+    medium?: string;
+    large?: string;
+  };
 }
 
 const FilmCard: React.FC<FilmCardProps> = ({
@@ -25,10 +30,16 @@ const FilmCard: React.FC<FilmCardProps> = ({
   label,
   leaveDate,
   trailerUrl,
+  downloadLinks,
 }) => {
   return (
     <div className="film-card">
-      {label && <p className="film-card-label">{label}</p>}
+      {(label || leaveDate) && (
+        <div className="film-card-label-row">
+          {label && <span className="film-card-label">{label}</span>}
+          {leaveDate && <span className="film-card-label">leaving {leaveDate}</span>}
+        </div>
+      )}
       <div className="film-card-inner">
         {posterPath ? (
           <img
@@ -58,8 +69,22 @@ const FilmCard: React.FC<FilmCardProps> = ({
               ▶ Play trailer
             </a>
           )}
-          {leaveDate && (
-            <p className="film-card-leave-date">leaving {leaveDate}</p>
+
+          {downloadLinks && (downloadLinks.small || downloadLinks.medium || downloadLinks.large) && (
+            <div className="film-card-download-row">
+              <span className="film-card-download-label">download film file:</span>
+              <div className="film-card-download-buttons">
+                {downloadLinks.small && (
+                  <a href={downloadLinks.small} className="film-club-btn film-club-btn-secondary" target="_blank" rel="noopener noreferrer">Small</a>
+                )}
+                {downloadLinks.medium && (
+                  <a href={downloadLinks.medium} className="film-club-btn film-club-btn-secondary" target="_blank" rel="noopener noreferrer">Medium</a>
+                )}
+                {downloadLinks.large && (
+                  <a href={downloadLinks.large} className="film-club-btn film-club-btn-secondary" target="_blank" rel="noopener noreferrer">Large</a>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
