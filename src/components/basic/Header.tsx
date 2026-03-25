@@ -89,6 +89,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
               <li><a href="/wiki" className="links">wiki</a></li>
               <li><a href="/stickers" className="links">stickers</a></li>
               <li><a href="/radio" className="links">radio</a></li>
+              <li><a href="/film-club" className="links">film&nbsp;club</a></li>
             </ul>
           )}
         </nav>
@@ -136,6 +137,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>
         <a href="/stickers" onClick={closeMobileMenu}>Stickers</a>
         <a href="/radio" onClick={closeMobileMenu}>Radio</a>
+        <a href="/film-club" onClick={closeMobileMenu}>Film Club</a>
       </div>
     </>
   );

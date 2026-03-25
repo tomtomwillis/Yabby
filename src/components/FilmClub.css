@@ -1,0 +1,83 @@
+.film-club-container {
+  width: 100%;
+  max-width: 640px;
+  padding: 0 1rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.film-club-section {
+  width: 100%;
+}
+
+.film-club-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.film-club-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.film-club-btn {
+  display: inline-block;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+  font-family: var(--font2);
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.film-club-btn-primary {
+  background-color: var(--colour2);
+  color: var(--colour4);
+}
+
+.film-club-btn-primary:hover {
+  background-color: var(--colour1);
+  color: var(--colour4);
+  text-decoration: none;
+}
+
+.film-club-btn-secondary {
+  background-color: transparent;
+  color: var(--colour2);
+  border: 1px solid var(--colour2);
+}
+
+.film-club-btn-secondary:hover {
+  background-color: var(--colour2);
+  color: var(--colour4);
+  text-decoration: none;
+}
+
+.film-club-deadline {
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  color: var(--colour5);
+  opacity: 0.65;
+  margin: 0.75rem 0 0;
+}
+
+.film-club-admin {
+  border-top: 1px dashed var(--colour6);
+  padding-top: 1.5rem;
+}
+
+.film-club-admin-label {
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: var(--colour6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 1rem 0;
+}

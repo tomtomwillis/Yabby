@@ -1,0 +1,121 @@
+.film-card {
+  width: 100%;
+  max-width: 600px;
+  text-align: left;
+}
+
+.film-card-label {
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: var(--colour6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.5rem 0;
+}
+
+.film-card-inner {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  border: 1px solid var(--colour2);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.film-card-poster {
+  width: 110px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.film-card-poster-placeholder {
+  width: 110px;
+  height: 165px;
+  background-color: var(--colour5);
+  opacity: 0.15;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.film-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.film-card-title {
+  font-family: var(--font1);
+  font-weight: bold;
+  color: var(--colour2);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.film-card-year {
+  font-weight: normal;
+  color: var(--colour5);
+  font-size: 0.9rem;
+}
+
+.film-card-pitch {
+  font-family: var(--font1);
+  font-size: 0.875rem;
+  color: var(--colour5);
+  margin: 0;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.film-card-submitted-by {
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: var(--colour6);
+  margin: 0;
+}
+
+.film-card-overview {
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  color: var(--colour5);
+  opacity: 0.6;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.film-card-trailer-link {
+  display: inline-block;
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: var(--colour2);
+  text-decoration: none;
+  border: 1px solid var(--colour2);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  margin-top: 0.1rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.film-card-trailer-link:hover {
+  background-color: var(--colour2);
+  color: var(--colour4);
+}
+
+.film-card-leave-date {
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  color: var(--colour3);
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .film-card-poster,
+  .film-card-poster-placeholder {
+    width: 80px;
+  }
+
+  .film-card-poster-placeholder {
+    height: 120px;
+  }
+}

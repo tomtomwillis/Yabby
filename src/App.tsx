@@ -15,6 +15,9 @@ import Test from './pages/Test';
 import Login from './pages/Login';
 import UserProfile from './pages/UserProfile';
 import Radio from './pages/Radio';
+import FilmClub from './pages/FilmClub';
+import FilmClubSubmit from './pages/FilmClubSubmit';
+import FilmClubVote from './pages/FilmClubVote';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -38,6 +41,9 @@ function App() {
           <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
           <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
           <Route path="/radio" element={<PrivateRoute><Radio /></PrivateRoute>} />
+          <Route path="/film-club" element={<PrivateRoute><FilmClub /></PrivateRoute>} />
+          <Route path="/film-club-submit" element={<PrivateRoute><FilmClubSubmit /></PrivateRoute>} />
+          <Route path="/film-club-vote" element={<PrivateRoute><FilmClubVote /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
         </Routes>
       </div>
