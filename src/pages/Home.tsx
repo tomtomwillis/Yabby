@@ -9,6 +9,7 @@ import PlaceSticker from '../components/PlaceSticker';
 import WebampRadio from '../components/WebampRadio';
 import RecentLists from '../components/RecentLists';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
+import AsciiMan from '../components/AsciiMan';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -110,14 +111,9 @@ function App() {
 
       <hr />
 
-        <div className="title1">
-          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
-        </div>
-        <CarouselAlbums />
-
-      <hr />
-
-      <div className="title1">Radio</div>
+      <div className="title1">
+        <Link to="/radio">Radio →</Link>
+      </div>
 
       {webampLoading && (
         <p className="webamp-radio-loading">Loading player...</p>
@@ -180,6 +176,15 @@ function App() {
         <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
           <Stats />
         </Suspense>
+
+      <hr />
+
+        <div className="title1">
+          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
+        </div>
+        <CarouselAlbums />
+
+      <AsciiMan />
 
     </div>
   );
