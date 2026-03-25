@@ -3,8 +3,9 @@ import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import './StickerGrid.css';
-import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { getUserData } from '../utils/userCache';
 
 interface Sticker {
   userId: string;
@@ -217,35 +218,17 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
     setPopup({
       stickers: await Promise.all(
         album.stickers.map(async (sticker) => {
-          try {
-            const userDoc = doc(db, 'users', sticker.userId);
-            const userSnapshot = await getDoc(userDoc);
-
-            const userData = userSnapshot.exists()
-              ? userSnapshot.data()
-              : { username: 'Anonymous', avatar: 'default-avatar.png' };
-
-            const timestamp = sticker.timestamp?.toDate
-              ? sticker.timestamp.toDate().toLocaleString()
-              : 'Unknown time';
-
-            return {
-              text: sticker.text,
-              username: userData.username || 'Anonymous',
-              avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
-              timestamp: timestamp,
-              favoriteTrackTitle: sticker.favoriteTrackTitle,
-            };
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-            return {
-              text: sticker.text,
-              username: 'Anonymous',
-              avatar: '/Stickers/avatar_tp_red.webp',
-              timestamp: 'Unknown time',
-              favoriteTrackTitle: sticker.favoriteTrackTitle,
-            };
-          }
+          const userData = await getUserData(sticker.userId);
+          const timestamp = sticker.timestamp?.toDate
+            ? sticker.timestamp.toDate().toLocaleString()
+            : 'Unknown time';
+          return {
+            text: sticker.text,
+            username: userData.username,
+            avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
+            timestamp: timestamp,
+            favoriteTrackTitle: sticker.favoriteTrackTitle,
+          };
         })
       ),
       visible: true,
