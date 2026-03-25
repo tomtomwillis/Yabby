@@ -14,6 +14,7 @@ import './components/basic/TextAnimations.css';
 import Test from './pages/Test';
 import Login from './pages/Login';
 import UserProfile from './pages/UserProfile';
+import Radio from './pages/Radio';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
           <Route path="/lists" element={<PrivateRoute><ListsPage /></PrivateRoute>} />
           <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
           <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+          <Route path="/radio" element={<PrivateRoute><Radio /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
         </Routes>
       </div>
