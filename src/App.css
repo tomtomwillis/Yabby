@@ -132,3 +132,29 @@ hr {
 .no-scroll {
   overflow: hidden; /* Disable scrolling */
 }
+
+/* Inverted news section on the home page */
+.news-inverted {
+  width: 100%;
+  padding: 1rem 0;
+}
+
+.news-inverted .user-message {
+  background-color: var(--colour4);
+  color: var(--colour2);
+}
+
+.news-inverted .user-message-username,
+.news-inverted .user-message-timestamp,
+.news-inverted .user-message-text,
+.news-inverted .user-message-username-link {
+  color: var(--colour2);
+}
+
+.news-inverted .user-message-separator {
+  border-bottom-color: var(--colour2);
+}
+
+.news-inverted .user-message-heart-button {
+  color: var(--colour2);
+}

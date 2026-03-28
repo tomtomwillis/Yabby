@@ -166,10 +166,12 @@ function App() {
 
       <hr />
 
-      <div className="title1">
-        <Link to="/news">News →</Link>
+      <div className="news-inverted">
+        <div className="title1">
+          <Link to="/news">News →</Link>
+        </div>
+        <RecentNews />
       </div>
-      <RecentNews />
 
       <hr />
 

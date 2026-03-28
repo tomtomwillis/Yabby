@@ -86,6 +86,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           </ul>
           {isMoreOpen && (
             <ul className="nav-links more-links">
+              <li><a href="/news" className="links">news</a></li>
               <li><a href="/wiki" className="links">wiki</a></li>
               <li><a href="/stickers" className="links">stickers</a></li>
               <li><a href="/radio" className="links">radio</a></li>
@@ -133,6 +134,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         <a href="/messageboard" onClick={closeMobileMenu}>Message Board</a>
         <a href="/lists" onClick={closeMobileMenu}>Lists</a>
         <a href="/profile" onClick={closeMobileMenu}>Profile</a>
+        <a href="/news" onClick={closeMobileMenu}>News</a>
         <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>
         <a href="/stickers" onClick={closeMobileMenu}>Stickers</a>
         <a href="/radio" onClick={closeMobileMenu}>Radio</a>
