@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -9,6 +9,7 @@ import ForumBox from './basic/ForumMessageBox';
 import Button from './basic/Button';
 import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
+import { getUserData } from '../utils/userCache';
 
 interface Reaction {
   userId: string;
@@ -70,59 +71,6 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     windowMs: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Cache for user profiles to avoid redundant fetches
-  // Cache expires after 5 minutes to allow profile updates to show
-  const userCacheRef = useRef<Map<string, {
-    username: string;
-    avatar: string;
-    timestamp: number
-  }>>(new Map());
-
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-  // Helper function to get user data (with caching and expiration)
-  const getUserData = async (userId: string): Promise<{ username: string; avatar: string }> => {
-    const now = Date.now();
-    const cached = userCacheRef.current.get(userId);
-    
-    // Check if cache exists and is still fresh (less than 5 minutes old)
-    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      return { username: cached.username, avatar: cached.avatar };
-    }
-
-    // Fetch from Firestore if not cached or cache expired
-    try {
-      const userDocRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userDocRef);
-      let userData: { username: string; avatar: string };
-      
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        userData = {
-          username: data.username || 'Anonymous',
-          avatar: data.avatar || ''
-        };
-      } else {
-        userData = { username: 'Anonymous', avatar: '' };
-      }
-      
-      // Cache the result with current timestamp
-      userCacheRef.current.set(userId, {
-        ...userData,
-        timestamp: now
-      });
-      
-      return userData;
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      const fallback = { username: 'Anonymous', avatar: '' };
-      userCacheRef.current.set(userId, {
-        ...fallback,
-        timestamp: now
-      });
-      return fallback;
-    }
-  };
 
   useEffect(() => {
     loadInitialMessages();

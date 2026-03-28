@@ -63,6 +63,30 @@
     margin-top: 1rem;
 }
 
+/* +more button — styled to match nav links */
+.more-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font2);
+    font-size: var(--link-font-size);
+    font-weight: 500;
+    color: var(--colour1);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.more-button:hover {
+    color: var(--colour2);
+    text-decoration: underline;
+}
+
+/* Expanded "more" links row */
+.more-links {
+    margin-top: 0.75rem;
+}
+
 /* Horizontal rule styling */
 .header hr {
     border: none;

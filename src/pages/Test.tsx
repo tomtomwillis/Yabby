@@ -15,7 +15,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <Header title="Welcome to YabbyVille" subtitle="We <3 you" />
+      <Header title="Welcome to Yabbyville" subtitle="We <3 you" />
       <Star />
 
       <Carousel
@@ -37,7 +37,7 @@ function App() {
 
         <CarouselAlbums />
 
-      <h1 className="title1 animated-text drift-circular pause-on-hover">YabbyVille</h1>
+      <h1 className="title1 animated-text drift-circular pause-on-hover">Yabbyville</h1>
 
       <h1 className="links">links</h1>
       

@@ -154,11 +154,7 @@ const RecentLists: React.FC = () => {
   }
 
   const handleImageClick = (list: RecentList) => {
-    if (list.lastItemImage && list.lastItemLink) {
-      window.open(list.lastItemLink, '_blank', 'noopener,noreferrer');
-    } else {
-      navigate(`/lists/${list.id}`);
-    }
+    navigate(`/lists/${list.id}`);
   };
 
   const getImageSrc = (list: RecentList): string => {

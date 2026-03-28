@@ -96,7 +96,7 @@ const WebampRadio: React.FC<WebampRadioProps> = ({
           initialTracks: [
             {
               metaData: {
-                artist: "YabbyVille",
+                artist: "Yabbyville",
                 title: "Radio",
               },
               url: STREAM_URL,
