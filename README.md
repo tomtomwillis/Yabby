@@ -7,7 +7,7 @@ Built as a Progressive Web App (PWA) so it can be installed on phones and deskto
 ## Quick Start
 
 ```bash
-git clone <your-fork-url>
+git clone <github.com/tomtomwillis/Yabby> , or create a fork of the project to work on yourself
 cd Yabby
 npm install
 cp example.env .env    # then fill in your credentials (see below)
