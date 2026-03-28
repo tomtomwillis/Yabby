@@ -1,6 +1,6 @@
 # Progressive Web App (PWA)
 
-YabbyVille is a PWA, meaning it can be installed on phones and desktops and works offline for cached content.
+Yabbyville is a PWA, meaning it can be installed on phones and desktops and works offline for cached content.
 
 ## Installing
 

@@ -133,7 +133,7 @@ const Login = () => {
     <div className="Page">
       <BackgroundStar />
 
-      <h1 className="title1centred">Welcome to YabbyVille</h1>
+      <h1 className="title1centred">Welcome to Yabbyville</h1>
       <h2 className="header">Login</h2>
 
       <form onSubmit={handleSubmit} className="login-form">

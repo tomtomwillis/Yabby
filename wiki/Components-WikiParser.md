@@ -8,7 +8,7 @@ Fetches an HTML wiki file from the public directory and renders it inside the ap
 
 | Prop | Type | Description |
 |------|------|-------------|
-| `htmlFile` | `string` (optional) | Path to the HTML file to load. Defaults to `/wiki/YabbyVilleWiki.html` |
+| `htmlFile` | `string` (optional) | Path to the HTML file to load. Defaults to `/wiki/YabbyvilleWiki.html` |
 | `className` | `string` (optional) | Extra CSS class added to the outer container |
 
 ## Usage

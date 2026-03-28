@@ -100,7 +100,7 @@ function App() {
 
   return (
     <div className="app-container">
-        <Header title="Welcome to YabbyVille" subtitle={subtitle} />
+        <Header title="Welcome to Yabbyville" subtitle={subtitle} />
 
       <div className="title1">
         <Link to="/stickers">Stickers →</Link>

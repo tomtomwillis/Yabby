@@ -1,4 +1,4 @@
-# YabbyVille
+# Yabbyville
 
 A private music community web app built with React, Firebase, and Navidrome. Members can browse albums, place stickers on album covers, post on a message board, create shareable lists, listen to community radio, and upload files.
 

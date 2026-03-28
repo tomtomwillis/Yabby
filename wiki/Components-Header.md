@@ -16,7 +16,7 @@ Navigation links (Home, Stickers, Lists, Message Board, etc.) are defined inside
 ## Usage
 
 ```tsx
-<Header title="YabbyVille" subtitle="Your music, your way" />
+<Header title="Yabbyville" subtitle="Your music, your way" />
 ```
 
 Styling is in `Header.css`. The floating text animation comes from `TextAnimations.css`.

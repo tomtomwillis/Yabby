@@ -1,6 +1,6 @@
-# YabbyVille Wiki
+# Yabbyville Wiki
 
-Welcome to the YabbyVille wiki. This covers each page and component so you can understand how the app fits together and how to customise it for your own community.
+Welcome to the Yabbyville wiki. This covers each page and component so you can understand how the app fits together and how to customise it for your own community.
 
 ## Pages
 
