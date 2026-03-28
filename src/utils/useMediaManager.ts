@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../firebaseConfig';
 
 export const useMediaManager = (): { isMediaManager: boolean; loading: boolean } => {
@@ -7,8 +8,7 @@ export const useMediaManager = (): { isMediaManager: boolean; loading: boolean }
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkMediaManager = async () => {
-      const user = auth.currentUser;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setIsMediaManager(false);
         setLoading(false);
@@ -24,9 +24,9 @@ export const useMediaManager = (): { isMediaManager: boolean; loading: boolean }
       } finally {
         setLoading(false);
       }
-    };
+    });
 
-    checkMediaManager();
+    return unsubscribe;
   }, []);
 
   return { isMediaManager, loading };

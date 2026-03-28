@@ -3,6 +3,7 @@ import Header from '../components/basic/Header';
 import AlbumSearchBox from '../components/basic/AlbumSearchBox';
 import Button from '../components/basic/Button';
 import { useMediaManager } from '../utils/useMediaManager';
+import { useRateLimit } from '../utils/useRateLimit';
 import { auth } from '../firebaseConfig';
 import '../App.css';
 
@@ -36,6 +37,7 @@ const NAVIDROME_CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
 const MediaManager: React.FC = () => {
   const { isMediaManager, loading } = useMediaManager();
+  const { checkRateLimit } = useRateLimit({ maxAttempts: 5, windowMs: 10 * 60 * 1000 });
 
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumInfo | null>(null);
   const [imageUrl, setImageUrl] = useState('');
@@ -57,7 +59,7 @@ const MediaManager: React.FC = () => {
   const fetchAlbumInfoById = async (albumId: string): Promise<AlbumInfo | null> => {
     try {
       const response = await fetch(
-        `${NAVIDROME_SERVER_URL}/rest/getAlbum?id=${albumId}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
+        `${NAVIDROME_SERVER_URL}/rest/getAlbum?id=${encodeURIComponent(albumId)}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
         {
           headers: {
             Authorization: 'Basic ' + btoa(`${NAVIDROME_API_USERNAME}:${NAVIDROME_API_PASSWORD}`),
@@ -78,9 +80,7 @@ const MediaManager: React.FC = () => {
         id: albumElement.getAttribute('id') || '',
         artist: albumElement.getAttribute('artist') || 'Unknown Artist',
         title: albumElement.getAttribute('name') || 'Unknown Album',
-        cover: `${NAVIDROME_SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-          'coverArt'
-        )}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
+        cover: `${NAVIDROME_SERVER_URL}/rest/getCoverArt?id=${encodeURIComponent(albumElement.getAttribute('coverArt') ?? '')}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
       };
     } catch (error) {
       console.error('Failed to fetch album info:', error);
@@ -150,6 +150,12 @@ const MediaManager: React.FC = () => {
   const handleSubmit = async () => {
     if (!selectedAlbum || !imageUrl || !imagePreviewValid) return;
 
+    if (!checkRateLimit()) {
+      setStage('error');
+      setStatusMessage('Too many requests. Please wait a few minutes before trying again.');
+      return;
+    }
+
     const user = auth.currentUser;
     if (!user) {
       setStage('error');
@@ -161,8 +167,8 @@ const MediaManager: React.FC = () => {
     setStatusMessage('Fetching and processing image...');
 
     try {
-      // Get the Firebase ID token for server-side verification
-      const idToken = await user.getIdToken();
+      // Force-refresh the token to ensure current role claims are used
+      const idToken = await user.getIdToken(true);
 
       const response = await fetch(`${MEDIA_API_URL}/update-cover`, {
         method: 'POST',
