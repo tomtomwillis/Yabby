@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './PlaceStickerCore.css';
 import { db, auth } from '../firebaseConfig';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
 
@@ -47,6 +47,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [userSticker, setUserSticker] = useState<string | null>(null);
+  const [alreadyHasSticker, setAlreadyHasSticker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
@@ -121,9 +122,27 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     }
   };
 
+  const checkExistingSticker = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const q = query(
+        collection(db, 'stickers'),
+        where('userId', '==', user.uid),
+        where('albumId', '==', albumInfo.id)
+      );
+      const snap = await getDocs(q);
+      setAlreadyHasSticker(!snap.empty);
+    } catch (error) {
+      console.error('Error checking existing sticker:', error);
+    }
+  };
+
   useEffect(() => {
     fetchUserSticker();
     fetchAlbumTracks();
+    checkExistingSticker();
   }, []);
 
   // Convert screen coordinates to normalized album coordinates (0-300 range)
@@ -342,6 +361,11 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         <p className="instructions">
           Click on the album cover to place your sticker, or drag the sticker to move it around
         </p>
+        {alreadyHasSticker && (
+          <p className="sticker-duplicate-notice">
+            You already have a sticker on this album. You can still add another one!
+          </p>
+        )}
       </div>
 
       <div className="track-selector-container">
