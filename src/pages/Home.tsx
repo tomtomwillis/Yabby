@@ -8,7 +8,9 @@ import CarouselStickers from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
 import WebampRadio from '../components/WebampRadio';
 import RecentLists from '../components/RecentLists';
+import RecentNews from '../components/RecentNews';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
+import AsciiMan from '../components/AsciiMan';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -27,6 +29,18 @@ const SUBTITLES = [
   "Built by community, for community",
   "🇵🇸 Free Palestine!! 🇵🇸",
   "Until Forever Fades Away",
+  "And if I asked you to stop me from falling, Would you save me?",
+  "Hardcore will never day, but you will",
+  "Don't be daft, take a half",
+  "Because steel is heavier than feathers",
+  "Benny Harvey RIP",
+  "The world is a vampire",
+  "Excellent value for money!",
+  "My face is the front of shop",
+  "Recommended by 9 out of 10 dentists",
+  "Final release moving fast!",
+  "for f in *.flac; do ffmpeg -i \"$f\" -b:a 320k \"${f%.flac}.mp3\"; done",
+  "Put a donk on it",
 ];
 
 function App() {
@@ -87,7 +101,7 @@ function App() {
 
   return (
     <div className="app-container">
-        <Header title="Welcome to YabbyVille" subtitle={subtitle} />
+        <Header title="Welcome to Yabbyville" subtitle={subtitle} />
 
       <div className="title1">
         <Link to="/stickers">Stickers →</Link>
@@ -98,14 +112,9 @@ function App() {
 
       <hr />
 
-        <div className="title1">
-          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
-        </div>
-        <CarouselAlbums />
-
-      <hr />
-
-      <div className="title1">Radio</div>
+      <div className="title1">
+        <Link to="/radio">Radio →</Link>
+      </div>
 
       {webampLoading && (
         <p className="webamp-radio-loading">Loading player...</p>
@@ -157,6 +166,15 @@ function App() {
 
       <hr />
 
+      <div className="news-inverted">
+        <div className="title1">
+          <Link to="/news">News →</Link>
+        </div>
+        <RecentNews />
+      </div>
+
+      <hr />
+
       <div className="title1">
         <Link to="/lists">Lists →</Link>
       </div>
@@ -168,6 +186,15 @@ function App() {
         <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
           <Stats />
         </Suspense>
+
+      <hr />
+
+        <div className="title1">
+          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
+        </div>
+        <CarouselAlbums />
+
+      <AsciiMan />
 
     </div>
   );

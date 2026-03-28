@@ -1,6 +1,6 @@
 {
-  "name": "YabbyVille",
-  "short_name": "YabbyVille",
+  "name": "Yabbyville",
+  "short_name": "Yabbyville",
   "description": "A music community app for sharing and discovering albums",
   "start_url": "/",
   "display": "standalone",

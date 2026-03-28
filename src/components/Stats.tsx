@@ -11,7 +11,6 @@ const Stats: React.FC = () => {
     url: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [asciiPose, setAsciiPose] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   // Helper function to get API credentials
@@ -356,11 +355,7 @@ const Stats: React.FC = () => {
 
     loadData();
 
-    const interval = setInterval(() => {
-      setAsciiPose((prevPose) => (prevPose + 1) % 2);
-    }, 500);
-
-    return () => clearInterval(interval);
+    return () => {};
   }, []);
 
   if (error) {
@@ -380,19 +375,6 @@ const Stats: React.FC = () => {
     );
   }
 
-  const asciiMan = [
-    `
-      ___
-    d(♥_♥)b    ♬·¯·♩¸¸♪·¯·♫¸ 
-
-    `,
-    `
-      ___
-    d(♥.♥)b    ♬.-.♩.-♪·_,♫
-
-    `,
-  ];
-
   return (
     <div className="stats-container">
       <p className="normal-text">💿 Total Albums: {totalAlbums}</p>
@@ -405,7 +387,6 @@ const Stats: React.FC = () => {
           </a>
         </p>
       )}
-      <pre className="ascii-art">{asciiMan[asciiPose]}</pre>
     </div>
   );
 };
