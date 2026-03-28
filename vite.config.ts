@@ -4,14 +4,23 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    proxy: {
+      '/api/media': {
+        target: 'https://yabbyville.xyz',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'Stickers/*.webp'],
       manifest: {
-        name: 'YabbyVille',
-        short_name: 'YabbyVille',
+        name: 'Yabbyville',
+        short_name: 'Yabbyville',
         description: 'A music community app for sharing and discovering albums',
         theme_color: '#ff69b4',
         background_color: '#ffffff',

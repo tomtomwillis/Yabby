@@ -59,7 +59,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 100vh; /* Use min-height instead of height */
   padding-top: .1rem; /* Add some padding to prevent content from being cut off */
   box-sizing: border-box; /* Ensure padding is included in the height calculation */
@@ -131,4 +131,30 @@ hr {
 
 .no-scroll {
   overflow: hidden; /* Disable scrolling */
+}
+
+/* Inverted news section on the home page */
+.news-inverted {
+  width: 100%;
+  padding: 1rem 0;
+}
+
+.news-inverted .user-message {
+  background-color: var(--colour4);
+  color: var(--colour2);
+}
+
+.news-inverted .user-message-username,
+.news-inverted .user-message-timestamp,
+.news-inverted .user-message-text,
+.news-inverted .user-message-username-link {
+  color: var(--colour2);
+}
+
+.news-inverted .user-message-separator {
+  border-bottom-color: var(--colour2);
+}
+
+.news-inverted .user-message-heart-button {
+  color: var(--colour2);
 }

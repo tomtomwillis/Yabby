@@ -7,7 +7,7 @@ interface WikiProps {
 }
 
 const WikiSimple: React.FC<WikiProps> = ({
-  htmlFile = '/wiki/YabbyVilleWiki.html',
+  htmlFile = '/wiki/YabbyvilleWiki.html',
   className = '',
 }) => {
   const [htmlContent, setHtmlContent] = useState<string>('');

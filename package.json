@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tdanks2000/tmdb-wrapper": "^2.0.0",
+    "ani-cursor": "^0.0.5",
     "dompurify": "^3.3.1",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
