@@ -8,6 +8,7 @@ import CarouselStickers from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
 import WebampRadio from '../components/WebampRadio';
 import RecentLists from '../components/RecentLists';
+import RecentNews from '../components/RecentNews';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
 
 // Lazy load the Stats component for better performance
@@ -154,6 +155,13 @@ function App() {
           onErrorChange={setWebampError}
         />
       )}
+
+      <hr />
+
+      <div className="title1">
+        <Link to="/news">News →</Link>
+      </div>
+      <RecentNews />
 
       <hr />
 
