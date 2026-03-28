@@ -20,10 +20,11 @@ For a higher-level description of the placement system and its three modes, see 
 ## How It Works
 
 1. On mount, fetches the current user's avatar from Firestore and the album's track list from Navidrome via the Subsonic API.
-2. The user clicks the album cover to place their avatar sticker, then drags it to reposition.
-3. Sticker positions are stored as normalised coordinates in a 0–300 range (`ALBUM_DISPLAY_SIZE`), independent of the rendered image size. On load, `StickerGrid` converts these back to percentages for display.
-4. The user optionally selects a favourite track from a dropdown, then writes a message and submits.
-5. On submit, a document is written to the `stickers` Firestore collection with `userId`, `albumId`, `text`, `position`, `sticker` (avatar path), `timestamp`, and optionally `favoriteTrackId`/`favoriteTrackTitle`.
+2. It also queries Firestore to check whether the current user has already placed a sticker on this album. If they have, a notice is shown ("You already have a sticker on this album. You can still add another one!"). Placing a duplicate sticker is permitted.
+3. The user clicks the album cover to place their avatar sticker, then drags it to reposition.
+4. Sticker positions are stored as normalised coordinates in a 0–300 range (`ALBUM_DISPLAY_SIZE`), independent of the rendered image size. On load, `StickerGrid` converts these back to percentages for display.
+5. The user optionally selects a favourite track from a dropdown, then writes a message and submits.
+6. On submit, a document is written to the `stickers` Firestore collection with `userId`, `albumId`, `text`, `position`, `sticker` (avatar path), `timestamp`, and optionally `favoriteTrackId`/`favoriteTrackTitle`.
 
 ## Exported Constants
 
