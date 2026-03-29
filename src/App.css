@@ -25,11 +25,11 @@
   --font2: 'NectoMono', monospace;       /* Secondary font */
   --font3: 'AvaraItalic';                /* third font */ 
   --colour1: #4CAF50;
-  --colour2: #0000FF;
-  --colour3: #FF9F65;
+  --colour2: #1a2ecc;
+  --colour3: #e87a3a;
   --colour4: #FFFFFF;
-  --colour5: #333333;
-  --colour6: #9933ff;
+  --colour5: #2b2b2b;
+  --colour6: #8825e6;
 }
 
 /* Set default font for the entire app */
