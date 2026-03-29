@@ -132,6 +132,7 @@ function FilmClub() {
   const [loading, setLoading] = useState(true);
 
   const [currentFilmTrailerUrl, setCurrentFilmTrailerUrl] = useState<string | null>(null);
+  const [nextFilmTrailerUrl, setNextFilmTrailerUrl] = useState<string | null>(null);
 
   // Admin state
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -170,6 +171,21 @@ function FilmClub() {
       .catch(() => setCurrentFilmTrailerUrl(null));
   }, [monthData?.currentFilm?.tmdbId]);
 
+  // ── Fetch trailer for next film ──────────────────────────────────────────
+  useEffect(() => {
+    const tmdbId = monthData?.nextFilm?.tmdbId;
+    if (!tmdbId) return;
+    fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/videos?api_key=${import.meta.env.VITE_TMDB_API_KEY}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const trailer = (data.results ?? []).find(
+          (v: { type: string; site: string; key: string }) => v.type === 'Trailer' && v.site === 'YouTube'
+        );
+        setNextFilmTrailerUrl(trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null);
+      })
+      .catch(() => setNextFilmTrailerUrl(null));
+  }, [monthData?.nextFilm?.tmdbId]);
+
   // ── Firestore: real-time month doc ──────────────────────────────────────
   useEffect(() => {
     const unsub = onSnapshot(
@@ -190,12 +206,21 @@ function FilmClub() {
   useEffect(() => {
     getDocs(collection(db, 'filmClub', monthId, 'submissions')).then((snap) => {
       setSubmissionsCount(snap.size);
-      setAllSubmissions(snap.docs.map((d) => ({ docId: d.id, ...(d.data() as Submission) })));
       if (!userId) return;
       const myDocs = snap.docs.filter((d) => (d.data() as Submission).userId === userId);
       setUserSubmissions(myDocs.map((d) => ({ ...(d.data() as Submission) })));
     }).catch(console.error);
   }, [monthId, userId]);
+
+  // ── Load admin submissions (next month during reveal phase) ──────────────
+  const adminMonthId = isRevealPhase ? nextMonthId : monthId;
+  const [adminMidYear, adminMidMonth] = adminMonthId.split('-').map(Number);
+  const adminSubmissionsForMonth = new Date(adminMidYear, adminMidMonth, 1).toLocaleDateString('en-GB', { month: 'long' });
+  useEffect(() => {
+    getDocs(collection(db, 'filmClub', adminMonthId, 'submissions')).then((snap) => {
+      setAllSubmissions(snap.docs.map((d) => ({ docId: d.id, ...(d.data() as Submission) })));
+    }).catch(console.error);
+  }, [adminMonthId]);
 
   // ── Auto IRV trigger ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -290,9 +315,8 @@ function FilmClub() {
   // ── Admin: delete submission ─────────────────────────────────────────────
   const handleAdminDeleteSubmission = async (docId: string) => {
     try {
-      await deleteDoc(doc(db, 'filmClub', monthId, 'submissions', docId));
+      await deleteDoc(doc(db, 'filmClub', adminMonthId, 'submissions', docId));
       setAllSubmissions((prev) => prev.filter((s) => s.docId !== docId));
-      setSubmissionsCount((prev) => prev - 1);
     } catch (err) {
       console.error('Delete submission error:', err);
     }
@@ -348,8 +372,10 @@ function FilmClub() {
               posterPath={monthData.nextFilm.posterPath}
               title={monthData.nextFilm.title}
               releaseYear={monthData.nextFilm.releaseYear}
+              overview={monthData.nextFilm.overview || undefined}
               pitch={monthData.nextFilm.pitch || undefined}
               submittedByUsername={monthData.nextFilm.submittedByUsername || undefined}
+              trailerUrl={nextFilmTrailerUrl ?? undefined}
             />
           </div>
         )}
@@ -416,10 +442,9 @@ function FilmClub() {
         {/* Admin panel */}
         {isAdmin && showAdminPanel && (
           <div className="film-club-section film-club-admin">
-            <p className="film-club-admin-label">Admin — set current film</p>
             {allSubmissions.length > 0 && (
               <div style={{ marginBottom: '1.5rem' }}>
-                <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Delete submissions</p>
+                <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Delete submissions for {adminSubmissionsForMonth}</p>
                 {allSubmissions.map((s) => (
                   <div key={s.docId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--colour5)' }}>
                     <span className="normal-text" style={{ fontSize: '0.875rem' }}>
@@ -466,6 +491,7 @@ function FilmClub() {
               )}
             </div>
 
+            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Set currently playing film</p>
             <FilmSearchBox onFilmSelect={handleAdminSetCurrentFilm} />
             {adminFilmSelection && (
               <div style={{ marginTop: '1rem' }}>

@@ -24,7 +24,8 @@ interface Submission {
 }
 
 function FilmClubVote() {
-  const monthId = getMonthId();
+  const params = new URLSearchParams(window.location.search);
+  const monthId = params.get('month') ?? getMonthId();
   const userId = auth.currentUser?.uid ?? null;
 
   const [ranking, setRanking] = useState<Submission[]>([]);
@@ -165,7 +166,8 @@ function FilmClubVote() {
   const votingDeadlineDay = lastDay - 5;
   const votingDeadline = new Date(year, month - 1, votingDeadlineDay)
     .toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
-  const nextMonthName = new Date(year, month, 1).toLocaleDateString('en-GB', { month: 'long' });
+  const [midYear, midMonth] = monthId.split('-').map(Number);
+  const nextMonthName = new Date(midYear, midMonth, 1).toLocaleDateString('en-GB', { month: 'long' });
 
   if (loading) return null;
 

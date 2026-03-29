@@ -10,10 +10,16 @@ import FilmCard from '../components/FilmCard';
 import TextBox from '../components/basic/MessageTextBox';
 import '../App.css';
 
-function getMonthId() {
+function getSubmitMonthId() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
+  const lastDay = new Date(year, month, 0).getDate();
+  const isRevealPhase = lastDay - now.getDate() < 5;
+  if (isRevealPhase) {
+    const next = new Date(year, month, 1);
+    return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+  }
   return `${year}-${String(month).padStart(2, '0')}`;
 }
 
@@ -36,7 +42,7 @@ function FilmClubSubmit() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const monthId = getMonthId();
+  const monthId = getSubmitMonthId();
 
   // Load all submissions for this user this month
   useEffect(() => {
@@ -100,9 +106,8 @@ function FilmClubSubmit() {
     }
   };
 
-  const now = new Date();
-  const monthName = now.toLocaleDateString('en-GB', { month: 'long' });
-  const nextMonthName = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('en-GB', { month: 'long' });
+  const [midYear, midMonth] = monthId.split('-').map(Number);
+  const targetMonthName = new Date(midYear, midMonth, 1).toLocaleDateString('en-GB', { month: 'long' });
   const hasSubmissions = existingSubmissions.length > 0;
 
   return (
@@ -116,7 +121,7 @@ function FilmClubSubmit() {
         {!loadingExisting && hasSubmissions && (
           <>
             <p className="normal-text">
-              Your submission{existingSubmissions.length > 1 ? 's' : ''} for {nextMonthName}:
+              Your submission{existingSubmissions.length > 1 ? 's' : ''} for {targetMonthName}:
             </p>
             {existingSubmissions.map((s) => (
               <div key={s.title} style={{ marginTop: '0.75rem' }}>
@@ -140,7 +145,7 @@ function FilmClubSubmit() {
 
         {!loadingExisting && !hasSubmissions && (
           <p className="normal-text">
-            Choose a film, write why you think the group should watch it, and submit it for {monthName}'s vote.
+            Choose a film, write why you think the group should watch it, and submit it for {targetMonthName}.
           </p>
         )}
 
