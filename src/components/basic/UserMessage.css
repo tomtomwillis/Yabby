@@ -511,3 +511,16 @@
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
+
+/* Message attached image */
+.user-message-image-container {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.user-message-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}

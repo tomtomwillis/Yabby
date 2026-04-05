@@ -54,6 +54,7 @@ interface UserMessageProps {
   onEditReply?: (replyId: string, newText: string) => void;
   onDeleteReply?: (replyId: string) => void;
   edited?: boolean;
+  imageId?: string;
 }
 
 // Utility function to normalize avatar paths
@@ -177,7 +178,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
   onDelete,
   onEditReply,
   onDeleteReply,
-  edited
+  edited,
+  imageId,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -190,6 +192,9 @@ const UserMessage: React.FC<UserMessageProps> = ({
   const isOwner = userId !== undefined && currentUserId !== undefined && userId === currentUserId;
   const canEdit = isOwner && onEdit;
   const canDelete = onDelete && (isOwner || isAdmin);
+
+  const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
+  const messageImageUrl = imageId ? `${MEDIA_API_URL}/mb-images/${imageId}.webp` : null;
 
   const handleTouchStart = () => {
     longPressTimer.current = setTimeout(() => {
@@ -335,6 +340,16 @@ const UserMessage: React.FC<UserMessageProps> = ({
           </div>
         )}
 
+        {messageImageUrl && (
+          <div className="user-message-image-container">
+            <img
+              src={messageImageUrl}
+              alt="Attached image"
+              className="user-message-image"
+              loading="lazy"
+            />
+          </div>
+        )}
 
         {/* Reply count indicator - only show for non-reply messages with replies */}
         {!isReply && enableReplies && replyCount !== undefined && replyCount > 0 && (

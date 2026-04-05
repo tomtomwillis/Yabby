@@ -144,3 +144,33 @@
   .textbox-container figure ul li button:hover {
     background-color: var(--colour2) !important;
   }
+
+  /* Image Preview */
+  .image-preview-container {
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  .image-preview {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    border: 1px solid var(--colour2);
+  }
+
+  .image-preview-remove {
+    display: inline-block;
+    margin-top: 6px;
+    background: var(--colour3);
+    color: var(--colour4);
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: var(--font2);
+    font-size: 0.85em;
+  }
+
+  .image-preview-remove:hover {
+    opacity: 0.85;
+  }
