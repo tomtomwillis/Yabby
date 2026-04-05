@@ -73,9 +73,18 @@ VITE_COPYPARTY_LOCAL_URL=
 
 URL for your SLSKD instance
 
-'''
+```
 VITE_SLSK_REQUEST_URL=
-'''
+```
+
+### Media Management API (optional - cover art and beets import)
+
+An Express.js backend that handles cover art updates (REST) and interactive beets music library imports (WebSocket). The backend is not part of this repository. Without it, the Media Manager page will not function.
+
+```
+VITE_MEDIA_API_URL=          # Base URL for the media REST API (defaults to /api/media)
+VITE_MEDIA_WS_URL=           # WebSocket URL for the beets terminal (defaults to deriving from window.location)
+```
 
 ## Firestore Collections
 
@@ -89,6 +98,7 @@ The app uses these Firestore collections. They are created automatically when us
 | `lists` | User-created album lists (with `items` subcollection) |
 | `news` | Admin-only news posts |
 | `admins` | Admin user IDs (manage via Firebase Console) |
+| `mediaManagers` | Media manager user IDs (manage via Firebase Console) |
 
 Security rules are in `firestore.rules` - deploy them to your Firebase project to enforce permissions.
 
@@ -99,6 +109,7 @@ src/
   pages/           # Route pages (Home, Profile, Stickers, etc.)
   components/
     basic/         # Reusable UI components (Button, Header, Carousel, etc.)
+    media/         # Media management tools (CoverArtTool, BeetsTerminal)
     ...            # Feature components (MessageBoard, StickerGrid, etc.)
   utils/           # Sanitisation, rate limiting, caching
   types/           # TypeScript type definitions
@@ -127,7 +138,7 @@ Global colours and fonts are CSS variables in `App.css`:
 --font2: 'NectoMono', monospace;
 ```
 
-Components have their own CSS files alongside their `.tsx` files. Pages do not have their own styles - they use component and global styles.
+Components have their own CSS files alongside their `.tsx` files. Some pages (such as MediaManager) also have co-located CSS files.
 
 ## Wiki
 

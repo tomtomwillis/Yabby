@@ -8,6 +8,7 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 - [List Detail](Pages-ListDetail)
 - [Login](Pages-Login)
 - [Lists](Pages-Lists)
+- [Media Manager](Pages-MediaManager)
 - [Message Board](Pages-MessageBoard)
 - [Profile](Pages-Profile)
 - [Radio](Pages-Radio)
@@ -32,6 +33,8 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 
 ### Feature Components
 
+- [BeetsTerminal](Components-BeetsTerminal)
+- [CoverArtTool](Components-CoverArtTool)
 - [AsciiMan](Components-AsciiMan)
 - [AvatarPreview](Components-AvatarPreview)
 - [CarouselAlbums](Components-CarouselAlbums)
@@ -51,6 +54,7 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 
 ## Other
 
+- [Media Management](Media-Management) (architecture overview)
 - [Styling](Styling)
 - [Firestore Structure](Firestore-Structure)
 - [PWA](PWA)
