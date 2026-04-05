@@ -19,11 +19,57 @@
   font-weight: normal;
   font-style: normal;
 }
+
+@font-face {
+  font-family: 'Absans';
+  src: url('./assets/fonts/Absans-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'OrticaLinear';
+  src: url('./assets/fonts/OrticaLinear-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'OrticaLinear';
+  src: url('./assets/fonts/OrticaLinear-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Ribes';
+  src: url('./assets/fonts/Ribes-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Ribes';
+  src: url('./assets/fonts/Ribes-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Ribes';
+  src: url('./assets/fonts/Ribes-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+}
+
 /* the main colour palette for the app */
 :root {
   --font1: 'WorkSans', Arial, sans-serif; /* Default font */
   --font2: 'NectoMono', monospace;       /* Secondary font */
-  --font3: 'AvaraItalic';                /* third font */ 
+  --font3: 'AvaraItalic';                /* third font */
+  --font4: 'Absans', sans-serif;         /* Absans Regular */
+  --font5: 'OrticaLinear', sans-serif;   /* Ortica Linear (use font-weight: 300 for Light, normal for Regular) */
+  --font6: 'Ribes', sans-serif;          /* Ribes (use font-weight: 300 for Light, normal for Regular, 900 for Black) */
   --colour1: #4CAF50;
   --colour2: #1a2ecc;
   --colour3: #e87a3a;
