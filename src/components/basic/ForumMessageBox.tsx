@@ -355,10 +355,12 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
       {imagePreviewUrl && (
         <div className="image-preview-container">
-          <img src={imagePreviewUrl} alt="Attached image preview" className="image-preview" />
-          <button className="image-preview-remove" onClick={removeImage}>
-            Remove image
-          </button>
+          <div className="image-preview-frame">
+            <img src={imagePreviewUrl} alt="Attached image preview" className="image-preview" />
+            <button className="image-preview-remove" onClick={removeImage} aria-label="Remove image">
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
