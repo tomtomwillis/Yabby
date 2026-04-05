@@ -186,7 +186,7 @@ hr {
 }
 
 .news-inverted .user-message {
-  background-color: var(--colour4);
+  background-color: transparent;
   color: var(--colour2);
 }
 
