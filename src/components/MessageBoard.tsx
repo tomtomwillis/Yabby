@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -9,6 +9,7 @@ import ForumBox from './basic/ForumMessageBox';
 import Button from './basic/Button';
 import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
+import { getUserData } from '../utils/userCache';
 
 interface Reaction {
   userId: string;
@@ -43,6 +44,7 @@ interface Message {
   replies?: Reply[];
   replyCount?: number;
   editedAt?: any;
+  imageId?: string;
 }
 
 interface MessageBoardProps {
@@ -51,6 +53,30 @@ interface MessageBoardProps {
 }
 
 const MESSAGES_PER_PAGE = 20;
+const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
+
+async function uploadMessageImage(file: File): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+  const idToken = await user.getIdToken(true);
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${MEDIA_API_URL}/mb-images/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Image upload failed');
+  }
+
+  const data = await response.json();
+  return data.imageId;
+}
 
 const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, enableReplies = false }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -61,6 +87,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
 
   const { isAdmin } = useAdmin();
 
@@ -70,59 +97,6 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     windowMs: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Cache for user profiles to avoid redundant fetches
-  // Cache expires after 5 minutes to allow profile updates to show
-  const userCacheRef = useRef<Map<string, {
-    username: string;
-    avatar: string;
-    timestamp: number
-  }>>(new Map());
-
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-  // Helper function to get user data (with caching and expiration)
-  const getUserData = async (userId: string): Promise<{ username: string; avatar: string }> => {
-    const now = Date.now();
-    const cached = userCacheRef.current.get(userId);
-    
-    // Check if cache exists and is still fresh (less than 5 minutes old)
-    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      return { username: cached.username, avatar: cached.avatar };
-    }
-
-    // Fetch from Firestore if not cached or cache expired
-    try {
-      const userDocRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userDocRef);
-      let userData: { username: string; avatar: string };
-      
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        userData = {
-          username: data.username || 'Anonymous',
-          avatar: data.avatar || ''
-        };
-      } else {
-        userData = { username: 'Anonymous', avatar: '' };
-      }
-      
-      // Cache the result with current timestamp
-      userCacheRef.current.set(userId, {
-        ...userData,
-        timestamp: now
-      });
-      
-      return userData;
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      const fallback = { username: 'Anonymous', avatar: '' };
-      userCacheRef.current.set(userId, {
-        ...fallback,
-        timestamp: now
-      });
-      return fallback;
-    }
-  };
 
   useEffect(() => {
     loadInitialMessages();
@@ -173,6 +147,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             replies: [] as Reply[],
             replyCount: 0,
             editedAt: messageData.editedAt,
+            imageId: messageData.imageId || undefined,
           };
         });
 
@@ -347,6 +322,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           reactions: [] as Reaction[],
           reactionCount: 0,
           currentUserReacted: false,
+          imageId: messageData.imageId || undefined,
           replies: [] as Reply[],
           replyCount: 0,
           editedAt: messageData.editedAt,
@@ -492,18 +468,37 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       return;
     }
 
+    // Upload image if one is attached
+    let imageId: string | undefined;
+    if (pendingImage) {
+      try {
+        imageId = await uploadMessageImage(pendingImage);
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        alert('Failed to upload image. Please try again.');
+        setLoading(false);
+        return;
+      }
+    }
+
     // Fetch username and avatar from cache or Firestore
     const userData = await getUserData(auth.currentUser.uid);
 
-    await addDoc(collection(db, 'messages'), {
+    const messageData: Record<string, any> = {
       text: sanitizedText,
       userId: auth.currentUser.uid,
       timestamp: serverTimestamp(),
       lastActivityAt: serverTimestamp(),
       username: userData.username,
       avatar: userData.avatar,
-    });
-    
+    };
+    if (imageId) {
+      messageData.imageId = imageId;
+    }
+
+    await addDoc(collection(db, 'messages'), messageData);
+
+    setPendingImage(null);
     setNewMessage('');
   } catch (error) {
     console.error('Error sending message:', error);
@@ -719,7 +714,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       }}>
         💡 <strong>Tip:</strong> Type <code>@</code> to tag artists/albums or <code>#</code> to tag lists in your messages!
       </div>
-      <ForumBox onSend={handleSendMessage} disabled={loading} />
+      <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} />
       <div className="messages-container">
         {messages.map((message) => (
           <UserMessage
@@ -736,6 +731,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             onEditReply={(replyId: string, newText: string) => handleEditReply(message.id, replyId, newText)}
             onDeleteReply={(replyId: string) => handleDeleteReply(message.id, replyId)}
             edited={!!message.editedAt}
+            imageId={message.imageId}
             onClose={() => {}}
             hideCloseButton={true}
             reactions={enableReactions ? message.reactions : undefined}

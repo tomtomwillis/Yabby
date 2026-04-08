@@ -13,6 +13,9 @@ dist/
 dist-ssr
 *.local
 dev-dist/
+local/
+/.claude
+CLAUDE.md
 
 # Environment files
 .env
@@ -38,7 +41,6 @@ storage.rules
 *.njsproj
 *.sln
 *.sw?
-*.md
 
 # Ignore public/wiki folder
 public/wiki/

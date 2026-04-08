@@ -3,8 +3,9 @@ import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import './StickerGrid.css';
-import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { getUserData } from '../utils/userCache';
 
 interface Sticker {
   userId: string;
@@ -44,14 +45,21 @@ interface PopupData {
 const ALBUM_DISPLAY_SIZE = 300;
 const STICKER_SIZE = 100;
 
+export interface StickerUser {
+  userId: string;
+  username: string;
+}
+
 interface StickerGridProps {
   sortMode: 'chronological' | 'shuffle';
   shuffleKey: number;
+  filterUserId?: string;
+  onUsersLoaded?: (users: StickerUser[]) => void;
 }
 
 const ALBUMS_PER_PAGE = 50;
 
-const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
+const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterUserId, onUsersLoaded }) => {
   const [albums, setAlbums] = useState<AlbumWithStickers[]>([]);
   const [displayedAlbums, setDisplayedAlbums] = useState<AlbumWithStickers[]>([]);
   const [visibleCount, setVisibleCount] = useState<number>(ALBUMS_PER_PAGE);
@@ -161,6 +169,19 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
       );
 
       setAlbums(sortedAlbums);
+
+      // Build sorted list of unique users who have posted stickers
+      if (onUsersLoaded) {
+        const uniqueUserIds = [...new Set(allStickers.map(s => s.userId))];
+        const userList = await Promise.all(
+          uniqueUserIds.map(async (userId) => {
+            const data = await getUserData(userId);
+            return { userId, username: data.username };
+          })
+        );
+        userList.sort((a, b) => a.username.localeCompare(b.username));
+        onUsersLoaded(userList);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       console.error('Error fetching stickers:', errorMessage);
@@ -205,8 +226,11 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
     setVisibleCount(prev => prev + ALBUMS_PER_PAGE);
   };
 
-  const visibleAlbums = displayedAlbums.slice(0, visibleCount);
-  const hasMore = visibleCount < displayedAlbums.length;
+  const filteredAlbums = filterUserId
+    ? displayedAlbums.filter(album => album.stickers.some(s => s.userId === filterUserId))
+    : displayedAlbums;
+  const visibleAlbums = filteredAlbums.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredAlbums.length;
 
   const handleAlbumClick = async (album: AlbumWithStickers) => {
     const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
@@ -217,35 +241,17 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
     setPopup({
       stickers: await Promise.all(
         album.stickers.map(async (sticker) => {
-          try {
-            const userDoc = doc(db, 'users', sticker.userId);
-            const userSnapshot = await getDoc(userDoc);
-
-            const userData = userSnapshot.exists()
-              ? userSnapshot.data()
-              : { username: 'Anonymous', avatar: 'default-avatar.png' };
-
-            const timestamp = sticker.timestamp?.toDate
-              ? sticker.timestamp.toDate().toLocaleString()
-              : 'Unknown time';
-
-            return {
-              text: sticker.text,
-              username: userData.username || 'Anonymous',
-              avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
-              timestamp: timestamp,
-              favoriteTrackTitle: sticker.favoriteTrackTitle,
-            };
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-            return {
-              text: sticker.text,
-              username: 'Anonymous',
-              avatar: '/Stickers/avatar_tp_red.webp',
-              timestamp: 'Unknown time',
-              favoriteTrackTitle: sticker.favoriteTrackTitle,
-            };
-          }
+          const userData = await getUserData(sticker.userId);
+          const timestamp = sticker.timestamp?.toDate
+            ? sticker.timestamp.toDate().toLocaleString()
+            : 'Unknown time';
+          return {
+            text: sticker.text,
+            username: userData.username,
+            avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
+            timestamp: timestamp,
+            favoriteTrackTitle: sticker.favoriteTrackTitle,
+          };
         })
       ),
       visible: true,
@@ -336,11 +342,15 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey }) => {
     );
   }
 
-  if (displayedAlbums.length === 0) {
+  const filteredForEmpty = filterUserId
+    ? displayedAlbums.filter(album => album.stickers.some(s => s.userId === filterUserId))
+    : displayedAlbums;
+
+  if (filteredForEmpty.length === 0) {
     return (
       <div className="sticker-grid-container">
         <div className="empty-container">
-          <p>No albums with stickers found</p>
+          <p>{filterUserId ? 'No albums found for this user' : 'No albums with stickers found'}</p>
         </div>
       </div>
     );

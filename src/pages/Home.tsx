@@ -8,7 +8,11 @@ import CarouselStickers from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
 import WebampRadio from '../components/WebampRadio';
 import RecentLists from '../components/RecentLists';
+import RecentNews from '../components/RecentNews';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
+import AsciiMan from '../components/AsciiMan';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -53,12 +57,27 @@ function App() {
   const [initializePlayer, setInitializePlayer] = useState(false);
 
   // Animation timing (in milliseconds)
-  const ANIMATION_DURATION = 1000; // 1 second - adjust this to speed up/slow down
+  const ANIMATION_DURATION = 500;
 
   useEffect(() => {
-    // Select a random subtitle when component mounts
-    const randomSubtitle = SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)];
-    setSubtitle(randomSubtitle);
+    const pickSubtitle = async () => {
+      try {
+        const q = query(collection(db, 'news'), orderBy('timestamp', 'desc'), limit(1));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const ts = data.timestamp?.seconds ? data.timestamp.seconds * 1000 : null;
+          if (ts && Date.now() - ts < 48 * 60 * 60 * 1000) {
+            setSubtitle('Fresh News!');
+            return;
+          }
+        }
+      } catch {
+        // fall through to random subtitle on error
+      }
+      setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
+    };
+    pickSubtitle();
   }, []);
 
   // Wait for page content to load before allowing Webamp to initialize
@@ -66,7 +85,7 @@ function App() {
     // Use a small delay after mount to allow carousels and content to render
     const timer = setTimeout(() => {
       setPageContentLoaded(true);
-    }, 1200);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, []);
@@ -99,7 +118,7 @@ function App() {
 
   return (
     <div className="app-container">
-        <Header title="Welcome to YabbyVille" subtitle={subtitle} />
+        <Header title="Welcome to Yabbyville" subtitle={subtitle} />
 
       <div className="title1">
         <Link to="/stickers">Stickers →</Link>
@@ -110,14 +129,9 @@ function App() {
 
       <hr />
 
-        <div className="title1">
-          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
-        </div>
-        <CarouselAlbums />
-
-      <hr />
-
-      <div className="title1">Radio</div>
+      <div className="title1">
+        <Link to="/radio">Radio →</Link>
+      </div>
 
       {webampLoading && (
         <p className="webamp-radio-loading">Loading player...</p>
@@ -137,18 +151,6 @@ function App() {
         className="webamp-radio-toggle"
         onClick={handleTogglePlayer}
         disabled={!pageContentLoaded}
-        style={{
-          margin: '1rem 0 0 15px',
-          padding: '0.6rem 1.2rem',
-          backgroundColor: 'var(--colour2)',
-          color: 'var(--colour4)',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '0.9rem',
-          fontFamily: 'var(--font2)',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-        }}
       >
         {showPlayer ? 'Close Player' : 'Show Player'}
       </button>
@@ -169,6 +171,15 @@ function App() {
 
       <hr />
 
+      <div className="news-inverted">
+        <div className="title1">
+          <Link to="/news">News →</Link>
+        </div>
+        <RecentNews />
+      </div>
+
+      <hr />
+
       <div className="title1">
         <Link to="/lists">Lists →</Link>
       </div>
@@ -180,6 +191,15 @@ function App() {
         <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
           <Stats />
         </Suspense>
+
+      <hr />
+
+        <div className="title1">
+          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
+        </div>
+        <CarouselAlbums />
+
+      <AsciiMan />
 
     </div>
   );

@@ -1,10 +1,10 @@
 .message-board-container {
-  width: 100vw; /* Use viewport width to ensure full width */
-  max-width: 600px; /* Optional: Set a maximum width for larger screens */
-  margin: 0 auto; /* Center the container horizontally */
-  padding: 16px; /* Add some padding for spacing */
-  box-sizing: border-box; /* Include padding and border in the width */
-  min-height: 100vh; /* Take full viewport height */
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px;
+  box-sizing: border-box;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -36,7 +36,7 @@
 @media (max-width: 768px) {
   .message-board-container {
     padding: 12px;
-    width: 100vw; /* Ensure full viewport width on mobile */
+    width: 100%;
   }
 
   .messages-container {

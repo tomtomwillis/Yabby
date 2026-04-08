@@ -23,7 +23,8 @@ export const useRadioMetadata = () => {
           ? source[0]?.title
           : source?.title;
         if (typeof title === "string" && title.trim() !== "") {
-          setNowPlaying(title.trim());
+          const decoded = new DOMParser().parseFromString(title.trim(), "text/html").documentElement.textContent ?? title.trim();
+          setNowPlaying(decoded);
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") return;

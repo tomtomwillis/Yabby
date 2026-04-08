@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from "react";
 import "./Stats.css";
 
+interface GitHubStats {
+  totalCommits: number;
+  lastCommitAuthor: string;
+  lastCommitDate: string;
+  lastCommitMessage: string;
+}
+
+const GITHUB_CACHE_KEY = "githubStats";
+const GITHUB_CACHE_TS_KEY = "githubStatsTimestamp";
+const GITHUB_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
 const Stats: React.FC = () => {
   const [totalAlbums, setTotalAlbums] = useState(0);
   const [totalSongs, setTotalSongs] = useState(0);
@@ -10,8 +21,8 @@ const Stats: React.FC = () => {
     album: string;
     url: string;
   } | null>(null);
+  const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [asciiPose, setAsciiPose] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   // Helper function to get API credentials
@@ -156,6 +167,18 @@ const Stats: React.FC = () => {
   ): Promise<number> => {
     const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
     return stats.songCount;
+  };
+
+  const formatCommitDate = (isoDate: string): string => {
+    const date = new Date(isoDate);
+    return date.toLocaleDateString("en-AU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
   };
 
   // Simple hash function to convert a string to a positive integer
@@ -344,11 +367,63 @@ const Stats: React.FC = () => {
     }
   };
 
+  const fetchGitHubStats = async () => {
+    // Check cache first
+    const cachedData = localStorage.getItem(GITHUB_CACHE_KEY);
+    const cachedTimestamp = localStorage.getItem(GITHUB_CACHE_TS_KEY);
+
+    if (cachedData && cachedTimestamp) {
+      const age = Date.now() - parseInt(cachedTimestamp, 10);
+      if (age < GITHUB_CACHE_TTL) {
+        setGithubStats(JSON.parse(cachedData));
+        return;
+      }
+    }
+
+    try {
+      const response = await fetch(
+        "https://api.github.com/repos/tomtomwillis/Yabby/commits?per_page=1"
+      );
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status}`);
+      }
+
+      // Extract total commits from Link header pagination
+      let totalCommits = 0;
+      const linkHeader = response.headers.get("Link");
+      if (linkHeader) {
+        const lastMatch = linkHeader.match(/&page=(\d+)>;\s*rel="last"/);
+        if (lastMatch) {
+          totalCommits = parseInt(lastMatch[1], 10);
+        }
+      }
+
+      const commits = await response.json();
+      if (commits.length > 0) {
+        const latest = commits[0];
+        const stats: GitHubStats = {
+          totalCommits,
+          lastCommitAuthor: latest.author?.login || latest.commit.author.name,
+          lastCommitDate: latest.commit.author.date,
+          lastCommitMessage: latest.commit.message,
+        };
+
+        setGithubStats(stats);
+        localStorage.setItem(GITHUB_CACHE_KEY, JSON.stringify(stats));
+        localStorage.setItem(GITHUB_CACHE_TS_KEY, Date.now().toString());
+      }
+    } catch (err) {
+      console.error("Error fetching GitHub stats:", err instanceof Error ? err.message : err);
+      // Non-critical — don't set error state, just skip the section
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        await Promise.all([fetchLibraryStats(), fetchSongOfTheDay()]);
+        await Promise.all([fetchLibraryStats(), fetchSongOfTheDay(), fetchGitHubStats()]);
       } finally {
         setIsLoading(false);
       }
@@ -356,11 +431,7 @@ const Stats: React.FC = () => {
 
     loadData();
 
-    const interval = setInterval(() => {
-      setAsciiPose((prevPose) => (prevPose + 1) % 2);
-    }, 500);
-
-    return () => clearInterval(interval);
+    return () => {};
   }, []);
 
   if (error) {
@@ -380,19 +451,6 @@ const Stats: React.FC = () => {
     );
   }
 
-  const asciiMan = [
-    `
-      ___
-    d(♥_♥)b    ♬·¯·♩¸¸♪·¯·♫¸ 
-
-    `,
-    `
-      ___
-    d(♥.♥)b    ♬.-.♩.-♪·_,♫
-
-    `,
-  ];
-
   return (
     <div className="stats-container">
       <p className="normal-text">💿 Total Albums: {totalAlbums}</p>
@@ -405,7 +463,27 @@ const Stats: React.FC = () => {
           </a>
         </p>
       )}
-      <pre className="ascii-art">{asciiMan[asciiPose]}</pre>
+
+      {githubStats && (
+        <div className="github-stats">
+          <p className="github-stats-title">From the Workshop</p>
+          <p className="github-latest-heading">Latest Commit</p>
+          <p className="normal-text">
+            📝 <span className="github-commit-message">"{githubStats.lastCommitMessage}"</span> — by ⭐{githubStats.lastCommitAuthor}⭐, {formatCommitDate(githubStats.lastCommitDate)}
+          </p>
+          {githubStats.totalCommits > 0 && (
+            <p className="normal-text">🔧 Total Commits: {githubStats.totalCommits}</p>
+          )}
+          <a
+            className="github-show-more"
+            href="https://github.com/tomtomwillis/Yabby/commits/main"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Show more →
+          </a>
+        </div>
+      )}
     </div>
   );
 };

@@ -24,7 +24,7 @@ const Wiki: React.FC = () => {
     const loadWikiContent = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/wiki/YabbyVilleWiki.html');
+        const response = await fetch('/wiki/YabbyvilleWiki.html');
         
         if (!response.ok) {
           throw new Error(`Failed to load wiki file: ${response.status}`);
@@ -94,7 +94,7 @@ const Wiki: React.FC = () => {
 
     // Get the title (first element)
     const titleElements = tempDiv.querySelectorAll('.title, .c16');
-    const wikiTitle = titleElements.length > 0 ? titleElements[0].textContent || 'YabbyVille Wiki' : 'YabbyVille Wiki';
+    const wikiTitle = titleElements.length > 0 ? titleElements[0].textContent || 'Yabbyville Wiki' : 'Yabbyville Wiki';
 
     Array.from(tempDiv.children).forEach((element, index) => {
       const isH1 = element.matches('h1') || element.classList.contains('c7');
