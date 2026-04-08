@@ -175,7 +175,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   }, [listSearchQuery, allLists]);
 
   const handleSend = () => {
-    if (newMessage.trim() && onSend && !disabled) {
+    if ((newMessage.trim() || imagePreviewUrl) && onSend && !disabled) {
       onSend(newMessage.trim());
       setNewMessage('');
       if (imagePreviewUrl) {
@@ -319,7 +319,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
   const wordCount = newMessage.trim() ? newMessage.trim().split(/\s+/).length : 0;
   const charCount = newMessage.length;
-  const canSend = newMessage.trim().length > 0 && wordCount <= maxWords && charCount <= maxChars && !disabled;
+  const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl) && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
   return (
     <div className={`textbox-container ${disabled ? 'disabled' : ''} ${className}`}>

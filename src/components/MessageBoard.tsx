@@ -28,6 +28,7 @@ interface Reply {
   reactionCount?: number;
   currentUserReacted?: boolean;
   editedAt?: any;
+  imageId?: string;
 }
 
 interface Message {
@@ -211,6 +212,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
                   reactionCount: 0,
                   currentUserReacted: false,
                   editedAt: replyData.editedAt,
+                  imageId: replyData.imageId,
                 };
               });
 
@@ -443,7 +445,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   };
 
   const handleSendMessage = async (text: string) => {
-  if (!text.trim()) return;
+  if (!text.trim() && !pendingImage) return;
   if (!auth.currentUser) {
     alert('You must be logged in to send messages.');
     return;
@@ -462,7 +464,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     const sanitizedText = sanitizeHtml(text.trim());
 
     // Check if sanitization removed everything (was all malicious code)
-    if (!sanitizedText.trim()) {
+    if (!sanitizedText.trim() && !pendingImage) {
       alert('Your message contains invalid content. Please try again.');
       setLoading(false);
       return;
@@ -577,8 +579,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     });
   };
 
-  const handleSendReply = async (messageId: string, text: string) => {
-    if (!text.trim()) return;
+  const handleSendReply = async (messageId: string, text: string, imageFile?: File | null) => {
+    if (!text.trim() && !imageFile) return;
     if (!auth.currentUser) {
       alert('You must be logged in to send replies.');
       return;
@@ -587,20 +589,38 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     try {
       const sanitizedText = sanitizeHtml(text.trim());
 
-    if (!sanitizedText.trim()) {
+    if (!sanitizedText.trim() && !imageFile) {
       alert('Your reply contains invalid content. Please try again.');
       return;
     }
+
+      // Upload image if attached
+      let imageId: string | undefined;
+      if (imageFile) {
+        try {
+          imageId = await uploadMessageImage(imageFile);
+        } catch (error) {
+          console.error('Image upload failed:', error);
+          alert('Failed to upload image. Please try again.');
+          return;
+        }
+      }
+
       // Fetch username and avatar from cache
       const userData = await getUserData(auth.currentUser.uid);
 
-      await addDoc(collection(db, 'messages', messageId, 'replies'), {
+      const replyData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         username: userData.username,
         avatar: userData.avatar,
-      });
+      };
+      if (imageId) {
+        replyData.imageId = imageId;
+      }
+
+      await addDoc(collection(db, 'messages', messageId, 'replies'), replyData);
 
       // Bump the parent message to the top of the board
       const messageRef = doc(db, 'messages', messageId);
@@ -740,7 +760,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             onToggleReaction={enableReactions ? () => handleToggleReaction(message.id) : undefined}
             replies={enableReplies ? message.replies : undefined}
             replyCount={enableReplies ? message.replyCount : undefined}
-            onReply={enableReplies ? (text: string) => handleSendReply(message.id, text) : undefined}
+            onReply={enableReplies ? (text: string, image?: File | null) => handleSendReply(message.id, text, image) : undefined}
             onToggleReplies={enableReplies ? () => handleToggleReplies(message.id) : undefined}
             repliesExpanded={enableReplies ? expandedReplies.has(message.id) : undefined}
             onToggleReplyReaction={enableReplies && enableReactions ? (replyId: string) => handleToggleReplyReaction(message.id, replyId) : undefined}

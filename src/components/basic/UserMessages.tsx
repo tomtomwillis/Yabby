@@ -23,6 +23,7 @@ interface Reply {
   reactions?: Reaction[];
   reactionCount?: number;
   currentUserReacted?: boolean;
+  imageId?: string;
 }
 
 interface UserMessageProps {
@@ -38,7 +39,7 @@ interface UserMessageProps {
   onToggleReaction?: () => void;
   replies?: Reply[];
   replyCount?: number;
-  onReply?: (text: string) => void;
+  onReply?: (text: string, image?: File | null) => void;
   onToggleReplies?: () => void;
   repliesExpanded?: boolean;
   isReply?: boolean;
@@ -185,6 +186,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   const [showTooltip, setShowTooltip] = useState(false);
   const [isLongPress, setIsLongPress] = useState(false);
   const [showReplyInput, setShowReplyInput] = useState(false);
+  const [pendingReplyImage, setPendingReplyImage] = useState<File | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -376,9 +378,11 @@ const UserMessage: React.FC<UserMessageProps> = ({
             <ForumBox
               placeholder="Write a reply..."
               onSend={(text) => {
-                onReply(text);
+                onReply(text, pendingReplyImage);
+                setPendingReplyImage(null);
                 setShowReplyInput(false);
               }}
+              onImageAttach={setPendingReplyImage}
               maxWords={250}
               maxChars={1000}
               showSendButton={true}
@@ -415,6 +419,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
                 onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
                 isReply={true}
                 enableReplies={false}
+                imageId={reply.imageId}
               />
             ))}
           </div>
