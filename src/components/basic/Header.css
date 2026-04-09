@@ -103,17 +103,19 @@
     top: 0;
     left: 0;
     height: 100vh;
+    height: 100dvh;
     width: 300px;
     max-width: 80vw;
-    padding: 4rem 2rem 2rem 2rem;
+    padding: 2rem 2rem calc(4rem + env(safe-area-inset-bottom)) 2rem;
+    box-sizing: border-box;
     background-color: var(--colour4);
     box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2);
     z-index: 1000;
-    display: flex;
-    flex-direction: column;
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
 
 .mobile-nav.active {
@@ -193,12 +195,12 @@
     .burger-menu {
         display: inline-block;
         position: fixed;
-        top: 0.75rem;
-        right: 0.75rem;
+        top: 0.5rem;
+        right: 0.5rem;
         z-index: 1001;
-        min-height: 44px;
-        min-width: 44px;
-        font-size: 1.5rem;
+        min-height: 32px;
+        min-width: 32px;
+        font-size: 1.1rem;
     }
 }
 
