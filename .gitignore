@@ -51,6 +51,7 @@ public/wiki/
 coverage/
 .nyc_output/
 *.test.js.snap
+_backend_plan
 
 # OS files
 Thumbs.db
