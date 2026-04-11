@@ -28,6 +28,7 @@ interface Reply {
   reactionCount?: number;
   currentUserReacted?: boolean;
   editedAt?: any;
+  imageId?: string;
 }
 
 interface Message {
@@ -44,6 +45,7 @@ interface Message {
   replies?: Reply[];
   replyCount?: number;
   editedAt?: any;
+  imageId?: string;
 }
 
 interface MessageBoardProps {
@@ -52,6 +54,30 @@ interface MessageBoardProps {
 }
 
 const MESSAGES_PER_PAGE = 20;
+const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
+
+async function uploadMessageImage(file: File): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+  const idToken = await user.getIdToken(true);
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${MEDIA_API_URL}/mb-images/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Image upload failed');
+  }
+
+  const data = await response.json();
+  return data.imageId;
+}
 
 const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, enableReplies = false }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,6 +88,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
 
   const { isAdmin } = useAdmin();
 
@@ -121,6 +148,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             replies: [] as Reply[],
             replyCount: 0,
             editedAt: messageData.editedAt,
+            imageId: messageData.imageId || undefined,
           };
         });
 
@@ -184,6 +212,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
                   reactionCount: 0,
                   currentUserReacted: false,
                   editedAt: replyData.editedAt,
+                  imageId: replyData.imageId,
                 };
               });
 
@@ -295,6 +324,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           reactions: [] as Reaction[],
           reactionCount: 0,
           currentUserReacted: false,
+          imageId: messageData.imageId || undefined,
           replies: [] as Reply[],
           replyCount: 0,
           editedAt: messageData.editedAt,
@@ -415,7 +445,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   };
 
   const handleSendMessage = async (text: string) => {
-  if (!text.trim()) return;
+  if (!text.trim() && !pendingImage) return;
   if (!auth.currentUser) {
     alert('You must be logged in to send messages.');
     return;
@@ -434,24 +464,43 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     const sanitizedText = sanitizeHtml(text.trim());
 
     // Check if sanitization removed everything (was all malicious code)
-    if (!sanitizedText.trim()) {
+    if (!sanitizedText.trim() && !pendingImage) {
       alert('Your message contains invalid content. Please try again.');
       setLoading(false);
       return;
     }
 
+    // Upload image if one is attached
+    let imageId: string | undefined;
+    if (pendingImage) {
+      try {
+        imageId = await uploadMessageImage(pendingImage);
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        alert('Failed to upload image. Please try again.');
+        setLoading(false);
+        return;
+      }
+    }
+
     // Fetch username and avatar from cache or Firestore
     const userData = await getUserData(auth.currentUser.uid);
 
-    await addDoc(collection(db, 'messages'), {
+    const messageData: Record<string, any> = {
       text: sanitizedText,
       userId: auth.currentUser.uid,
       timestamp: serverTimestamp(),
       lastActivityAt: serverTimestamp(),
       username: userData.username,
       avatar: userData.avatar,
-    });
-    
+    };
+    if (imageId) {
+      messageData.imageId = imageId;
+    }
+
+    await addDoc(collection(db, 'messages'), messageData);
+
+    setPendingImage(null);
     setNewMessage('');
   } catch (error) {
     console.error('Error sending message:', error);
@@ -530,8 +579,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     });
   };
 
-  const handleSendReply = async (messageId: string, text: string) => {
-    if (!text.trim()) return;
+  const handleSendReply = async (messageId: string, text: string, imageFile?: File | null) => {
+    if (!text.trim() && !imageFile) return;
     if (!auth.currentUser) {
       alert('You must be logged in to send replies.');
       return;
@@ -540,20 +589,38 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     try {
       const sanitizedText = sanitizeHtml(text.trim());
 
-    if (!sanitizedText.trim()) {
+    if (!sanitizedText.trim() && !imageFile) {
       alert('Your reply contains invalid content. Please try again.');
       return;
     }
+
+      // Upload image if attached
+      let imageId: string | undefined;
+      if (imageFile) {
+        try {
+          imageId = await uploadMessageImage(imageFile);
+        } catch (error) {
+          console.error('Image upload failed:', error);
+          alert('Failed to upload image. Please try again.');
+          return;
+        }
+      }
+
       // Fetch username and avatar from cache
       const userData = await getUserData(auth.currentUser.uid);
 
-      await addDoc(collection(db, 'messages', messageId, 'replies'), {
+      const replyData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         username: userData.username,
         avatar: userData.avatar,
-      });
+      };
+      if (imageId) {
+        replyData.imageId = imageId;
+      }
+
+      await addDoc(collection(db, 'messages', messageId, 'replies'), replyData);
 
       // Bump the parent message to the top of the board
       const messageRef = doc(db, 'messages', messageId);
@@ -667,7 +734,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       }}>
         💡 <strong>Tip:</strong> Type <code>@</code> to tag artists/albums or <code>#</code> to tag lists in your messages!
       </div>
-      <ForumBox onSend={handleSendMessage} disabled={loading} />
+      <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} />
       <div className="messages-container">
         {messages.map((message) => (
           <UserMessage
@@ -684,6 +751,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             onEditReply={(replyId: string, newText: string) => handleEditReply(message.id, replyId, newText)}
             onDeleteReply={(replyId: string) => handleDeleteReply(message.id, replyId)}
             edited={!!message.editedAt}
+            imageId={message.imageId}
             onClose={() => {}}
             hideCloseButton={true}
             reactions={enableReactions ? message.reactions : undefined}
@@ -692,7 +760,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             onToggleReaction={enableReactions ? () => handleToggleReaction(message.id) : undefined}
             replies={enableReplies ? message.replies : undefined}
             replyCount={enableReplies ? message.replyCount : undefined}
-            onReply={enableReplies ? (text: string) => handleSendReply(message.id, text) : undefined}
+            onReply={enableReplies ? (text: string, image?: File | null) => handleSendReply(message.id, text, image) : undefined}
             onToggleReplies={enableReplies ? () => handleToggleReplies(message.id) : undefined}
             repliesExpanded={enableReplies ? expandedReplies.has(message.id) : undefined}
             onToggleReplyReaction={enableReplies && enableReactions ? (replyId: string) => handleToggleReplyReaction(message.id, replyId) : undefined}

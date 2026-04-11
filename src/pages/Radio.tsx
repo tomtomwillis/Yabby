@@ -13,13 +13,13 @@ function Radio() {
   const [showPlayer, setShowPlayer] = useState(true);
   const [initializePlayer, setInitializePlayer] = useState(false);
 
-  const ANIMATION_DURATION = 1000;
+  const ANIMATION_DURATION = 500;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setPageContentLoaded(true);
       setInitializePlayer(true);
-    }, 1200);
+    }, 600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -63,18 +63,6 @@ function Radio() {
         className="webamp-radio-toggle"
         onClick={handleTogglePlayer}
         disabled={!pageContentLoaded}
-        style={{
-          margin: '1rem 0 0 15px',
-          padding: '0.6rem 1.2rem',
-          backgroundColor: 'var(--colour2)',
-          color: 'var(--colour4)',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '0.9rem',
-          fontFamily: 'var(--font2)',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-        }}
       >
         {showPlayer ? 'Close Player' : 'Show Player'}
       </button>

@@ -19,6 +19,7 @@ interface ForumMessageBoxProps {
   className?: string;
   showSendButton?: boolean;
   initialValue?: string;
+  onImageAttach?: (file: File | null) => void;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -30,6 +31,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   className = '',
   showSendButton = true,
   initialValue = '',
+  onImageAttach,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [listSearchQuery, setListSearchQuery] = useState<string>("");
@@ -41,6 +43,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [isSearchingLists, setIsSearchingLists] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState(initialValue);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Track the position of the trigger character (@ or #) for replacement
@@ -172,9 +175,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   }, [listSearchQuery, allLists]);
 
   const handleSend = () => {
-    if (newMessage.trim() && onSend && !disabled) {
+    if ((newMessage.trim() || imagePreviewUrl) && onSend && !disabled) {
       onSend(newMessage.trim());
       setNewMessage('');
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+        setImagePreviewUrl(null);
+        onImageAttach?.(null);
+      }
       clearSearch();
     }
   };
@@ -283,9 +291,35 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     autoResize();
   }, [newMessage]);
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          alert('Image must be under 5 MB.');
+          return;
+        }
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+        setImagePreviewUrl(URL.createObjectURL(file));
+        onImageAttach?.(file);
+        return;
+      }
+    }
+  };
+
+  const removeImage = () => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(null);
+    onImageAttach?.(null);
+  };
+
   const wordCount = newMessage.trim() ? newMessage.trim().split(/\s+/).length : 0;
   const charCount = newMessage.length;
-  const canSend = newMessage.trim().length > 0 && wordCount <= maxWords && charCount <= maxChars && !disabled;
+  const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl) && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
   return (
     <div className={`textbox-container ${disabled ? 'disabled' : ''} ${className}`}>
@@ -295,6 +329,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           className="text-input"
           value={newMessage}
           onChange={handleInputChange}
+          onPaste={handlePaste}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && canSend) {
               e.preventDefault();
@@ -317,6 +352,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           </div>
         )}
       </div>
+
+      {imagePreviewUrl && (
+        <div className="image-preview-container">
+          <div className="image-preview-frame">
+            <img src={imagePreviewUrl} alt="Attached image preview" className="image-preview" />
+            <button className="image-preview-remove" onClick={removeImage} aria-label="Remove image">
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {isSearching && <p>{searchStatus}</p>}
       {isSearchingLists && <p>Searching for lists...</p>}

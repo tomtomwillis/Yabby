@@ -1,6 +1,6 @@
 .radio-player {
   width: 100%;
-  padding: 0.75rem 15px;
+  padding: 0.75rem 0;
   box-sizing: border-box;
 }
 
@@ -24,6 +24,8 @@
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .radio-player-play:hover,
@@ -33,7 +35,7 @@
 }
 
 .radio-player-mute {
-  padding: 0.4rem 0.7rem;
+  padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
 }
 
@@ -99,7 +101,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
-/* Very small screens: tighten up */
+/* Very small screens: tighten up but keep touch targets */
 @media (max-width: 480px) {
   .radio-player-controls {
     gap: 0.5rem;
@@ -107,11 +109,14 @@
 
   .radio-player-play,
   .radio-player-mute {
-    padding: 0.4rem 0.7rem;
+    padding: 0.4rem 0.8rem;
     font-size: 0.8rem;
+    min-height: 44px;
+    min-width: 44px;
   }
 
   .radio-player-volume {
     max-width: 100px;
+    min-height: 44px;
   }
 }

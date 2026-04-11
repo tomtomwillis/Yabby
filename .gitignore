@@ -31,8 +31,6 @@ database-debug.log
 pubsub-debug.log
 storage.rules
 
-*.rules
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

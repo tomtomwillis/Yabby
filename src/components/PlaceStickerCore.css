@@ -16,6 +16,19 @@
   margin-top: 0;
 }
 
+/* Duplicate sticker warning */
+.sticker-duplicate-notice {
+  font-family: var(--font1);
+  color: var(--colour2);
+  background-color: color-mix(in srgb, var(--colour2) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--colour2) 40%, transparent);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0 0 0;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
 /* Button positioning */
 .popup-close-button {
   position: absolute;

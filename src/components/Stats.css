@@ -5,9 +5,59 @@
     width: 100%;
   }
 
+.github-stats {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--colour2);
+}
+
+@font-face {
+  font-family: 'DTNouveau';
+  src: url('../assets/fonts/DTNouveau-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.github-stats-title {
+  font-family: 'DTNouveau', sans-serif;
+  font-weight: normal;
+  font-size: 1.4rem;
+  color: var(--colour6);
+  margin-bottom: 0.5rem;
+}
+
+.github-latest-heading {
+  font-family: var(--font1);
+  font-size: 0.85rem;
+  color: var(--colour5);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.github-commit-message {
+  font-family: var(--font2);
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+.github-show-more {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: var(--font2);
+  font-size: 0.9rem;
+  color: var(--colour1);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.github-show-more:hover {
+  color: var(--colour3);
+}
+
 .ascii-art {
   text-align: center;
-  font-family: monospace; 
-  white-space: pre; 
-  margin: 1rem auto; 
+  font-family: monospace;
+  white-space: pre;
+  margin: 1rem auto;
 }

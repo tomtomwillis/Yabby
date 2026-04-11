@@ -76,17 +76,15 @@
 }
 
 .user-message-text {
-  font-size: 1em;
-  line-height: 1.4;
+  font-family: var(--font2);
+  font-size: 0.95em;
+  line-height: 1.5;
   text-align: left;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  /* Ensure text doesn't overflow its container */
   max-width: 100%;
   white-space: pre-wrap;
-  /* Add hyphens for better word breaking */
   hyphens: auto;
-  /* Ensure the text container can grow */
   flex: 1;
 }
 
@@ -122,7 +120,21 @@
   }
 }
 
-/* Add this to your existing UserMessage.css file */
+/* Mid-size mobile: between phone and tablet */
+@media (min-width: 481px) and (max-width: 767px) {
+  .user-message {
+    padding: 14px;
+  }
+
+  .user-message-sticker {
+    height: 64px;
+    width: 64px;
+  }
+
+  .user-message-text {
+    font-size: 0.92em;
+  }
+}
 
 .user-message-sticker-fallback {
   width: 100%;
@@ -148,8 +160,8 @@
 }
 
 .user-message-link:visited {
-  color: var(--colour5);
-  opacity: 0.8;
+  color: #c8b4ff;
+  opacity: 0.9;
 }
 
 .user-message-link:active {
@@ -329,6 +341,20 @@
   color: var(--colour2);
 }
 
+.user-message .user-message-reply-input-container .word-counter {
+  color: var(--colour4);
+}
+
+.user-message .user-message-reply-input-container .word-counter.warning,
+.user-message .user-message-reply-input-container .word-counter.error {
+  color: var(--colour3);
+}
+
+.user-message .user-message-reply-input-container .textbox-container figcaption,
+.user-message .user-message-reply-input-container .textbox-container p {
+  color: var(--colour4);
+}
+
 .user-message-reply-header {
   font-size: 0.85em;
   font-style: italic;
@@ -447,6 +473,20 @@
   color: var(--colour2);
 }
 
+.user-message .user-message-edit-container .word-counter {
+  color: var(--colour4);
+}
+
+.user-message .user-message-edit-container .word-counter.warning,
+.user-message .user-message-edit-container .word-counter.error {
+  color: var(--colour3);
+}
+
+.user-message .user-message-edit-container .textbox-container figcaption,
+.user-message .user-message-edit-container .textbox-container p {
+  color: var(--colour4);
+}
+
 /* Edited indicator */
 .user-message-edited-indicator {
   font-style: italic;
@@ -470,4 +510,17 @@
 .list-item-album-cover:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Message attached image */
+.user-message-image-container {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.user-message-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
 }
