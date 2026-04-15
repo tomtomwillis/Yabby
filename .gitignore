@@ -14,8 +14,7 @@ dist-ssr
 *.local
 dev-dist/
 local/
-/.claude
-CLAUDE.md
+
 
 # Environment files
 .env

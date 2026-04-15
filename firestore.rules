@@ -1,0 +1,340 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for validation
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    
+    function isMediaManager() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/mediaManagers/$(request.auth.uid));
+    }
+
+    function validString(text, minLen, maxLen) {
+      return text is string
+        && text.size() >= minLen
+        && text.size() <= maxLen;
+    }
+
+    function isValidUsername(username) {
+      return username is string
+        && username.size() >= 2
+        && username.size() <= 20
+        && username.matches('^[a-zA-Z0-9 _-]+$');
+    }
+
+    function isValidMessage(text) {
+      return text is string
+        && text.size() > 0
+        && text.size() <= 10000;
+    }
+
+    // Admin collection - managed via Firebase Console only
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    // Media Managers collection - managed via Firebase Console only
+    match /mediaManagers/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // Media Manager audit logs - written by backend server only (Admin SDK bypasses rules)
+    // No client-side access at all
+    match /mediaManagerLogs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+    
+    // User profiles - users can only read/write their own profile
+    match /users/{userId} {
+      // Anyone can read user profiles (for displaying usernames/avatars)
+      allow read: if isSignedIn();
+
+      // Users can only create/update their own profile
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled'])
+        && isValidUsername(request.resource.data.username)
+        && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
+        && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
+        && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
+        && (!('bio' in request.resource.data) || validString(request.resource.data.bio, 0, 500))
+        && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
+        && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
+        && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool);
+
+      allow update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled'])
+        && isValidUsername(request.resource.data.username)
+        && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
+        && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
+        && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
+        && (!('bio' in request.resource.data) || validString(request.resource.data.bio, 0, 500))
+        && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
+        && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
+        && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool);
+
+      // Users cannot delete their profile (prevent data loss)
+      allow delete: if false;
+    }
+
+    // Messages - public forum posts
+    match /messages/{messageId} {
+      // Anyone authenticated can read messages
+      allow read: if isSignedIn();
+
+      // Authenticated users can create messages with validation
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 10000
+        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId'])
+        && request.resource.data.timestamp == request.time
+        && validString(request.resource.data.username, 1, 50)
+        && validString(request.resource.data.avatar, 0, 200)
+        && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
+
+      // Owner can edit text only (and set editedAt timestamp)
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+        && isValidMessage(request.resource.data.text)
+        && request.resource.data.editedAt == request.time;
+
+      // Any authenticated user can bump lastActivityAt (when replying)
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt'])
+        && request.resource.data.lastActivityAt == request.time;
+
+      // Owner or admin can delete
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+
+      // Reactions subcollection
+      match /reactions/{reactionId} {
+        // Anyone can read reactions
+        allow read: if isSignedIn();
+
+        // Users can only create/delete their own reactions (reactionId = userId)
+        allow create: if isSignedIn()
+          && reactionId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
+          && validString(request.resource.data.username, 1, 50);
+
+        allow delete: if isSignedIn() && reactionId == request.auth.uid;
+
+        // No updates allowed (reactions are binary - exist or not)
+        allow update: if false;
+      }
+
+      // Replies subcollection
+      match /replies/{replyId} {
+        // Anyone authenticated can read replies
+        allow read: if isSignedIn();
+
+        // Authenticated users can create replies with validation
+        allow create: if isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000
+          && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId'])
+          && request.resource.data.timestamp == request.time
+          && validString(request.resource.data.username, 1, 50)
+          && validString(request.resource.data.avatar, 0, 200)
+          && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
+
+        // Owner can edit text only (and set editedAt timestamp)
+        allow update: if isOwner(resource.data.userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+          && isValidMessage(request.resource.data.text)
+          && request.resource.data.editedAt == request.time;
+
+        // Owner or admin can delete
+        allow delete: if isOwner(resource.data.userId) || isAdmin();
+
+        // Reactions on replies
+        match /reactions/{reactionId} {
+          allow read: if isSignedIn();
+
+          allow create: if isSignedIn()
+            && reactionId == request.auth.uid
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
+            && validString(request.resource.data.username, 1, 50);
+
+          allow delete: if isSignedIn() && reactionId == request.auth.uid;
+          allow update: if false;
+        }
+      }
+    }
+
+    // Lists - user-created music lists
+    match /lists/{listId} {
+      allow read: if isSignedIn();
+
+      // Users can create lists they own
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
+        && validString(request.resource.data.title, 1, 200)
+        && request.resource.data.timestamp == request.time;
+
+      // Owner can update their own list's mutable fields
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
+        && validString(request.resource.data.title, 1, 200);
+
+      // Non-owners can update collaborative lists (title and itemCount only)
+      allow update: if isSignedIn()
+        && resource.data.isCollaborative == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
+        && validString(request.resource.data.title, 1, 200);
+
+      // Only the owner can delete lists
+      allow delete: if isOwner(resource.data.userId);
+
+      // Items subcollection within lists
+      match /items/{itemId} {
+        // Anyone authenticated can read list items
+        allow read: if isSignedIn();
+
+        // List owner can create/update items (type must be valid)
+        allow create, update: if isSignedIn()
+          && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid
+          && request.resource.data.type in ['album', 'custom'];
+
+        // List owner can delete items
+        allow delete: if isSignedIn()
+          && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid;
+
+        // Any signed-in user can create/update items on collaborative lists
+        allow create, update: if isSignedIn()
+          && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true
+          && request.resource.data.type in ['album', 'custom'];
+
+        // Any signed-in user can delete items on collaborative lists
+        allow delete: if isSignedIn()
+          && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true;
+      }
+    }
+
+    // News posts - admin-only creation, public reading
+    match /news/{newsId} {
+      allow read: if isSignedIn();
+
+      // Only admins can create news posts
+      allow create: if isAdmin()
+        && request.resource.data.userId == request.auth.uid
+        && isValidMessage(request.resource.data.text)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar'])
+        && request.resource.data.timestamp == request.time
+        && validString(request.resource.data.username, 1, 50)
+        && validString(request.resource.data.avatar, 0, 200);
+
+      // Admin author can edit text (and set editedAt timestamp)
+      allow update: if isAdmin() && isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+        && isValidMessage(request.resource.data.text)
+        && request.resource.data.editedAt == request.time;
+
+      // Any admin can delete
+      allow delete: if isAdmin();
+
+      // Reactions subcollection (same pattern as messages)
+      match /reactions/{reactionId} {
+        allow read: if isSignedIn();
+
+        allow create: if isSignedIn()
+          && reactionId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
+          && validString(request.resource.data.username, 1, 50);
+
+        allow delete: if isSignedIn() && reactionId == request.auth.uid;
+        allow update: if false;
+      }
+    }
+
+    // Stickers collection - user sticker interactions
+    match /stickers/{stickerId} {
+      // Anyone authenticated can read stickers
+      allow read: if isSignedIn();
+
+      // Authenticated users can create stickers they own
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['userId', 'albumId', 'text', 'position', 'sticker', 'timestamp', 'favoriteTrackId', 'favoriteTrackTitle'])
+        && isValidMessage(request.resource.data.text)
+        && request.resource.data.timestamp == request.time;
+
+      // Owner can edit text only (and set editedAt timestamp)
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+        && isValidMessage(request.resource.data.text);
+
+      // Owner or admin can delete
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+// Film Club collection
+match /filmClub/{monthId} {
+  allow read: if isSignedIn();
+
+  // Admin can create/update currentFilm and downloadLinks
+  allow create: if isAdmin()
+    && request.resource.data.keys().hasOnly(['currentFilm', 'downloadLinks']);
+
+  allow update: if isAdmin()
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentFilm', 'downloadLinks']);
+
+  // Any authenticated user can write nextFilm + winnerCalculated
+  // (auto IRV calculation triggered on page load)
+  allow create: if isSignedIn()
+    && request.resource.data.keys().hasOnly(['nextFilm', 'winnerCalculated']);
+
+  allow update: if isSignedIn()
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextFilm', 'winnerCalculated']);
+
+  // Submissions subcollection — one doc per user+film (docId = {userId}_{tmdbId})
+  match /submissions/{submissionId} {
+    allow read: if isSignedIn();
+    allow create, update: if isSignedIn()
+      && submissionId.matches(request.auth.uid + '_.*')
+      && request.resource.data.userId == request.auth.uid
+      && validString(request.resource.data.title, 1, 200)
+      && validString(request.resource.data.pitch, 0, 600);
+    allow delete: if isSignedIn()
+      && (submissionId.matches(request.auth.uid + '_.*') || isAdmin());
+  }
+
+  // Votes subcollection — one doc per user (userId = docId)
+  match /votes/{userId} {
+    allow read: if isSignedIn();
+    allow create, update: if isSignedIn()
+      && request.auth.uid == userId
+      && request.resource.data.ranking is list;
+    allow delete: if isSignedIn() && request.auth.uid == userId;
+  }
+}
+
+
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
