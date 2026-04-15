@@ -137,8 +137,19 @@ const RecentNews: React.FC = () => {
     return null;
   }
 
+  const isFresh = newsItem.timestamp?.seconds
+    ? Date.now() - newsItem.timestamp.seconds * 1000 < 24 * 60 * 60 * 1000
+    : false;
+
   return (
-    <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '0 16px', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '0 16px', boxSizing: 'border-box', position: 'relative' }}>
+      {isFresh && (
+        <img
+          src="/fresh.webp"
+          alt="Fresh!"
+          className="fresh-badge"
+        />
+      )}
       <NewsPost
         username={newsItem.username}
         message={newsItem.text}
