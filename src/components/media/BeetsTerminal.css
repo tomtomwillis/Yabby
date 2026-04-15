@@ -131,7 +131,19 @@
   white-space: pre-wrap;
   word-break: break-word;
   margin-bottom: 12px;
+  text-align: left;
 }
+
+/* ANSI 8-colour palette */
+.ansi-fg-0 { color: #555555; }
+.ansi-fg-1 { color: #ff6b6b; }
+.ansi-fg-2 { color: #69ff47; }
+.ansi-fg-3 { color: #ffe234; }
+.ansi-fg-4 { color: #6b9fff; }
+.ansi-fg-5 { color: #ff87ff; }
+.ansi-fg-6 { color: #4dfff3; }
+.ansi-fg-7 { color: #e0e0e0; }
+.ansi-bold  { font-weight: bold; }
 
 /* Custom scrollbar for terminal */
 .beets-output::-webkit-scrollbar {

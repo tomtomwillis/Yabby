@@ -4,6 +4,75 @@ import { auth } from '../../firebaseConfig';
 import './BeetsTerminal.css';
 
 // ---------------------------------------------------------------------------
+// ANSI SGR escape code parser
+// ---------------------------------------------------------------------------
+
+interface AnsiSegment {
+  text: string;
+  bold: boolean;
+  fg: number | null; // 0–7 (standard 8 colours), null = default
+}
+
+function parseAnsi(line: string): AnsiSegment[] {
+  const segments: AnsiSegment[] = [];
+  let bold = false;
+  let fg: number | null = null;
+  let lastIndex = 0;
+
+  const ansiRe = /\x1b\[([0-9;]*)m/g;
+  let m: RegExpExecArray | null;
+
+  while ((m = ansiRe.exec(line)) !== null) {
+    if (m.index > lastIndex) {
+      segments.push({ text: line.slice(lastIndex, m.index), bold, fg });
+    }
+    lastIndex = m.index + m[0].length;
+
+    const codes = m[1] === '' ? [0] : m[1].split(';').map(Number);
+    for (const code of codes) {
+      if (code === 0) {
+        bold = false; fg = null;
+      } else if (code === 1) {
+        bold = true;
+      } else if (code === 22) {
+        bold = false;
+      } else if (code >= 30 && code <= 37) {
+        fg = code - 30;
+      } else if (code === 39 || code === 49) {
+        fg = null;
+      }
+    }
+  }
+
+  if (lastIndex < line.length) {
+    segments.push({ text: line.slice(lastIndex), bold, fg });
+  }
+
+  return segments;
+}
+
+function segClass(seg: AnsiSegment): string {
+  const classes: string[] = [];
+  if (seg.bold) classes.push('ansi-bold');
+  if (seg.fg !== null) classes.push(`ansi-fg-${seg.fg}`);
+  return classes.join(' ');
+}
+
+function renderLines(lines: string[]): React.ReactNode {
+  return lines.map((line, i) => (
+    <React.Fragment key={i}>
+      {i > 0 && '\n'}
+      {parseAnsi(line).map((seg, j) => {
+        const cls = segClass(seg);
+        return cls
+          ? <span key={j} className={cls}>{seg.text}</span>
+          : seg.text;
+      })}
+    </React.Fragment>
+  ));
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -105,7 +174,8 @@ const BeetsTerminal: React.FC = () => {
 
   const scrollToBottom = useCallback(() => {
     if (outputRef.current && autoScrollRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+      const el = outputRef.current;
+      el.scrollTop = el.scrollHeight - el.clientHeight;
     }
   }, []);
 
@@ -449,7 +519,7 @@ const BeetsTerminal: React.FC = () => {
       <div className="beets-terminal">
         {hasHistory && (
           <pre className="beets-output" ref={outputRef}>
-            {outputLines.join('\n')}
+            {renderLines(outputLines)}
           </pre>
         )}
         <p className="beets-status beets-status--disconnected">
@@ -529,7 +599,7 @@ const BeetsTerminal: React.FC = () => {
         ref={outputRef}
         onScroll={handleOutputScroll}
       >
-        {outputLines.join('\n')}
+        {renderLines(outputLines)}
       </pre>
 
       {/* Prompt buttons */}
