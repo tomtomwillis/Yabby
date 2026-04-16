@@ -11,8 +11,6 @@ import RecentLists from '../components/RecentLists';
 import RecentNews from '../components/RecentNews';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
 import AsciiMan from '../components/AsciiMan';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -59,26 +57,16 @@ function App() {
   // Animation timing (in milliseconds)
   const ANIMATION_DURATION = 500;
 
+  // Set random subtitle on mount; may be overridden by RecentNews callback
   useEffect(() => {
-    const pickSubtitle = async () => {
-      try {
-        const q = query(collection(db, 'news'), orderBy('timestamp', 'desc'), limit(1));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const data = snap.docs[0].data();
-          const ts = data.timestamp?.seconds ? data.timestamp.seconds * 1000 : null;
-          if (ts && Date.now() - ts < 48 * 60 * 60 * 1000) {
-            setSubtitle('Fresh News!');
-            return;
-          }
-        }
-      } catch {
-        // fall through to random subtitle on error
-      }
-      setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
-    };
-    pickSubtitle();
+    setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
   }, []);
+
+  const handleLatestNewsTimestamp = (timestampMs: number | null) => {
+    if (timestampMs && Date.now() - timestampMs < 48 * 60 * 60 * 1000) {
+      setSubtitle('Fresh News!');
+    }
+  };
 
   // Wait for page content to load before allowing Webamp to initialize
   useEffect(() => {
@@ -175,7 +163,7 @@ function App() {
         <div className="title1">
           <Link to="/news">News →</Link>
         </div>
-        <RecentNews />
+        <RecentNews onLatestTimestamp={handleLatestNewsTimestamp} />
       </div>
 
       <hr />

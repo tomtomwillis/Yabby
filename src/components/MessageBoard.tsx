@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { collection, addDoc, query, onSnapshot, orderBy, doc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot, increment } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
@@ -90,6 +90,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
 
+  // Listener cleanup refs
+  const messagesUnsubRef = useRef<(() => void) | null>(null);
+  const replyUnsubsRef = useRef<Map<string, () => void>>(new Map());
+
   const { isAdmin } = useAdmin();
 
   // Rate limiting: 10 messages per 5 minutes
@@ -98,28 +102,28 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     windowMs: 5 * 60 * 1000, // 5 minutes
   });
 
-
   useEffect(() => {
     loadInitialMessages();
-    
-    // Cleanup function
+
     return () => {
-      // Clean up listeners if needed
+      messagesUnsubRef.current?.();
+      messagesUnsubRef.current = null;
+      replyUnsubsRef.current.forEach(unsub => unsub());
+      replyUnsubsRef.current.clear();
     };
   }, [enableReactions, enableReplies]);
 
-  const loadInitialMessages = async () => {
+  const loadInitialMessages = () => {
+    messagesUnsubRef.current?.();
+
     const q = query(
       collection(db, 'messages'),
       orderBy('timestamp', 'desc'),
       limit(MESSAGES_PER_PAGE)
     );
-    
-    const unsubscribeMessages = onSnapshot(q, async (snapshot) => {
-      try {
-        const reactionUnsubscribers: (() => void)[] = [];
 
-        // Store last document for pagination
+    const unsub = onSnapshot(q, async (snapshot) => {
+      try {
         if (snapshot.docs.length > 0) {
           setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
           setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
@@ -127,12 +131,31 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           setHasMore(false);
         }
 
+        // Only check reaction status for newly added messages
+        const addedIds = new Set(
+          snapshot.docChanges()
+            .filter(change => change.type === 'added')
+            .map(change => change.doc.id)
+        );
+
         const messagePromises = snapshot.docs.map(async (docSnapshot) => {
           const messageData = docSnapshot.data();
-          
-          // Fetch CURRENT user profile data (with caching)
-          // This ensures we always show the latest username/avatar
           const userData = await getUserData(messageData.userId);
+
+          // Fetch full reactions for newly added messages (provides count + tooltip + user status)
+          let reactions: Reaction[] = [];
+          let reactionCount = 0;
+          let currentUserReacted: boolean | undefined;
+          if (enableReactions && addedIds.has(docSnapshot.id)) {
+            try {
+              const reactionsSnap = await getDocs(
+                collection(db, 'messages', docSnapshot.id, 'reactions')
+              );
+              reactions = reactionsSnap.docs.map(d => d.data() as Reaction);
+              reactionCount = reactions.length;
+              currentUserReacted = reactions.some(r => r.userId === auth.currentUser?.uid);
+            } catch { /* ignore */ }
+          }
 
           return {
             id: docSnapshot.id,
@@ -142,143 +165,126 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             lastActivityAt: messageData.lastActivityAt,
             username: userData.username,
             avatar: userData.avatar,
-            reactions: [] as Reaction[],
-            reactionCount: 0,
-            currentUserReacted: false,
-            replies: [] as Reply[],
-            replyCount: 0,
+            reactions,
+            reactionCount,
+            currentUserReacted,
+            replyCount: messageData.replyCount || 0,
             editedAt: messageData.editedAt,
             imageId: messageData.imageId || undefined,
           };
         });
 
-        const initialMessages = await Promise.all(messagePromises);
-        // Sort by bump order: lastActivityAt if available, otherwise fall back to timestamp
-        initialMessages.sort((a, b) => {
-          const aTime = (a.lastActivityAt ?? a.timestamp)?.seconds ?? 0;
-          const bTime = (b.lastActivityAt ?? b.timestamp)?.seconds ?? 0;
-          return bTime - aTime;
+        const processed = await Promise.all(messagePromises);
+
+        setMessages(prev => {
+          const prevMap = new Map(prev.map(m => [m.id, m]));
+
+          const merged = processed.map(msg => {
+            const existing = prevMap.get(msg.id);
+            return {
+              ...msg,
+              // Preserve locally-tracked reaction data for existing messages
+              reactions: (msg.reactions && msg.reactions.length > 0) ? msg.reactions : (existing?.reactions || []),
+              reactionCount: msg.currentUserReacted !== undefined ? msg.reactionCount : (existing?.reactionCount ?? 0),
+              currentUserReacted: msg.currentUserReacted ?? existing?.currentUserReacted ?? false,
+              // Preserve loaded replies for expanded threads
+              replies: existing?.replies || [],
+            } as Message;
+          });
+
+          merged.sort((a, b) => {
+            const aTime = (a.lastActivityAt ?? a.timestamp)?.seconds ?? 0;
+            const bTime = (b.lastActivityAt ?? b.timestamp)?.seconds ?? 0;
+            return bTime - aTime;
+          });
+
+          return merged;
         });
-        setMessages(initialMessages);
-
-        // Set up real-time listeners for reactions if enabled
-        if (enableReactions) {
-          snapshot.docs.forEach((docSnapshot) => {
-            const messageId = docSnapshot.id;
-            const reactionsCollectionRef = collection(db, 'messages', messageId, 'reactions');
-
-            const unsubscribeReactions = onSnapshot(reactionsCollectionRef, (reactionsSnapshot) => {
-              const reactions = reactionsSnapshot.docs.map((reactionDoc) => reactionDoc.data() as Reaction);
-              const reactionCount = reactions.length;
-              const currentUserReacted = reactions.some(r => r.userId === auth.currentUser?.uid);
-
-              setMessages((prevMessages) =>
-                prevMessages.map((msg) =>
-                  msg.id === messageId
-                    ? { ...msg, reactions, reactionCount, currentUserReacted }
-                    : msg
-                )
-              );
-            });
-
-            reactionUnsubscribers.push(unsubscribeReactions);
-          });
-        }
-
-        // Set up real-time listeners for replies if enabled
-        if (enableReplies) {
-          snapshot.docs.forEach((docSnapshot) => {
-            const messageId = docSnapshot.id;
-            const repliesCollectionRef = collection(db, 'messages', messageId, 'replies');
-            const repliesQuery = query(repliesCollectionRef, orderBy('timestamp', 'asc'));
-
-            const unsubscribeReplies = onSnapshot(repliesQuery, async (repliesSnapshot) => {
-              const replyReactionUnsubscribers: (() => void)[] = [];
-
-              const replyPromises = repliesSnapshot.docs.map(async (replyDoc) => {
-                const replyData = replyDoc.data();
-                
-                // Fetch CURRENT user profile data for reply authors
-                const userData = await getUserData(replyData.userId);
-
-                return {
-                  id: replyDoc.id,
-                  text: replyData.text,
-                  userId: replyData.userId,
-                  timestamp: replyData.timestamp,
-                  username: userData.username,
-                  avatar: userData.avatar,
-                  reactions: [] as Reaction[],
-                  reactionCount: 0,
-                  currentUserReacted: false,
-                  editedAt: replyData.editedAt,
-                  imageId: replyData.imageId,
-                };
-              });
-
-              const replies = await Promise.all(replyPromises);
-              const replyCount = replies.length;
-
-              setMessages((prevMessages) =>
-                prevMessages.map((msg) =>
-                  msg.id === messageId
-                    ? { ...msg, replies, replyCount }
-                    : msg
-                )
-              );
-
-              // Set up real-time listeners for reactions on replies
-              if (enableReactions) {
-                repliesSnapshot.docs.forEach((replyDoc) => {
-                  const replyId = replyDoc.id;
-                  const replyReactionsCollectionRef = collection(db, 'messages', messageId, 'replies', replyId, 'reactions');
-
-                  const unsubscribeReplyReactions = onSnapshot(replyReactionsCollectionRef, (replyReactionsSnapshot) => {
-                    const replyReactions = replyReactionsSnapshot.docs.map((reactionDoc) => reactionDoc.data() as Reaction);
-                    const replyReactionCount = replyReactions.length;
-                    const currentUserReactedToReply = replyReactions.some(r => r.userId === auth.currentUser?.uid);
-
-                    setMessages((prevMessages) =>
-                      prevMessages.map((msg) =>
-                        msg.id === messageId
-                          ? {
-                              ...msg,
-                              replies: msg.replies?.map((reply) =>
-                                reply.id === replyId
-                                  ? { ...reply, reactions: replyReactions, reactionCount: replyReactionCount, currentUserReacted: currentUserReactedToReply }
-                                  : reply
-                              ),
-                            }
-                          : msg
-                      )
-                    );
-                  });
-
-                  replyReactionUnsubscribers.push(unsubscribeReplyReactions);
-                });
-              }
-
-              // Store cleanup functions for reply reactions
-              reactionUnsubscribers.push(...replyReactionUnsubscribers);
-            });
-
-            reactionUnsubscribers.push(unsubscribeReplies);
-          });
-        }
-
-        // Return cleanup function
-        return () => {
-          reactionUnsubscribers.forEach(unsub => unsub());
-        };
       } catch (error) {
         console.error('Error fetching messages:', error);
       }
     });
 
-    return () => {
-      unsubscribeMessages();
-    };
+    messagesUnsubRef.current = unsub;
   };
+
+  // Subscribe to replies for a specific message (on-demand, when expanded)
+  const subscribeToReplies = useCallback((messageId: string) => {
+    replyUnsubsRef.current.get(messageId)?.();
+
+    const repliesQuery = query(
+      collection(db, 'messages', messageId, 'replies'),
+      orderBy('timestamp', 'asc')
+    );
+
+    const unsub = onSnapshot(repliesQuery, async (snapshot) => {
+      const addedReplyIds = new Set(
+        snapshot.docChanges()
+          .filter(change => change.type === 'added')
+          .map(change => change.doc.id)
+      );
+
+      const replyPromises = snapshot.docs.map(async (replyDoc) => {
+        const replyData = replyDoc.data();
+        const userData = await getUserData(replyData.userId);
+
+        // Fetch full reactions for newly added replies (provides count + tooltip + user status)
+        let reactions: Reaction[] = [];
+        let currentUserReacted = false;
+        let reactionCount = 0;
+
+        if (enableReactions && addedReplyIds.has(replyDoc.id)) {
+          try {
+            const reactionsSnap = await getDocs(
+              collection(db, 'messages', messageId, 'replies', replyDoc.id, 'reactions')
+            );
+            reactions = reactionsSnap.docs.map(d => d.data() as Reaction);
+            reactionCount = reactions.length;
+            currentUserReacted = reactions.some(r => r.userId === auth.currentUser?.uid);
+          } catch { /* ignore */ }
+        }
+
+        return {
+          id: replyDoc.id,
+          text: replyData.text,
+          userId: replyData.userId,
+          timestamp: replyData.timestamp,
+          username: userData.username,
+          avatar: userData.avatar,
+          reactions,
+          reactionCount,
+          currentUserReacted,
+          editedAt: replyData.editedAt,
+          imageId: replyData.imageId,
+        };
+      });
+
+      const replies = await Promise.all(replyPromises);
+
+      setMessages(prev =>
+        prev.map(msg => {
+          if (msg.id !== messageId) return msg;
+          // Preserve reaction data for existing replies
+          const prevReplyMap = new Map((msg.replies || []).map(r => [r.id, r]));
+          const mergedReplies = replies.map(reply => {
+            const existing = prevReplyMap.get(reply.id);
+            if (existing && !addedReplyIds.has(reply.id)) {
+              return { ...reply, reactions: existing.reactions, reactionCount: existing.reactionCount, currentUserReacted: existing.currentUserReacted };
+            }
+            return reply;
+          });
+          return { ...msg, replies: mergedReplies, replyCount: replies.length };
+        })
+      );
+    });
+
+    replyUnsubsRef.current.set(messageId, unsub);
+  }, [enableReactions]);
+
+  const unsubscribeFromReplies = useCallback((messageId: string) => {
+    replyUnsubsRef.current.get(messageId)?.();
+    replyUnsubsRef.current.delete(messageId);
+  }, []);
 
   const loadMoreMessages = async () => {
     if (!lastDoc || !hasMore || loadingMore) return;
@@ -301,17 +307,27 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         return;
       }
 
-      // Update last document
       setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
       setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
 
-      const reactionUnsubscribers: (() => void)[] = [];
-
       const newMessagePromises = snapshot.docs.map(async (docSnapshot) => {
         const messageData = docSnapshot.data();
-        
-        // Fetch CURRENT user profile data
         const userData = await getUserData(messageData.userId);
+
+        // Fetch full reactions (provides count + tooltip + user status)
+        let reactions: Reaction[] = [];
+        let reactionCount = 0;
+        let currentUserReacted = false;
+        if (enableReactions) {
+          try {
+            const reactionsSnap = await getDocs(
+              collection(db, 'messages', docSnapshot.id, 'reactions')
+            );
+            reactions = reactionsSnap.docs.map(d => d.data() as Reaction);
+            reactionCount = reactions.length;
+            currentUserReacted = reactions.some(r => r.userId === auth.currentUser?.uid);
+          } catch { /* ignore */ }
+        }
 
         return {
           id: docSnapshot.id,
@@ -321,120 +337,17 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           lastActivityAt: messageData.lastActivityAt,
           username: userData.username,
           avatar: userData.avatar,
-          reactions: [] as Reaction[],
-          reactionCount: 0,
-          currentUserReacted: false,
-          imageId: messageData.imageId || undefined,
+          reactions,
+          reactionCount,
+          currentUserReacted,
+          replyCount: messageData.replyCount || 0,
           replies: [] as Reply[],
-          replyCount: 0,
           editedAt: messageData.editedAt,
-        };
+          imageId: messageData.imageId || undefined,
+        } as Message;
       });
 
       const newMessages = await Promise.all(newMessagePromises);
-
-      // Set up listeners for the new messages
-      if (enableReactions) {
-        snapshot.docs.forEach((docSnapshot) => {
-          const messageId = docSnapshot.id;
-          const reactionsCollectionRef = collection(db, 'messages', messageId, 'reactions');
-
-          const unsubscribeReactions = onSnapshot(reactionsCollectionRef, (reactionsSnapshot) => {
-            const reactions = reactionsSnapshot.docs.map((reactionDoc) => reactionDoc.data() as Reaction);
-            const reactionCount = reactions.length;
-            const currentUserReacted = reactions.some(r => r.userId === auth.currentUser?.uid);
-
-            setMessages((prevMessages) =>
-              prevMessages.map((msg) =>
-                msg.id === messageId
-                  ? { ...msg, reactions, reactionCount, currentUserReacted }
-                  : msg
-              )
-            );
-          });
-
-          reactionUnsubscribers.push(unsubscribeReactions);
-        });
-      }
-
-      if (enableReplies) {
-        snapshot.docs.forEach((docSnapshot) => {
-          const messageId = docSnapshot.id;
-          const repliesCollectionRef = collection(db, 'messages', messageId, 'replies');
-          const repliesQuery = query(repliesCollectionRef, orderBy('timestamp', 'asc'));
-
-          const unsubscribeReplies = onSnapshot(repliesQuery, async (repliesSnapshot) => {
-            const replyReactionUnsubscribers: (() => void)[] = [];
-
-            const replyPromises = repliesSnapshot.docs.map(async (replyDoc) => {
-              const replyData = replyDoc.data();
-              
-              // Fetch CURRENT user profile data for replies
-              const userData = await getUserData(replyData.userId);
-
-              return {
-                id: replyDoc.id,
-                text: replyData.text,
-                userId: replyData.userId,
-                timestamp: replyData.timestamp,
-                username: userData.username,
-                avatar: userData.avatar,
-                reactions: [] as Reaction[],
-                reactionCount: 0,
-                currentUserReacted: false,
-                editedAt: replyData.editedAt,
-              };
-            });
-
-            const replies = await Promise.all(replyPromises);
-            const replyCount = replies.length;
-
-            setMessages((prevMessages) =>
-              prevMessages.map((msg) =>
-                msg.id === messageId
-                  ? { ...msg, replies, replyCount }
-                  : msg
-              )
-            );
-
-            if (enableReactions) {
-              repliesSnapshot.docs.forEach((replyDoc) => {
-                const replyId = replyDoc.id;
-                const replyReactionsCollectionRef = collection(db, 'messages', messageId, 'replies', replyId, 'reactions');
-
-                const unsubscribeReplyReactions = onSnapshot(replyReactionsCollectionRef, (replyReactionsSnapshot) => {
-                  const replyReactions = replyReactionsSnapshot.docs.map((reactionDoc) => reactionDoc.data() as Reaction);
-                  const replyReactionCount = replyReactions.length;
-                  const currentUserReactedToReply = replyReactions.some(r => r.userId === auth.currentUser?.uid);
-
-                  setMessages((prevMessages) =>
-                    prevMessages.map((msg) =>
-                      msg.id === messageId
-                        ? {
-                            ...msg,
-                            replies: msg.replies?.map((reply) =>
-                              reply.id === replyId
-                                ? { ...reply, reactions: replyReactions, reactionCount: replyReactionCount, currentUserReacted: currentUserReactedToReply }
-                                : reply
-                            ),
-                          }
-                        : msg
-                    )
-                  );
-                });
-
-                replyReactionUnsubscribers.push(unsubscribeReplyReactions);
-              });
-            }
-
-            reactionUnsubscribers.push(...replyReactionUnsubscribers);
-          });
-
-          reactionUnsubscribers.push(unsubscribeReplies);
-        });
-      }
-
-      // Append new messages to existing ones
       setMessages((prev) => [...prev, ...newMessages]);
 
     } catch (error) {
@@ -532,24 +445,42 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       return;
     }
 
+    // Use local state to determine current reaction status — no read needed
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+
     const reactionDocRef = doc(db, 'messages', messageId, 'reactions', auth.currentUser.uid);
+    const messageRef = doc(db, 'messages', messageId);
 
     try {
-      const reactionDoc = await getDoc(reactionDocRef);
-
-      if (reactionDoc.exists()) {
-        // Remove reaction
+      if (message.currentUserReacted) {
+        // Optimistic update: remove from local array
+        setMessages(prev =>
+          prev.map(msg => {
+            if (msg.id !== messageId) return msg;
+            const newReactions = (msg.reactions || []).filter(r => r.userId !== auth.currentUser!.uid);
+            return { ...msg, reactions: newReactions, reactionCount: newReactions.length, currentUserReacted: false };
+          })
+        );
         await deleteDoc(reactionDocRef);
+        await updateDoc(messageRef, { reactionCount: increment(-1) });
       } else {
-        // Fetch username from cache
+        // Optimistic update: add to local array
         const userData = await getUserData(auth.currentUser.uid);
-
-        // Add reaction
+        const newReaction: Reaction = { userId: auth.currentUser.uid, username: userData.username, timestamp: null };
+        setMessages(prev =>
+          prev.map(msg => {
+            if (msg.id !== messageId) return msg;
+            const newReactions = [...(msg.reactions || []), newReaction];
+            return { ...msg, reactions: newReactions, reactionCount: newReactions.length, currentUserReacted: true };
+          })
+        );
         await setDoc(reactionDocRef, {
           userId: auth.currentUser.uid,
           username: userData.username,
           timestamp: serverTimestamp(),
         });
+        await updateDoc(messageRef, { reactionCount: increment(1) });
       }
     } catch (error) {
       console.error('Error toggling reaction:', error);
@@ -562,8 +493,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       const newSet = new Set(prev);
       if (newSet.has(messageId)) {
         newSet.delete(messageId);
+        unsubscribeFromReplies(messageId);
       } else {
         newSet.add(messageId);
+        if (enableReplies) {
+          subscribeToReplies(messageId);
+        }
       }
       return newSet;
     });
@@ -574,7 +509,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     // Also expand replies when opening reply input
     setExpandedReplies((prev) => {
       const newSet = new Set(prev);
-      newSet.add(messageId);
+      if (!newSet.has(messageId)) {
+        newSet.add(messageId);
+        if (enableReplies) {
+          subscribeToReplies(messageId);
+        }
+      }
       return newSet;
     });
   };
@@ -622,10 +562,11 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
       await addDoc(collection(db, 'messages', messageId, 'replies'), replyData);
 
-      // Bump the parent message to the top of the board
+      // Bump the parent message and increment reply count
       const messageRef = doc(db, 'messages', messageId);
       await updateDoc(messageRef, {
         lastActivityAt: serverTimestamp(),
+        replyCount: increment(1),
       });
 
       // Close reply input after sending
@@ -642,24 +583,55 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       return;
     }
 
+    // Use local state to determine current reaction status — no read needed
+    const message = messages.find(m => m.id === messageId);
+    const reply = message?.replies?.find(r => r.id === replyId);
+    if (!message || !reply) return;
+
     const reactionDocRef = doc(db, 'messages', messageId, 'replies', replyId, 'reactions', auth.currentUser.uid);
+    const replyRef = doc(db, 'messages', messageId, 'replies', replyId);
 
     try {
-      const reactionDoc = await getDoc(reactionDocRef);
-
-      if (reactionDoc.exists()) {
-        // Remove reaction
+      if (reply.currentUserReacted) {
+        // Optimistic update: remove from local array
+        setMessages(prev =>
+          prev.map(msg => {
+            if (msg.id !== messageId) return msg;
+            return {
+              ...msg,
+              replies: msg.replies?.map(r => {
+                if (r.id !== replyId) return r;
+                const newReactions = (r.reactions || []).filter(rx => rx.userId !== auth.currentUser!.uid);
+                return { ...r, reactions: newReactions, reactionCount: newReactions.length, currentUserReacted: false };
+              }),
+            };
+          })
+        );
         await deleteDoc(reactionDocRef);
+        await updateDoc(replyRef, { reactionCount: increment(-1) });
       } else {
-        // Fetch username from cache
+        // Optimistic update: add to local array
         const userData = await getUserData(auth.currentUser.uid);
-
-        // Add reaction
+        const newReaction: Reaction = { userId: auth.currentUser.uid, username: userData.username, timestamp: null };
+        setMessages(prev =>
+          prev.map(msg => {
+            if (msg.id !== messageId) return msg;
+            return {
+              ...msg,
+              replies: msg.replies?.map(r => {
+                if (r.id !== replyId) return r;
+                const newReactions = [...(r.reactions || []), newReaction];
+                return { ...r, reactions: newReactions, reactionCount: newReactions.length, currentUserReacted: true };
+              }),
+            };
+          })
+        );
         await setDoc(reactionDocRef, {
           userId: auth.currentUser.uid,
           username: userData.username,
           timestamp: serverTimestamp(),
         });
+        await updateDoc(replyRef, { reactionCount: increment(1) });
       }
     } catch (error) {
       console.error('Error toggling reaction on reply:', error);
@@ -715,6 +687,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     try {
       const replyRef = doc(db, 'messages', messageId, 'replies', replyId);
       await deleteDoc(replyRef);
+
+      // Decrement reply count on parent message
+      const messageRef = doc(db, 'messages', messageId);
+      await updateDoc(messageRef, { replyCount: increment(-1) });
     } catch (error) {
       console.error('Error deleting reply:', error);
       alert('Failed to delete reply. Please try again.');
@@ -723,9 +699,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   return (
     <div className="message-board-container">
-      <div style={{ 
-        marginBottom: '16px', 
-        padding: '12px',  
+      <div style={{
+        marginBottom: '16px',
+        padding: '12px',
         borderRadius: '8px',
         fontSize: '14px',
         color: 'var(--colour2)',
@@ -769,12 +745,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           />
         ))}
       </div>
-      
+
       {/* Load More Button */}
       {hasMore && (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
           marginTop: '20px',
           marginBottom: '20px'
         }}>
@@ -786,7 +762,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           />
         </div>
       )}
-      
+
       {!hasMore && messages.length > 0 && (
         <div style={{
           textAlign: 'center',
