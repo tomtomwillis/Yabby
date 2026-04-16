@@ -74,11 +74,24 @@ src/
 ### Key Data Flow Patterns
 
 - **Sanitization**: All user-generated HTML goes through `src/utils/sanitise.ts` (DOMPurify). Usernames use `sanitizeText`. URLs validated with `validateUrl`.
-- **User data caching**: Components cache user lookups with 5-minute TTL to reduce Firestore reads
+- **User data caching**: `src/utils/userCache.ts` is the single shared cache for user lookups (30-min TTL). Always import `getUserData` from there — never create local caches
 
 ### Firestore Collections & Security
 
-Key collections: `users`, `messages` (with `reactions`/`replies` subcollections), `stickers`, `lists` (with `items` subcollection), and `admins` (write-protected).
+Key collections: `users`, `messages` (with `reactions`/`replies` subcollections), `news` (with `reactions` subcollection), `stickers`, `lists` (with `items` subcollection), and `admins` (write-protected).
+
+### Firestore Read Budget
+
+We are on the Firestore free tier (50k reads/day). Minimising reads is critical:
+
+- **Never use `onSnapshot` for subcollections per-item** (e.g. reactions per message). This creates N listeners that each re-read all docs on any change. Use denormalized counts on the parent document instead, and fetch subcollection data on-demand.
+- **Denormalized counts**: `messages` documents carry `reactionCount` and `replyCount` fields. Reply documents carry `reactionCount`. Update these via `increment()` when adding/removing reactions or replies. Display counts from the parent document — don't query subcollections just for counts.
+- **On-demand loading**: Reply listeners (`onSnapshot`) are only created when a user expands a reply thread, and torn down when collapsed. Reaction details are fetched one-time via `getDoc` (current user's status) — not via persistent listeners.
+- **Always clean up listeners**: Every `onSnapshot` must have its unsubscribe stored in a `useRef` and called on cleanup. Never create listeners inside other listener callbacks without tracking them.
+- **Use shared caches**: `userCache.ts` (30-min TTL) for user data, `useAdmin.ts` (30-min module-level cache) for admin status. Never create component-local duplicates of these caches.
+- **Prefer `getDocs` over `onSnapshot`** for data that changes infrequently (e.g. news reactions, sticker data, list metadata).
+- **Use `docChanges()`** to identify newly added documents in a snapshot and only perform per-document reads (like reaction status checks) for those, not for all documents on every snapshot fire.
+- **Optimistic UI updates**: When toggling reactions, update local state immediately and write to Firestore in the background. Don't wait for a listener to reflect the change.
 
 ### Security Model
 
