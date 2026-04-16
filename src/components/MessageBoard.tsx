@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, doc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot, increment } from 'firebase/firestore';
+import { collection, addDoc, query, onSnapshot, orderBy, doc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, limit, startAfter, QueryDocumentSnapshot, increment, writeBatch } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
@@ -462,8 +462,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             return { ...msg, reactions: newReactions, reactionCount: newReactions.length, currentUserReacted: false };
           })
         );
-        await deleteDoc(reactionDocRef);
-        await updateDoc(messageRef, { reactionCount: increment(-1) });
+        const removeBatch = writeBatch(db);
+        removeBatch.delete(reactionDocRef);
+        removeBatch.update(messageRef, { reactionCount: increment(-1) });
+        await removeBatch.commit();
       } else {
         // Optimistic update: add to local array
         const userData = await getUserData(auth.currentUser.uid);
@@ -475,12 +477,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             return { ...msg, reactions: newReactions, reactionCount: newReactions.length, currentUserReacted: true };
           })
         );
-        await setDoc(reactionDocRef, {
+        const addBatch = writeBatch(db);
+        addBatch.set(reactionDocRef, {
           userId: auth.currentUser.uid,
           username: userData.username,
           timestamp: serverTimestamp(),
         });
-        await updateDoc(messageRef, { reactionCount: increment(1) });
+        addBatch.update(messageRef, { reactionCount: increment(1) });
+        await addBatch.commit();
       }
     } catch (error) {
       console.error('Error toggling reaction:', error);
@@ -560,14 +564,25 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         replyData.imageId = imageId;
       }
 
+      // Optimistic UI update: increment reply count immediately
+      setMessages(prev =>
+        prev.map(msg => {
+          if (msg.id !== messageId) return msg;
+          return { ...msg, replyCount: (msg.replyCount || 0) + 1 };
+        })
+      );
+
+      // Create reply doc first (addDoc can't be batched), then atomically update parent
       await addDoc(collection(db, 'messages', messageId, 'replies'), replyData);
 
-      // Bump the parent message and increment reply count
+      // Batch the parent message updates so replyCount + lastActivityAt are atomic
+      const batch = writeBatch(db);
       const messageRef = doc(db, 'messages', messageId);
-      await updateDoc(messageRef, {
+      batch.update(messageRef, {
         lastActivityAt: serverTimestamp(),
         replyCount: increment(1),
       });
+      await batch.commit();
 
       // Close reply input after sending
       setActiveReplyInput(null);
@@ -607,8 +622,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             };
           })
         );
-        await deleteDoc(reactionDocRef);
-        await updateDoc(replyRef, { reactionCount: increment(-1) });
+        const removeBatch = writeBatch(db);
+        removeBatch.delete(reactionDocRef);
+        removeBatch.update(replyRef, { reactionCount: increment(-1) });
+        await removeBatch.commit();
       } else {
         // Optimistic update: add to local array
         const userData = await getUserData(auth.currentUser.uid);
@@ -626,12 +643,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             };
           })
         );
-        await setDoc(reactionDocRef, {
+        const addBatch = writeBatch(db);
+        addBatch.set(reactionDocRef, {
           userId: auth.currentUser.uid,
           username: userData.username,
           timestamp: serverTimestamp(),
         });
-        await updateDoc(replyRef, { reactionCount: increment(1) });
+        addBatch.update(replyRef, { reactionCount: increment(1) });
+        await addBatch.commit();
       }
     } catch (error) {
       console.error('Error toggling reaction on reply:', error);
@@ -685,12 +704,26 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     if (!auth.currentUser) return;
 
     try {
-      const replyRef = doc(db, 'messages', messageId, 'replies', replyId);
-      await deleteDoc(replyRef);
+      // Optimistic UI update: decrement reply count immediately
+      setMessages(prev =>
+        prev.map(msg => {
+          if (msg.id !== messageId) return msg;
+          return {
+            ...msg,
+            replyCount: Math.max(0, (msg.replyCount || 0) - 1),
+            replies: msg.replies?.filter(r => r.id !== replyId),
+          };
+        })
+      );
 
-      // Decrement reply count on parent message
+      const replyRef = doc(db, 'messages', messageId, 'replies', replyId);
       const messageRef = doc(db, 'messages', messageId);
-      await updateDoc(messageRef, { replyCount: increment(-1) });
+
+      // Delete reply first, then atomically decrement the parent count
+      await deleteDoc(replyRef);
+      const batch = writeBatch(db);
+      batch.update(messageRef, { replyCount: increment(-1) });
+      await batch.commit();
     } catch (error) {
       console.error('Error deleting reply:', error);
       alert('Failed to delete reply. Please try again.');
