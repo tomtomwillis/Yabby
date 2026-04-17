@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.2.0",
+    "@fortawesome/free-solid-svg-icons": "^7.2.0",
+    "@fortawesome/react-fontawesome": "^3.3.0",
     "ani-cursor": "^0.0.5",
     "dompurify": "^3.3.1",
     "embla-carousel-autoplay": "^8.6.0",

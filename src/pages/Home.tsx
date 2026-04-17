@@ -13,6 +13,7 @@ import { useRadioMetadata } from '../utils/useRadioMetadata';
 import AsciiMan from '../components/AsciiMan';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import Weather from '../components/weather-app';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -189,20 +190,20 @@ function App() {
 
       <div className="title1">Stats</div>
         <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
+        <Weather />
           <Stats />
         </Suspense>
-
       <hr />
-
         <div className="title1">
           <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
         </div>
         <CarouselAlbums />
 
       <AsciiMan />
-
     </div>
+    
   );
 }
+
 
 export default App;
