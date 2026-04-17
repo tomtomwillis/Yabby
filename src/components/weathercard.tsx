@@ -41,14 +41,15 @@ const weatherCodes: WeatherCode[] = [
   { weatherCode: 99, description: "thunderstorming with heavy hail !!", icon: faBoltLightning }
 ];
 
-export default function WeatherCard({weather} : { weather: any })
-{
-  const weatherCode = weather?.current_weather?.weathercode;
+export default function WeatherCard({weather} : { weather: any }) {
+  if (!weather) return null;
+
+  const weatherCode = weather.current_weather.weathercode;
   const weatherInfo = weatherCodes.find(item => item.weatherCode === weatherCode) || { icon: faSun, description: "Unknown weather" }; // Fallback
 
   return (
     <div>
-       <p className="normal-text">The temperature in Yabbyville is {Math.round(weather?.current_weather.temperature)} °C and it is currently {weatherInfo?.description} <FontAwesomeIcon icon={weatherInfo?.icon} /></p>
+       <p className="normal-text">The temperature in Yabbyville is {Math.round(weather.current_weather.temperature)} °C and it is currently {weatherInfo.description} <FontAwesomeIcon icon={weatherInfo.icon} /></p>
     </div>
   );  
 }
