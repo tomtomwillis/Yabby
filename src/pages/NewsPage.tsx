@@ -14,6 +14,7 @@ import { db, auth } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
 import { useAdmin } from '../utils/useAdmin';
 import { useRateLimit } from '../utils/useRateLimit';
+import { getUserData } from '../utils/userCache';
 import Header from '../components/basic/Header';
 import NewsPost from '../components/NewsPost';
 import ForumBox from '../components/basic/ForumMessageBox';
@@ -56,29 +57,6 @@ const NewsPage: React.FC = () => {
     windowMs: 5 * 60 * 1000,
   });
 
-  const userCacheRef = useRef<Map<string, { username: string; avatar: string; timestamp: number }>>(new Map());
-  const CACHE_DURATION = 5 * 60 * 1000;
-
-  const getUserData = async (userId: string): Promise<{ username: string; avatar: string }> => {
-    const now = Date.now();
-    const cached = userCacheRef.current.get(userId);
-    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      return { username: cached.username, avatar: cached.avatar };
-    }
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      const userData = userDoc.exists()
-        ? { username: userDoc.data().username || 'Anonymous', avatar: userDoc.data().avatar || '' }
-        : { username: 'Anonymous', avatar: '' };
-      userCacheRef.current.set(userId, { ...userData, timestamp: now });
-      return userData;
-    } catch {
-      const fallback = { username: 'Anonymous', avatar: '' };
-      userCacheRef.current.set(userId, { ...fallback, timestamp: now });
-      return fallback;
-    }
-  };
-
   const formatTimestamp = (timestamp: any): string => {
     if (!timestamp) return '';
     try {
@@ -88,23 +66,30 @@ const NewsPage: React.FC = () => {
     }
   };
 
-  const setupReactionListeners = (newsId: string) => {
-    const reactionsRef = collection(db, 'news', newsId, 'reactions');
-    return onSnapshot(reactionsRef, (snapshot) => {
-      const reactions = snapshot.docs.map((d) => d.data() as Reaction);
-      setNewsItems((prev) =>
-        prev.map((item) =>
-          item.id === newsId
-            ? {
-                ...item,
-                reactions,
-                reactionCount: reactions.length,
-                currentUserReacted: reactions.some(r => r.userId === auth.currentUser?.uid),
-              }
-            : item
-        )
-      );
-    });
+  // Fetch reactions for a set of news items (one-time, no listener)
+  const fetchReactionsForItems = async (newsIds: string[]) => {
+    await Promise.all(
+      newsIds.map(async (newsId) => {
+        try {
+          const reactionsSnap = await getDocs(collection(db, 'news', newsId, 'reactions'));
+          const reactions = reactionsSnap.docs.map((d) => d.data() as Reaction);
+          setNewsItems(prev =>
+            prev.map(item =>
+              item.id === newsId
+                ? {
+                    ...item,
+                    reactions,
+                    reactionCount: reactions.length,
+                    currentUserReacted: reactions.some(r => r.userId === auth.currentUser?.uid),
+                  }
+                : item
+            )
+          );
+        } catch (error) {
+          console.error('Error fetching reactions for news:', newsId, error);
+        }
+      })
+    );
   };
 
   useEffect(() => {
@@ -144,10 +129,8 @@ const NewsPage: React.FC = () => {
       setNewsItems(items);
       setLoading(false);
 
-      // Set up reaction listeners for initial items
-      snapshot.docs.forEach((docSnapshot) => {
-        setupReactionListeners(docSnapshot.id);
-      });
+      // Fetch reactions once (no real-time listeners)
+      fetchReactionsForItems(snapshot.docs.map(d => d.id));
     });
 
     return () => unsubscribe();
@@ -195,12 +178,10 @@ const NewsPage: React.FC = () => {
         })
       );
 
-      // Set up reaction listeners for new items
-      snapshot.docs.forEach((docSnapshot) => {
-        setupReactionListeners(docSnapshot.id);
-      });
-
       setNewsItems((prev) => [...prev, ...newItems]);
+
+      // Fetch reactions for newly loaded items
+      fetchReactionsForItems(snapshot.docs.map(d => d.id));
     } catch (error) {
       console.error('Error loading more news:', error);
     } finally {
@@ -252,8 +233,24 @@ const NewsPage: React.FC = () => {
     try {
       const reactionDoc = await getDoc(reactionDocRef);
       if (reactionDoc.exists()) {
+        // Optimistic update
+        setNewsItems(prev =>
+          prev.map(item =>
+            item.id === newsId
+              ? { ...item, reactionCount: Math.max(0, item.reactionCount - 1), currentUserReacted: false }
+              : item
+          )
+        );
         await deleteDoc(reactionDocRef);
       } else {
+        // Optimistic update
+        setNewsItems(prev =>
+          prev.map(item =>
+            item.id === newsId
+              ? { ...item, reactionCount: item.reactionCount + 1, currentUserReacted: true }
+              : item
+          )
+        );
         const userData = await getUserData(auth.currentUser.uid);
         await setDoc(reactionDocRef, {
           userId: auth.currentUser.uid,
@@ -263,6 +260,8 @@ const NewsPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error toggling reaction:', error);
+      // Re-fetch reactions to get correct state
+      fetchReactionsForItems([newsId]);
     }
   };
 

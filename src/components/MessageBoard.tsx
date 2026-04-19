@@ -150,6 +150,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
 
+  // Listener cleanup refs
+  const messagesUnsubRef = useRef<(() => void) | null>(null);
+  const replyUnsubsRef = useRef<Map<string, () => void>>(new Map());
+
   const { isAdmin } = useAdmin();
   const { checkRateLimit } = useRateLimit({ maxAttempts: 10, windowMs: 5 * 60 * 1000 });
 
@@ -806,6 +810,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         </div>
       )}
 
+
       {!hasMore && messages.length > 0 && (
         <div style={{ textAlign: 'center', padding: '20px', color: 'var(--colour4)', fontStyle: 'italic' }}>
           No more messages to load
@@ -816,3 +821,4 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 };
 
 export default MessageBoard;
+
