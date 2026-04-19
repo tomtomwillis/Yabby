@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ForumMessageBox.css';
 import Button from './Button';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 
 interface Result {
   id: string;
@@ -48,6 +49,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
   // Track the position of the trigger character (@ or #) for replacement
   const triggerPositionRef = useRef<number>(-1);
+  // Dedupe lazy list fetch + track load state
+  const listsFetchPromiseRef = useRef<Promise<void> | null>(null);
 
   // API configuration from environment variables
   const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
@@ -55,33 +58,34 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
   const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
-  // Set up real-time listener for all public lists
-  useEffect(() => {
-    const listsQuery = query(
-      collection(db, 'lists'),
-      where('isPublic', '!=', false)
-    );
-
-    const unsubscribe = onSnapshot(listsQuery, (snapshot) => {
-      const lists: Result[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.title) {
-          lists.push({
-            id: doc.id,
-            name: data.title,
-            type: 'list'
-          });
-        }
-      });
-      lists.sort((a, b) => a.name.localeCompare(b.name));
-      setAllLists(lists);
-    }, (error) => {
-      console.error('Error listening to lists:', error);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  // Lazy-fetch public lists only when user triggers the # autocomplete.
+  // Dedupes concurrent callers via a shared promise ref.
+  const ensureListsLoaded = (): Promise<void> => {
+    if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
+    const p = (async () => {
+      try {
+        const listsQuery = query(
+          collection(db, 'lists'),
+          where('isPublic', '!=', false),
+        );
+        const snapshot = await getDocs(listsQuery);
+        const lists: Result[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.title) {
+            lists.push({ id: docSnap.id, name: data.title, type: 'list' });
+          }
+        });
+        lists.sort((a, b) => a.name.localeCompare(b.name));
+        setAllLists(lists);
+      } catch (error) {
+        console.error('Error fetching lists:', error);
+        listsFetchPromiseRef.current = null; // allow retry on next trigger
+      }
+    })();
+    listsFetchPromiseRef.current = p;
+    return p;
+  };
 
   const fetchListResults = (searchTerm: string): Result[] => {
     if (!searchTerm.trim()) return [];
@@ -239,6 +243,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         setIsSearchingLists(true);
         setSearchQuery('');
         setIsSearching(false);
+        ensureListsLoaded();
         return;
       }
     }

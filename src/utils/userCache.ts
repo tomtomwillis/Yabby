@@ -1,5 +1,6 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { trackedGetDoc } from './firestoreMetrics';
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -20,7 +21,7 @@ export async function getUserData(userId: string): Promise<{ username: string; a
 
   const promise = (async () => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userDoc = await trackedGetDoc(doc(db, 'users', userId));
       const userData = userDoc.exists()
         ? { username: userDoc.data().username || 'Anonymous', avatar: userDoc.data().avatar || '' }
         : { username: 'Anonymous', avatar: '' };
