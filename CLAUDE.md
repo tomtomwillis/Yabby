@@ -2,10 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Root
-
-The project root is `/Users/hamish/Documents/Yabbyville/new github repo/Yabby`. All commands should be run from this directory — do not `cd` or ask permission to navigate here.
-
 ## ⚠️ Public & Open Source
 
 Project is **public on GitHub**. All code, including security-sensitive logic, is publicly visible:
@@ -37,7 +33,7 @@ Verify changes with `npm run build` to catch TypeScript errors.
 
 ## Architecture
 
-**Yabbyville** is a private music community SPA using Firebase Auth (email/password) and Firestore.
+**Yabbyville** is a private music community SPA using Firebase Auth (email/password) and Firestore. Root url is yabbyville.xyz
 
 ### Directory Structure
 
@@ -61,7 +57,7 @@ src/
 
 - Tabbed container with tools in `src/components/media/`
 - `useMediaManager` hook gates UI access; server enforces actual authorization
-- Express API backend; details in `_backend_plan/`
+- Express API backend
 
 ### Gotchas
 
@@ -99,10 +95,11 @@ Free tier (50k reads/day) — minimising reads is critical:
 - **Copyparty**: File upload server
 - **SLSK**: Soulseek request integration
 - **Beets**: Music library management via WebSocket terminal on host
+- **Umami**: Analytics (page views, custom events via `window.umami?.track()`) — suggest adding tracking when implementing features that don't have it
 
 ### Backend (Express API)
 
-- Dockerised Express.js server; details in `_backend_plan/`
+- Dockerised Express.js server
 - Built manually via Portainer (no CI/CD pipeline)
 - Caddy reverse proxy handles WebSocket upgrades automatically
 
@@ -126,3 +123,4 @@ Key groups: Firebase config, Navidrome/Subsonic API, Copyparty URLs, SLSK reques
 - Be honest when you don't know something — say so directly rather than guessing
 - If a request isn't possible or practical, say so and suggest viable alternatives
 - When uncertain about approach, present options with trade-offs rather than picking one silently
+- Ask questions to confirm when unsure about which path to take, if I have been unclear about anything
