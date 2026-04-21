@@ -18,6 +18,7 @@ import UserProfile from './pages/UserProfile';
 import Radio from './pages/Radio';
 import PrivateRoute from './components/PrivateRoute';
 import MediaManager from './pages/MediaManager';
+import TravelPage from './pages/TravelPage';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route path="/radio" element={<PrivateRoute><Radio /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
           <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
+          <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />
         </Routes>
       </div>
     </Router>

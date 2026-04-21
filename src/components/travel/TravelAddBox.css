@@ -1,0 +1,69 @@
+.travel-add-box {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.travel-add-box__input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  font-size: 1rem;
+  border: 2px solid var(--border, #333);
+  border-radius: 6px;
+  background: var(--input-bg, #111);
+  color: var(--text, #fff);
+  box-sizing: border-box;
+}
+
+.travel-add-box__status {
+  font-size: 0.85rem;
+  color: #aaa;
+  margin: 0.3rem 0 0;
+}
+
+.travel-add-box__results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  margin-top: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #111;
+  border: 2px solid var(--border, #333);
+  border-radius: 6px;
+  list-style: none;
+  padding: 0;
+}
+
+.travel-add-box__result {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text, #fff);
+  cursor: pointer;
+  border-bottom: 1px solid #222;
+  font-size: 0.95rem;
+}
+
+.travel-add-box__result:last-child {
+  border-bottom: none;
+}
+
+.travel-add-box__result:hover,
+.travel-add-box__result:focus {
+  background: #222;
+}
+
+.travel-add-box__result-name {
+  font-weight: 600;
+  display: block;
+}
+
+.travel-add-box__result-detail {
+  font-size: 0.85rem;
+  color: #aaa;
+  display: block;
+}

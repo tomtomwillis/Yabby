@@ -1,0 +1,34 @@
+.travel-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.travel-page__heading {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.travel-page__add-card {
+  border: 2px solid var(--border, #333);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: #0d0d0d;
+}
+
+.travel-page__add-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.travel-page__status {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin: 0.5rem 0;
+}
+
+.travel-page__error {
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}

@@ -1,0 +1,125 @@
+.travel-confirm {
+  border: 2px solid var(--border, #333);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: #0d0d0d;
+}
+
+.travel-confirm__heading {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.travel-confirm__subheading {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: #aaa;
+  word-break: break-word;
+}
+
+.travel-confirm__mini-map {
+  height: 180px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  border: 1px solid #222;
+}
+
+.travel-confirm__mini-map .leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #0a0a0a;
+}
+
+.travel-confirm__comment {
+  width: 100%;
+  min-height: 90px;
+  padding: 0.6rem;
+  border: 2px solid var(--border, #333);
+  border-radius: 6px;
+  background: var(--input-bg, #111);
+  color: var(--text, #fff);
+  box-sizing: border-box;
+  resize: vertical;
+  font: inherit;
+}
+
+.travel-confirm__photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.travel-confirm__photo-thumb {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+
+.travel-confirm__photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.travel-confirm__photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.travel-confirm__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.travel-confirm__btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--border, #333);
+  border-radius: 6px;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.travel-confirm__btn--primary {
+  background: #ff3ec8;
+  border-color: #ff3ec8;
+  color: #0a0a0a;
+  font-weight: 600;
+}
+
+.travel-confirm__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.travel-confirm__error {
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}
+
+.travel-confirm__hidden-file {
+  display: none;
+}

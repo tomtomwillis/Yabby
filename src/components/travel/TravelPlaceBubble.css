@@ -1,0 +1,39 @@
+.travel-bubble {
+  min-width: 260px;
+  max-width: 520px;
+}
+
+.travel-bubble__title {
+  margin: 0 0 0.15rem;
+  font-size: 1rem;
+}
+
+.travel-bubble__subtitle {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.travel-bubble__loading,
+.travel-bubble__empty {
+  font-size: 0.85rem;
+  color: #888;
+  margin: 0;
+}
+
+.travel-bubble__cards {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+
+.travel-bubble__cards::-webkit-scrollbar {
+  height: 6px;
+}
+
+.travel-bubble__cards::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}

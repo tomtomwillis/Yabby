@@ -336,6 +336,20 @@ match /filmClub/{monthId} {
 }
 
 
+    // Travel recommendations — reads are open, writes go through the
+    // backend server (Admin SDK bypasses these rules). Clients are denied
+    // direct writes so they cannot spoof denormalised fields like
+    // contributorCount, firstContributor*, or a contribution's username/avatar.
+    match /places/{placeId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+
+      match /contributions/{userId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false;
+      }
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
