@@ -4,15 +4,14 @@ import Header from '../components/basic/Header';
 import '../App.css';
 import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
-import CarouselStickers from '../components/CarouselStickers';
+import CarouselStickers, { type CarouselStickersHandle } from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
+import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import WebampRadio from '../components/WebampRadio';
 import RecentLists from '../components/RecentLists';
 import RecentNews from '../components/RecentNews';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
 import AsciiMan from '../components/AsciiMan';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
 import Weather from '../components/weather-app';
 
 // Lazy load the Stats component for better performance
@@ -49,6 +48,13 @@ const SUBTITLES = [
 function App() {
   const [subtitle, setSubtitle] = useState('');
   const radioContainerRef = useRef<HTMLDivElement>(null);
+  const stickersRef = useRef<CarouselStickersHandle>(null);
+
+  const handleStickerPlaced = (payload: PlacedStickerPayload) => {
+    stickersRef.current?.injectSticker(payload);
+    // Background reconcile against Firestore state
+    stickersRef.current?.refetch();
+  };
 
   const { nowPlaying } = useRadioMetadata();
   const [webampLoading, setWebampLoading] = useState(false);
@@ -114,9 +120,9 @@ function App() {
       <div className="title1">
         <Link to="/stickers">Stickers →</Link>
       </div>
-      <CarouselStickers />
+      <CarouselStickers ref={stickersRef} />
 
-      <PlaceSticker />
+      <PlaceSticker onSuccess={handleStickerPlaced} />
 
       <hr />
 

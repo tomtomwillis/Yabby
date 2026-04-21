@@ -1,6 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, query, orderBy, limit, doc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import {
+  trackedGetDoc as getDoc,
+  trackedGetDocs as getDocs,
+  trackedSetDoc as setDoc,
+  trackedDeleteDoc as deleteDoc,
+} from '../utils/firestoreMetrics';
 import { getUserData } from '../utils/userCache';
 import NewsPost from './NewsPost';
 import './MessageBoard.css';
@@ -41,91 +47,90 @@ const RecentNews: React.FC<RecentNewsProps> = ({ onLatestTimestamp }) => {
     }
   };
 
-  // Fetch reaction count and current user status (one-time, no listener)
-  const fetchReactionData = async (newsId: string) => {
-    try {
-      const reactionsSnap = await getDocs(collection(db, 'news', newsId, 'reactions'));
-      const reactions = reactionsSnap.docs.map((d) => d.data() as Reaction);
-      const reactionCount = reactions.length;
-      const currentUserReacted = reactions.some(r => r.userId === auth.currentUser?.uid);
-
-      setNewsItem((prev) => prev && prev.id === newsId ? {
-        ...prev,
-        reactions,
-        reactionCount,
-        currentUserReacted,
-      } : prev);
-    } catch (error) {
-      console.error('Error fetching reactions:', error);
-    }
-  };
-
   useEffect(() => {
-    const q = query(
-      collection(db, 'news'),
-      orderBy('timestamp', 'desc'),
-      limit(1)
-    );
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (snapshot.empty) {
-        setNewsItem(null);
+    const loadLatestNews = async () => {
+      try {
+        const q = query(
+          collection(db, 'news'),
+          orderBy('timestamp', 'desc'),
+          limit(1),
+        );
+        const snapshot = await getDocs(q);
+
+        if (cancelled) return;
+
+        if (snapshot.empty) {
+          setNewsItem(null);
+          setLoading(false);
+          onLatestTimestamp?.(null);
+          return;
+        }
+
+        const docSnapshot = snapshot.docs[0];
+        const data = docSnapshot.data();
+        const userData = await getUserData(data.userId);
+
+        if (cancelled) return;
+
+        const ts = data.timestamp?.seconds ? data.timestamp.seconds * 1000 : null;
+        onLatestTimestamp?.(ts);
+
+        const reactionsSnap = await getDocs(collection(db, 'news', docSnapshot.id, 'reactions'));
+        if (cancelled) return;
+
+        const reactions = reactionsSnap.docs.map((d) => d.data() as Reaction);
+        const currentUserId = auth.currentUser?.uid;
+
+        setNewsItem({
+          id: docSnapshot.id,
+          text: data.text,
+          userId: data.userId,
+          timestamp: data.timestamp,
+          username: userData.username,
+          avatar: userData.avatar,
+          editedAt: data.editedAt,
+          reactions,
+          reactionCount: reactions.length,
+          currentUserReacted: !!currentUserId && reactions.some((r) => r.userId === currentUserId),
+        });
         setLoading(false);
-        onLatestTimestamp?.(null);
-        return;
+      } catch (error) {
+        console.error('Error loading news:', error);
+        if (!cancelled) setLoading(false);
       }
+    };
 
-      const docSnapshot = snapshot.docs[0];
-      const data = docSnapshot.data();
-      const userData = await getUserData(data.userId);
+    loadLatestNews();
 
-      // Report timestamp to parent for subtitle logic
-      const ts = data.timestamp?.seconds ? data.timestamp.seconds * 1000 : null;
-      onLatestTimestamp?.(ts);
-
-      const item: NewsItem = {
-        id: docSnapshot.id,
-        text: data.text,
-        userId: data.userId,
-        timestamp: data.timestamp,
-        username: userData.username,
-        avatar: userData.avatar,
-        editedAt: data.editedAt,
-        reactions: [],
-        reactionCount: 0,
-        currentUserReacted: false,
-      };
-
-      setNewsItem(item);
-      setLoading(false);
-
-      // Fetch reactions once (no real-time listener)
-      fetchReactionData(docSnapshot.id);
-    });
-
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleToggleReaction = async (newsId: string) => {
     if (!auth.currentUser) return;
     const reactionDocRef = doc(db, 'news', newsId, 'reactions', auth.currentUser.uid);
+    const alreadyReacted = !!newsItem?.currentUserReacted;
+
+    // Optimistic update
+    setNewsItem((prev) =>
+      prev && prev.id === newsId
+        ? {
+            ...prev,
+            reactionCount: alreadyReacted
+              ? Math.max(0, prev.reactionCount - 1)
+              : prev.reactionCount + 1,
+            currentUserReacted: !alreadyReacted,
+          }
+        : prev,
+    );
+
     try {
-      const reactionDoc = await getDoc(reactionDocRef);
-      if (reactionDoc.exists()) {
-        // Optimistic update
-        setNewsItem(prev => prev && prev.id === newsId ? {
-          ...prev,
-          reactionCount: Math.max(0, prev.reactionCount - 1),
-          currentUserReacted: false,
-        } : prev);
+      if (alreadyReacted) {
         await deleteDoc(reactionDocRef);
       } else {
-        // Optimistic update
-        setNewsItem(prev => prev && prev.id === newsId ? {
-          ...prev,
-          reactionCount: prev.reactionCount + 1,
-          currentUserReacted: true,
-        } : prev);
         const userData = await getUserData(auth.currentUser.uid);
         await setDoc(reactionDocRef, {
           userId: auth.currentUser.uid,
@@ -135,8 +140,24 @@ const RecentNews: React.FC<RecentNewsProps> = ({ onLatestTimestamp }) => {
       }
     } catch (error) {
       console.error('Error toggling reaction:', error);
-      // Re-fetch to get correct state
-      fetchReactionData(newsId);
+      // Revert: verify current state against server
+      try {
+        const reactionDoc = await getDoc(reactionDocRef);
+        const exists = reactionDoc.exists();
+        setNewsItem((prev) =>
+          prev && prev.id === newsId
+            ? {
+                ...prev,
+                reactionCount: exists
+                  ? (alreadyReacted ? prev.reactionCount + 1 : prev.reactionCount)
+                  : (alreadyReacted ? prev.reactionCount : Math.max(0, prev.reactionCount - 1)),
+                currentUserReacted: exists,
+              }
+            : prev,
+        );
+      } catch {
+        /* give up silently */
+      }
     }
   };
 
