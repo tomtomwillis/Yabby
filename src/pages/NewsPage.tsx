@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, query, orderBy, limit, startAfter, getDocs, onSnapshot, doc, getDoc, setDoc, deleteDoc, updateDoc, serverTimestamp, QueryDocumentSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, startAfter, doc, serverTimestamp, QueryDocumentSnapshot } from 'firebase/firestore';
+import {
+  trackedGetDoc as getDoc,
+  trackedGetDocs as getDocs,
+  trackedOnSnapshot as onSnapshot,
+  trackedSetDoc as setDoc,
+  trackedAddDoc as addDoc,
+  trackedUpdateDoc as updateDoc,
+  trackedDeleteDoc as deleteDoc,
+} from '../utils/firestoreMetrics';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';

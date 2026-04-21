@@ -44,6 +44,8 @@ interface UserMessageProps {
   repliesExpanded?: boolean;
   isReply?: boolean;
   onToggleReplyReaction?: (replyId: string) => void;
+  onReactionHover?: () => void;
+  onReplyReactionHover?: (replyId: string) => void;
   replyingToUsername?: string;
   enableReplies?: boolean;
   // New props for edit/delete and profile links
@@ -170,6 +172,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
   repliesExpanded,
   isReply,
   onToggleReplyReaction,
+  onReactionHover,
+  onReplyReactionHover,
   replyingToUsername,
   enableReplies,
   userId,
@@ -200,6 +204,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
 
   const handleTouchStart = () => {
     longPressTimer.current = setTimeout(() => {
+      onReactionHover?.();
       setShowTooltip(true);
       setIsLongPress(true);
     }, 500); // 500ms long press
@@ -417,6 +422,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
                 reactionCount={reply.reactionCount}
                 currentUserReacted={reply.currentUserReacted}
                 onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
+                onReactionHover={onReplyReactionHover ? () => onReplyReactionHover(reply.id) : undefined}
                 isReply={true}
                 enableReplies={false}
                 imageId={reply.imageId}
@@ -469,7 +475,10 @@ const UserMessage: React.FC<UserMessageProps> = ({
         {onToggleReaction && (
           <div
             className="user-message-reaction-container"
-            onMouseEnter={() => setShowTooltip(true)}
+            onMouseEnter={() => {
+              onReactionHover?.();
+              setShowTooltip(true);
+            }}
             onMouseLeave={() => setShowTooltip(false)}
             onTouchStart={handleTouchStart}
             onTouchEnd={() => {
