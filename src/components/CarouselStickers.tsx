@@ -4,7 +4,7 @@ import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import './CarouselStickers.css';
-import { collection, query, orderBy, doc, limit } from 'firebase/firestore';
+import { collection, query, orderBy, doc, limit, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import {
   trackedGetDocs as getDocs,
@@ -72,7 +72,9 @@ export interface CarouselStickersHandle {
 // Standard dimensions for consistent rendering
 const ALBUM_DISPLAY_SIZE = 300;
 const STICKER_SIZE = 100;
-const RECENT_STICKERS_LIMIT = 100;
+// Scan recent stickers to identify which albums are most recently stickered.
+const RECENT_STICKERS_SCAN_LIMIT = 50;
+const ALBUMS_IN_CAROUSEL = 12;
 
 const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
   const [albums, setAlbums] = useState<AlbumWithStickers[]>([]);
@@ -107,32 +109,62 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
       const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
       const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
-      // Single Firestore read: recent stickers across all albums. Group client-side.
-      const stickersQuery = query(
+      // Step 1: scan recent stickers to find which albums are most recently active.
+      // Map insertion order = album recency order (first appearance wins).
+      const recentQuery = query(
         collection(db, 'stickers'),
         orderBy('timestamp', 'desc'),
-        limit(RECENT_STICKERS_LIMIT),
+        limit(RECENT_STICKERS_SCAN_LIMIT),
       );
-      const snapshot = await getDocs(stickersQuery);
-      const allStickers: Sticker[] = snapshot.docs.map((d) => ({
-        ...(d.data() as Omit<Sticker, 'stickerId'>),
-        stickerId: d.id,
-      }));
+      const recentSnapshot = await getDocs(recentQuery);
 
-      // Group by albumId, preserving sort order (most recent first within album;
-      // albums ordered by their most recent sticker, which matches the input order).
-      const byAlbum = new Map<string, Sticker[]>();
-      for (const sticker of allStickers) {
-        const list = byAlbum.get(sticker.albumId);
-        if (list) list.push(sticker);
-        else byAlbum.set(sticker.albumId, [sticker]);
+      const albumOrder: string[] = [];
+      const seenAlbums = new Set<string>();
+      for (const d of recentSnapshot.docs) {
+        const albumId = (d.data() as { albumId: string }).albumId;
+        if (!seenAlbums.has(albumId)) {
+          seenAlbums.add(albumId);
+          albumOrder.push(albumId);
+          if (albumOrder.length >= ALBUMS_IN_CAROUSEL) break;
+        }
       }
 
-      const uniqueAlbumIds = Array.from(byAlbum.keys());
+      if (albumOrder.length === 0) {
+        setAlbums([]);
+        return;
+      }
+
+      // Step 2: fetch ALL stickers for the selected albums in one query.
+      // Firestore `in` supports up to 30 values — 12 is well within the limit.
+      const fullQuery = query(
+        collection(db, 'stickers'),
+        where('albumId', 'in', albumOrder),
+      );
+      const fullSnapshot = await getDocs(fullQuery);
+
+      const stickersByAlbum = new Map<string, Sticker[]>();
+      for (const d of fullSnapshot.docs) {
+        const sticker: Sticker = {
+          ...(d.data() as Omit<Sticker, 'stickerId'>),
+          stickerId: d.id,
+        };
+        const list = stickersByAlbum.get(sticker.albumId);
+        if (list) list.push(sticker);
+        else stickersByAlbum.set(sticker.albumId, [sticker]);
+      }
+
+      // Sort each album's stickers newest-first.
+      for (const list of stickersByAlbum.values()) {
+        list.sort((a, b) => {
+          const ta = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+          const tb = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+          return tb - ta;
+        });
+      }
 
       const albumsWithStickers: AlbumWithStickers[] = await Promise.all(
-        uniqueAlbumIds.map(async (albumId) => {
-          const stickers = byAlbum.get(albumId) || [];
+        albumOrder.map(async (albumId) => {
+          const stickers = stickersByAlbum.get(albumId) || [];
 
           const response = await fetch(
             `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
@@ -220,7 +252,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
           stickers: [optimisticSticker],
         },
         ...prev,
-      ];
+      ].slice(0, ALBUMS_IN_CAROUSEL);
     });
   };
 
