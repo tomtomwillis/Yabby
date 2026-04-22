@@ -11,6 +11,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
+      '/api/travel': {
+        target: 'https://yabbyville.xyz',
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
   plugins: [
