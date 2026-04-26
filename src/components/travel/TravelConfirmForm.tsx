@@ -3,14 +3,16 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { singleAvatarIcon } from './TravelPinIcon';
 import { uploadTravelPhoto, getTravelPhotoUrl } from '../../utils/travelApi';
-import type { NominatimResult } from '../../utils/nominatim';
-import type { TravelPhoto } from './travelTypes';
+import type { PlaceSearchResult } from '../../utils/geocode';
+import type { PlaceCategory, TravelPhoto } from './travelTypes';
+import { PLACE_CATEGORIES } from './travelTypes';
 import './TravelConfirmForm.css';
 
 interface TravelConfirmFormProps {
-  picked: NominatimResult;
+  picked: PlaceSearchResult;
   currentUserAvatar: string;
-  onConfirm: (args: { comment: string; photos: TravelPhoto[] }) => Promise<void>;
+  suggestedCategory: PlaceCategory;
+  onConfirm: (args: { comment: string; photos: TravelPhoto[]; category: PlaceCategory }) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -19,11 +21,13 @@ const MAX_PHOTOS = 8;
 export default function TravelConfirmForm({
   picked,
   currentUserAvatar,
+  suggestedCategory,
   onConfirm,
   onCancel,
 }: TravelConfirmFormProps) {
   const [comment, setComment] = useState('');
   const [photos, setPhotos] = useState<TravelPhoto[]>([]);
+  const [category, setCategory] = useState<PlaceCategory>(suggestedCategory);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +69,7 @@ export default function TravelConfirmForm({
     setError(null);
     setSubmitting(true);
     try {
-      await onConfirm({ comment: trimmed, photos });
+      await onConfirm({ comment: trimmed, photos, category });
     } catch (err) {
       setError((err as Error).message || 'Could not save recommendation.');
       setSubmitting(false);
@@ -92,9 +96,24 @@ export default function TravelConfirmForm({
           attributionControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <Marker position={[lat, lng]} icon={singleAvatarIcon(currentUserAvatar)} />
+          <Marker position={[lat, lng]} icon={singleAvatarIcon(currentUserAvatar, category)} />
         </MapContainer>
       </div>
+
+      <label className="travel-confirm__category-label">
+        <span className="travel-confirm__category-hint">Category</span>
+        <select
+          className="travel-confirm__category-select"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as PlaceCategory)}
+        >
+          {PLACE_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <textarea
         className="travel-confirm__comment"

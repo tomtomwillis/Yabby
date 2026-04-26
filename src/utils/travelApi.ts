@@ -1,5 +1,5 @@
 import { auth } from '../firebaseConfig';
-import type { TravelPhoto } from '../components/travel/travelTypes';
+import type { PlaceCategory, TravelPhoto } from '../components/travel/travelTypes';
 
 const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 const TRAVEL_API_URL = import.meta.env.VITE_TRAVEL_API_URL || '/api/travel';
@@ -43,6 +43,7 @@ export interface SaveContributionPayload {
   country: string;
   osmType: string;
   osmId: string;
+  category: PlaceCategory;
   comment: string;
   photos: TravelPhoto[];
 }

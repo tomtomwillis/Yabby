@@ -1,3 +1,4 @@
+import { PLACE_CATEGORIES, type PlaceCategory } from './travelTypes';
 import './TravelFilters.css';
 
 export interface UserOption {
@@ -15,8 +16,10 @@ interface TravelFiltersProps {
   users: UserOption[];
   cityFilter: string;
   userFilter: string;
+  categoryFilter: PlaceCategory | '';
   onCityChange: (cityKey: string) => void;
   onUserChange: (userId: string) => void;
+  onCategoryChange: (category: PlaceCategory | '') => void;
 }
 
 export default function TravelFilters({
@@ -24,10 +27,12 @@ export default function TravelFilters({
   users,
   cityFilter,
   userFilter,
+  categoryFilter,
   onCityChange,
   onUserChange,
+  onCategoryChange,
 }: TravelFiltersProps) {
-  const hasActive = cityFilter !== '' || userFilter !== '';
+  const hasActive = cityFilter !== '' || userFilter !== '' || categoryFilter !== '';
 
   return (
     <div className="travel-filters">
@@ -41,6 +46,22 @@ export default function TravelFilters({
           <option value="">All cities</option>
           {cities.map((c) => (
             <option key={c.cityKey} value={c.cityKey}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="travel-filters__field">
+        <span className="travel-filters__label">Category</span>
+        <select
+          className="travel-filters__select"
+          value={categoryFilter}
+          onChange={(e) => onCategoryChange(e.target.value as PlaceCategory | '')}
+        >
+          <option value="">All categories</option>
+          {PLACE_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
               {c.label}
             </option>
           ))}
@@ -69,6 +90,7 @@ export default function TravelFilters({
         onClick={() => {
           onCityChange('');
           onUserChange('');
+          onCategoryChange('');
         }}
         disabled={!hasActive}
       >

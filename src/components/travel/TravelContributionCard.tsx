@@ -1,13 +1,16 @@
+import { createPortal } from 'react-dom';
 import { useRef, useState } from 'react';
 import { sanitizeHtml } from '../../utils/sanitise';
 import { uploadTravelPhoto, getTravelPhotoUrl } from '../../utils/travelApi';
-import type { Contribution, TravelPhoto } from './travelTypes';
+import type { Contribution, PlaceCategory, TravelPhoto } from './travelTypes';
+import { PLACE_CATEGORIES } from './travelTypes';
 import './TravelContributionCard.css';
 
 interface TravelContributionCardProps {
   contribution: Contribution;
   isOwn: boolean;
-  onSaveEdit: (next: { comment: string; photos: TravelPhoto[] }) => Promise<void>;
+  category: PlaceCategory;
+  onSaveEdit: (next: { comment: string; photos: TravelPhoto[]; category: PlaceCategory }) => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
@@ -16,20 +19,24 @@ const MAX_PHOTOS = 8;
 export default function TravelContributionCard({
   contribution,
   isOwn,
+  category: initialCategory,
   onSaveEdit,
   onDelete,
 }: TravelContributionCardProps) {
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState(contribution.comment);
   const [photos, setPhotos] = useState<TravelPhoto[]>(contribution.photos);
+  const [category, setCategory] = useState<PlaceCategory>(initialCategory);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const startEdit = () => {
     setComment(contribution.comment);
     setPhotos(contribution.photos);
+    setCategory(initialCategory);
     setError(null);
     setEditing(true);
   };
@@ -72,7 +79,7 @@ export default function TravelContributionCard({
     setBusy(true);
     setError(null);
     try {
-      await onSaveEdit({ comment: trimmed, photos });
+      await onSaveEdit({ comment: trimmed, photos, category });
       setEditing(false);
     } catch (err) {
       setError((err as Error).message || 'Could not save.');
@@ -104,9 +111,24 @@ export default function TravelContributionCard({
         <span className="travel-card__username">{contribution.username}</span>
         {contribution.editedAt && <span className="travel-card__edit-indicator">(edited)</span>}
       </div>
+      <hr className="travel-card__divider" />
 
       {editing ? (
         <>
+          <label className="travel-card__category-label">
+            <span className="travel-card__category-hint">Category</span>
+            <select
+              className="travel-card__category-select"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as PlaceCategory)}
+            >
+              {PLACE_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <textarea
             className="travel-card__edit-area"
             value={comment}
@@ -114,7 +136,7 @@ export default function TravelContributionCard({
             maxLength={10000}
           />
           {photos.length > 0 && (
-            <div className="travel-card__photos">
+            <div className="travel-card__photos travel-card__photos--editing">
               {photos.map((p) => (
                 <div key={p.imageId} className="travel-card__photo">
                   <img src={getTravelPhotoUrl(p.imageId)} alt="" />
@@ -162,21 +184,34 @@ export default function TravelContributionCard({
         </>
       ) : (
         <>
-          {contribution.comment && (
-            <p
-              className="travel-card__comment"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(contribution.comment) }}
-            />
-          )}
-          {contribution.photos.length > 0 && (
-            <div className="travel-card__photos">
-              {contribution.photos.map((p) => (
-                <div key={p.imageId} className="travel-card__photo">
-                  <img src={getTravelPhotoUrl(p.imageId)} alt="" loading="lazy" />
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="travel-card__body">
+            {contribution.comment && (
+              <p
+                className="travel-card__comment"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(contribution.comment) }}
+              />
+            )}
+            {contribution.photos.length > 0 && (
+              <div className="travel-card__photos">
+                {contribution.photos.map((p) => {
+                  const url = getTravelPhotoUrl(p.imageId);
+                  return (
+                    <div
+                      key={p.imageId}
+                      className="travel-card__photo"
+                      onClick={() => setLightboxUrl(url)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && setLightboxUrl(url)}
+                      aria-label="View photo"
+                    >
+                      <img src={url} alt="" loading="lazy" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           {isOwn && (
             <div className="travel-card__actions">
               <button type="button" className="travel-card__btn" onClick={startEdit} disabled={busy}>
@@ -196,6 +231,23 @@ export default function TravelContributionCard({
       )}
 
       {error && <p className="travel-card__error">{error}</p>}
+
+      {lightboxUrl && createPortal(
+        <div
+          className="travel-card__lightbox"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="travel-card__lightbox-close"
+            onClick={() => setLightboxUrl(null)}
+            aria-label="Close"
+          >
+            ×
+          </button>
+          <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

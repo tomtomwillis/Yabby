@@ -4,12 +4,19 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './TravelMap.css';
 import type { Place } from './travelTypes';
-import { singleAvatarIcon, pinkStarIcon } from './TravelPinIcon';
+import { singleAvatarIcon, multiContributorIcon } from './TravelPinIcon';
+
+export interface TravelMapView {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
 
 interface TravelMapProps {
   places: Place[];
   focus: { lat: number; lng: number; zoom?: number } | null;
   renderBubble: (place: Place) => React.ReactNode;
+  onViewChange?: (view: TravelMapView) => void;
 }
 
 function MapFocuser({ focus }: { focus: TravelMapProps['focus'] }) {
@@ -22,32 +29,49 @@ function MapFocuser({ focus }: { focus: TravelMapProps['focus'] }) {
   return null;
 }
 
-function FitAllBounds({ places }: { places: Place[] }) {
+function MapMover({ onViewChange }: { onViewChange?: (v: TravelMapView) => void }) {
   const map = useMap();
   useEffect(() => {
-    if (places.length === 0) return;
+    if (!onViewChange) return;
+    const emit = () => {
+      const c = map.getCenter();
+      onViewChange({ lat: c.lat, lng: c.lng, zoom: map.getZoom() });
+    };
+    emit();
+    map.on('moveend', emit);
+    return () => {
+      map.off('moveend', emit);
+    };
+  }, [map, onViewChange]);
+  return null;
+}
+
+function FitAllBounds({ places }: { places: Place[] }) {
+  const map = useMap();
+  const fitted = useMemo(() => ({ done: false }), []);
+  useEffect(() => {
+    if (fitted.done || places.length === 0) return;
+    fitted.done = true;
     if (places.length === 1) {
       map.setView([places[0].lat, places[0].lng], 8);
       return;
     }
     const bounds = L.latLngBounds(places.map((p) => [p.lat, p.lng] as [number, number]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
-    // Fit once on the initial render only; subsequent focus changes are handled by MapFocuser
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10 });
+  }, [places, map, fitted]);
   return null;
 }
 
-export default function TravelMap({ places, focus, renderBubble }: TravelMapProps) {
+export default function TravelMap({ places, focus, renderBubble, onViewChange }: TravelMapProps) {
   const markers = useMemo(() => {
     return places.map((place) => {
       const icon =
         place.contributorCount >= 2
-          ? pinkStarIcon(place.contributorCount)
-          : singleAvatarIcon(place.firstContributorAvatar);
+          ? multiContributorIcon(place.contributorCount, place.category)
+          : singleAvatarIcon(place.firstContributorAvatar, place.category);
       return (
         <Marker key={place.id} position={[place.lat, place.lng]} icon={icon}>
-          <Popup maxWidth={360} minWidth={280} autoPan>
+          <Popup maxWidth={360} minWidth={280} autoPan className="travel-bubble-popup">
             {renderBubble(place)}
           </Popup>
         </Marker>
@@ -64,6 +88,7 @@ export default function TravelMap({ places, focus, renderBubble }: TravelMapProp
         />
         <FitAllBounds places={places} />
         <MapFocuser focus={focus} />
+        <MapMover onViewChange={onViewChange} />
         {markers}
       </MapContainer>
     </div>

@@ -1,16 +1,14 @@
 .travel-map-container {
-  width: 100%;
-  height: 60vh;
-  min-height: 420px;
-  border: 2px solid var(--border, #333);
-  border-radius: 8px;
+  position: absolute;
+  inset: 0;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .travel-map-container .leaflet-container {
   width: 100%;
   height: 100%;
-  background: #0a0a0a;
 }
 
 .travel-pin-wrapper {
@@ -27,27 +25,25 @@
   height: 64px;
 }
 
-.travel-pin__droplet {
+.travel-pin .travel-pin__droplet {
   position: absolute;
   top: 0;
   left: 0;
-  fill: #ff3ec8;
-  stroke: #fff;
-  stroke-width: 2;
+  z-index: 1;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
 }
 
-.travel-pin__avatar-wrap {
+.travel-pin .travel-pin__avatar-wrap {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 36px;
-  height: 36px;
+  top: 7px;
+  left: 7px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   overflow: hidden;
   background: #fff;
-  border: 2px solid #fff;
   box-sizing: border-box;
+  z-index: 300;
 }
 
 .travel-pin__avatar {
@@ -80,8 +76,9 @@
   height: 20px;
   padding: 0 6px;
   border-radius: 10px;
-  background: #222;
+  background: var(--colour2);
   color: #fff;
+  font-family: var(--font2);
   font-size: 12px;
   font-weight: 700;
   display: flex;

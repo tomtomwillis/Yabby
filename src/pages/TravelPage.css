@@ -1,34 +1,128 @@
 .travel-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 1rem;
+  width: 100%;
 }
 
-.travel-page__heading {
-  margin: 0.5rem 0 0.75rem;
-}
-
-.travel-page__add-card {
-  border: 2px solid var(--border, #333);
-  border-radius: 8px;
-  padding: 1rem;
+.travel-page__input-row {
+  width: 100%;
   margin-bottom: 1rem;
-  background: #0d0d0d;
 }
 
-.travel-page__add-card h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+/* Map breaks out of #root to 80vw, centred on the viewport */
+.travel-page__map-area {
+  position: relative;
+  width: 80vw;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 55vh;
+  min-height: 320px;
+  overflow: hidden;
+  border: 2px solid var(--colour2);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+/* Filters — fixed to viewport, hugging the left edge, visible while scrolling */
+.travel-page__sidebar {
+  position: fixed;
+  top: 50vh;
+  left: 2vw;
+  transform: translateY(-50%);
+  z-index: 800;
+  width: 180px;
+  pointer-events: none;
+}
+
+/* Scroll-down arrow button */
+.travel-page__scroll-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 900;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--colour2);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(26, 46, 204, 0.35);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.travel-page__scroll-btn:hover {
+  background: var(--colour6);
+  transform: translateY(2px);
+}
+
+.travel-page__scroll-btn svg {
+  width: 22px;
+  height: 22px;
+  transition: transform 0.3s ease;
+}
+
+.travel-page__scroll-btn.scrolled-to-list svg {
+  transform: rotate(180deg);
+}
+
+/* Recommendations section */
+.travel-page__rec-section {
+  padding-top: 0.5rem;
 }
 
 .travel-page__status {
-  font-size: 0.9rem;
-  color: #aaa;
-  margin: 0.5rem 0;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  color: var(--colour2);
+  padding: 0.5rem 0;
+  margin: 0;
 }
 
 .travel-page__error {
-  color: #ff6b6b;
-  font-size: 0.9rem;
-  margin: 0.5rem 0;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  color: #ff4757;
+  padding: 0.5rem 0;
+  margin: 0;
+}
+
+/* Bottom section — positioning context for the confirm overlay */
+.travel-page__bottom {
+  position: relative;
+}
+
+/* Confirm form: anchored above the input row, same width as bottom section */
+.travel-page__confirm-overlay {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 950;
+  background: var(--colour4);
+  border: 2px solid var(--colour2);
+  border-radius: 8px 8px 0 0;
+  max-height: 75vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 20px rgba(26, 46, 204, 0.18);
+}
+
+@media (max-width: 768px) {
+  .travel-page__sidebar {
+    width: 160px;
+    top: 8px;
+    left: 8px;
+  }
+
+  .travel-page__map-area {
+    height: 45vh;
+  }
+
+  .travel-page__scroll-btn {
+    bottom: 1rem;
+    right: 1rem;
+    width: 42px;
+    height: 42px;
+  }
 }

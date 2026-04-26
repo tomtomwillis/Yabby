@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import { searchNominatim, type NominatimResult } from '../../utils/nominatim';
+import { searchPlaces, type PlaceSearchResult } from '../../utils/geocode';
 import './TravelAddBox.css';
 
 interface TravelAddBoxProps {
-  onPick: (result: NominatimResult) => void;
+  onPick: (result: PlaceSearchResult) => void;
   placeholder?: string;
+  /** Bias search toward this map view (forwarded to Photon as lat/lon/zoom). */
+  bias?: { lat: number; lng: number; zoom?: number };
 }
 
-export default function TravelAddBox({ onPick, placeholder }: TravelAddBoxProps) {
+export default function TravelAddBox({ onPick, placeholder, bias }: TravelAddBoxProps) {
   const [value, setValue] = useState('');
-  const [results, setResults] = useState<NominatimResult[]>([]);
+  const [results, setResults] = useState<PlaceSearchResult[]>([]);
   const [status, setStatus] = useState<string>('');
   const abortRef = useRef<AbortController | null>(null);
+
+  // Hold the latest bias in a ref so it doesn't re-trigger the debounce effect
+  // on every map pan — we only read it at search-dispatch time.
+  const biasRef = useRef(bias);
+  biasRef.current = bias;
 
   useEffect(() => {
     const q = value.trim();
@@ -28,7 +35,13 @@ export default function TravelAddBox({ onPick, placeholder }: TravelAddBoxProps)
 
     const timer = setTimeout(async () => {
       try {
-        const hits = await searchNominatim(q, controller.signal);
+        const b = biasRef.current;
+        const hits = await searchPlaces(q, controller.signal, {
+          lat: b?.lat,
+          lon: b?.lng,
+          zoom: b?.zoom,
+        });
+        if (controller.signal.aborted) return;
         setResults(hits);
         setStatus(hits.length === 0 ? 'No places found' : '');
       } catch (err) {
@@ -44,7 +57,7 @@ export default function TravelAddBox({ onPick, placeholder }: TravelAddBoxProps)
     };
   }, [value]);
 
-  const handlePick = (r: NominatimResult) => {
+  const handlePick = (r: PlaceSearchResult) => {
     onPick(r);
     setValue('');
     setResults([]);
@@ -64,7 +77,7 @@ export default function TravelAddBox({ onPick, placeholder }: TravelAddBoxProps)
       {results.length > 0 && (
         <ul className="travel-add-box__results">
           {results.map((r) => (
-            <li key={`${r.osm_type}_${r.osm_id}_${r.place_id}`}>
+            <li key={`${r.osm_type}_${r.osm_id}`}>
               <button
                 type="button"
                 className="travel-add-box__result"

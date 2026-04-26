@@ -1,18 +1,19 @@
+/* Card sits directly on the dark blue — no tint background */
 .travel-card {
-  flex: 0 0 260px;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 0.6rem;
+  flex: 0 0 auto;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 8px;
+  color: var(--colour4);
+  font-family: var(--font2);
+  text-align: left;
 }
 
 .travel-card__header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .travel-card__avatar {
@@ -20,40 +21,67 @@
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
-  background: #222;
+  background: rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .travel-card__username {
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: bold;
+  font-size: 1rem;
+  color: var(--colour4);
 }
 
 .travel-card__edit-indicator {
-  font-size: 0.75rem;
-  color: #888;
-  margin-left: 0.3rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+}
+
+.travel-card__divider {
+  display: none;
+}
+
+/* View mode: text on top, photos below */
+.travel-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .travel-card__comment {
+  font-family: var(--font2);
   font-size: 0.9rem;
-  line-height: 1.35;
+  line-height: 1.45;
+  color: var(--colour4);
   word-wrap: break-word;
   margin: 0;
+  white-space: pre-wrap;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .travel-card__photos {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 6px;
 }
 
 .travel-card__photo {
-  width: 72px;
-  height: 72px;
-  border-radius: 4px;
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
   overflow: hidden;
   position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.travel-card__photo:hover {
+  opacity: 0.85;
 }
 
 .travel-card__photo img {
@@ -63,6 +91,7 @@
   display: block;
 }
 
+
 .travel-card__photo-remove {
   position: absolute;
   top: 2px;
@@ -71,66 +100,183 @@
   height: 18px;
   border-radius: 50%;
   border: none;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(26, 46, 204, 0.85);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.travel-card__photo-remove:hover {
+  background: #ff4757;
 }
 
 .travel-card__actions {
   display: flex;
-  gap: 0.3rem;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: 2px;
 }
 
 .travel-card__btn {
-  padding: 0.3rem 0.6rem;
-  border: 1px solid #333;
-  border-radius: 4px;
-  background: #1a1a1a;
-  color: #fff;
+  font-family: var(--font2);
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--colour4);
   cursor: pointer;
-  font-size: 0.8rem;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.travel-card__btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .travel-card__btn--danger {
-  color: #ff6b6b;
-  border-color: #552;
+  color: #ff8a8a;
+  border-color: rgba(255, 71, 87, 0.4);
+}
+
+.travel-card__btn--danger:hover:not(:disabled) {
+  background: rgba(255, 71, 87, 0.2);
+  border-color: #ff4757;
+  color: #ff4757;
 }
 
 .travel-card__btn--primary {
-  background: #ff3ec8;
-  border-color: #ff3ec8;
-  color: #0a0a0a;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
   font-weight: 600;
 }
 
+.travel-card__btn--primary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 .travel-card__btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+}
+
+.travel-card__category-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.travel-card__category-hint {
+  font-family: var(--font2);
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.travel-card__category-select {
+  font-family: var(--font2);
+  font-size: 0.82rem;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--colour4);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.travel-card__category-select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.travel-card__category-select option {
+  background: var(--colour2);
+  color: var(--colour4);
 }
 
 .travel-card__edit-area {
   width: 100%;
   min-height: 70px;
-  padding: 0.4rem;
-  border: 1px solid #333;
-  border-radius: 4px;
-  background: #0a0a0a;
-  color: #fff;
-  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--colour4);
+  font-family: var(--font2);
+  font-size: 0.88rem;
+  line-height: 1.45;
   box-sizing: border-box;
   resize: vertical;
+  text-align: left;
+}
+
+.travel-card__edit-area:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.travel-card__edit-area::placeholder {
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .travel-card__error {
-  color: #ff6b6b;
+  font-family: var(--font2);
+  color: #ff8a8a;
   font-size: 0.8rem;
   margin: 0;
 }
 
 .travel-card__hidden-file {
   display: none;
+}
+
+/* Lightbox */
+.travel-card__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.travel-card__lightbox img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+.travel-card__lightbox-close {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+  line-height: 1;
+}
+
+.travel-card__lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

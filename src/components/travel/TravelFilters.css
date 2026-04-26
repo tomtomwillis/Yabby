@@ -1,46 +1,92 @@
 .travel-filters {
+  pointer-events: all;
+  background: var(--colour2);
+  border-radius: 10px;
+  padding: 12px 10px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 12px rgba(26, 46, 204, 0.25);
 }
 
 .travel-filters__field {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 3px;
 }
 
 .travel-filters__label {
-  font-size: 0.75rem;
-  color: #aaa;
+  font-family: var(--font2);
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .travel-filters__select {
-  padding: 0.45rem 0.6rem;
-  border: 2px solid var(--border, #333);
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  color: var(--colour4);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 6px;
-  background: var(--input-bg, #111);
-  color: var(--text, #fff);
-  font: inherit;
-  min-width: 160px;
+  padding: 5px 8px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.6)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.travel-filters__select:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.travel-filters__select:focus {
+  outline: none;
+  border-color: var(--colour3);
+}
+
+.travel-filters__select option {
+  background: var(--colour2);
+  color: var(--colour4);
 }
 
 .travel-filters__clear {
-  align-self: flex-end;
-  padding: 0.45rem 0.8rem;
-  border: 2px solid var(--border, #333);
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: var(--colour4);
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.4);
   border-radius: 6px;
-  background: #111;
-  color: #fff;
+  padding: 5px 8px;
   cursor: pointer;
-  font: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  text-align: center;
+}
+
+.travel-filters__clear:hover:not(:disabled) {
+  background: rgba(232, 122, 58, 0.2);
+  border-color: var(--colour3);
+  color: var(--colour3);
 }
 
 .travel-filters__clear:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  opacity: 0.35;
+  cursor: default;
+}
+
+@media (max-width: 768px) {
+  .travel-filters {
+    padding: 8px;
+    gap: 7px;
+  }
+
+  .travel-filters__select {
+    font-size: 0.75rem;
+  }
 }

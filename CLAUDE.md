@@ -41,6 +41,7 @@ Verify changes with `npm run build` to catch TypeScript errors.
 src/
 ├── components/       # Reusable UI components
 │   ├── media/        # Media manager tools
+│   ├── travel/       # Travel recommendations feature
 │   └── basic/        # Low-level primitives
 ├── pages/            # Route-level page components
 ├── utils/            # Hooks and helpers
@@ -71,7 +72,17 @@ src/
 
 ### Firestore Collections & Security
 
-Key collections: `users`, `messages` (with `reactions`/`replies` subcollections), `news` (with `reactions` subcollection), `stickers`, `lists` (with `items` subcollection), and `admins` (write-protected).
+Key collections: `users`, `messages` (with `reactions`/`replies` subcollections), `news` (with `reactions` subcollection), `stickers`, `lists` (with `items` subcollection), `places` (with `contributions` subcollection), and `admins` (write-protected).
+
+### Travel Feature
+
+Leaflet map where users pin places with a comment and optional photos.
+
+- `places/{placeId}` — denormalized: coords, `displayName`, `city`, `cityKey`, `country`, OSM fields, `contributorCount`, first contributor info, `lastActivityAt`
+- `places/{placeId}/contributions/{userId}` — `comment`, `photos[]`, timestamps
+- `placeId` via `placeIdFor()` in `src/utils/geocode.ts` — never construct manually
+- Two backends: photo uploads → `VITE_MEDIA_API_URL`, contributions CRUD → `VITE_TRAVEL_API_URL`
+- `loadUserMemberships()` in `TravelPage.tsx` does N subcollection reads (one per place) — avoid adding more
 
 ### Firestore Read Budget
 

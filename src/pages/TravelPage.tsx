@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../firebaseConfig';
-import Header from '../components/basic/Header';
-import TravelMap from '../components/travel/TravelMap';
+import TravelMap, { type TravelMapView } from '../components/travel/TravelMap';
 import TravelAddBox from '../components/travel/TravelAddBox';
 import TravelConfirmForm from '../components/travel/TravelConfirmForm';
 import TravelFilters, {
@@ -11,22 +10,25 @@ import TravelFilters, {
   type UserOption,
 } from '../components/travel/TravelFilters';
 import TravelPlaceBubble from '../components/travel/TravelPlaceBubble';
+import TravelRecommendationList from '../components/travel/TravelRecommendationList';
 import { getUserData } from '../utils/userCache';
 import { trackedGetDocs } from '../utils/firestoreMetrics';
 import {
+  categoryFromOsm,
   cityFromAddress,
   placeIdFor,
-  type NominatimResult,
-} from '../utils/nominatim';
+  type PlaceSearchResult,
+} from '../utils/geocode';
 import {
   saveTravelContribution,
   deleteTravelContribution,
 } from '../utils/travelApi';
-import type { Place, TravelPhoto } from '../components/travel/travelTypes';
+import Header from '../components/basic/Header';
+import type { Place, PlaceCategory, TravelPhoto } from '../components/travel/travelTypes';
 import './TravelPage.css';
 
 interface UserPlaceMembership {
-  [userId: string]: Set<string>; // userId → set of placeIds they've contributed to
+  [userId: string]: Set<string>;
 }
 
 async function loadPlaces(): Promise<Place[]> {
@@ -43,6 +45,7 @@ async function loadPlaces(): Promise<Place[]> {
       country: data.country || '',
       osmType: data.osmType || '',
       osmId: data.osmId || '',
+      category: (data.category as PlaceCategory) || 'other',
       contributorCount: Number(data.contributorCount) || 0,
       firstContributorUserId: data.firstContributorUserId || '',
       firstContributorAvatar: data.firstContributorAvatar || '',
@@ -78,10 +81,12 @@ export default function TravelPage() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  const [picked, setPicked] = useState<NominatimResult | null>(null);
+  const [picked, setPicked] = useState<PlaceSearchResult | null>(null);
   const [cityFilter, setCityFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<PlaceCategory | ''>('');
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+  const [mapView, setMapView] = useState<TravelMapView | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -121,12 +126,13 @@ export default function TravelPage() {
   const filteredPlaces = useMemo(() => {
     let list = places;
     if (cityFilter) list = list.filter((p) => p.cityKey === cityFilter);
+    if (categoryFilter) list = list.filter((p) => p.category === categoryFilter);
     if (userFilter) {
       const set = memberships[userFilter] ?? new Set<string>();
       list = list.filter((p) => set.has(p.id));
     }
     return list;
-  }, [places, cityFilter, userFilter, memberships]);
+  }, [places, cityFilter, categoryFilter, userFilter, memberships]);
 
   const cities = useMemo<CityOption[]>(() => {
     const seen = new Map<string, string>();
@@ -159,8 +165,10 @@ export default function TravelPage() {
     [places],
   );
 
+  const suggestedCategory = picked ? categoryFromOsm(picked) : 'other';
+
   const confirmAdd = useCallback(
-    async ({ comment, photos }: { comment: string; photos: TravelPhoto[] }) => {
+    async ({ comment, photos, category }: { comment: string; photos: TravelPhoto[]; category: PlaceCategory }) => {
       if (!user || !picked) throw new Error('Not signed in.');
 
       const placeId = placeIdFor(picked.osm_type, picked.osm_id);
@@ -175,12 +183,13 @@ export default function TravelPage() {
         country: picked.address?.country || '',
         osmType: picked.osm_type,
         osmId: String(picked.osm_id),
+        category,
         comment,
         photos,
       });
 
       try {
-        window.umami?.track?.('travel_place_added', { placeId });
+        window.umami?.track?.('travel_place_added', { placeId, category });
       } catch {
         /* ignore umami errors */
       }
@@ -193,7 +202,7 @@ export default function TravelPage() {
   );
 
   const editContribution = useCallback(
-    async (placeId: string, userId: string, next: { comment: string; photos: TravelPhoto[] }) => {
+    async (placeId: string, userId: string, next: { comment: string; photos: TravelPhoto[]; category: PlaceCategory }) => {
       if (!user || user.uid !== userId) throw new Error('Cannot edit another user\'s recommendation.');
       const place = places.find((p) => p.id === placeId);
       if (!place) throw new Error('Place not found.');
@@ -207,6 +216,7 @@ export default function TravelPage() {
         country: place.country,
         osmType: place.osmType,
         osmId: place.osmId,
+        category: next.category,
         comment: next.comment,
         photos: next.photos,
       });
@@ -236,56 +246,112 @@ export default function TravelPage() {
   );
 
   const visiblePlaces = filteredPlaces.filter((p) => p.contributorCount > 0);
+  const recSectionRef = useRef<HTMLDivElement>(null);
+  const [scrolledToList, setScrolledToList] = useState(false);
+
+  const handleScrollBtn = useCallback(() => {
+    if (scrolledToList) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (recSectionRef.current) {
+      recSectionRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [scrolledToList]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!recSectionRef.current) return;
+      const rect = recSectionRef.current.getBoundingClientRect();
+      setScrolledToList(rect.top < window.innerHeight * 0.5);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div className="travel-page">
-      <Header title="Travel Recommendations" subtitle="Places we love, pinned on a map" />
+      <Header title="Travel Recommendations" subtitle="Places we have pinned on a map" />
 
-      <div className="travel-page__add-card">
-        <h2>Add a recommendation</h2>
-        {!picked ? (
-          <TravelAddBox onPick={setPicked} />
-        ) : (
-          <TravelConfirmForm
-            picked={picked}
-            currentUserAvatar={currentUserAvatar}
-            onConfirm={confirmAdd}
-            onCancel={() => setPicked(null)}
-          />
-        )}
+      {/* Map — breaks out of #root to 80vw */}
+      <div className="travel-page__map-area">
+        <TravelMap
+          places={visiblePlaces}
+          focus={focus}
+          onViewChange={setMapView}
+          renderBubble={(p) => (
+            <TravelPlaceBubble
+              place={p}
+              currentUserId={user?.uid ?? null}
+              onEditContribution={editContribution}
+              onDeleteContribution={deleteContribution}
+            />
+          )}
+        />
       </div>
 
-      <TravelFilters
-        cities={cities}
-        users={users}
-        cityFilter={cityFilter}
-        userFilter={userFilter}
-        onCityChange={handleCityChange}
-        onUserChange={(uid) => {
-          setUserFilter(uid);
-          try {
-            window.umami?.track?.('travel_filter_changed', { type: 'user' });
-          } catch {
-            /* ignore */
-          }
-        }}
-      />
+      {/* Filters — fixed to viewport, left edge, overlays the map while scrolling */}
+      <div className="travel-page__sidebar">
+        <TravelFilters
+          cities={cities}
+          users={users}
+          cityFilter={cityFilter}
+          userFilter={userFilter}
+          categoryFilter={categoryFilter}
+          onCityChange={handleCityChange}
+          onCategoryChange={setCategoryFilter}
+          onUserChange={(uid) => {
+            setUserFilter(uid);
+            try {
+              window.umami?.track?.('travel_filter_changed', { type: 'user' });
+            } catch {
+              /* ignore */
+            }
+          }}
+        />
+      </div>
 
-      {loading && <p className="travel-page__status">Loading recommendations…</p>}
-      {pageError && <p className="travel-page__error">{pageError}</p>}
+      {/* Scroll-to-recommendations arrow */}
+      <button
+        className={`travel-page__scroll-btn${scrolledToList ? ' scrolled-to-list' : ''}`}
+        onClick={handleScrollBtn}
+        aria-label="Scroll to recommendations"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
 
-      <TravelMap
-        places={visiblePlaces}
-        focus={focus}
-        renderBubble={(p) => (
-          <TravelPlaceBubble
-            place={p}
-            currentUserId={user?.uid ?? null}
-            onEditContribution={editContribution}
-            onDeleteContribution={deleteContribution}
-          />
+      {/* Bottom section: input + recs, with confirm form anchored above */}
+      <div className="travel-page__bottom">
+        {picked && (
+          <div className="travel-page__confirm-overlay">
+            <TravelConfirmForm
+              picked={picked}
+              currentUserAvatar={currentUserAvatar}
+              suggestedCategory={suggestedCategory}
+              onConfirm={confirmAdd}
+              onCancel={() => setPicked(null)}
+            />
+          </div>
         )}
-      />
+
+        <div className="travel-page__input-row">
+          <TravelAddBox onPick={setPicked} bias={mapView ?? undefined} />
+        </div>
+
+        <div className="travel-page__rec-section" ref={recSectionRef}>
+          {loading && <p className="travel-page__status">Loading recommendations…</p>}
+          {pageError && <p className="travel-page__error">{pageError}</p>}
+          {!loading && !pageError && (
+            <TravelRecommendationList
+              places={visiblePlaces}
+              currentUserId={user?.uid ?? null}
+              onEditContribution={editContribution}
+              onDeleteContribution={deleteContribution}
+              onFocus={(p) => setFocus({ lat: p.lat, lng: p.lng, zoom: 14 })}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
