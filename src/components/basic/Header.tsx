@@ -103,6 +103,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
               <li><a href="/wiki" className="links">wiki</a></li>
               <li><a href="/stickers" className="links">stickers</a></li>
               <li><a href="/radio" className="links">radio</a></li>
+              <li><a href="/travel" className="links">travel</a></li>
               {isMediaManager && (
                 <li><a href="/media" className="links">media&nbsp;management</a></li>
               )}
@@ -154,6 +155,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>
         <a href="/stickers" onClick={closeMobileMenu}>Stickers</a>
         <a href="/radio" onClick={closeMobileMenu}>Radio</a>
+        <a href="/travel" onClick={closeMobileMenu}>Travel</a>
         {isMediaManager && (
           <a href="/media" onClick={closeMobileMenu}>Media Management</a>
         )}

@@ -1,0 +1,248 @@
+.travel-page {
+  width: 100%;
+}
+
+.travel-page__input-row {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* Map breaks out of #root to 80vw, centred on the viewport */
+.travel-page__map-area {
+  position: relative;
+  width: 80vw;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 55vh;
+  min-height: 320px;
+  overflow: hidden;
+  border: 2px solid var(--colour2);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+/* Filters — fixed to viewport, hugging the left edge, visible while scrolling */
+.travel-page__sidebar {
+  position: fixed;
+  top: 50vh;
+  left: 2vw;
+  transform: translateY(-50%);
+  z-index: 800;
+  width: 180px;
+  pointer-events: none;
+}
+
+/* Scroll-down arrow button */
+.travel-page__scroll-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 900;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--colour2);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(26, 46, 204, 0.35);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.travel-page__scroll-btn:hover {
+  background: var(--colour6);
+  transform: translateY(2px);
+}
+
+.travel-page__scroll-btn svg {
+  width: 22px;
+  height: 22px;
+  transition: transform 0.3s ease;
+}
+
+.travel-page__scroll-btn.scrolled-to-list svg {
+  transform: rotate(180deg);
+}
+
+/* Recommendations section */
+.travel-page__rec-section {
+  padding-top: 0.5rem;
+}
+
+.travel-page__status {
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  color: var(--colour2);
+  padding: 0.5rem 0;
+  margin: 0;
+}
+
+.travel-page__error {
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  color: #ff4757;
+  padding: 0.5rem 0;
+  margin: 0;
+}
+
+/* Bottom section — positioning context for the confirm overlay */
+.travel-page__bottom {
+  position: relative;
+}
+
+/* Confirm form: anchored above the input row, same width as bottom section */
+.travel-page__confirm-overlay {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 950;
+  background: var(--colour4);
+  border: 2px solid var(--colour2);
+  border-radius: 8px 8px 0 0;
+  max-height: 75vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 20px rgba(26, 46, 204, 0.18);
+}
+
+/* Mobile-only collapsible filters */
+.travel-page__mobile-filters {
+  display: none;
+}
+
+.travel-page__mobile-filters-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--colour4);
+  background: var(--colour2);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: 0.03em;
+}
+
+.travel-page__mobile-filters-toggle span:first-child {
+  flex: 1;
+}
+
+.travel-page__mobile-filters-toggle svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s ease;
+  opacity: 0.8;
+}
+
+.travel-page__mobile-filters-toggle.open svg {
+  transform: rotate(180deg);
+}
+
+.travel-page__mobile-filters-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--colour3);
+  flex-shrink: 0;
+}
+
+.travel-page__mobile-filters-body {
+  margin-top: 4px;
+  border-radius: 0 0 8px 8px;
+}
+
+.travel-page__mobile-filters-body .travel-filters {
+  border-radius: 0 0 8px 8px;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  /* Hide fixed desktop sidebar */
+  .travel-page__sidebar {
+    display: none;
+  }
+
+  /* Hide scroll arrow */
+  .travel-page__scroll-btn {
+    display: none;
+  }
+
+  .travel-page__map-area {
+    height: 45vh;
+  }
+
+  /* Show inline mobile filters */
+  .travel-page__mobile-filters {
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  /* Shrink Leaflet popups on mobile */
+  .travel-bubble-popup .leaflet-popup-content-wrapper {
+    max-width: 72vw;
+  }
+
+  .travel-bubble-popup .leaflet-popup-content {
+    max-width: calc(72vw - 16px) !important;
+    min-width: 0 !important;
+    max-height: 42vh;
+    overflow-y: auto;
+  }
+
+  /* Tighten bubble internals */
+  .travel-bubble-popup .travel-bubble {
+    padding: 8px 10px;
+  }
+
+  .travel-bubble-popup .travel-bubble__title {
+    font-size: 0.9rem;
+    margin-bottom: 1px;
+  }
+
+  .travel-bubble-popup .travel-bubble__subtitle {
+    font-size: 0.7rem;
+    margin-bottom: 6px;
+  }
+
+  .travel-bubble-popup .travel-bubble__separator {
+    margin-bottom: 6px;
+  }
+
+  /* Tighten contribution cards */
+  .travel-bubble-popup .travel-card {
+    padding: 6px 8px;
+    gap: 5px;
+  }
+
+  .travel-bubble-popup .travel-card__avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  .travel-bubble-popup .travel-card__username {
+    font-size: 0.82rem;
+  }
+
+  .travel-bubble-popup .travel-card__comment {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .travel-bubble-popup .travel-card__body {
+    gap: 6px;
+  }
+
+  /* Force single-column cards inside map bubbles on mobile */
+  .travel-bubble-popup .travel-bubble__cards {
+    grid-template-columns: 1fr !important;
+    gap: 6px;
+  }
+}
