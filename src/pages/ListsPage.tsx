@@ -52,7 +52,7 @@ const ListsPage: React.FC = () => {
       setLoading(true);
       const listsQuery = query(
         collection(db, 'lists'),
-        orderBy('timestamp', 'desc')
+        orderBy('lastUpdated', 'desc')
       );
 
       const snapshot = await getDocs(listsQuery);

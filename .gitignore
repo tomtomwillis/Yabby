@@ -58,4 +58,9 @@ Thumbs.db
 *.tmp
 *.temp
 *.swp
-*~
+*~.env.local
+
+# Playwright
+.playwright-mcp/
+.claude/settings.local.json
+yabbyville-firebase-adminsdk.json
