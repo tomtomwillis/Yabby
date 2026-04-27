@@ -282,7 +282,7 @@ export default function TravelPage() {
 
   return (
     <div className="travel-page">
-      <Header title="Travel Recommendations" subtitle="Places we have pinned on a map" />
+      <Header title="Travel" subtitle="IRL Recommendations from the Yabby community" />
 
       {/* Map — breaks out of #root to 80vw */}
       <div className="travel-page__map-area">
