@@ -63,6 +63,10 @@ function FitAllBounds({ places }: { places: Place[] }) {
 }
 
 export default function TravelMap({ places, focus, renderBubble, onViewChange }: TravelMapProps) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const popupMaxWidth = isMobile ? Math.floor(window.innerWidth * 0.68) : 360;
+  const popupMinWidth = isMobile ? 0 : 280;
+
   const markers = useMemo(() => {
     return places.map((place) => {
       const icon =
@@ -71,13 +75,20 @@ export default function TravelMap({ places, focus, renderBubble, onViewChange }:
           : singleAvatarIcon(place.firstContributorAvatar, place.category);
       return (
         <Marker key={place.id} position={[place.lat, place.lng]} icon={icon}>
-          <Popup maxWidth={360} minWidth={280} autoPan className="travel-bubble-popup">
+          <Popup
+            maxWidth={popupMaxWidth}
+            minWidth={popupMinWidth}
+            autoPan
+            autoPanPaddingTopLeft={isMobile ? [10, 200] : [5, 5]}
+            autoPanPaddingBottomRight={isMobile ? [10, 20] : [5, 5]}
+            className="travel-bubble-popup"
+          >
             {renderBubble(place)}
           </Popup>
         </Marker>
       );
     });
-  }, [places, renderBubble]);
+  }, [places, renderBubble, popupMaxWidth, popupMinWidth]);
 
   return (
     <div className="travel-map-container">

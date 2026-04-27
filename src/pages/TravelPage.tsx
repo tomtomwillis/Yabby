@@ -87,6 +87,7 @@ export default function TravelPage() {
   const [categoryFilter, setCategoryFilter] = useState<PlaceCategory | ''>('');
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [mapView, setMapView] = useState<TravelMapView | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -267,6 +268,18 @@ export default function TravelPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const renderBubble = useCallback(
+    (p: Place) => (
+      <TravelPlaceBubble
+        place={p}
+        currentUserId={user?.uid ?? null}
+        onEditContribution={editContribution}
+        onDeleteContribution={deleteContribution}
+      />
+    ),
+    [user?.uid, editContribution, deleteContribution],
+  );
+
   return (
     <div className="travel-page">
       <Header title="Travel Recommendations" subtitle="Places we have pinned on a map" />
@@ -277,14 +290,7 @@ export default function TravelPage() {
           places={visiblePlaces}
           focus={focus}
           onViewChange={setMapView}
-          renderBubble={(p) => (
-            <TravelPlaceBubble
-              place={p}
-              currentUserId={user?.uid ?? null}
-              onEditContribution={editContribution}
-              onDeleteContribution={deleteContribution}
-            />
-          )}
+          renderBubble={renderBubble}
         />
       </div>
 
@@ -309,7 +315,7 @@ export default function TravelPage() {
         />
       </div>
 
-      {/* Scroll-to-recommendations arrow */}
+      {/* Scroll-to-recommendations arrow — hidden on mobile */}
       <button
         className={`travel-page__scroll-btn${scrolledToList ? ' scrolled-to-list' : ''}`}
         onClick={handleScrollBtn}
@@ -336,6 +342,44 @@ export default function TravelPage() {
 
         <div className="travel-page__input-row">
           <TravelAddBox onPick={setPicked} bias={mapView ?? undefined} />
+        </div>
+
+        {/* Mobile-only collapsible filters */}
+        <div className="travel-page__mobile-filters">
+          <button
+            className={`travel-page__mobile-filters-toggle${filtersOpen ? ' open' : ''}`}
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+          >
+            <span>Filters</span>
+            {(cityFilter || userFilter || categoryFilter) && (
+              <span className="travel-page__mobile-filters-dot" />
+            )}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {filtersOpen && (
+            <div className="travel-page__mobile-filters-body">
+              <TravelFilters
+                cities={cities}
+                users={users}
+                cityFilter={cityFilter}
+                userFilter={userFilter}
+                categoryFilter={categoryFilter}
+                onCityChange={handleCityChange}
+                onCategoryChange={setCategoryFilter}
+                onUserChange={(uid) => {
+                  setUserFilter(uid);
+                  try {
+                    window.umami?.track?.('travel_filter_changed', { type: 'user' });
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="travel-page__rec-section" ref={recSectionRef}>

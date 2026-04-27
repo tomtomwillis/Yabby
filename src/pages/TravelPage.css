@@ -108,21 +108,141 @@
   box-shadow: 0 -4px 20px rgba(26, 46, 204, 0.18);
 }
 
+/* Mobile-only collapsible filters */
+.travel-page__mobile-filters {
+  display: none;
+}
+
+.travel-page__mobile-filters-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--colour4);
+  background: var(--colour2);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: 0.03em;
+}
+
+.travel-page__mobile-filters-toggle span:first-child {
+  flex: 1;
+}
+
+.travel-page__mobile-filters-toggle svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s ease;
+  opacity: 0.8;
+}
+
+.travel-page__mobile-filters-toggle.open svg {
+  transform: rotate(180deg);
+}
+
+.travel-page__mobile-filters-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--colour3);
+  flex-shrink: 0;
+}
+
+.travel-page__mobile-filters-body {
+  margin-top: 4px;
+  border-radius: 0 0 8px 8px;
+}
+
+.travel-page__mobile-filters-body .travel-filters {
+  border-radius: 0 0 8px 8px;
+  box-shadow: none;
+}
+
 @media (max-width: 768px) {
+  /* Hide fixed desktop sidebar */
   .travel-page__sidebar {
-    width: 160px;
-    top: 8px;
-    left: 8px;
+    display: none;
+  }
+
+  /* Hide scroll arrow */
+  .travel-page__scroll-btn {
+    display: none;
   }
 
   .travel-page__map-area {
     height: 45vh;
   }
 
-  .travel-page__scroll-btn {
-    bottom: 1rem;
-    right: 1rem;
-    width: 42px;
-    height: 42px;
+  /* Show inline mobile filters */
+  .travel-page__mobile-filters {
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  /* Shrink Leaflet popups on mobile */
+  .travel-bubble-popup .leaflet-popup-content-wrapper {
+    max-width: 72vw;
+  }
+
+  .travel-bubble-popup .leaflet-popup-content {
+    max-width: calc(72vw - 16px) !important;
+    min-width: 0 !important;
+    max-height: 42vh;
+    overflow-y: auto;
+  }
+
+  /* Tighten bubble internals */
+  .travel-bubble-popup .travel-bubble {
+    padding: 8px 10px;
+  }
+
+  .travel-bubble-popup .travel-bubble__title {
+    font-size: 0.9rem;
+    margin-bottom: 1px;
+  }
+
+  .travel-bubble-popup .travel-bubble__subtitle {
+    font-size: 0.7rem;
+    margin-bottom: 6px;
+  }
+
+  .travel-bubble-popup .travel-bubble__separator {
+    margin-bottom: 6px;
+  }
+
+  /* Tighten contribution cards */
+  .travel-bubble-popup .travel-card {
+    padding: 6px 8px;
+    gap: 5px;
+  }
+
+  .travel-bubble-popup .travel-card__avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  .travel-bubble-popup .travel-card__username {
+    font-size: 0.82rem;
+  }
+
+  .travel-bubble-popup .travel-card__comment {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .travel-bubble-popup .travel-card__body {
+    gap: 6px;
+  }
+
+  /* Force single-column cards inside map bubbles on mobile */
+  .travel-bubble-popup .travel-bubble__cards {
+    grid-template-columns: 1fr !important;
+    gap: 6px;
   }
 }
