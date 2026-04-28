@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import './TravelMap.css';
 import type { Place } from './travelTypes';
 import { singleAvatarIcon, multiContributorIcon } from './TravelPinIcon';
+import { normalizeAvatarPath } from '../../utils/avatarPath';
 
 export interface TravelMapView {
   lat: number;
@@ -72,15 +73,14 @@ export default function TravelMap({ places, focus, renderBubble, onViewChange }:
       const icon =
         place.contributorCount >= 2
           ? multiContributorIcon(place.contributorCount, place.category)
-          : singleAvatarIcon(place.firstContributorAvatar, place.category);
+          : singleAvatarIcon(normalizeAvatarPath(place.firstContributorAvatar), place.category);
       return (
         <Marker key={place.id} position={[place.lat, place.lng]} icon={icon}>
           <Popup
             maxWidth={popupMaxWidth}
             minWidth={popupMinWidth}
-            autoPan
-            autoPanPaddingTopLeft={isMobile ? [10, 200] : [5, 5]}
-            autoPanPaddingBottomRight={isMobile ? [10, 20] : [5, 5]}
+            autoPan={false}
+            keepInView={false}
             className="travel-bubble-popup"
           >
             {renderBubble(place)}

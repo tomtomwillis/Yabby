@@ -1,7 +1,9 @@
 import { createPortal } from 'react-dom';
 import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { sanitizeHtml } from '../../utils/sanitise';
 import { uploadTravelPhoto, getTravelPhotoUrl } from '../../utils/travelApi';
+import { normalizeAvatarPath } from '../../utils/avatarPath';
 import type { Contribution, PlaceCategory, TravelPhoto } from './travelTypes';
 import { PLACE_CATEGORIES } from './travelTypes';
 import './TravelContributionCard.css';
@@ -104,11 +106,17 @@ export default function TravelContributionCard({
     <div className="travel-card">
       <div className="travel-card__header">
         {contribution.avatar ? (
-          <img className="travel-card__avatar" src={contribution.avatar} alt="" />
+          <img className="travel-card__avatar" src={normalizeAvatarPath(contribution.avatar)} alt="" />
         ) : (
           <div className="travel-card__avatar" />
         )}
-        <span className="travel-card__username">{contribution.username}</span>
+        {contribution.userId ? (
+          <Link to={`/user/${contribution.userId}`} className="travel-card__username travel-card__username--link">
+            {contribution.username}
+          </Link>
+        ) : (
+          <span className="travel-card__username">{contribution.username}</span>
+        )}
         {contribution.editedAt && <span className="travel-card__edit-indicator">(edited)</span>}
       </div>
       <hr className="travel-card__divider" />

@@ -100,6 +100,17 @@
   text-overflow: ellipsis;
 }
 
+.travel-rec-list__byline-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.travel-rec-list__byline-link:hover {
+  text-decoration: underline;
+  color: var(--colour2);
+}
+
 .travel-rec-list__chevron {
   font-size: 1.1rem;
   color: var(--colour2);

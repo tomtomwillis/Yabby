@@ -18,6 +18,7 @@ import {
   cityFromAddress,
   placeIdFor,
   type PlaceSearchResult,
+  type OsmType,
 } from '../utils/geocode';
 import {
   saveTravelContribution,
@@ -35,6 +36,9 @@ async function loadPlaces(): Promise<Place[]> {
   const snap = await trackedGetDocs(collection(db, 'places'));
   return snap.docs.map((d) => {
     const data = d.data();
+    const category = (data.category as PlaceCategory) || 'other';
+    const rawCategories = Array.isArray(data.categories) ? (data.categories as PlaceCategory[]) : null;
+    const categories = rawCategories && rawCategories.length > 0 ? rawCategories : [category];
     return {
       id: d.id,
       displayName: data.displayName,
@@ -45,7 +49,8 @@ async function loadPlaces(): Promise<Place[]> {
       country: data.country || '',
       osmType: data.osmType || '',
       osmId: data.osmId || '',
-      category: (data.category as PlaceCategory) || 'other',
+      category,
+      categories,
       contributorCount: Number(data.contributorCount) || 0,
       firstContributorUserId: data.firstContributorUserId || '',
       firstContributorAvatar: data.firstContributorAvatar || '',
@@ -82,6 +87,7 @@ export default function TravelPage() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [picked, setPicked] = useState<PlaceSearchResult | null>(null);
+  const [pickedCategoryHint, setPickedCategoryHint] = useState<PlaceCategory | null>(null);
   const [cityFilter, setCityFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<PlaceCategory | ''>('');
@@ -127,7 +133,7 @@ export default function TravelPage() {
   const filteredPlaces = useMemo(() => {
     let list = places;
     if (cityFilter) list = list.filter((p) => p.cityKey === cityFilter);
-    if (categoryFilter) list = list.filter((p) => p.category === categoryFilter);
+    if (categoryFilter) list = list.filter((p) => p.categories.includes(categoryFilter));
     if (userFilter) {
       const set = memberships[userFilter] ?? new Set<string>();
       list = list.filter((p) => set.has(p.id));
@@ -166,7 +172,8 @@ export default function TravelPage() {
     [places],
   );
 
-  const suggestedCategory = picked ? categoryFromOsm(picked) : 'other';
+  const suggestedCategory: PlaceCategory = pickedCategoryHint
+    ?? (picked ? categoryFromOsm(picked) : 'other');
 
   const confirmAdd = useCallback(
     async ({ comment, photos, category }: { comment: string; photos: TravelPhoto[]; category: PlaceCategory }) => {
@@ -196,6 +203,7 @@ export default function TravelPage() {
       }
 
       setPicked(null);
+      setPickedCategoryHint(null);
       setFocus({ lat: parseFloat(picked.lat), lng: parseFloat(picked.lon), zoom: 12 });
       await refresh();
     },
@@ -246,7 +254,16 @@ export default function TravelPage() {
     [user, refresh],
   );
 
-  const visiblePlaces = filteredPlaces.filter((p) => p.contributorCount > 0);
+  const visiblePlaces = useMemo(() => {
+    const tsMillis = (p: Place) => {
+      const ts = p.lastActivityAt ?? p.createdAt;
+      return ts ? ts.toMillis() : 0;
+    };
+    return filteredPlaces
+      .filter((p) => p.contributorCount > 0)
+      .slice()
+      .sort((a, b) => tsMillis(b) - tsMillis(a));
+  }, [filteredPlaces]);
   const recSectionRef = useRef<HTMLDivElement>(null);
   const [scrolledToList, setScrolledToList] = useState(false);
 
@@ -268,6 +285,20 @@ export default function TravelPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleAddOwn = useCallback((p: Place) => {
+    const synthetic: PlaceSearchResult = {
+      osm_type: (p.osmType as OsmType) || 'node',
+      osm_id: Number(p.osmId) || 0,
+      display_name: p.displayName,
+      lat: String(p.lat),
+      lon: String(p.lng),
+      address: { city: p.city, country: p.country },
+      _source: 'nominatim',
+    };
+    setPickedCategoryHint(p.category);
+    setPicked(synthetic);
+  }, []);
+
   const renderBubble = useCallback(
     (p: Place) => (
       <TravelPlaceBubble
@@ -275,9 +306,10 @@ export default function TravelPage() {
         currentUserId={user?.uid ?? null}
         onEditContribution={editContribution}
         onDeleteContribution={deleteContribution}
+        onAddOwn={handleAddOwn}
       />
     ),
-    [user?.uid, editContribution, deleteContribution],
+    [user?.uid, editContribution, deleteContribution, handleAddOwn],
   );
 
   return (
@@ -335,7 +367,10 @@ export default function TravelPage() {
               currentUserAvatar={currentUserAvatar}
               suggestedCategory={suggestedCategory}
               onConfirm={confirmAdd}
-              onCancel={() => setPicked(null)}
+              onCancel={() => {
+                setPicked(null);
+                setPickedCategoryHint(null);
+              }}
             />
           </div>
         )}
@@ -392,6 +427,7 @@ export default function TravelPage() {
               onEditContribution={editContribution}
               onDeleteContribution={deleteContribution}
               onFocus={(p) => setFocus({ lat: p.lat, lng: p.lng, zoom: 14 })}
+              onAddOwn={handleAddOwn}
             />
           )}
         </div>

@@ -33,22 +33,8 @@ export function singleAvatarIcon(avatarUrl: string, category: PlaceCategory = 'o
   });
 }
 
-export function multiContributorIcon(count: number, _category: PlaceCategory = 'other'): L.DivIcon {
-  const safeCount = Math.max(2, Math.floor(count));
-  const html = `
-    <div class="travel-pin travel-pin--star">
-      <img class="travel-pin__star" src="${PINK_STAR_URL}" alt=""/>
-      <span class="travel-pin__badge">${safeCount}</span>
-    </div>
-  `;
-
-  return L.divIcon({
-    html,
-    className: 'travel-pin-wrapper',
-    iconSize: [52, 52],
-    iconAnchor: [26, 48],
-    popupAnchor: [0, -44],
-  });
+export function multiContributorIcon(_count: number, category: PlaceCategory = 'other'): L.DivIcon {
+  return singleAvatarIcon(PINK_STAR_URL, category);
 }
 
 /** @deprecated use multiContributorIcon */

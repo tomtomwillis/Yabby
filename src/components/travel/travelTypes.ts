@@ -7,6 +7,7 @@ export type PlaceCategory =
   | 'restaurant'
   | 'poi'
   | 'gallery_museum'
+  | 'shop'
   | 'other';
 
 export const PLACE_CATEGORIES: { value: PlaceCategory; label: string }[] = [
@@ -16,6 +17,7 @@ export const PLACE_CATEGORIES: { value: PlaceCategory; label: string }[] = [
   { value: 'restaurant', label: 'Restaurant' },
   { value: 'poi', label: 'Point of Interest' },
   { value: 'gallery_museum', label: 'Gallery / Museum' },
+  { value: 'shop', label: 'Shop' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -27,11 +29,12 @@ export const CATEGORY_COLOURS: Record<PlaceCategory, string> = {
   restaurant: '#277da1',    // blue
   poi: '#43aa8b',           // mint
   gallery_museum: '#f9c74f', // yellow
+  shop: '#FF4DDA',          // hot pink
   other: '#B0B0B0',         // grey
 };
 
 // Remaining palette slots (unused, reserved for future categories):
-// '#FF4DDA' (hot pink), '#3DFF5C' (lime), '#FF9A3D' (amber)
+// '#3DFF5C' (lime), '#FF9A3D' (amber)
 
 export interface TravelPhoto {
   imageId: string;
@@ -49,6 +52,7 @@ export interface Place {
   osmType: string;
   osmId: string;
   category: PlaceCategory;
+  categories: PlaceCategory[];
   contributorCount: number;
   firstContributorUserId: string;
   firstContributorAvatar: string;
@@ -63,6 +67,7 @@ export interface Contribution {
   avatar: string;
   comment: string;
   photos: TravelPhoto[];
+  category?: PlaceCategory;
   createdAt?: Timestamp | null;
   editedAt?: Timestamp | null;
 }

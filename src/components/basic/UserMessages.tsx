@@ -6,6 +6,7 @@ import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode }
 import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
 import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
+import { normalizeAvatarPath } from '../../utils/avatarPath';
 
 interface Reaction {
   userId: string;
@@ -59,31 +60,6 @@ interface UserMessageProps {
   edited?: boolean;
   imageId?: string;
 }
-
-// Utility function to normalize avatar paths
-const normalizeAvatarPath = (avatarPath: string): string => {
-  if (!avatarPath) return '';
-
-  // Remove leading slash if present
-  const cleanPath = avatarPath.startsWith('/') ? avatarPath.substring(1) : avatarPath;
-
-  // Handle different path formats
-  if (cleanPath.startsWith('Stickers/')) {
-    // Path is already in correct format: "Stickers/avatar_name.webp"
-    return `/${cleanPath}`;
-  } else if (cleanPath.startsWith('assets/')) {
-    // Convert "assets/avatar_name.webp" to "Stickers/avatar_name.webp"
-    const fileName = cleanPath.replace('assets/', '');
-    return `/Stickers/${fileName}`;
-  } else if (cleanPath.includes('/')) {
-    // Extract just the filename from any path format
-    const fileName = cleanPath.split('/').pop() || '';
-    return `/Stickers/${fileName}`;
-  } else {
-    // Assume it's just a filename
-    return `/Stickers/${cleanPath}`;
-  }
-};
 
 // Utility function to validate and sanitize URLs
 const isValidUrl = (url: string): boolean => {

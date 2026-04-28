@@ -32,6 +32,16 @@
   color: var(--colour4);
 }
 
+.travel-card__username--link {
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.travel-card__username--link:hover {
+  text-decoration: underline;
+  color: var(--colour3);
+}
+
 .travel-card__edit-indicator {
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.55);

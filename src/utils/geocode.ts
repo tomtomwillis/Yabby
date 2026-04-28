@@ -130,6 +130,7 @@ export function categoryFromOsm(result: PlaceSearchResult): PlaceCategory {
   if (cls === 'historic') return 'poi';
   if (cls === 'leisure' && (type === 'park' || type === 'garden' || type === 'nature_reserve'))
     return 'poi';
+  if (cls === 'shop') return 'shop';
 
   return 'other';
 }

@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { Place, PlaceCategory, TravelPhoto } from './travelTypes';
 import TravelPlaceBubble from './TravelPlaceBubble';
+import { normalizeAvatarPath } from '../../utils/avatarPath';
 import './TravelRecommendationList.css';
 
 interface TravelRecommendationListProps {
@@ -13,6 +15,7 @@ interface TravelRecommendationListProps {
     next: { comment: string; photos: TravelPhoto[]; category: PlaceCategory },
   ) => Promise<void>;
   onDeleteContribution: (placeId: string, userId: string) => Promise<void>;
+  onAddOwn?: (place: Place) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -23,6 +26,7 @@ export default function TravelRecommendationList({
   onFocus,
   onEditContribution,
   onDeleteContribution,
+  onAddOwn,
 }: TravelRecommendationListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -49,31 +53,52 @@ export default function TravelRecommendationList({
         const isExpanded = expandedId === place.id;
         return (
           <li key={place.id} className={`travel-rec-list__item${isExpanded ? ' travel-rec-list__item--expanded' : ''}`}>
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               className="travel-rec-list__row"
               onClick={() => toggleExpand(place)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleExpand(place);
+                }
+              }}
               aria-expanded={isExpanded}
             >
               <div className="travel-rec-list__avatars">
-                {place.firstContributorAvatar ? (
+                {place.contributorCount >= 2 ? (
                   <img
                     className="travel-rec-list__avatar"
-                    src={place.firstContributorAvatar}
+                    src="/Stickers/avatar_star_pink.webp"
+                    alt=""
+                  />
+                ) : place.firstContributorAvatar ? (
+                  <img
+                    className="travel-rec-list__avatar"
+                    src={normalizeAvatarPath(place.firstContributorAvatar)}
                     alt={place.firstContributorUsername}
                   />
                 ) : (
                   <div className="travel-rec-list__avatar travel-rec-list__avatar--fallback" />
-                )}
-                {place.contributorCount > 1 && (
-                  <span className="travel-rec-list__extra-count">+{place.contributorCount - 1}</span>
                 )}
               </div>
 
               <div className="travel-rec-list__meta">
                 <span className="travel-rec-list__name">{place.displayName.split(',')[0]}</span>
                 <span className="travel-rec-list__byline">
-                  {place.firstContributorUsername}
+                  {place.firstContributorUserId ? (
+                    <Link
+                      to={`/user/${place.firstContributorUserId}`}
+                      className="travel-rec-list__byline-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {place.firstContributorUsername}
+                    </Link>
+                  ) : (
+                    place.firstContributorUsername
+                  )}
                   {place.contributorCount > 1 && ` + ${place.contributorCount - 1} more`}
                   {place.city ? ` · ${place.city}` : ''}
                 </span>
@@ -82,7 +107,7 @@ export default function TravelRecommendationList({
               <span className={`travel-rec-list__chevron${isExpanded ? ' travel-rec-list__chevron--open' : ''}`}>
                 ▾
               </span>
-            </button>
+            </div>
 
             {isExpanded && (
               <div className="travel-rec-list__expanded">
@@ -91,6 +116,7 @@ export default function TravelRecommendationList({
                   currentUserId={currentUserId}
                   onEditContribution={onEditContribution}
                   onDeleteContribution={onDeleteContribution}
+                  onAddOwn={onAddOwn}
                 />
               </div>
             )}
