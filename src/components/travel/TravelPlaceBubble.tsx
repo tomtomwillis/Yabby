@@ -125,23 +125,26 @@ export default function TravelPlaceBubble({
           !!onAddOwn &&
           !!currentUserId &&
           !contributions.some((c) => c.userId === currentUserId);
-        const tileCount = contributions.length + (showAddTile ? 1 : 0);
-        if (tileCount === 0) return null;
+        if (contributions.length === 0 && !showAddTile) return null;
         return (
-          <div
-            className="travel-bubble__cards"
-            style={{ '--cards-per-row': cardsPerRow(tileCount) } as React.CSSProperties}
-          >
-            {contributions.map((c) => (
-              <TravelContributionCard
-                key={c.userId}
-                contribution={c}
-                isOwn={c.userId === currentUserId}
-                category={place.category}
-                onSaveEdit={(next) => handleEdit(c.userId, next)}
-                onDelete={() => handleDelete(c.userId)}
-              />
-            ))}
+          <>
+            {contributions.length > 0 && (
+              <div
+                className="travel-bubble__cards"
+                style={{ '--cards-per-row': cardsPerRow(contributions.length) } as React.CSSProperties}
+              >
+                {contributions.map((c) => (
+                  <TravelContributionCard
+                    key={c.userId}
+                    contribution={c}
+                    isOwn={c.userId === currentUserId}
+                    category={place.category}
+                    onSaveEdit={(next) => handleEdit(c.userId, next)}
+                    onDelete={() => handleDelete(c.userId)}
+                  />
+                ))}
+              </div>
+            )}
             {showAddTile && (
               <button
                 type="button"
@@ -153,7 +156,7 @@ export default function TravelPlaceBubble({
                 <span className="travel-bubble__add-label">Add yours</span>
               </button>
             )}
-          </div>
+          </>
         );
       })()}
     </div>
