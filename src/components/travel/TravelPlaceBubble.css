@@ -97,6 +97,12 @@
   gap: 16px 24px;
 }
 
+@media (max-width: 768px) {
+  .travel-bubble__cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 .travel-bubble__add-tile {
   display: inline-flex;
   align-items: center;
