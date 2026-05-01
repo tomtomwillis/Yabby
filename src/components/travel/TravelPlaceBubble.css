@@ -28,6 +28,14 @@
   max-width: 560px;
 }
 
+/* Constrain popup height on desktop so long contribution lists scroll within the bubble */
+@media (min-width: 769px) {
+  .travel-bubble-popup .leaflet-popup-content {
+    max-height: min(60vh, 520px);
+    overflow-y: auto;
+  }
+}
+
 /* Bubble container */
 .travel-bubble,
 .travel-bubble * {
@@ -97,6 +105,12 @@
   gap: 16px 24px;
 }
 
+/* Map popup always stacks contributions vertically, regardless of viewport */
+.travel-bubble-popup .travel-bubble__cards {
+  grid-template-columns: 1fr;
+}
+
+/* List view: stack on mobile, side-by-side on desktop */
 @media (max-width: 768px) {
   .travel-bubble__cards {
     grid-template-columns: 1fr;

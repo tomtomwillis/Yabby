@@ -142,15 +142,17 @@ export default function TravelPage() {
   }, [places, cityFilter, categoryFilter, userFilter, memberships]);
 
   const cities = useMemo<CityOption[]>(() => {
-    const seen = new Map<string, string>();
+    const labels = new Map<string, string>();
+    const counts = new Map<string, number>();
     for (const p of places) {
-      if (p.cityKey && !seen.has(p.cityKey)) {
-        seen.set(p.cityKey, p.city || p.cityKey);
-      }
+      if (!p.cityKey) continue;
+      if (!labels.has(p.cityKey)) labels.set(p.cityKey, p.city || p.cityKey);
+      counts.set(p.cityKey, (counts.get(p.cityKey) ?? 0) + (p.contributorCount || 1));
     }
-    return Array.from(seen.entries())
-      .map(([cityKey, label]) => ({ cityKey, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+    return Array.from(labels.entries())
+      .map(([cityKey, label]) => ({ cityKey, label, count: counts.get(cityKey) ?? 0 }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .map(({ cityKey, label }) => ({ cityKey, label }));
   }, [places]);
 
   const users = useMemo<UserOption[]>(() => {
