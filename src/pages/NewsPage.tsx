@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, startAfter, doc, serverTimestamp, QueryDocumentSnapshot } from 'firebase/firestore';
 import {
-  trackedGetDoc as getDoc,
   trackedGetDocs as getDocs,
   trackedOnSnapshot as onSnapshot,
-  trackedSetDoc as setDoc,
   trackedAddDoc as addDoc,
   trackedUpdateDoc as updateDoc,
   trackedDeleteDoc as deleteDoc,
@@ -21,12 +19,6 @@ import ForumBox from '../components/basic/ForumMessageBox';
 import Button from '../components/basic/Button';
 import '../components/MessageBoard.css';
 
-interface Reaction {
-  userId: string;
-  username: string;
-  timestamp: any;
-}
-
 interface NewsItem {
   id: string;
   text: string;
@@ -35,9 +27,6 @@ interface NewsItem {
   username: string;
   avatar: string;
   editedAt?: any;
-  reactions: Reaction[];
-  reactionCount: number;
-  currentUserReacted: boolean;
 }
 
 const NEWS_PER_PAGE = 5;
@@ -64,32 +53,6 @@ const NewsPage: React.FC = () => {
     } catch {
       return '';
     }
-  };
-
-  // Fetch reactions for a set of news items (one-time, no listener)
-  const fetchReactionsForItems = async (newsIds: string[]) => {
-    await Promise.all(
-      newsIds.map(async (newsId) => {
-        try {
-          const reactionsSnap = await getDocs(collection(db, 'news', newsId, 'reactions'));
-          const reactions = reactionsSnap.docs.map((d) => d.data() as Reaction);
-          setNewsItems(prev =>
-            prev.map(item =>
-              item.id === newsId
-                ? {
-                    ...item,
-                    reactions,
-                    reactionCount: reactions.length,
-                    currentUserReacted: reactions.some(r => r.userId === auth.currentUser?.uid),
-                  }
-                : item
-            )
-          );
-        } catch (error) {
-          console.error('Error fetching reactions for news:', newsId, error);
-        }
-      })
-    );
   };
 
   useEffect(() => {
@@ -119,18 +82,12 @@ const NewsPage: React.FC = () => {
             username: userData.username,
             avatar: userData.avatar,
             editedAt: data.editedAt,
-            reactions: [] as Reaction[],
-            reactionCount: 0,
-            currentUserReacted: false,
           };
         })
       );
 
       setNewsItems(items);
       setLoading(false);
-
-      // Fetch reactions once (no real-time listeners)
-      fetchReactionsForItems(snapshot.docs.map(d => d.id));
     });
 
     return () => unsubscribe();
@@ -171,17 +128,11 @@ const NewsPage: React.FC = () => {
             username: userData.username,
             avatar: userData.avatar,
             editedAt: data.editedAt,
-            reactions: [] as Reaction[],
-            reactionCount: 0,
-            currentUserReacted: false,
           };
         })
       );
 
       setNewsItems((prev) => [...prev, ...newItems]);
-
-      // Fetch reactions for newly loaded items
-      fetchReactionsForItems(snapshot.docs.map(d => d.id));
     } catch (error) {
       console.error('Error loading more news:', error);
     } finally {
@@ -224,44 +175,6 @@ const NewsPage: React.FC = () => {
       alert('Failed to post news. Please try again.');
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleToggleReaction = async (newsId: string) => {
-    if (!auth.currentUser) return;
-    const reactionDocRef = doc(db, 'news', newsId, 'reactions', auth.currentUser.uid);
-    try {
-      const reactionDoc = await getDoc(reactionDocRef);
-      if (reactionDoc.exists()) {
-        // Optimistic update
-        setNewsItems(prev =>
-          prev.map(item =>
-            item.id === newsId
-              ? { ...item, reactionCount: Math.max(0, item.reactionCount - 1), currentUserReacted: false }
-              : item
-          )
-        );
-        await deleteDoc(reactionDocRef);
-      } else {
-        // Optimistic update
-        setNewsItems(prev =>
-          prev.map(item =>
-            item.id === newsId
-              ? { ...item, reactionCount: item.reactionCount + 1, currentUserReacted: true }
-              : item
-          )
-        );
-        const userData = await getUserData(auth.currentUser.uid);
-        await setDoc(reactionDocRef, {
-          userId: auth.currentUser.uid,
-          username: userData.username,
-          timestamp: serverTimestamp(),
-        });
-      }
-    } catch (error) {
-      console.error('Error toggling reaction:', error);
-      // Re-fetch reactions to get correct state
-      fetchReactionsForItems([newsId]);
     }
   };
 
@@ -330,10 +243,6 @@ const NewsPage: React.FC = () => {
               onEdit={(newText: string) => handleEditNews(item.id, newText)}
               onDelete={() => handleDeleteNews(item.id)}
               edited={!!item.editedAt}
-              reactions={item.reactions}
-              reactionCount={item.reactionCount}
-              currentUserReacted={item.currentUserReacted}
-              onToggleReaction={() => handleToggleReaction(item.id)}
             />
           ))}
         </div>
