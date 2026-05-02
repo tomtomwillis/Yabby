@@ -46,7 +46,9 @@ src/
 ├── pages/            # Route-level page components
 ├── utils/            # Hooks and helpers
 ├── types/            # TypeScript ambient declarations
-└── assets/           # Static assets
+├── assets/           # Static assets (fonts, images)
+└── wiki/             # Docs and guides, wiki 
+backend_server        # Private repo, submodule backend node express server
 ```
 
 ### Routing & Auth
@@ -112,7 +114,9 @@ Free tier (50k reads/day) — minimising reads is critical:
 
 - Dockerised Express.js server
 - Built manually via Portainer (no CI/CD pipeline)
-- Caddy reverse proxy handles WebSocket upgrades automatically
+- Beets runs on the **host** — Docker container needs volume mounts for the beets virtualenv, incoming/uploaded media directories, and beets config directory (config + library.db)
+- Caddy reverse proxy handles WebSocket upgrades automatically — no special config needed
+- Beets import terminal uses WebSocket at `/api/media/beets/terminal` with single-instance session lock (one user at a time, 10-min idle timeout)
 
 All external service credentials are environment variables only.
 
@@ -129,9 +133,69 @@ Key groups: Firebase config, Navidrome/Subsonic API, Copyparty URLs, SLSK reques
 - Use existing sanitisation utils for any user-generated content — never bypass DOMPurify
 - Comments only when the WHY is non-obvious — never reference removed code or ongoing changes
 
-## Working With Me
+## Working With Mea and the codebase
 
-- Be honest when you don't know something — say so directly rather than guessing
-- If a request isn't possible or practical, say so and suggest viable alternatives
-- When uncertain about approach, present options with trade-offs rather than picking one silently
-- Ask questions to confirm when unsure about which path to take, if I have been unclear about anything
+- Be honest when you don't know something or aren't confident in an answer — say so directly rather than guessing.
+- If a request doesn't seem possible or practical, say that clearly and suggest viable alternatives instead of attempting something unlikely to work.
+- When uncertain about the right approach, present options with trade-offs rather than picking one silently.
+- Always be extremely concise. No pleasantries, no bullet points unless I ask, minimal explanation. Get to the point in 2-3 sentences max unless the question clearly needs more depth. 
+- Have a cheerful/polite disposition, assume the best of me, but don't be sycophantic. Call out anything I get incorrect. Try to clarify any code needs during initial requests to reduce scope. 
+- Before executing a request, briefly consider whether the premise is sound, let me know, if not, proceed as usual.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+### Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+### Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.

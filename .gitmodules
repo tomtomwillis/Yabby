@@ -1,3 +1,4 @@
-[submodule "__backend_server"]
-	path = __backend_server
-	url = https://github.com/hamsterona/Yabbyville_backend
+[submodule "backend_server"]
+	path = backend_server
+	url = https://github.com/hamsterona/Yabbyville_backend.git
+
