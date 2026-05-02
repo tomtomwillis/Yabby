@@ -21,9 +21,23 @@ interface Track {
   duration?: number;
 }
 
+export interface PlacedStickerPayload {
+  stickerId: string;
+  userId: string;
+  albumId: string;
+  albumTitle: string;
+  albumArtist: string;
+  albumCover: string;
+  text: string;
+  position: { x: number; y: number };
+  sticker: string;
+  favoriteTrackId?: string;
+  favoriteTrackTitle?: string;
+}
+
 interface PlaceStickerCoreProps {
   albumInfo: AlbumInfo;
-  onSuccess?: () => void;
+  onSuccess?: (payload: PlacedStickerPayload) => void;
   onClose?: () => void;
   showBackButton?: boolean;
   onBack?: () => void;
@@ -299,13 +313,25 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         stickerData.favoriteTrackTitle = selectedTrack.title;
       }
 
-      await addDoc(collection(db, 'stickers'), stickerData);
+      const docRef = await addDoc(collection(db, 'stickers'), stickerData);
 
       alert('Sticker placed successfully!');
 
       // Call onSuccess callback if provided, otherwise reload
       if (onSuccess) {
-        onSuccess();
+        onSuccess({
+          stickerId: docRef.id,
+          userId: auth.currentUser.uid,
+          albumId: albumInfo.id,
+          albumTitle: albumInfo.title,
+          albumArtist: albumInfo.artist,
+          albumCover: albumInfo.cover,
+          text: stickerText.trim(),
+          position: { x: stickerPos.x, y: stickerPos.y },
+          sticker: userSticker,
+          favoriteTrackId: selectedTrack?.id,
+          favoriteTrackTitle: selectedTrack?.title,
+        });
       } else {
         window.location.reload();
       }

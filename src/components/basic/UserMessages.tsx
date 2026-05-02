@@ -6,6 +6,7 @@ import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode }
 import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
 import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
+import { normalizeAvatarPath } from '../../utils/avatarPath';
 
 interface Reaction {
   userId: string;
@@ -44,6 +45,8 @@ interface UserMessageProps {
   repliesExpanded?: boolean;
   isReply?: boolean;
   onToggleReplyReaction?: (replyId: string) => void;
+  onReactionHover?: () => void;
+  onReplyReactionHover?: (replyId: string) => void;
   replyingToUsername?: string;
   enableReplies?: boolean;
   // New props for edit/delete and profile links
@@ -57,31 +60,6 @@ interface UserMessageProps {
   edited?: boolean;
   imageId?: string;
 }
-
-// Utility function to normalize avatar paths
-const normalizeAvatarPath = (avatarPath: string): string => {
-  if (!avatarPath) return '';
-
-  // Remove leading slash if present
-  const cleanPath = avatarPath.startsWith('/') ? avatarPath.substring(1) : avatarPath;
-
-  // Handle different path formats
-  if (cleanPath.startsWith('Stickers/')) {
-    // Path is already in correct format: "Stickers/avatar_name.webp"
-    return `/${cleanPath}`;
-  } else if (cleanPath.startsWith('assets/')) {
-    // Convert "assets/avatar_name.webp" to "Stickers/avatar_name.webp"
-    const fileName = cleanPath.replace('assets/', '');
-    return `/Stickers/${fileName}`;
-  } else if (cleanPath.includes('/')) {
-    // Extract just the filename from any path format
-    const fileName = cleanPath.split('/').pop() || '';
-    return `/Stickers/${fileName}`;
-  } else {
-    // Assume it's just a filename
-    return `/Stickers/${cleanPath}`;
-  }
-};
 
 // Utility function to validate and sanitize URLs
 const isValidUrl = (url: string): boolean => {
@@ -170,6 +148,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
   repliesExpanded,
   isReply,
   onToggleReplyReaction,
+  onReactionHover,
+  onReplyReactionHover,
   replyingToUsername,
   enableReplies,
   userId,
@@ -200,6 +180,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
 
   const handleTouchStart = () => {
     longPressTimer.current = setTimeout(() => {
+      onReactionHover?.();
       setShowTooltip(true);
       setIsLongPress(true);
     }, 500); // 500ms long press
@@ -417,6 +398,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
                 reactionCount={reply.reactionCount}
                 currentUserReacted={reply.currentUserReacted}
                 onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
+                onReactionHover={onReplyReactionHover ? () => onReplyReactionHover(reply.id) : undefined}
                 isReply={true}
                 enableReplies={false}
                 imageId={reply.imageId}
@@ -469,7 +451,10 @@ const UserMessage: React.FC<UserMessageProps> = ({
         {onToggleReaction && (
           <div
             className="user-message-reaction-container"
-            onMouseEnter={() => setShowTooltip(true)}
+            onMouseEnter={() => {
+              onReactionHover?.();
+              setShowTooltip(true);
+            }}
             onMouseLeave={() => setShowTooltip(false)}
             onTouchStart={handleTouchStart}
             onTouchEnd={() => {

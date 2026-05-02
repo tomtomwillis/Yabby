@@ -1,21 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, query, orderBy, limit, startAfter, getDocs, onSnapshot, doc, getDoc, setDoc, deleteDoc, updateDoc, serverTimestamp, QueryDocumentSnapshot } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, query, orderBy, limit, startAfter, doc, serverTimestamp, QueryDocumentSnapshot } from 'firebase/firestore';
+import {
+  trackedGetDocs as getDocs,
+  trackedOnSnapshot as onSnapshot,
+  trackedAddDoc as addDoc,
+  trackedUpdateDoc as updateDoc,
+  trackedDeleteDoc as deleteDoc,
+} from '../utils/firestoreMetrics';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
 import { useAdmin } from '../utils/useAdmin';
 import { useRateLimit } from '../utils/useRateLimit';
+import { getUserData } from '../utils/userCache';
 import Header from '../components/basic/Header';
 import NewsPost from '../components/NewsPost';
 import ForumBox from '../components/basic/ForumMessageBox';
 import Button from '../components/basic/Button';
 import '../components/MessageBoard.css';
-
-interface Reaction {
-  userId: string;
-  username: string;
-  timestamp: any;
-}
 
 interface NewsItem {
   id: string;
@@ -25,9 +27,6 @@ interface NewsItem {
   username: string;
   avatar: string;
   editedAt?: any;
-  reactions: Reaction[];
-  reactionCount: number;
-  currentUserReacted: boolean;
 }
 
 const NEWS_PER_PAGE = 5;
@@ -47,29 +46,6 @@ const NewsPage: React.FC = () => {
     windowMs: 5 * 60 * 1000,
   });
 
-  const userCacheRef = useRef<Map<string, { username: string; avatar: string; timestamp: number }>>(new Map());
-  const CACHE_DURATION = 5 * 60 * 1000;
-
-  const getUserData = async (userId: string): Promise<{ username: string; avatar: string }> => {
-    const now = Date.now();
-    const cached = userCacheRef.current.get(userId);
-    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      return { username: cached.username, avatar: cached.avatar };
-    }
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      const userData = userDoc.exists()
-        ? { username: userDoc.data().username || 'Anonymous', avatar: userDoc.data().avatar || '' }
-        : { username: 'Anonymous', avatar: '' };
-      userCacheRef.current.set(userId, { ...userData, timestamp: now });
-      return userData;
-    } catch {
-      const fallback = { username: 'Anonymous', avatar: '' };
-      userCacheRef.current.set(userId, { ...fallback, timestamp: now });
-      return fallback;
-    }
-  };
-
   const formatTimestamp = (timestamp: any): string => {
     if (!timestamp) return '';
     try {
@@ -77,25 +53,6 @@ const NewsPage: React.FC = () => {
     } catch {
       return '';
     }
-  };
-
-  const setupReactionListeners = (newsId: string) => {
-    const reactionsRef = collection(db, 'news', newsId, 'reactions');
-    return onSnapshot(reactionsRef, (snapshot) => {
-      const reactions = snapshot.docs.map((d) => d.data() as Reaction);
-      setNewsItems((prev) =>
-        prev.map((item) =>
-          item.id === newsId
-            ? {
-                ...item,
-                reactions,
-                reactionCount: reactions.length,
-                currentUserReacted: reactions.some(r => r.userId === auth.currentUser?.uid),
-              }
-            : item
-        )
-      );
-    });
   };
 
   useEffect(() => {
@@ -125,20 +82,12 @@ const NewsPage: React.FC = () => {
             username: userData.username,
             avatar: userData.avatar,
             editedAt: data.editedAt,
-            reactions: [] as Reaction[],
-            reactionCount: 0,
-            currentUserReacted: false,
           };
         })
       );
 
       setNewsItems(items);
       setLoading(false);
-
-      // Set up reaction listeners for initial items
-      snapshot.docs.forEach((docSnapshot) => {
-        setupReactionListeners(docSnapshot.id);
-      });
     });
 
     return () => unsubscribe();
@@ -179,17 +128,9 @@ const NewsPage: React.FC = () => {
             username: userData.username,
             avatar: userData.avatar,
             editedAt: data.editedAt,
-            reactions: [] as Reaction[],
-            reactionCount: 0,
-            currentUserReacted: false,
           };
         })
       );
-
-      // Set up reaction listeners for new items
-      snapshot.docs.forEach((docSnapshot) => {
-        setupReactionListeners(docSnapshot.id);
-      });
 
       setNewsItems((prev) => [...prev, ...newItems]);
     } catch (error) {
@@ -234,26 +175,6 @@ const NewsPage: React.FC = () => {
       alert('Failed to post news. Please try again.');
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleToggleReaction = async (newsId: string) => {
-    if (!auth.currentUser) return;
-    const reactionDocRef = doc(db, 'news', newsId, 'reactions', auth.currentUser.uid);
-    try {
-      const reactionDoc = await getDoc(reactionDocRef);
-      if (reactionDoc.exists()) {
-        await deleteDoc(reactionDocRef);
-      } else {
-        const userData = await getUserData(auth.currentUser.uid);
-        await setDoc(reactionDocRef, {
-          userId: auth.currentUser.uid,
-          username: userData.username,
-          timestamp: serverTimestamp(),
-        });
-      }
-    } catch (error) {
-      console.error('Error toggling reaction:', error);
     }
   };
 
@@ -322,10 +243,6 @@ const NewsPage: React.FC = () => {
               onEdit={(newText: string) => handleEditNews(item.id, newText)}
               onDelete={() => handleDeleteNews(item.id)}
               edited={!!item.editedAt}
-              reactions={item.reactions}
-              reactionCount={item.reactionCount}
-              currentUserReacted={item.currentUserReacted}
-              onToggleReaction={() => handleToggleReaction(item.id)}
             />
           ))}
         </div>

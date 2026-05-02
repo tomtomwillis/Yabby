@@ -2,7 +2,7 @@
 // Wrapper component providing three modes for sticker placement
 import React, { useState } from 'react';
 import './PlaceSticker.css';
-import PlaceStickerCore from './PlaceStickerCore';
+import PlaceStickerCore, { type PlacedStickerPayload } from './PlaceStickerCore';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 
 interface AlbumInfo {
@@ -20,6 +20,7 @@ interface PlaceStickerProps {
   onClose?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
+  onSuccess?: (payload: PlacedStickerPayload) => void;
 }
 
 const PlaceSticker: React.FC<PlaceStickerProps> = ({
@@ -29,6 +30,7 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
   onClose,
   onBack,
   showBackButton = false,
+  onSuccess,
 }) => {
   const [internalAlbumInfo, setInternalAlbumInfo] = useState<AlbumInfo | null>(null);
   const [showPopup, setShowPopup] = useState(false);
@@ -120,6 +122,7 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
                 albumInfo={internalAlbumInfo}
                 onClose={handleClosePopup}
                 showAlbumInfo={true}
+                onSuccess={onSuccess}
               />
             </div>
           </div>
@@ -141,6 +144,7 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
             onBack={onBack}
             showBackButton={showBackButton}
             showAlbumInfo={false}
+            onSuccess={onSuccess}
           />
         </div>
       </div>
@@ -164,6 +168,7 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
                 albumInfo={internalAlbumInfo}
                 onClose={handleClosePopup}
                 showAlbumInfo={true}
+                onSuccess={onSuccess}
               />
             </div>
           </div>

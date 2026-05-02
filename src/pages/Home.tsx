@@ -4,15 +4,15 @@ import Header from '../components/basic/Header';
 import '../App.css';
 import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
-import CarouselStickers from '../components/CarouselStickers';
+import CarouselStickers, { type CarouselStickersHandle } from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
+import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import WebampRadio from '../components/WebampRadio';
 import RecentLists from '../components/RecentLists';
 import RecentNews from '../components/RecentNews';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
 import AsciiMan from '../components/AsciiMan';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import Weather from '../components/weather-app';
 
 // Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
@@ -41,6 +41,7 @@ const SUBTITLES = [
   "My face is the front of shop",
   "Recommended by 9 out of 10 dentists",
   "Final release moving fast!",
+  "Maximum Volume yields Maximum Results",
   "for f in *.flac; do ffmpeg -i \"$f\" -b:a 320k \"${f%.flac}.mp3\"; done",
   "Put a donk on it",
 ];
@@ -48,6 +49,13 @@ const SUBTITLES = [
 function App() {
   const [subtitle, setSubtitle] = useState('');
   const radioContainerRef = useRef<HTMLDivElement>(null);
+  const stickersRef = useRef<CarouselStickersHandle>(null);
+
+  const handleStickerPlaced = (payload: PlacedStickerPayload) => {
+    stickersRef.current?.injectSticker(payload);
+    // Background reconcile against Firestore state
+    stickersRef.current?.refetch();
+  };
 
   const { nowPlaying } = useRadioMetadata();
   const [webampLoading, setWebampLoading] = useState(false);
@@ -59,26 +67,16 @@ function App() {
   // Animation timing (in milliseconds)
   const ANIMATION_DURATION = 500;
 
+  // Set random subtitle on mount; may be overridden by RecentNews callback
   useEffect(() => {
-    const pickSubtitle = async () => {
-      try {
-        const q = query(collection(db, 'news'), orderBy('timestamp', 'desc'), limit(1));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const data = snap.docs[0].data();
-          const ts = data.timestamp?.seconds ? data.timestamp.seconds * 1000 : null;
-          if (ts && Date.now() - ts < 48 * 60 * 60 * 1000) {
-            setSubtitle('Fresh News!');
-            return;
-          }
-        }
-      } catch {
-        // fall through to random subtitle on error
-      }
-      setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
-    };
-    pickSubtitle();
+    setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
   }, []);
+
+  const handleLatestNewsTimestamp = (timestampMs: number | null) => {
+    if (timestampMs && Date.now() - timestampMs < 48 * 60 * 60 * 1000) {
+      setSubtitle('Fresh News!');
+    }
+  };
 
   // Wait for page content to load before allowing Webamp to initialize
   useEffect(() => {
@@ -123,9 +121,9 @@ function App() {
       <div className="title1">
         <Link to="/stickers">Stickers →</Link>
       </div>
-      <CarouselStickers />
+      <CarouselStickers ref={stickersRef} />
 
-      <PlaceSticker />
+      <PlaceSticker onSuccess={handleStickerPlaced} />
 
       <hr />
 
@@ -175,7 +173,7 @@ function App() {
         <div className="title1">
           <Link to="/news">News →</Link>
         </div>
-        <RecentNews />
+        <RecentNews onLatestTimestamp={handleLatestNewsTimestamp} />
       </div>
 
       <hr />
@@ -189,20 +187,20 @@ function App() {
 
       <div className="title1">Stats</div>
         <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
+        <Weather />
           <Stats />
         </Suspense>
-
       <hr />
-
         <div className="title1">
           <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
         </div>
         <CarouselAlbums />
 
       <AsciiMan />
-
     </div>
+    
   );
 }
+
 
 export default App;

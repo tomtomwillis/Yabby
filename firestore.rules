@@ -114,10 +114,10 @@ service cloud.firestore {
         && isValidMessage(request.resource.data.text)
         && request.resource.data.editedAt == request.time;
 
-      // Any authenticated user can bump lastActivityAt (when replying)
+      // Any authenticated user can bump lastActivityAt and/or update denormalized counts
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt'])
-        && request.resource.data.lastActivityAt == request.time;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'reactionCount', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time);
 
       // Owner or admin can delete
       allow delete: if isOwner(resource.data.userId) || isAdmin();
@@ -162,6 +162,10 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
           && isValidMessage(request.resource.data.text)
           && request.resource.data.editedAt == request.time;
+
+        // Any authenticated user can update denormalized reaction count on replies
+        allow update: if isSignedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCount']);
 
         // Owner or admin can delete
         allow delete: if isOwner(resource.data.userId) || isAdmin();
@@ -331,6 +335,20 @@ match /filmClub/{monthId} {
   }
 }
 
+
+    // Travel recommendations — reads are open, writes go through the
+    // backend server (Admin SDK bypasses these rules). Clients are denied
+    // direct writes so they cannot spoof denormalised fields like
+    // contributorCount, firstContributor*, or a contribution's username/avatar.
+    match /places/{placeId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+
+      match /contributions/{userId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false;
+      }
+    }
 
     // Deny all other access by default
     match /{document=**} {

@@ -2,21 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Root
-
-The project root is `/Users/hamish/Documents/Yabbyville/new github repo/Yabby`. All commands should be run from this directory — do not `cd` or ask permission to navigate here.
-
 ## ⚠️ Public & Open Source
 
-This project is **public on GitHub**. All code, including security-sensitive logic, is publicly visible. When reviewing code and implementing features:
-- Avoid hardcoding secrets or credentials (use environment variables)
-- Be mindful of information disclosure in error messages
-- Remember that security through obscurity is not effective here
-- Document security assumptions clearly
+Project is **public on GitHub**. All code, including security-sensitive logic, is publicly visible:
+- No hardcoded secrets or credentials — use environment variables
+- Avoid information disclosure in error messages
+- Security through obscurity is not effective here
 
 ## Read-Only Shell Commands
 
-The following non-destructive commands may be run without asking for permission:
+Run without asking permission:
 
 ```
 ls, find, cat, head, tail, grep, rg, wc, file, stat, du, df
@@ -38,19 +33,20 @@ Verify changes with `npm run build` to catch TypeScript errors.
 
 ## Architecture
 
-**Yabbyville** is a private music community SPA using Firebase Auth (email/password) and Firestore.
+**Yabbyville** is a private music community SPA using Firebase Auth (email/password) and Firestore. Root url is yabbyville.xyz
 
 ### Directory Structure
 
 ```
 src/
 ├── components/       # Reusable UI components
-│   ├── media/        # Media manager tools (BeetsTerminal, CoverArtTool, etc.)
-│   └── basic/        # Low-level primitives (Button, Carousel, Star, etc.)
+│   ├── media/        # Media manager tools
+│   ├── travel/       # Travel recommendations feature
+│   └── basic/        # Low-level primitives
 ├── pages/            # Route-level page components
-├── utils/            # Hooks and helpers (sanitise, useAdmin, userCache, etc.)
+├── utils/            # Hooks and helpers
 ├── types/            # TypeScript ambient declarations
-└── assets/           # Static assets (fonts, images)
+└── assets/           # Static assets
 ```
 
 ### Routing & Auth
@@ -60,25 +56,44 @@ src/
 
 ### Media Manager
 
-- `MediaManager.tsx` is a tabbed container — tools live in `src/components/media/`
-- Cover art tool extracted to `CoverArtTool.tsx`, beets import in `BeetsTerminal.tsx`
+- Tabbed container with tools in `src/components/media/`
 - `useMediaManager` hook gates UI access; server enforces actual authorization
-- Utilises node express server on the backend
+- Express API backend
 
 ### Gotchas
 
-- In `vite.config.ts`, more specific proxy rules must come before general ones (e.g., `/api/media/beets/terminal` before `/api/media`)
-- `Header` component's `subtitle` prop is required (`string`, not `string | undefined`) — use nullish coalescing when the value might be undefined
-- A pre-commit security hook flags mentions of shell-based command construction patterns even in comments/docs — rephrase to avoid triggering it
+- Pre-commit hook flags shell command construction patterns — avoid even in comments
+- More specific Vite proxy rules must come before general ones
 
 ### Key Data Flow Patterns
 
 - **Sanitization**: All user-generated HTML goes through `src/utils/sanitise.ts` (DOMPurify). Usernames use `sanitizeText`. URLs validated with `validateUrl`.
-- **User data caching**: Components cache user lookups with 5-minute TTL to reduce Firestore reads
+- **User data caching**: Use shared cache (`userCache.ts`) — never create component-local caches
 
 ### Firestore Collections & Security
 
-Key collections: `users`, `messages` (with `reactions`/`replies` subcollections), `stickers`, `lists` (with `items` subcollection), and `admins` (write-protected).
+Key collections: `users`, `messages` (with `reactions`/`replies` subcollections), `news` (with `reactions` subcollection), `stickers`, `lists` (with `items` subcollection), `places` (with `contributions` subcollection), and `admins` (write-protected).
+
+### Travel Feature
+
+Leaflet map where users pin places with a comment and optional photos.
+
+- `places/{placeId}` — denormalized: coords, `displayName`, `city`, `cityKey`, `country`, OSM fields, `contributorCount`, first contributor info, `lastActivityAt`
+- `places/{placeId}/contributions/{userId}` — `comment`, `photos[]`, timestamps
+- `placeId` via `placeIdFor()` in `src/utils/geocode.ts` — never construct manually
+- Two backends: photo uploads → `VITE_MEDIA_API_URL`, contributions CRUD → `VITE_TRAVEL_API_URL`
+- `loadUserMemberships()` in `TravelPage.tsx` does N subcollection reads (one per place) — avoid adding more
+
+### Firestore Read Budget
+
+Free tier (50k reads/day) — minimising reads is critical:
+
+- Denormalize counts on parent documents — never query subcollections just for counts
+- Use `onSnapshot` only on-demand (e.g. expand/collapse); prefer `getDocs` for infrequently changing data
+- Always clean up listeners on component teardown — store unsubscribe in `useRef`
+- Use `docChanges()` to process only newly added documents in snapshots
+- Optimistic UI updates for reactions — update local state immediately, write in background
+- Use shared caches (`userCache.ts`, `useAdmin.ts`) — never create component-local duplicates
 
 ### Security Model
 
@@ -90,33 +105,33 @@ Key collections: `users`, `messages` (with `reactions`/`replies` subcollections)
 - **Navidrome**: Music library via Subsonic API
 - **Copyparty**: File upload server
 - **SLSK**: Soulseek request integration
-- **Beets**: Music library management via WebSocket terminal (`/opt/beetsenv/bin/beet` on host)
+- **Beets**: Music library management via WebSocket terminal on host
+- **Umami**: Analytics (page views, custom events via `window.umami?.track()`) — suggest adding tracking when implementing features that don't have it
 
 ### Backend (Express API)
 
-- Dockerised Express.js server at `/yabbyville/docker/coverartAPI/`, port 3200
+- Dockerised Express.js server
 - Built manually via Portainer (no CI/CD pipeline)
-- Beets runs on the **host** at `/opt/beetsenv/bin/beet` — Docker container needs volume mounts for `/opt/beetsenv`, `/media/IncomingMusic`, `/media/UserUploads`, and `/etc/beets/` (config + library.db)
-- Caddy reverse proxy handles WebSocket upgrades automatically — no special config needed
-- Beets import terminal uses WebSocket at `/api/media/beets/terminal` with single-instance session lock (one user at a time, 10-min idle timeout)
-- Local details on the Express server are in the _backend_plan folder
+- Caddy reverse proxy handles WebSocket upgrades automatically
 
 All external service credentials are environment variables only.
 
 ## Environment Variables
 
 Copy `example.env` to `.env` and fill in values. All vars are prefixed `VITE_` (exposed to client via Vite).
-Key groups: Firebase config, Navidrome/Subsonic API, Copyparty URLs, SLSK request URL, Media API (`VITE_MEDIA_API_URL`, `VITE_MEDIA_WS_URL`).
+Key groups: Firebase config, Navidrome/Subsonic API, Copyparty URLs, SLSK request URL, Media API.
 
 ## Code Style
 
 - Functional components only (no class components)
-- CSS files co-located with their component (e.g. `RadioPlayer.tsx` + `RadioPlayer.css`)
+- CSS files co-located with their component
 - Prefer named exports for utilities, default exports for pages/components
 - Use existing sanitisation utils for any user-generated content — never bypass DOMPurify
+- Comments only when the WHY is non-obvious — never reference removed code or ongoing changes
 
 ## Working With Me
 
-- Be honest when you don't know something or aren't confident in an answer — say so directly rather than guessing.
-- If a request doesn't seem possible or practical, say that clearly and suggest viable alternatives instead of attempting something unlikely to work.
-- When uncertain about the right approach, present options with trade-offs rather than picking one silently.
+- Be honest when you don't know something — say so directly rather than guessing
+- If a request isn't possible or practical, say so and suggest viable alternatives
+- When uncertain about approach, present options with trade-offs rather than picking one silently
+- Ask questions to confirm when unsure about which path to take, if I have been unclear about anything

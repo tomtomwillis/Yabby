@@ -1,0 +1,159 @@
+.travel-rec-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.travel-rec-list__empty {
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  color: rgba(43, 43, 43, 0.45);
+  padding: 10px 16px;
+  margin: 0;
+}
+
+.travel-rec-list__item {
+  border-bottom: 1px solid rgba(26, 46, 204, 0.1);
+}
+
+.travel-rec-list__item:last-child {
+  border-bottom: none;
+}
+
+.travel-rec-list__item--expanded {
+  background: transparent;
+}
+
+.travel-rec-list__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.travel-rec-list__row:hover {
+  background: rgba(26, 46, 204, 0.05);
+}
+
+.travel-rec-list__item--expanded .travel-rec-list__row {
+  background: transparent;
+}
+
+.travel-rec-list__avatars {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.travel-rec-list__avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(26, 46, 204, 0.2);
+  flex-shrink: 0;
+}
+
+.travel-rec-list__avatar--fallback {
+  background: linear-gradient(135deg, var(--colour2), var(--colour6));
+}
+
+.travel-rec-list__extra-count {
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  color: var(--colour2);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.travel-rec-list__meta {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.travel-rec-list__name {
+  font-family: var(--font2);
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: var(--colour5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.travel-rec-list__byline {
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: rgba(43, 43, 43, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.travel-rec-list__byline-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.travel-rec-list__byline-link:hover {
+  text-decoration: underline;
+  color: var(--colour2);
+}
+
+.travel-rec-list__chevron {
+  font-size: 1.1rem;
+  color: var(--colour2);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.travel-rec-list__chevron--open {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+/* Expanded panel — reuses the blue bubble styling inline */
+.travel-rec-list__expanded {
+  padding: 0 14px 12px;
+}
+
+.travel-rec-list__expanded .travel-bubble {
+  border-radius: 10px;
+  border: 1px solid rgba(26, 46, 204, 0.2);
+}
+
+/* Show more */
+.travel-rec-list__show-more {
+  padding: 8px 14px;
+  display: flex;
+  justify-content: center;
+}
+
+.travel-rec-list__show-more-btn {
+  font-family: var(--font2);
+  font-size: 0.82rem;
+  color: var(--colour2);
+  background: transparent;
+  border: 1px dashed var(--colour2);
+  border-radius: 6px;
+  padding: 5px 16px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.travel-rec-list__show-more-btn:hover {
+  background: rgba(26, 46, 204, 0.06);
+}

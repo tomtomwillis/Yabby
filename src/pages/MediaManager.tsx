@@ -67,6 +67,25 @@ const MediaManager: React.FC = () => {
         {activeTab === 'coverart' && <CoverArtTool />}
         {activeTab === 'import' && <BeetsTerminal />}
       </div>
+
+      <div style={{
+        fontFamily: 'var(--font2)',
+        fontSize: '0.8em',
+        color: 'var(--colour5)',
+        opacity: 0.75,
+        textAlign: 'center',
+        padding: '24px 20px',
+      }}>
+        Need help finding cover art? Try{' '}
+        <a
+          href="https://covers.musichoarders.xyz/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--colour1)' }}
+        >
+          covers.musichoarders.xyz
+        </a>
+      </div>
     </div>
   );
 };

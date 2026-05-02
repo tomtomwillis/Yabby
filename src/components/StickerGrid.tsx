@@ -28,6 +28,7 @@ interface AlbumWithStickers {
 
 interface PopupData {
   stickers: {
+    userId: string;
     text: string;
     username: string;
     avatar: string;
@@ -246,6 +247,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
             ? sticker.timestamp.toDate().toLocaleString()
             : 'Unknown time';
           return {
+            userId: sticker.userId,
             text: sticker.text,
             username: userData.username,
             avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
@@ -428,6 +430,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
                 <div key={index} className="sticker-message-item">
                   <UserMessage
                     username={sticker.username}
+                    userId={sticker.userId}
                     message={sticker.text}
                     timestamp={sticker.timestamp}
                     userSticker={sticker.avatar}

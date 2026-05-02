@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { clearUserCache } from '../utils/userCache';
 import { sanitizeHtml } from '../utils/sanitise';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
@@ -204,6 +205,7 @@ const Profile: React.FC = () => {
       setIsEditing(false);
       setFlagDropdownOpen(false);
       setFlagSearch('');
+      clearUserCache(user.uid);
       setSaveMessage('Profile updated!');
       setSaveSuccess(true);
 

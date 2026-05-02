@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Carousel } from './basic/Carousel';
 import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import './CarouselStickers.css';
-import { collection, getDocs, query, orderBy, doc, deleteDoc, limit, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, limit, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import {
+  trackedGetDocs as getDocs,
+  trackedDeleteDoc as deleteDoc,
+} from '../utils/firestoreMetrics';
 import { useAdmin } from '../utils/useAdmin';
 import { getUserData } from '../utils/userCache';
 
@@ -46,11 +50,33 @@ interface PopupData {
   albumCover: string;
 }
 
+export interface InjectStickerInput {
+  stickerId?: string;
+  userId: string;
+  albumId: string;
+  albumTitle: string;
+  albumArtist: string;
+  albumCover: string;
+  text: string;
+  position: { x: number; y: number };
+  sticker: string;
+  favoriteTrackId?: string;
+  favoriteTrackTitle?: string;
+}
+
+export interface CarouselStickersHandle {
+  injectSticker: (input: InjectStickerInput) => void;
+  refetch: () => void;
+}
+
 // Standard dimensions for consistent rendering
 const ALBUM_DISPLAY_SIZE = 300;
 const STICKER_SIZE = 100;
+// Scan recent stickers to identify which albums are most recently stickered.
+const RECENT_STICKERS_SCAN_LIMIT = 50;
+const ALBUMS_IN_CAROUSEL = 12;
 
-const CarouselStickers: React.FC = () => {
+const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
   const [albums, setAlbums] = useState<AlbumWithStickers[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +89,6 @@ const CarouselStickers: React.FC = () => {
     albumCover: '',
   });
 
-  // States for PlaceSticker component
   const [placeStickerVisible, setPlaceStickerVisible] = useState(false);
   const [selectedAlbumForSticker, setSelectedAlbumForSticker] = useState<{
     id: string;
@@ -82,52 +107,72 @@ const CarouselStickers: React.FC = () => {
       const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
       const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
       const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; // Use the client ID from .env
+      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
-      // Step 1: Fetch the 10 most recent stickers to determine which albums to show
-      const recentStickersQuery = query(
+      // Step 1: scan recent stickers to find which albums are most recently active.
+      // Map insertion order = album recency order (first appearance wins).
+      const recentQuery = query(
         collection(db, 'stickers'),
         orderBy('timestamp', 'desc'),
-        limit(10)
+        limit(RECENT_STICKERS_SCAN_LIMIT),
       );
-      const recentStickersSnapshot = await getDocs(recentStickersQuery);
-      const recentStickers: Sticker[] = recentStickersSnapshot.docs.map((d) => ({
-        ...(d.data() as Omit<Sticker, 'stickerId'>),
-        stickerId: d.id,
-      }));
+      const recentSnapshot = await getDocs(recentQuery);
 
-      // Step 2: Get unique album IDs from the recent stickers
-      const uniqueAlbumIds = [...new Set(recentStickers.map(sticker => sticker.albumId))];
+      const albumOrder: string[] = [];
+      const seenAlbums = new Set<string>();
+      for (const d of recentSnapshot.docs) {
+        const albumId = (d.data() as { albumId: string }).albumId;
+        if (!seenAlbums.has(albumId)) {
+          seenAlbums.add(albumId);
+          albumOrder.push(albumId);
+          if (albumOrder.length >= ALBUMS_IN_CAROUSEL) break;
+        }
+      }
 
-      // Step 3: For each album, fetch ALL stickers for that album
-      const albumsWithAllStickers: AlbumWithStickers[] = await Promise.all(
-        uniqueAlbumIds.map(async (albumId) => {
-          // Fetch all stickers for this specific album
-          const albumStickersQuery = query(
-            collection(db, 'stickers'),
-            where('albumId', '==', albumId)
-          );
-          const albumStickersSnapshot = await getDocs(albumStickersQuery);
-          const allAlbumStickers: Sticker[] = albumStickersSnapshot.docs
-            .map((d) => ({
-              ...(d.data() as Omit<Sticker, 'stickerId'>),
-              stickerId: d.id,
-            }))
-            .sort((a, b) => {
-              // Sort by timestamp descending (most recent first)
-              const timestampA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
-              const timestampB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
-              return timestampB.getTime() - timestampA.getTime();
-            });
+      if (albumOrder.length === 0) {
+        setAlbums([]);
+        return;
+      }
 
-          // Fetch album details from Navidrome API
+      // Step 2: fetch ALL stickers for the selected albums in one query.
+      // Firestore `in` supports up to 30 values — 12 is well within the limit.
+      const fullQuery = query(
+        collection(db, 'stickers'),
+        where('albumId', 'in', albumOrder),
+      );
+      const fullSnapshot = await getDocs(fullQuery);
+
+      const stickersByAlbum = new Map<string, Sticker[]>();
+      for (const d of fullSnapshot.docs) {
+        const sticker: Sticker = {
+          ...(d.data() as Omit<Sticker, 'stickerId'>),
+          stickerId: d.id,
+        };
+        const list = stickersByAlbum.get(sticker.albumId);
+        if (list) list.push(sticker);
+        else stickersByAlbum.set(sticker.albumId, [sticker]);
+      }
+
+      // Sort each album's stickers newest-first.
+      for (const list of stickersByAlbum.values()) {
+        list.sort((a, b) => {
+          const ta = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+          const tb = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+          return tb - ta;
+        });
+      }
+
+      const albumsWithStickers: AlbumWithStickers[] = await Promise.all(
+        albumOrder.map(async (albumId) => {
+          const stickers = stickersByAlbum.get(albumId) || [];
+
           const response = await fetch(
             `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
             {
               headers: {
                 Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
               },
-            }
+            },
           );
 
           if (!response.ok) {
@@ -144,7 +189,7 @@ const CarouselStickers: React.FC = () => {
           }
 
           const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-            'coverArt'
+            'coverArt',
           )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
 
           return {
@@ -152,12 +197,12 @@ const CarouselStickers: React.FC = () => {
             albumCover,
             albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
             albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
-            stickers: allAlbumStickers, // Now contains ALL stickers for this album
+            stickers,
           };
-        })
+        }),
       );
 
-      setAlbums(albumsWithAllStickers);
+      setAlbums(albumsWithStickers);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       console.error('Error fetching stickers:', errorMessage);
@@ -168,26 +213,71 @@ const CarouselStickers: React.FC = () => {
   };
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed, user:', user);
-      if (user) {
-        console.log('User authenticated, fetching stickers...');
-        fetchStickers();
-      } else {
-        console.log('No user authenticated');
-        setLoading(false);
-        setError('Please log in to view stickers');
-      }
-    });
-
-    return () => unsubscribe();
+    // PrivateRoute guarantees auth by the time this renders; fetch directly.
+    fetchStickers();
   }, []);
+
+  const injectStickerLocal = (input: InjectStickerInput) => {
+    const optimisticSticker: Sticker = {
+      stickerId: input.stickerId || `optimistic-${Date.now()}`,
+      userId: input.userId,
+      albumId: input.albumId,
+      text: input.text,
+      position: input.position,
+      sticker: input.sticker,
+      timestamp: { toDate: () => new Date(), seconds: Math.floor(Date.now() / 1000) },
+      favoriteTrackId: input.favoriteTrackId,
+      favoriteTrackTitle: input.favoriteTrackTitle,
+    };
+
+    setAlbums((prev) => {
+      const existingIdx = prev.findIndex((a) => a.albumId === input.albumId);
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        const existing = updated[existingIdx];
+        updated[existingIdx] = {
+          ...existing,
+          stickers: [optimisticSticker, ...existing.stickers],
+        };
+        // Move this album to the front (most recent activity)
+        const [movedAlbum] = updated.splice(existingIdx, 1);
+        return [movedAlbum, ...updated];
+      }
+      return [
+        {
+          albumId: input.albumId,
+          albumCover: input.albumCover,
+          albumTitle: input.albumTitle,
+          albumArtist: input.albumArtist,
+          stickers: [optimisticSticker],
+        },
+        ...prev,
+      ].slice(0, ALBUMS_IN_CAROUSEL);
+    });
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      injectSticker: injectStickerLocal,
+      refetch: () => {
+        fetchStickers();
+      },
+    }),
+    [],
+  );
+
+  const handleInternalStickerSuccess = (payload: InjectStickerInput) => {
+    injectStickerLocal(payload);
+    fetchStickers();
+    closePopup();
+  };
 
   const handleAlbumClick = async (album: AlbumWithStickers) => {
     const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
     const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
     const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-    const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; // Use the client ID from .env
+    const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
     setPopup({
       stickers: await Promise.all(
@@ -205,13 +295,13 @@ const CarouselStickers: React.FC = () => {
             timestamp: timestamp,
             favoriteTrackTitle: sticker.favoriteTrackTitle,
           };
-        })
+        }),
       ),
       visible: true,
       albumId: album.albumId,
       albumTitle: album.albumTitle,
       albumArtist: album.albumArtist,
-      albumCover: `${SERVER_URL}/rest/getCoverArt?id=${album.albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`, // Updated to use CLIENT_ID
+      albumCover: `${SERVER_URL}/rest/getCoverArt?id=${album.albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
     });
   };
 
@@ -220,12 +310,10 @@ const CarouselStickers: React.FC = () => {
 
     try {
       await deleteDoc(doc(db, 'stickers', stickerId));
-      // Remove from popup state
-      setPopup(prev => ({
+      setPopup((prev) => ({
         ...prev,
-        stickers: prev.stickers.filter(s => s.stickerId !== stickerId),
+        stickers: prev.stickers.filter((s) => s.stickerId !== stickerId),
       }));
-      // Refresh the carousel
       fetchStickers();
     } catch (error) {
       console.error('Error deleting sticker:', error);
@@ -247,16 +335,15 @@ const CarouselStickers: React.FC = () => {
       cover: popup.albumCover,
     });
     setPlaceStickerVisible(true);
-    setPopup({ ...popup, visible: false }); // Hide the view popup
+    setPopup({ ...popup, visible: false });
   };
 
   const handleBackToPopup = () => {
     setPlaceStickerVisible(false);
     setSelectedAlbumForSticker(null);
-    setPopup({ ...popup, visible: true }); // Show view popup again
+    setPopup({ ...popup, visible: true });
   };
 
-  // Convert normalized position to display coordinates for any container size
   const getStickerStyle = (position: { x: number; y: number }, containerElement: HTMLElement | null) => {
     if (!containerElement) {
       const xPercent = (position.x / ALBUM_DISPLAY_SIZE) * 100;
@@ -288,7 +375,6 @@ const CarouselStickers: React.FC = () => {
     };
   };
 
-  // Create carousel slides
   const carouselSlides = albums.map((album) => (
     <div key={album.albumId} className="album-item">
       <div
@@ -303,13 +389,13 @@ const CarouselStickers: React.FC = () => {
         />
         {album.stickers.map((sticker, index) => {
           const stickerElement = document.querySelector(
-            `[data-album-id="${album.albumId}"] .album-image`
+            `[data-album-id="${album.albumId}"] .album-image`,
           ) as HTMLElement;
 
           return (
             <img
               key={index}
-              src={`/Stickers/${sticker.sticker.split('/').pop()}`} // Extract filename and use correct path
+              src={`/Stickers/${sticker.sticker.split('/').pop()}`}
               alt="Sticker"
               className="sticker-overlay"
               style={getStickerStyle(sticker.position, stickerElement)}
@@ -355,7 +441,6 @@ const CarouselStickers: React.FC = () => {
       </div>
     );
   }
-
 
   return (
     <div className="sticker-album-carousel">
@@ -431,9 +516,12 @@ const CarouselStickers: React.FC = () => {
         onClose={closePopup}
         onBack={handleBackToPopup}
         showBackButton={true}
+        onSuccess={handleInternalStickerSuccess}
       />
     </div>
   );
-};
+});
+
+CarouselStickers.displayName = 'CarouselStickers';
 
 export default CarouselStickers;

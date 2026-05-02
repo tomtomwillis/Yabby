@@ -84,6 +84,7 @@ body {
   margin: 0;
   padding: 0;
   color: var(--colour5); /* default text color */
+  overflow-x: hidden;
 }
 
 #root {
@@ -91,7 +92,6 @@ body {
   margin: 0 auto;
   padding: 3rem;
   text-align: center;
-  overflow-x: hidden;
   box-sizing: border-box;
 }
 
