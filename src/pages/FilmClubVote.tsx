@@ -1,5 +1,5 @@
 import Header from '../components/basic/Header';
-import FilmClubVote from '../components/FilmClubVote';
+import FilmClubVote from '../components/film/FilmClubVote';
 import '../App.css';
 
 function FilmClubVotePage() {

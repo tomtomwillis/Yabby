@@ -1,15 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { db, auth } from '../../firebaseConfig';
+import { getCurrentMonthId } from '../../utils/useFilmClub';
 import FilmCard from './FilmCard';
 import './FilmClubVote.css';
-
-function getMonthId() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  return `${year}-${String(month).padStart(2, '0')}`;
-}
 
 interface Submission {
   submissionId: string; // Firestore doc ID: {userId}_{tmdbId}
@@ -25,7 +19,7 @@ interface Submission {
 
 function FilmClubVote() {
   const params = new URLSearchParams(window.location.search);
-  const monthId = params.get('month') ?? getMonthId();
+  const monthId = params.get('month') ?? getCurrentMonthId();
   const userId = auth.currentUser?.uid ?? null;
 
   const [ranking, setRanking] = useState<Submission[]>([]);
