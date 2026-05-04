@@ -31,14 +31,25 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
 
     if (isMobileMenuOpen) {
       document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
     } else {
-      document.body.style.overflow = 'unset';
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
     };
   }, [isMobileMenuOpen]);
 
@@ -92,7 +103,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
               <li><a href="/wiki" className="links">wiki</a></li>
               <li><a href="/stickers" className="links">stickers</a></li>
               <li><a href="/radio" className="links">radio</a></li>
-              <li><a href="/film-club" className="links">film&nbsp;club</a></li>
+              <li><a href="/travel" className="links">travel</a></li>
               {isMediaManager && (
                 <li><a href="/media" className="links">media&nbsp;management</a></li>
               )}
@@ -144,7 +155,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>
         <a href="/stickers" onClick={closeMobileMenu}>Stickers</a>
         <a href="/radio" onClick={closeMobileMenu}>Radio</a>
-        <a href="/film-club" onClick={closeMobileMenu}>Film Club</a>
+        <a href="/travel" onClick={closeMobileMenu}>Travel</a>
         {isMediaManager && (
           <a href="/media" onClick={closeMobileMenu}>Media Management</a>
         )}

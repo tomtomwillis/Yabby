@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ForumMessageBox.css';
 import Button from './Button';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 
 interface Result {
   id: string;
@@ -19,6 +20,7 @@ interface ForumMessageBoxProps {
   className?: string;
   showSendButton?: boolean;
   initialValue?: string;
+  onImageAttach?: (file: File | null) => void;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -30,6 +32,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   className = '',
   showSendButton = true,
   initialValue = '',
+  onImageAttach,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [listSearchQuery, setListSearchQuery] = useState<string>("");
@@ -41,10 +44,13 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [isSearchingLists, setIsSearchingLists] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState(initialValue);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Track the position of the trigger character (@ or #) for replacement
   const triggerPositionRef = useRef<number>(-1);
+  // Dedupe lazy list fetch + track load state
+  const listsFetchPromiseRef = useRef<Promise<void> | null>(null);
 
   // API configuration from environment variables
   const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
@@ -52,33 +58,34 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
   const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
-  // Set up real-time listener for all public lists
-  useEffect(() => {
-    const listsQuery = query(
-      collection(db, 'lists'),
-      where('isPublic', '!=', false)
-    );
-
-    const unsubscribe = onSnapshot(listsQuery, (snapshot) => {
-      const lists: Result[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.title) {
-          lists.push({
-            id: doc.id,
-            name: data.title,
-            type: 'list'
-          });
-        }
-      });
-      lists.sort((a, b) => a.name.localeCompare(b.name));
-      setAllLists(lists);
-    }, (error) => {
-      console.error('Error listening to lists:', error);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  // Lazy-fetch public lists only when user triggers the # autocomplete.
+  // Dedupes concurrent callers via a shared promise ref.
+  const ensureListsLoaded = (): Promise<void> => {
+    if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
+    const p = (async () => {
+      try {
+        const listsQuery = query(
+          collection(db, 'lists'),
+          where('isPublic', '!=', false),
+        );
+        const snapshot = await getDocs(listsQuery);
+        const lists: Result[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.title) {
+            lists.push({ id: docSnap.id, name: data.title, type: 'list' });
+          }
+        });
+        lists.sort((a, b) => a.name.localeCompare(b.name));
+        setAllLists(lists);
+      } catch (error) {
+        console.error('Error fetching lists:', error);
+        listsFetchPromiseRef.current = null; // allow retry on next trigger
+      }
+    })();
+    listsFetchPromiseRef.current = p;
+    return p;
+  };
 
   const fetchListResults = (searchTerm: string): Result[] => {
     if (!searchTerm.trim()) return [];
@@ -172,9 +179,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   }, [listSearchQuery, allLists]);
 
   const handleSend = () => {
-    if (newMessage.trim() && onSend && !disabled) {
+    if ((newMessage.trim() || imagePreviewUrl) && onSend && !disabled) {
       onSend(newMessage.trim());
       setNewMessage('');
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+        setImagePreviewUrl(null);
+        onImageAttach?.(null);
+      }
       clearSearch();
     }
   };
@@ -231,6 +243,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         setIsSearchingLists(true);
         setSearchQuery('');
         setIsSearching(false);
+        ensureListsLoaded();
         return;
       }
     }
@@ -283,9 +296,35 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     autoResize();
   }, [newMessage]);
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          alert('Image must be under 5 MB.');
+          return;
+        }
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+        setImagePreviewUrl(URL.createObjectURL(file));
+        onImageAttach?.(file);
+        return;
+      }
+    }
+  };
+
+  const removeImage = () => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(null);
+    onImageAttach?.(null);
+  };
+
   const wordCount = newMessage.trim() ? newMessage.trim().split(/\s+/).length : 0;
   const charCount = newMessage.length;
-  const canSend = newMessage.trim().length > 0 && wordCount <= maxWords && charCount <= maxChars && !disabled;
+  const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl) && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
   return (
     <div className={`textbox-container ${disabled ? 'disabled' : ''} ${className}`}>
@@ -295,6 +334,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           className="text-input"
           value={newMessage}
           onChange={handleInputChange}
+          onPaste={handlePaste}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && canSend) {
               e.preventDefault();
@@ -317,6 +357,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           </div>
         )}
       </div>
+
+      {imagePreviewUrl && (
+        <div className="image-preview-container">
+          <div className="image-preview-frame">
+            <img src={imagePreviewUrl} alt="Attached image preview" className="image-preview" />
+            <button className="image-preview-remove" onClick={removeImage} aria-label="Remove image">
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {isSearching && <p>{searchStatus}</p>}
       {isSearchingLists && <p>Searching for lists...</p>}

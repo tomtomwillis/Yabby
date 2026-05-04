@@ -14,8 +14,7 @@ dist-ssr
 *.local
 dev-dist/
 local/
-/.claude
-CLAUDE.md
+
 
 # Environment files
 .env
@@ -30,8 +29,6 @@ ui-debug.log
 database-debug.log
 pubsub-debug.log
 storage.rules
-
-*.rules
 
 # Editor directories and files
 .vscode/*
@@ -61,4 +58,9 @@ Thumbs.db
 *.tmp
 *.temp
 *.swp
-*~
+*~.env.local
+
+# Playwright
+.playwright-mcp/
+.claude/settings.local.json
+yabbyville-firebase-adminsdk.json

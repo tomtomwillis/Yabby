@@ -1,16 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { parseMessageHTML } from './basic/UserMessages';
 import { sanitizeHtml } from '../utils/sanitise';
-import { FaHeart, FaRegHeart, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaTrash } from 'react-icons/fa';
 import ForumBox from './basic/ForumMessageBox';
 import './basic/UserMessage.css';
-
-interface Reaction {
-  userId: string;
-  username: string;
-  timestamp: any;
-}
 
 interface NewsPostProps {
   username: string;
@@ -25,10 +19,6 @@ interface NewsPostProps {
   edited?: boolean;
   truncate?: boolean;
   truncateWords?: number;
-  reactions?: Reaction[];
-  reactionCount?: number;
-  currentUserReacted?: boolean;
-  onToggleReaction?: () => void;
 }
 
 const normalizeAvatarPath = (avatarPath: string): string => {
@@ -53,17 +43,10 @@ const NewsPost: React.FC<NewsPostProps> = ({
   edited,
   truncate = false,
   truncateWords = 25,
-  reactions,
-  reactionCount,
-  currentUserReacted,
-  onToggleReaction,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [isLongPress, setIsLongPress] = useState(false);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const isOwner = userId !== undefined && currentUserId !== undefined && userId === currentUserId;
   const canEdit = isOwner && isAdmin && onEdit;
@@ -82,21 +65,6 @@ const NewsPost: React.FC<NewsPostProps> = ({
   const displayMessage = needsTruncation
     ? words.slice(0, truncateWords).join(' ') + '...'
     : message;
-
-  const handleTouchStart = () => {
-    longPressTimer.current = setTimeout(() => {
-      setShowTooltip(true);
-      setIsLongPress(true);
-    }, 500);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    setIsLongPress(false);
-  };
 
   const handleDelete = () => {
     if (window.confirm('Are you sure you want to delete this news post? This cannot be undone.')) {
@@ -247,46 +215,6 @@ const NewsPost: React.FC<NewsPostProps> = ({
             aria-label="Delete news post"
           >
             <FaTrash />
-          </div>
-        )}
-
-        {onToggleReaction && (
-          <div
-            className="user-message-reaction-container"
-            onMouseEnter={() => setShowTooltip(true)}
-            onMouseLeave={() => setShowTooltip(false)}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={() => {
-              handleTouchEnd();
-              setTimeout(() => setShowTooltip(false), 2000);
-            }}
-            onTouchCancel={handleTouchEnd}
-          >
-            <div
-              className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
-              onClick={(e) => {
-                if (isLongPress && showTooltip) {
-                  e.preventDefault();
-                  return;
-                }
-                onToggleReaction();
-              }}
-              role="button"
-              tabIndex={0}
-              aria-label="React to news post"
-            >
-              {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
-              {reactionCount !== undefined && reactionCount > 0 && (
-                <span className="user-message-reaction-count">{reactionCount}</span>
-              )}
-            </div>
-            {showTooltip && reactions && reactions.length > 0 && (
-              <div className="user-message-reaction-tooltip">
-                {reactions.map((reaction, index) => (
-                  <div key={index}>{reaction.username}</div>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </div>

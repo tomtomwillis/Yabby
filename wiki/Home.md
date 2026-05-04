@@ -54,3 +54,4 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 - [Styling](Styling)
 - [Firestore Structure](Firestore-Structure)
 - [PWA](PWA)
+- [Privacy Policy](Privacy-Policy)

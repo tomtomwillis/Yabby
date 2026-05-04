@@ -21,6 +21,7 @@ import FilmClubSubmit from './pages/FilmClubSubmit';
 import FilmClubVote from './pages/FilmClubVote';
 import PrivateRoute from './components/PrivateRoute';
 import MediaManager from './pages/MediaManager';
+import TravelPage from './pages/TravelPage';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
           <Route path="/film-club-vote" element={<PrivateRoute><FilmClubVote /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
           <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
+          <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />
         </Routes>
       </div>
     </Router>

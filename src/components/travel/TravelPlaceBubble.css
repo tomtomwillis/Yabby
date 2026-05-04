@@ -1,0 +1,152 @@
+/* Leaflet popup overrides — make it match our blue cards */
+.travel-bubble-popup .leaflet-popup-content-wrapper {
+  background: var(--colour2);
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.travel-bubble-popup .leaflet-popup-tip {
+  background: var(--colour2);
+}
+
+.travel-bubble-popup .leaflet-popup-close-button {
+  color: rgba(255, 255, 255, 0.7);
+  top: 8px;
+  right: 10px;
+  font-size: 18px;
+}
+
+.travel-bubble-popup .leaflet-popup-close-button:hover {
+  color: #fff;
+}
+
+.travel-bubble-popup .leaflet-popup-content {
+  margin: 0;
+  min-width: 50px;
+  max-width: 560px;
+}
+
+/* Constrain popup height on desktop so long contribution lists scroll within the bubble */
+@media (min-width: 769px) {
+  .travel-bubble-popup .leaflet-popup-content {
+    max-height: min(60vh, 520px);
+    overflow-y: auto;
+  }
+}
+
+/* Bubble container */
+.travel-bubble,
+.travel-bubble * {
+  text-align: left;
+}
+
+.travel-bubble {
+  background: var(--colour2);
+  color: var(--colour4);
+  font-family: var(--font2);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.travel-bubble__title {
+  font-family: var(--font2);
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--colour4);
+  margin: 0 0 2px;
+}
+
+.travel-bubble__subtitle {
+  font-family: var(--font2);
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0 0 10px;
+}
+
+.travel-bubble__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 4px 0 6px;
+}
+
+.travel-bubble__category-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  letter-spacing: 0.01em;
+}
+
+.travel-bubble__separator {
+  border: none;
+  border-bottom: 4px dashed rgba(255, 255, 255, 0.35);
+  margin: 0 0 10px;
+}
+
+.travel-bubble__loading,
+.travel-bubble__empty {
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.travel-bubble__cards {
+  display: grid;
+  grid-template-columns: repeat(var(--cards-per-row, 1), 1fr);
+  gap: 16px 24px;
+}
+
+/* Map popup always stacks contributions vertically, regardless of viewport */
+.travel-bubble-popup .travel-bubble__cards {
+  grid-template-columns: 1fr;
+}
+
+/* List view: stack on mobile, side-by-side on desktop */
+@media (max-width: 768px) {
+  .travel-bubble__cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.travel-bubble__add-tile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font2);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.travel-bubble__add-tile:hover,
+.travel-bubble__add-tile:focus-visible {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.travel-bubble__add-plus {
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.travel-bubble__add-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}

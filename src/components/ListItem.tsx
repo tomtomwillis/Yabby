@@ -135,7 +135,11 @@ const ListItem: React.FC<ListItemProps> = (props) => {
       )}
 
       {/* Content container */}
-      <div className="user-message-content" style={{ padding: '16px' }}>
+      <div
+        className="user-message-content"
+        style={{ padding: '16px', cursor: itemDetails.clickable ? 'pointer' : 'default' }}
+        onClick={itemDetails.clickable ? handleItemClick : undefined}
+      >
         {/* Item title (replaces username) */}
         <div className="user-message-username">
           {itemDetails.title}
