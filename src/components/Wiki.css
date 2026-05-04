@@ -19,7 +19,6 @@
     overflow-x: hidden;
 }
 
-/* Override Google Docs font families */
 .wiki-content,
 .wiki-content * {
     font-family: var(--font1) !important;
@@ -67,7 +66,6 @@
     box-sizing: border-box !important;
 }
 
-/* Force each wiki-section to fit container */
 .wiki-section {
     width: 100% !important;
     max-width: 100% !important;
@@ -181,15 +179,6 @@
     display: block;
 }
 
-/* c4 used in h2 context */
-.wiki-section-content h2 .c4 {
-    font-size: inherit;
-    font-weight: inherit;
-    margin: 0;
-    padding: 0;
-    border: none;
-}
-
 .wiki-section-content h2:first-child {
     margin-top: 0;
 }
@@ -210,22 +199,10 @@
     display: block;
 }
 
-/* Empty paragraphs (line breaks) */
-.wiki-section-content p.c3,
 .wiki-section-content p:empty {
     margin-bottom: 0.5rem;
     min-height: 0.5rem;
     display: block;
-}
-
-.wiki-section-content .c18 {
-    margin-bottom: 1rem;
-}
-
-/* c8 is used for list containers in Google Docs */
-.wiki-section-content .c8 {
-    margin: 0 !important;
-    padding: 0 !important;
 }
 
 /* Lists within sections */
@@ -236,7 +213,6 @@
     display: block;
 }
 
-/* Override Google Docs list styling to show bullets/numbers */
 .wiki-section-content ul {
     list-style-type: disc !important;
 }
@@ -251,14 +227,8 @@
     display: list-item !important;
 }
 
-/* Ensure list items show markers */
 .wiki-section-content li:before {
     content: none !important;
-}
-
-.wiki-section-content .c2 {
-    margin-left: 0 !important;
-    padding-left: 0 !important;
 }
 
 /* Links within sections */
@@ -273,60 +243,11 @@
     color: var(--colour2);
 }
 
-.wiki-section-content .c6 a,
-.wiki-section-content .c2 a {
-    color: var(--colour2) !important;
-    text-decoration: underline !important;
-}
-
-/* Bold text styling - override Google Docs classes */
-.wiki-section-content p span.c5,
-.wiki-section-content p span.c1,
-.wiki-section-content p span.c4,
+/* Bold text */
 .wiki-section-content p strong,
 .wiki-section-content p b {
     font-weight: 700 !important;
     font-size: 1rem !important;
-    text-decoration: none !important;
-    display: inline !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    color: inherit !important;
-}
-
-/* Google Docs uses c14 for bold text */
-.wiki-section-content p span.c14 {
-    font-weight: 700 !important;
-    font-size: 1rem !important;
-    text-decoration: none !important;
-    display: inline !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    color: inherit !important;
-}
-
-/* Ensure c22 (bold marker) doesn't add extra styling */
-.wiki-section-content p span.c22 {
-    font-weight: 700 !important;
-    font-size: 1rem !important;
-    text-decoration: none !important;
-    display: inline !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    color: inherit !important;
-}
-
-/* Bold text in list items */
-.wiki-section-content li span.c5,
-.wiki-section-content li span.c1,
-.wiki-section-content li span.c4,
-.wiki-section-content li span.c14,
-.wiki-section-content li span.c22 {
-    font-weight: 700 !important;
-    font-size: inherit !important;
     text-decoration: none !important;
     display: inline !important;
     padding: 0 !important;
@@ -346,9 +267,7 @@
     object-fit: contain;
 }
 
-/* Remove margin from paragraphs containing images */
-.wiki-section-content p:has(img),
-.wiki-section-content .c8:has(img) {
+.wiki-section-content p:has(img) {
     margin: 0 !important;
     padding: 0 !important;
 }
@@ -372,21 +291,9 @@
     margin: 1.5rem 0;
     border-left: 4px solid #3498db;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    overflow-x: auto; /* Enable horizontal scrolling */
-    white-space: pre-wrap; /* Wrap long lines */
-    word-wrap: break-word; /* Break long words */
-}
-
-/* Warning sections within content */
-.wiki-section-content p:has(.c9):contains("⚠️"),
-.wiki-section-content p:contains("Warning") {
-    background-color: #fff3cd;
-    border: 1px solid #ffc107;
-    border-left: 4px solid #ffc107;
-    padding: 1rem;
-    margin: 1.5rem 0;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Tables within sections */
@@ -409,92 +316,13 @@
 }
 
 .wiki-section-content th {
-    background-color: var(--colour5); /* Use colour5 */
-    color: var(--colour4); /* Use colour4 */
+    background-color: var(--colour5);
+    color: var(--colour4);
     font-weight: bold;
 }
 
 .wiki-section-content tr:nth-child(even) {
     background-color: #f8f9fa;
-}
-
-/* Google Docs specific overrides */
-.wiki-content .c20 {
-    max-width: 100% !important;
-    width: 100% !important;
-    padding: 0 !important;
-    background-color: transparent !important;
-    box-sizing: border-box !important;
-}
-
-.wiki-content .c1 {
-    height: auto !important;
-}
-
-/* Override all Google Docs paragraph classes */
-.wiki-section-content p,
-.wiki-section-content .c8,
-.wiki-section-content .c18,
-.wiki-section-content .c1 {
-    max-width: 100% !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-/* Override all Google Docs span classes */
-.wiki-section-content span,
-.wiki-section-content .c23,
-.wiki-section-content .c9,
-.wiki-section-content .c6 {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    display: inline !important;
-}
-
-/* c0 is used for paragraphs - ensure block display */
-.wiki-section-content .c0 {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    display: block !important;
-}
-
-/* Aggressive catch-all for any Google Docs classes */
-.wiki-section-content [class^="c"],
-.wiki-section-content [class*=" c"] {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-/* Force paragraph elements to take full width */
-.wiki-section-content p[class] {
-    width: 100% !important;
-    min-width: 0 !important;
-}
-
-/* Strikethrough content */
-.wiki-section-content .c13 {
-    text-decoration: line-through;
-    opacity: 0.6;
-}
-
-/* Google Docs list classes - override to show proper lists */
-.wiki-section-content ul[class*="lst-"],
-.wiki-section-content ol[class*="lst-"] {
-    list-style-position: outside !important;
-    margin-left: 0 !important;
-    padding-left: 2rem !important;
-}
-
-.wiki-section-content li[class*="li-bullet"],
-.wiki-section-content li.c11 {
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-}
-
-/* Override the c11 class which Google Docs uses for list items */
-.wiki-section-content .c11 {
-    display: list-item !important;
-    margin-left: 0 !important;
 }
 
 /* Empty state */
@@ -857,7 +685,6 @@
         padding: 0 0.8rem;
     }
 
-    /* Remove extra spacing around images on mobile */
     .wiki-section-content img {
         margin: 0 !important;
     }
@@ -904,7 +731,6 @@
         padding: 0 0.6rem;
     }
 
-    /* Remove extra spacing around images on mobile */
     .wiki-section-content img {
         margin: 0 !important;
     }
@@ -925,7 +751,7 @@
     }
 }
 
-/* Accessibility improvements */
+/* Accessibility */
 @media (prefers-reduced-motion: reduce) {
     .wiki-section-content,
     .wiki-section-header,
@@ -936,7 +762,7 @@
     }
 }
 
-/* Force all text content to wrap inside wiki */
+/* Force all text to wrap */
 .wiki-content,
 .wiki-content * {
     max-width: 100%;
@@ -946,19 +772,11 @@
     box-sizing: border-box;
 }
 
-/* Fix tables */
 .wiki-section-content table,
 .wiki-section-content th,
 .wiki-section-content td {
     max-width: 100%;
     white-space: normal;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-}
-
-/* Fix code/pre blocks */
-.wiki-section-content pre {
-    white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
 }

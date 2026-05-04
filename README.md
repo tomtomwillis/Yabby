@@ -88,6 +88,8 @@ The app uses these Firestore collections. They are created automatically when us
 | `stickers` | Stickers placed on album covers |
 | `lists` | User-created album lists (with `items` subcollection) |
 | `news` | Admin-only news posts |
+| `places` | Travel recommendations (with `contributions` subcollection per place) |
+| `wiki` | Wiki content — single document `wiki/content` with a `text` field (Markdown) |
 | `admins` | Admin user IDs (manage via Firebase Console) |
 
 Security rules are in `firestore.rules` - deploy them to your Firebase project to enforce permissions.
@@ -96,11 +98,13 @@ Security rules are in `firestore.rules` - deploy them to your Firebase project t
 
 ```
 src/
-  pages/           # Route pages (Home, Profile, Stickers, etc.)
+  pages/           # Route pages (Home, Profile, Stickers, Travel, Wiki, etc.)
   components/
-    basic/         # Reusable UI components (Button, Header, Carousel, etc.)
-    ...            # Feature components (MessageBoard, StickerGrid, etc.)
-  utils/           # Sanitisation, rate limiting, caching
+    basic/         # Reusable UI components (Button, Header, Carousel, ForumMessageBox, etc.)
+    media/         # Media manager tools
+    travel/        # Travel feature components (TravelMap, TravelRecommendationList, etc.)
+    ...            # Feature components (MessageBoard, StickerGrid, NewsPost, etc.)
+  utils/           # Sanitisation, rate limiting, caching, geocoding
   types/           # TypeScript type definitions
   assets/fonts/    # Custom fonts
   App.tsx          # Routing and layout
@@ -110,7 +114,6 @@ public/
   Stickers/        # Avatar images (webp)
   skins/           # Webamp radio player skins
   icons/           # PWA icons
-  wiki/            # Wiki HTML content
 ```
 
 ## Styling
@@ -140,5 +143,7 @@ Detailed documentation for each page and component is in the [wiki/](wiki/) fold
 - **Navidrome** (Subsonic API)
 - **Embla Carousel** for sliders
 - **DOMPurify** for HTML sanitisation
+- **marked** for Markdown-to-HTML rendering (wiki content)
+- **Leaflet** for the travel map
 - **Webamp** for the radio player
 - **vite-plugin-pwa** for PWA support

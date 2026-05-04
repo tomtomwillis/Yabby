@@ -9,7 +9,6 @@ A community news feed where admins can post updates and announcements for all me
 
 - A chronological feed of news posts, newest first, paginated at 5 per page
 - Each post displays the author's avatar, username (linked to their profile), timestamp, and message body
-- Heart reaction button with a tooltip listing who reacted
 - An "edited" indicator when a post has been updated
 - Admin-only: a compose box at the top of the feed and edit/delete controls on each post
 
@@ -36,8 +35,6 @@ News posts are stored in the `news` Firestore collection. Each document has:
 | `avatar` | `string` | Author's avatar path at time of posting |
 | `timestamp` | `Timestamp` | Server timestamp |
 | `editedAt` | `Timestamp` (optional) | Set when the post is edited |
-
-Reactions are stored in a `reactions` subcollection under each news document (one document per user, keyed by UID).
 
 ## Customising
 

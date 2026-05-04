@@ -7,7 +7,7 @@ import Header from '../components/basic/Header';
 import Tips from '../components/basic/Tips';
 import { useAdmin } from '../utils/useAdmin';
 import { sanitizeWikiHtml } from '../utils/sanitise';
-import '../components/WikiParser.css';
+import '../components/Wiki.css';
 
 const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 

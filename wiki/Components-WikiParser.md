@@ -2,7 +2,9 @@
 
 **File:** `src/components/WikiParser.tsx`
 
-Fetches an HTML wiki file from the public directory and renders it inside the app, with collapsible `<h1>` sections, responsive tables, and images.
+A legacy component that fetches an HTML wiki file from the public directory and renders it inside the app, with collapsible `<h1>` sections, responsive tables, and images.
+
+> Note: the [Wiki page](Pages-Wiki) no longer uses this component. The page now loads Markdown from Firestore and renders it directly. `WikiParser` remains available as a standalone component for rendering static HTML files from the `public/` directory.
 
 ## Props
 
@@ -28,8 +30,6 @@ Fetches an HTML wiki file from the public directory and renders it inside the ap
    - `<table>` — wrapped in a horizontally scrollable `<div>`.
    - `<pre>` — forced to `white-space: pre-wrap` so code doesn't overflow on narrow screens.
    - `<img>` — made responsive (`max-width: 100%`).
-
-Used on the [Wiki page](Pages-Wiki).
 
 ## Customising
 
