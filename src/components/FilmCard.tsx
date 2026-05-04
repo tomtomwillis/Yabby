@@ -1,5 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './FilmCard.css';
+
+function truncateWords(text: string, limit: number): string {
+  const words = text.split(/\s+/);
+  if (words.length <= limit) return text;
+  return words.slice(0, limit).join(' ') + '…';
+}
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
 
@@ -13,11 +19,7 @@ interface FilmCardProps {
   label?: string;
   leaveDate?: string;
   trailerUrl?: string;
-  downloadLinks?: {
-    small?: string;
-    medium?: string;
-    large?: string;
-  };
+  downloadLinks?: { label: string; url: string }[];
 }
 
 const FilmCard: React.FC<FilmCardProps> = ({
@@ -32,6 +34,15 @@ const FilmCard: React.FC<FilmCardProps> = ({
   trailerUrl,
   downloadLinks,
 }) => {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const handleCopy = (url: string, index: number) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    });
+  };
+
   return (
     <div className="film-card">
       {(label || leaveDate) && (
@@ -58,7 +69,11 @@ const FilmCard: React.FC<FilmCardProps> = ({
           {submittedByUsername && (
             <p className="film-card-submitted-by">submitted by {submittedByUsername}</p>
           )}
-          {overview && <p className="film-card-overview">{overview}</p>}
+          {overview && (
+            <p className="film-card-overview">
+              {window.innerWidth <= 480 ? truncateWords(overview, 15) : overview}
+            </p>
+          )}
           {trailerUrl && (
             <a
               href={trailerUrl}
@@ -70,19 +85,15 @@ const FilmCard: React.FC<FilmCardProps> = ({
             </a>
           )}
 
-          {downloadLinks && (downloadLinks.small || downloadLinks.medium || downloadLinks.large) && (
-            <div className="film-card-download-row">
-              <span className="film-card-download-label">download film file:</span>
+          {downloadLinks && downloadLinks.some((l) => l.url) && (
+            <div className="film-card-download-row" style={{ marginTop: '0.75rem' }}>
+              <span className="film-card-download-label">Magnet link for download:</span>
               <div className="film-card-download-buttons">
-                {downloadLinks.small && (
-                  <a href={downloadLinks.small} className="film-club-btn film-club-btn-secondary" target="_blank" rel="noopener noreferrer">Small</a>
-                )}
-                {downloadLinks.medium && (
-                  <a href={downloadLinks.medium} className="film-club-btn film-club-btn-secondary" target="_blank" rel="noopener noreferrer">Medium</a>
-                )}
-                {downloadLinks.large && (
-                  <a href={downloadLinks.large} className="film-club-btn film-club-btn-secondary" target="_blank" rel="noopener noreferrer">Large</a>
-                )}
+                {downloadLinks.filter((l) => l.url).map((l, i) => (
+                  <button key={i} onClick={() => handleCopy(l.url, i)} className="film-club-btn film-club-btn-secondary">
+                    {copiedIndex === i ? 'Copied!' : (l.label || 'Download')}
+                  </button>
+                ))}
               </div>
             </div>
           )}

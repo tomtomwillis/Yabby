@@ -98,11 +98,7 @@ interface MonthDoc {
   currentFilm?: FilmData;
   nextFilm?: FilmData;
   winnerCalculated?: boolean;
-  downloadLinks?: {
-    small?: string;
-    medium?: string;
-    large?: string;
-  };
+  downloadLinks?: { label: string; url: string }[];
 }
 
 interface Submission {
@@ -139,7 +135,7 @@ function FilmClub() {
   const [adminFilmSelection, setAdminFilmSelection] = useState<FilmResult | null>(null);
   const [adminSaveStatus, setAdminSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [allSubmissions, setAllSubmissions] = useState<(Submission & { docId: string })[]>([]);
-  const [adminDownloadLinks, setAdminDownloadLinks] = useState({ small: '', medium: '', large: '' });
+  const [adminDownloadLinks, setAdminDownloadLinks] = useState<{ label: string; url: string }[]>([{ label: '', url: '' }, { label: '', url: '' }]);
   const [downloadSaveStatus, setDownloadSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Guard against duplicate IRV runs
@@ -148,11 +144,8 @@ function FilmClub() {
   // Pre-populate download links from Firestore when monthData loads
   useEffect(() => {
     if (monthData?.downloadLinks) {
-      setAdminDownloadLinks({
-        small: monthData.downloadLinks.small ?? '',
-        medium: monthData.downloadLinks.medium ?? '',
-        large: monthData.downloadLinks.large ?? '',
-      });
+      const links = monthData.downloadLinks;
+      setAdminDownloadLinks(links.length > 0 ? links : [{ label: '', url: '' }, { label: '', url: '' }]);
     }
   }, [monthData?.downloadLinks]);
 
@@ -191,7 +184,19 @@ function FilmClub() {
     const unsub = onSnapshot(
       doc(db, 'filmClub', monthId),
       (snap) => {
-        setMonthData(snap.exists() ? (snap.data() as MonthDoc) : null);
+        if (snap.exists()) {
+          const data = snap.data() as MonthDoc & { downloadLinks?: unknown };
+          // Migrate old { small, medium, large } shape to array
+          if (data.downloadLinks && !Array.isArray(data.downloadLinks)) {
+            const old = data.downloadLinks as Record<string, string>;
+            data.downloadLinks = (['small', 'medium', 'large'] as const)
+              .filter((k) => old[k])
+              .map((k) => ({ label: k.charAt(0).toUpperCase() + k.slice(1), url: old[k] }));
+          }
+          setMonthData(data as MonthDoc);
+        } else {
+          setMonthData(null);
+        }
         setLoading(false);
       },
       (err) => {
@@ -304,7 +309,8 @@ function FilmClub() {
   const handleAdminSaveDownloadLinks = async () => {
     setDownloadSaveStatus('saving');
     try {
-      await setDoc(doc(db, 'filmClub', monthId), { downloadLinks: adminDownloadLinks }, { merge: true });
+      const links = adminDownloadLinks.filter((l) => l.url.trim());
+      await setDoc(doc(db, 'filmClub', monthId), { downloadLinks: links }, { merge: true });
       setDownloadSaveStatus('saved');
     } catch (err) {
       console.error('Download links save error:', err);
@@ -462,19 +468,35 @@ function FilmClub() {
               </div>
             )}
             <div style={{ marginBottom: '1.5rem' }}>
-              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Download links</p>
-              {(['small', 'medium', 'large'] as const).map((size) => (
-                <div key={size} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                  <label className="normal-text" style={{ fontSize: '0.875rem', width: '4rem', flexShrink: 0, textTransform: 'capitalize' }}>{size}</label>
+              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Download links for current film</p>
+              {adminDownloadLinks.map((link, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={link.label}
+                    onChange={(e) => setAdminDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, label: e.target.value } : l))}
+                    placeholder="Size (e.g. 1080p)"
+                    style={{ width: '8rem', flexShrink: 0, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                  />
                   <input
                     type="url"
-                    value={adminDownloadLinks[size]}
-                    onChange={(e) => setAdminDownloadLinks((prev) => ({ ...prev, [size]: e.target.value }))}
+                    value={link.url}
+                    onChange={(e) => setAdminDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, url: e.target.value } : l))}
                     placeholder="https://…"
                     style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
                   />
+                  <button
+                    onClick={() => setAdminDownloadLinks((prev) => prev.filter((_, j) => j !== i))}
+                    className="film-club-btn"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', flexShrink: 0 }}
+                  >✕</button>
                 </div>
               ))}
+              <button
+                onClick={() => setAdminDownloadLinks((prev) => [...prev, { label: '', url: '' }])}
+                className="film-club-btn"
+                style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', marginBottom: '0.5rem' }}
+              >+ Add link</button>
               <button
                 onClick={handleAdminSaveDownloadLinks}
                 disabled={downloadSaveStatus === 'saving'}

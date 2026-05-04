@@ -144,6 +144,16 @@ function FilmClubVote() {
     draggedIndexRef.current = null;
   };
 
+  const moveItem = (fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= ranking.length) return;
+    const newRanking = [...ranking];
+    const [moved] = newRanking.splice(fromIndex, 1);
+    newRanking.splice(toIndex, 0, moved);
+    setRanking(newRanking);
+    setSaveStatus('idle');
+  };
+
   const handleSave = async () => {
     if (!userId) return;
     setSaveStatus('saving');
@@ -190,44 +200,17 @@ function FilmClubVote() {
     );
   }
 
+  const isMobile = window.innerWidth <= 480;
+
   return (
     <div className="film-vote-container">
       <a href="/film-club" className="links" style={{ fontSize: '1rem' }}>← back to film club</a>
       <p className="normal-text">
-        Drag to rank the films for {nextMonthName}. Your top pick goes first.
-        Voting closes <strong>{votingDeadline}</strong>.
+        {isMobile
+          ? <>Use the arrows to rank the films for {nextMonthName}. Your top pick goes first. Voting closes <strong>{votingDeadline}</strong>.</>
+          : <>Drag to rank the films for {nextMonthName}. Your top pick goes first. Voting closes <strong>{votingDeadline}</strong>.</>
+        }
       </p>
-
-      <div className="film-vote-list">
-        {ranking.map((submission, index) => (
-          <div
-            key={submission.submissionId}
-            className={`film-vote-item ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragEnd={handleDragEnd}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, index)}
-          >
-            <div className="film-vote-handle">
-              <span className="film-vote-rank">#{index + 1}</span>
-              <span className="film-vote-drag-icon">⠿</span>
-            </div>
-            <div className="film-vote-card">
-              <FilmCard
-                posterPath={submission.posterPath}
-                title={submission.title}
-                releaseYear={submission.releaseYear}
-                overview={submission.overview}
-                pitch={submission.pitch}
-                submittedByUsername={submission.username}
-                trailerUrl={trailerUrls[submission.submissionId]}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
 
       <button
         onClick={handleSave}
@@ -247,6 +230,54 @@ function FilmClubVote() {
           Something went wrong. Please try again.
         </p>
       )}
+
+      <div className="film-vote-list">
+        {ranking.map((submission, index) => (
+          <div
+            key={submission.submissionId}
+            className={`film-vote-item ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+            draggable={!isMobile}
+            onDragStart={isMobile ? undefined : (e) => handleDragStart(e, index)}
+            onDragEnd={isMobile ? undefined : handleDragEnd}
+            onDragOver={isMobile ? undefined : (e) => handleDragOver(e, index)}
+            onDragLeave={isMobile ? undefined : handleDragLeave}
+            onDrop={isMobile ? undefined : (e) => handleDrop(e, index)}
+          >
+            <div className="film-vote-handle">
+              <span className="film-vote-rank">#{index + 1}</span>
+              {isMobile ? (
+                <div className="film-vote-arrow-buttons">
+                  <button
+                    className="film-vote-arrow-btn"
+                    onClick={() => moveItem(index, 'up')}
+                    disabled={index === 0}
+                    aria-label="Move up"
+                  >▲</button>
+                  <button
+                    className="film-vote-arrow-btn"
+                    onClick={() => moveItem(index, 'down')}
+                    disabled={index === ranking.length - 1}
+                    aria-label="Move down"
+                  >▼</button>
+                </div>
+              ) : (
+                <span className="film-vote-drag-icon">⠿</span>
+              )}
+            </div>
+            <div className="film-vote-card">
+              <FilmCard
+                posterPath={submission.posterPath}
+                title={submission.title}
+                releaseYear={submission.releaseYear}
+                overview={submission.overview}
+                pitch={submission.pitch}
+                submittedByUsername={submission.username}
+                trailerUrl={trailerUrls[submission.submissionId]}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

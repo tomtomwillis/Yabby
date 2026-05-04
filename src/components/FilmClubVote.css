@@ -69,8 +69,37 @@
   min-width: 0;
 }
 
+.film-vote-arrow-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.film-vote-arrow-btn {
+  background: none;
+  border: 1px solid var(--colour2);
+  border-radius: 4px;
+  color: var(--colour2);
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.film-vote-arrow-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.film-vote-arrow-btn:not(:disabled):active {
+  color: var(--colour2);
+  border-color: var(--colour2);
+}
+
 .film-vote-save-btn {
-  margin-top: 1.25rem;
+  margin-bottom: .5rem;
+  align-self: center;
   padding: 0.6rem 1.4rem;
   background-color: var(--colour2);
   color: var(--colour4);

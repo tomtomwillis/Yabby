@@ -29,6 +29,7 @@
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.9.1",
     "react-simple-wysiwyg": "^3.4.1",
+    "@tdanks2000/tmdb-wrapper": "^2.0.0",
     "webamp": "^2.2.0"
   },
   "devDependencies": {
