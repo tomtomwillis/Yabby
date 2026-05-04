@@ -34,6 +34,11 @@
 
 /* Main Wiki Title */
 .wiki-title-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
     text-align: left;
     margin-bottom: 2rem;
     padding-bottom: 1rem;
@@ -490,6 +495,292 @@
 .wiki-section-content .c11 {
     display: list-item !important;
     margin-left: 0 !important;
+}
+
+/* Empty state */
+.wiki-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--colour5);
+    opacity: 0.6;
+    font-family: var(--font1);
+}
+
+.wiki-edit-open-btn {
+    font-family: var(--font1);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.9rem;
+    background: transparent;
+    border: 1px solid var(--colour2);
+    border-radius: 8px;
+    color: var(--colour2);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.wiki-edit-open-btn:hover {
+    background: var(--colour2);
+    color: var(--colour4);
+}
+
+/* Edit body: sidebar + textarea side by side on desktop */
+.wiki-edit-body {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.wiki-edit-body .wiki-edit-textarea {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+}
+
+.wiki-edit-sidebar {
+    width: 180px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 1rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    border: 1px solid var(--colour2);
+    border-radius: 8px;
+    padding: 0.6rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.wiki-edit-sidebar-label {
+    font-family: var(--font1);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--colour5);
+    opacity: 0.45;
+    padding: 0 0.4rem 0.4rem;
+}
+
+.wiki-edit-sidebar-item {
+    display: block;
+    width: 100%;
+    flex-shrink: 0;
+    text-align: left;
+    padding: 0.3rem 0.4rem;
+    font-family: var(--font1);
+    font-size: 0.82rem;
+    color: var(--colour5);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.15s, color 0.15s;
+}
+
+.wiki-edit-sidebar-item:hover {
+    background: var(--colour2);
+    color: var(--colour4);
+}
+
+.wiki-edit-sidebar-item--level2 {
+    padding-left: 1rem;
+    font-size: 0.77rem;
+    opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+    .wiki-edit-sidebar {
+        display: none;
+    }
+}
+
+/* Edit panel */
+.wiki-edit-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.wiki-edit-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.wiki-edit-title {
+    font-family: var(--font2);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--colour2);
+}
+
+.wiki-edit-hint {
+    font-family: var(--font1);
+    font-size: 0.8rem;
+    color: var(--colour5);
+    opacity: 0.65;
+}
+
+.wiki-edit-textarea {
+    width: 100%;
+    min-height: 60vh;
+    padding: 1rem;
+    font-family: var(--font2);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--colour5);
+    background: transparent;
+    border: 1px solid var(--colour2);
+    border-radius: 8px;
+    resize: vertical;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.wiki-edit-textarea:focus {
+    border-color: var(--colour1);
+}
+
+/* Image preview in edit mode */
+.wiki-image-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.wiki-image-preview-frame {
+    position: relative;
+    display: inline-block;
+}
+
+.wiki-image-preview {
+    max-height: 120px;
+    max-width: 200px;
+    border-radius: 6px;
+    object-fit: contain;
+    display: block;
+}
+
+.wiki-image-preview-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: var(--colour2);
+    color: var(--colour4);
+    font-size: 0.7rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.wiki-image-upload-btn {
+    font-family: var(--font1);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.9rem;
+    background: var(--colour2);
+    color: var(--colour4);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.wiki-image-upload-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Edit actions bar */
+.wiki-edit-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.wiki-edit-actions-right {
+    display: flex;
+    gap: 0.75rem;
+    margin-left: auto;
+}
+
+.wiki-file-input {
+    display: none;
+}
+
+.wiki-attach-btn {
+    font-family: var(--font1);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.9rem;
+    background: transparent;
+    border: 1px solid var(--colour2);
+    border-radius: 8px;
+    color: var(--colour2);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.wiki-attach-btn:hover:not(:disabled) {
+    background: var(--colour2);
+    color: var(--colour4);
+}
+
+.wiki-attach-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.wiki-cancel-btn {
+    font-family: var(--font1);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.9rem;
+    background: transparent;
+    border: 1px solid var(--colour5);
+    border-radius: 8px;
+    color: var(--colour5);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.wiki-cancel-btn:hover:not(:disabled) {
+    opacity: 1;
+}
+
+.wiki-cancel-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.wiki-save-btn {
+    font-family: var(--font1);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.9rem;
+    background: var(--colour2);
+    color: var(--colour4);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.wiki-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Loading and error states */
