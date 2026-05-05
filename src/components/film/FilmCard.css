@@ -130,6 +130,23 @@
   color: var(--colour5);
 }
 
+.film-card-description {
+  font-family: var(--font1);
+  font-size: 0.875rem;
+  color: var(--colour5);
+  margin: 0;
+  font-style: italic;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.film-card-download-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+
 .film-card-download-buttons {
   display: flex;
   flex-wrap: wrap;

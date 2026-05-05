@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import HelpLink from '../basic/HelpLink';
 import './FilmCard.css';
 
 function truncateWords(text: string, limit: number): string {
@@ -20,6 +21,7 @@ interface FilmCardProps {
   leaveDate?: string;
   trailerUrl?: string;
   downloadLinks?: { label: string; url: string }[];
+  description?: string;
 }
 
 const FilmCard: React.FC<FilmCardProps> = ({
@@ -33,6 +35,7 @@ const FilmCard: React.FC<FilmCardProps> = ({
   leaveDate,
   trailerUrl,
   downloadLinks,
+  description,
 }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
@@ -69,6 +72,7 @@ const FilmCard: React.FC<FilmCardProps> = ({
           {submittedByUsername && (
             <p className="film-card-submitted-by">submitted by {submittedByUsername}</p>
           )}
+          {description && <p className="film-card-description">"{description}"</p>}
           {overview && (
             <p className="film-card-overview">
               {window.innerWidth <= 480 ? truncateWords(overview, 15) : overview}
@@ -87,7 +91,10 @@ const FilmCard: React.FC<FilmCardProps> = ({
 
           {downloadLinks && downloadLinks.some((l) => l.url) && (
             <div className="film-card-download-row" style={{ marginTop: '0.75rem' }}>
-              <span className="film-card-download-label">Magnet link for download:</span>
+              <div className="film-card-download-label-row">
+                <HelpLink to="/wiki#how-do-i-use-the-magnet-links-in-the-film-club" />
+                <span className="film-card-download-label">Magnet link for download:</span>
+              </div>
               <div className="film-card-download-buttons">
                 {downloadLinks.filter((l) => l.url).map((l, i) => (
                   <button key={i} onClick={() => handleCopy(l.url, i)} className="film-club-btn film-club-btn-secondary">

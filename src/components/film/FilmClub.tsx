@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   doc, onSnapshot, collection, getDocs,
-  setDoc, runTransaction, deleteDoc,
+  setDoc, runTransaction, deleteDoc, deleteField, updateDoc,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 import { getUserData } from '../../utils/userCache';
@@ -60,6 +60,7 @@ interface MonthDoc {
   nextFilm?: FilmData;
   winnerCalculated?: boolean;
   downloadLinks?: { label: string; url: string }[];
+  currentFilmDescription?: string;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -86,6 +87,9 @@ function FilmClub() {
   const [allSubmissions, setAllSubmissions] = useState<(Submission & { docId: string })[]>([]);
   const [adminDownloadLinks, setAdminDownloadLinks] = useState<{ label: string; url: string }[]>([{ label: '', url: '' }, { label: '', url: '' }]);
   const [downloadSaveStatus, setDownloadSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [adminDescription, setAdminDescription] = useState('');
+  const [descriptionSaveStatus, setDescriptionSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [clearFilmStatus, setClearFilmStatus] = useState<'idle' | 'clearing' | 'error'>('idle');
 
   const irvTriggeredRef = useRef(false);
 
@@ -96,6 +100,11 @@ function FilmClub() {
       setAdminDownloadLinks(links.length > 0 ? links : [{ label: '', url: '' }, { label: '', url: '' }]);
     }
   }, [monthData?.downloadLinks]);
+
+  // ── Pre-populate description from Firestore ──────────────────────────────
+  useEffect(() => {
+    setAdminDescription(monthData?.currentFilmDescription ?? '');
+  }, [monthData?.currentFilmDescription]);
 
   // ── Fetch trailer for current film ──────────────────────────────────────
   useEffect(() => {
@@ -256,6 +265,33 @@ function FilmClub() {
     }
   };
 
+  // ── Admin: save description ──────────────────────────────────────────────
+  const handleAdminSaveDescription = async () => {
+    setDescriptionSaveStatus('saving');
+    try {
+      await setDoc(doc(db, 'filmClub', monthId), { currentFilmDescription: adminDescription }, { merge: true });
+      setDescriptionSaveStatus('saved');
+    } catch (err) {
+      console.error('Description save error:', err);
+      setDescriptionSaveStatus('error');
+    }
+  };
+
+  // ── Admin: clear current film ────────────────────────────────────────────
+  const handleAdminClearCurrentFilm = async () => {
+    setClearFilmStatus('clearing');
+    try {
+      await updateDoc(doc(db, 'filmClub', monthId), {
+        currentFilm: deleteField(),
+        currentFilmDescription: deleteField(),
+      });
+      setClearFilmStatus('idle');
+    } catch (err) {
+      console.error('Clear film error:', err);
+      setClearFilmStatus('error');
+    }
+  };
+
   // ── Admin: delete submission ─────────────────────────────────────────────
   const handleAdminDeleteSubmission = async (docId: string) => {
     try {
@@ -287,6 +323,7 @@ function FilmClub() {
             leaveDate={leavingDate}
             trailerUrl={currentFilmTrailerUrl ?? undefined}
             downloadLinks={monthData.downloadLinks}
+            description={monthData.currentFilmDescription || undefined}
           />
         </div>
       ) : (
@@ -437,6 +474,48 @@ function FilmClub() {
               <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
             )}
           </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Description for current film</p>
+            <textarea
+              value={adminDescription}
+              onChange={(e) => { setAdminDescription(e.target.value); setDescriptionSaveStatus('idle'); }}
+              placeholder="Add context or notes about this month's film…"
+              rows={4}
+              style={{ width: '100%', padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px', resize: 'vertical', boxSizing: 'border-box' }}
+            />
+            <button
+              onClick={handleAdminSaveDescription}
+              disabled={descriptionSaveStatus === 'saving'}
+              className="film-club-btn film-club-btn-primary"
+              style={{ marginTop: '0.5rem' }}
+            >
+              {descriptionSaveStatus === 'saving' ? 'Saving…' : 'Save description'}
+            </button>
+            {descriptionSaveStatus === 'saved' && (
+              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+            )}
+            {descriptionSaveStatus === 'error' && (
+              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+            )}
+          </div>
+
+          {monthData?.currentFilm && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Clear current film</p>
+              <button
+                onClick={handleAdminClearCurrentFilm}
+                disabled={clearFilmStatus === 'clearing'}
+                className="film-club-btn"
+                style={{ backgroundColor: 'var(--colour3)', color: 'var(--colour4)', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
+              >
+                {clearFilmStatus === 'clearing' ? 'Clearing…' : 'Clear current film'}
+              </button>
+              {clearFilmStatus === 'error' && (
+                <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error clearing.</p>
+              )}
+            </div>
+          )}
 
           <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Set currently playing film</p>
           <FilmSearchBox onFilmSelect={handleAdminSetCurrentFilm} />
