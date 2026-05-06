@@ -32,7 +32,7 @@ const SUBTITLES = [
   "🇵🇸 Free Palestine!! 🇵🇸",
   "Until Forever Fades Away",
   "And if I asked you to stop me from falling, Would you save me?",
-  "Hardcore will never day, but you will",
+  "Hardcore will never die, but you will",
   "Don't be daft, take a half",
   "Because steel is heavier than feathers",
   "Benny Harvey RIP",
