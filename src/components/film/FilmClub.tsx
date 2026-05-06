@@ -93,6 +93,7 @@ function FilmClub() {
   const [adminDescription, setAdminDescription] = useState('');
   const [descriptionSaveStatus, setDescriptionSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [clearFilmStatus, setClearFilmStatus] = useState<'idle' | 'clearing' | 'error'>('idle');
+  const [irvStatus, setIrvStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
 
   const irvTriggeredRef = useRef(false);
 
@@ -316,6 +317,51 @@ function FilmClub() {
     }
   };
 
+  // ── Admin: force re-run IRV ──────────────────────────────────────────────
+  const handleAdminRerunIRV = async () => {
+    setIrvStatus('running');
+    try {
+      const [subsSnap, votesSnap] = await Promise.all([
+        getDocs(collection(db, 'filmClub', adminMonthId, 'submissions')),
+        getDocs(collection(db, 'filmClub', adminMonthId, 'votes')),
+      ]);
+
+      const submissions: Record<string, Submission> = {};
+      subsSnap.forEach((d) => { submissions[d.id] = d.data() as Submission; });
+
+      const votes = votesSnap.docs.map((d) => d.data() as { ranking: string[] });
+      const candidateIds = Object.keys(submissions);
+
+      if (candidateIds.length === 0) {
+        setIrvStatus('error');
+        return;
+      }
+
+      const winnerId = calculateIRV(votes, candidateIds);
+      if (!winnerId) {
+        setIrvStatus('error');
+        return;
+      }
+
+      const winner = submissions[winnerId];
+      const nextFilm: FilmData = {
+        tmdbId: winner.tmdbId,
+        title: winner.title,
+        releaseYear: winner.releaseYear,
+        posterPath: winner.posterPath,
+        overview: winner.overview,
+        pitch: winner.pitch,
+        submittedByUsername: winner.username,
+      };
+
+      await setDoc(doc(db, 'filmClub', adminMonthId), { nextFilm, winnerCalculated: true }, { merge: true });
+      setIrvStatus('done');
+    } catch (err) {
+      console.error('Admin IRV error:', err);
+      setIrvStatus('error');
+    }
+  };
+
   // ── Admin: delete submission ─────────────────────────────────────────────
   const handleAdminDeleteSubmission = async (docId: string) => {
     try {
@@ -438,6 +484,19 @@ function FilmClub() {
       {/* Admin panel */}
       {isAdmin && showAdminPanel && (
         <div className="film-club-section film-club-admin">
+          <div style={{ marginBottom: '1.5rem' }}>
+            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Re-run IRV for {adminSubmissionsForMonth}</p>
+            <button
+              onClick={handleAdminRerunIRV}
+              disabled={irvStatus === 'running'}
+              className="film-club-btn film-club-btn-primary"
+            >
+              {irvStatus === 'running' ? 'Calculating…' : 'Re-run winner calculation'}
+            </button>
+            {irvStatus === 'done' && <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Done — winner updated.</p>}
+            {irvStatus === 'error' && <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Failed — no submissions, or IRV returned no result.</p>}
+          </div>
+
           {allSubmissions.length > 0 && (
             <div style={{ marginBottom: '1.5rem' }}>
               <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Delete submissions for {adminSubmissionsForMonth}</p>

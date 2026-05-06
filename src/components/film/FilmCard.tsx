@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import HelpLink from '../basic/HelpLink';
+import { validateUrl } from '../../utils/sanitise';
 import './FilmCard.css';
 
 function truncateWords(text: string, limit: number): string {
@@ -107,13 +108,13 @@ const FilmCard: React.FC<FilmCardProps> = ({
             </div>
           )}
 
-          {directDownloadLinks && directDownloadLinks.some((l) => l.url) && (
+          {directDownloadLinks && directDownloadLinks.some((l) => l.url && validateUrl(l.url)) && (
             <div className="film-card-download-row" style={{ marginTop: '0.75rem' }}>
               <div className="film-card-download-label-row">
                 <span className="film-card-download-label">Direct download:</span>
               </div>
               <div className="film-card-download-buttons">
-                {directDownloadLinks.filter((l) => l.url).map((l, i) => (
+                {directDownloadLinks.filter((l) => l.url && validateUrl(l.url)).map((l, i) => (
                   <a
                     key={i}
                     href={l.url}
