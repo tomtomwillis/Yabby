@@ -28,6 +28,7 @@ import Button from './basic/Button';
 import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
 import { getUserData } from '../utils/userCache';
+import { getCurrentMonthId } from '../utils/useFilmClub';
 
 interface Reaction {
   userId: string;
@@ -65,11 +66,13 @@ interface Message {
   repliesLoaded?: boolean;
   editedAt?: any;
   imageId?: string;
+  posterUrl?: string;
 }
 
 interface MessageBoardProps {
   enableReactions?: boolean;
   enableReplies?: boolean;
+  collectionName?: string;
 }
 
 const MESSAGES_PER_PAGE = 20;
@@ -121,6 +124,7 @@ function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
     currentUserReacted: false,
     editedAt: data.editedAt,
     imageId: data.imageId || undefined,
+    posterUrl: data.posterUrl || undefined,
   };
 }
 
@@ -140,7 +144,7 @@ function mapReplyDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Reply {
   };
 }
 
-const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, enableReplies = false }) => {
+const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, enableReplies = false, collectionName = 'messages' }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -176,7 +180,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     try {
       const results = await Promise.all(
         messageIds.map(async (id) => {
-          const snap = await getDoc(doc(db, 'messages', id, 'reactions', uid));
+          const snap = await getDoc(doc(db, collectionName, id, 'reactions', uid));
           return { id, reacted: snap.exists() };
         }),
       );
@@ -189,7 +193,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     } catch (error) {
       console.error('Error hydrating user reactions:', error);
     }
-  }, [enableReactions]);
+  }, [enableReactions, collectionName]);
 
   // Same pattern for replies of a single message.
   const hydrateUserReplyReactions = useCallback(async (messageId: string, replyIds: string[]) => {
@@ -199,7 +203,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     try {
       const results = await Promise.all(
         replyIds.map(async (rid) => {
-          const snap = await getDoc(doc(db, 'messages', messageId, 'replies', rid, 'reactions', uid));
+          const snap = await getDoc(doc(db, collectionName, messageId, 'replies', rid, 'reactions', uid));
           return { rid, reacted: snap.exists() };
         }),
       );
@@ -219,12 +223,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     } catch (error) {
       console.error('Error hydrating reply reactions:', error);
     }
-  }, [enableReactions]);
+  }, [enableReactions, collectionName]);
 
   const loadInitialMessages = async () => {
     try {
       const q = query(
-        collection(db, 'messages'),
+        collection(db, collectionName),
         orderBy('lastActivityAt', 'desc'),
         limit(MESSAGES_PER_PAGE),
       );
@@ -250,7 +254,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     setLoadingMore(true);
     try {
       const q = query(
-        collection(db, 'messages'),
+        collection(db, collectionName),
         orderBy('lastActivityAt', 'desc'),
         startAfter(lastDoc),
         limit(MESSAGES_PER_PAGE),
@@ -276,7 +280,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const fetchRepliesFor = useCallback(async (messageId: string) => {
     try {
       const q = query(
-        collection(db, 'messages', messageId, 'replies'),
+        collection(db, collectionName, messageId, 'replies'),
         orderBy('timestamp', 'asc'),
       );
       const snapshot = await getDocs(q);
@@ -288,7 +292,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     } catch (error) {
       console.error('Error fetching replies:', error);
     }
-  }, [hydrateUserReplyReactions]);
+  }, [hydrateUserReplyReactions, collectionName]);
 
   const handleToggleReplies = (messageId: string) => {
     setExpandedReplies((prev) => {
@@ -311,7 +315,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     if (fetchedReactionsRef.current.has(messageId)) return;
     fetchedReactionsRef.current.add(messageId);
     try {
-      const snapshot = await getDocs(collection(db, 'messages', messageId, 'reactions'));
+      const snapshot = await getDocs(collection(db, collectionName, messageId, 'reactions'));
       const reactions = snapshot.docs.map((d) => d.data() as Reaction);
       const uid = auth.currentUser?.uid;
       const currentUserReacted = uid ? reactions.some((r) => r.userId === uid) : false;
@@ -326,7 +330,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       console.error('Error fetching reactions:', error);
       fetchedReactionsRef.current.delete(messageId);
     }
-  }, []);
+  }, [collectionName]);
 
   const handleReplyReactionHover = useCallback(async (messageId: string, replyId: string) => {
     const key = `${messageId}/${replyId}`;
@@ -334,7 +338,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     fetchedReplyReactionsRef.current.add(key);
     try {
       const snapshot = await getDocs(
-        collection(db, 'messages', messageId, 'replies', replyId, 'reactions'),
+        collection(db, collectionName, messageId, 'replies', replyId, 'reactions'),
       );
       const reactions = snapshot.docs.map((d) => d.data() as Reaction);
       const uid = auth.currentUser?.uid;
@@ -357,7 +361,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       console.error('Error fetching reply reactions:', error);
       fetchedReplyReactionsRef.current.delete(key);
     }
-  }, []);
+  }, [collectionName]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() && !pendingImage) return;
@@ -402,7 +406,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       };
       if (imageId) messageData.imageId = imageId;
 
-      const newDoc = await addDoc(collection(db, 'messages'), messageData);
+      const newDoc = await addDoc(collection(db, collectionName), messageData);
       // Optimistically prepend so the new post appears without a reload.
       setMessages((prev) => [
         {
@@ -430,14 +434,107 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
   };
 
+  const handleFilmAnnounce = async () => {
+    if (!auth.currentUser) return;
+
+    setLoading(true);
+    try {
+      const monthId = getCurrentMonthId();
+      const snap = await getDoc(doc(db, 'filmClub', monthId));
+      const monthData = snap.exists() ? snap.data() : null;
+      const film = monthData?.currentFilm as {
+        tmdbId: number; title: string; releaseYear: string; posterPath: string | null;
+        submittedByUsername: string;
+      } | undefined;
+
+      if (!film) {
+        alert('No film set for this month. Set one in the Film Club admin panel first.');
+        return;
+      }
+
+      const now = new Date();
+      const monthName = now.toLocaleDateString('en-GB', { month: 'long' });
+      const leavingDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        .toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+
+      let trailerUrl: string | null = null;
+      try {
+        const r = await fetch(
+          `https://api.themoviedb.org/3/movie/${film.tmdbId}/videos?api_key=${import.meta.env.VITE_TMDB_API_KEY}`
+        );
+        const data = await r.json();
+        const trailer = (data.results ?? []).find(
+          (v: { type: string; site: string; key: string }) =>
+            v.type === 'Trailer' && v.site === 'YouTube'
+        );
+        trailerUrl = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
+      } catch { /* no trailer */ }
+
+      const posterUrl = film.posterPath
+        ? `https://image.tmdb.org/t/p/w342${film.posterPath}`
+        : undefined;
+
+      const submitter = film.submittedByUsername || 'the community';
+      const description = (monthData as Record<string, unknown>)?.currentFilmDescription as string | undefined;
+      const origin = window.location.origin;
+
+      let text = `The film has been selected for ${monthName} as <b>${film.title}</b> (${film.releaseYear}). `
+        + `This was chosen by ${submitter} and will be available until ${leavingDate}. `
+        + `Join the discussion over at the [film-club page](${origin}/film-club).\n\n`;
+
+      if (description) {
+        text += `${submitter} said "${description}".\n\n`;
+      }
+
+      const trailerPart = trailerUrl ? `Watch the trailer [here](${trailerUrl}) or ` : '';
+      text += `${trailerPart}Submit your votes for next month's film [here](${origin}/film-club-vote).`;
+
+      const sanitizedText = sanitizeHtml(text);
+
+      const messageData: Record<string, unknown> = {
+        text: sanitizedText,
+        userId: auth.currentUser.uid,
+        timestamp: serverTimestamp(),
+        lastActivityAt: serverTimestamp(),
+        username: 'Film Club Bot',
+        avatar: 'avatar_filmbot.webp',
+      };
+      if (posterUrl) messageData.posterUrl = posterUrl;
+
+      const newDoc = await addDoc(collection(db, collectionName), messageData);
+
+      setMessages((prev) => [
+        {
+          id: newDoc.id,
+          text: sanitizedText,
+          userId: auth.currentUser!.uid,
+          timestamp: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+          lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+          username: 'FilmClub Bot',
+          avatar: 'avatar_filmbot.webp',
+          reactionCount: 0,
+          replyCount: 0,
+          currentUserReacted: false,
+          posterUrl,
+        },
+        ...prev,
+      ]);
+    } catch (error) {
+      console.error('Film announce failed:', error);
+      alert('Failed to post announcement. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleToggleReaction = async (messageId: string) => {
     if (!auth.currentUser) {
       alert('You must be logged in to react to messages.');
       return;
     }
     const uid = auth.currentUser.uid;
-    const messageRef = doc(db, 'messages', messageId);
-    const reactionRef = doc(db, 'messages', messageId, 'reactions', uid);
+    const messageRef = doc(db, collectionName, messageId);
+    const reactionRef = doc(db, collectionName, messageId, 'reactions', uid);
 
     const current = messages.find((m) => m.id === messageId);
     const wasReacted = current?.currentUserReacted ?? false;
@@ -535,8 +632,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       };
       if (imageId) replyData.imageId = imageId;
 
-      const newReplyRef = await addDoc(collection(db, 'messages', messageId, 'replies'), replyData);
-      await updateDoc(doc(db, 'messages', messageId), {
+      const newReplyRef = await addDoc(collection(db, collectionName, messageId, 'replies'), replyData);
+      await updateDoc(doc(db, collectionName, messageId), {
         lastActivityAt: serverTimestamp(),
         replyCount: increment(1),
       });
@@ -579,8 +676,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       return;
     }
     const uid = auth.currentUser.uid;
-    const replyRef = doc(db, 'messages', messageId, 'replies', replyId);
-    const reactionRef = doc(db, 'messages', messageId, 'replies', replyId, 'reactions', uid);
+    const replyRef = doc(db, collectionName, messageId, 'replies', replyId);
+    const reactionRef = doc(db, collectionName, messageId, 'replies', replyId, 'reactions', uid);
 
     const parent = messages.find((m) => m.id === messageId);
     const reply = parent?.replies?.find((r) => r.id === replyId);
@@ -665,7 +762,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const handleEditMessage = async (messageId: string, newText: string) => {
     if (!auth.currentUser) return;
     try {
-      await updateDoc(doc(db, 'messages', messageId), {
+      await updateDoc(doc(db, collectionName, messageId), {
         text: newText,
         editedAt: serverTimestamp(),
       });
@@ -683,7 +780,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const handleDeleteMessage = async (messageId: string) => {
     if (!auth.currentUser) return;
     try {
-      await deleteDoc(doc(db, 'messages', messageId));
+      await deleteDoc(doc(db, collectionName, messageId));
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -694,7 +791,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const handleEditReply = async (messageId: string, replyId: string, newText: string) => {
     if (!auth.currentUser) return;
     try {
-      await updateDoc(doc(db, 'messages', messageId, 'replies', replyId), {
+      await updateDoc(doc(db, collectionName, messageId, 'replies', replyId), {
         text: newText,
         editedAt: serverTimestamp(),
       });
@@ -719,7 +816,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const handleDeleteReply = async (messageId: string, replyId: string) => {
     if (!auth.currentUser) return;
     try {
-      await deleteDoc(doc(db, 'messages', messageId, 'replies', replyId));
+      await deleteDoc(doc(db, collectionName, messageId, 'replies', replyId));
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
@@ -748,7 +845,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   return (
     <div className="message-board-container">
-      <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} />
+      <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin ? handleFilmAnnounce : undefined} />
       <div className="messages-container">
         {messages.map((message) => (
           <UserMessage
@@ -766,6 +863,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             onDeleteReply={(replyId: string) => handleDeleteReply(message.id, replyId)}
             edited={!!message.editedAt}
             imageId={message.imageId}
+            posterUrl={message.posterUrl}
             onClose={() => {}}
             hideCloseButton={true}
             reactions={enableReactions ? message.reactions : undefined}

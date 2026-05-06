@@ -16,6 +16,7 @@ A compose box for the message board and news page. Supports `@` tagging for Navi
 | `showSendButton` | `boolean` | Show or hide the Send button (default: `true`) |
 | `initialValue` | `string` | Pre-fills the textarea (used when editing a post) |
 | `onImageAttach` | `(file: File \| null) => void` | Called when the user pastes an image; passes the File or null when removed |
+| `onFilmAnnounce` | `() => Promise<void>` | Optional. When provided (admins only), exposes the `/filmannounce` slash command which calls this handler to post a Film Club bot announcement |
 
 ## Tagging
 
@@ -26,6 +27,12 @@ Type `@` (at word start) followed by at least 3 characters to search Navidrome. 
 ### `/` — Slash commands
 
 Type `/` (at word start) to open the command menu. Two categories of commands are available:
+
+**Action commands** — trigger a side-effect rather than inserting a link (admin only):
+
+| Command | Effect |
+|---------|--------|
+| `/filmannounce` | Posts a Film Club bot announcement for the current month's film (calls `onFilmAnnounce` if provided) |
 
 **Instant links** — insert a direct link to a community page:
 
