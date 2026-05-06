@@ -41,6 +41,7 @@ const SUBTITLES = [
   "My face is the front of shop",
   "Recommended by 9 out of 10 dentists",
   "Final release moving fast!",
+  "Archival maintenence is a radical practice",
   "Maximum Volume yields Maximum Results",
   "Do Not Loook Directly At The Strobe",
   "for f in *.flac; do ffmpeg -i \"$f\" -b:a 320k \"${f%.flac}.mp3\"; done",
