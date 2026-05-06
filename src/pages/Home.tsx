@@ -44,7 +44,7 @@ const SUBTITLES = [
   "Maximum Volume yields Maximum Results",
   "Do Not Loook Directly At The Strobe",
   "for f in *.flac; do ffmpeg -i \"$f\" -b:a 320k \"${f%.flac}.mp3\"; done",
-  "Put a donk on it",
+  "Put a banging donk on it",
 ];
 
 function App() {
