@@ -21,6 +21,7 @@ interface FilmCardProps {
   leaveDate?: string;
   trailerUrl?: string;
   downloadLinks?: { label: string; url: string }[];
+  directDownloadLinks?: { label: string; url: string }[];
   description?: string;
 }
 
@@ -35,6 +36,7 @@ const FilmCard: React.FC<FilmCardProps> = ({
   leaveDate,
   trailerUrl,
   downloadLinks,
+  directDownloadLinks,
   description,
 }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -100,6 +102,27 @@ const FilmCard: React.FC<FilmCardProps> = ({
                   <button key={i} onClick={() => handleCopy(l.url, i)} className="film-club-btn film-club-btn-secondary">
                     {copiedIndex === i ? 'Copied!' : (l.label || 'Download')}
                   </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {directDownloadLinks && directDownloadLinks.some((l) => l.url) && (
+            <div className="film-card-download-row" style={{ marginTop: '0.75rem' }}>
+              <div className="film-card-download-label-row">
+                <span className="film-card-download-label">Direct download:</span>
+              </div>
+              <div className="film-card-download-buttons">
+                {directDownloadLinks.filter((l) => l.url).map((l, i) => (
+                  <a
+                    key={i}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="film-club-btn film-club-btn-secondary"
+                  >
+                    {l.label || 'Download'}
+                  </a>
                 ))}
               </div>
             </div>

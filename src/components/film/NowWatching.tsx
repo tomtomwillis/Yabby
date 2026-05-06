@@ -18,6 +18,7 @@ interface FilmData {
 interface MonthDoc {
   currentFilm?: FilmData;
   downloadLinks?: { label: string; url: string }[];
+  directDownloadLinks?: { label: string; url: string }[];
   currentFilmDescription?: string;
 }
 
@@ -64,7 +65,7 @@ function NowWatching() {
 
   if (!monthData?.currentFilm) return null;
 
-  const { currentFilm, downloadLinks, currentFilmDescription } = monthData;
+  const { currentFilm, downloadLinks, directDownloadLinks, currentFilmDescription } = monthData;
 
   return (
     <div className="film-club-container">
@@ -79,6 +80,7 @@ function NowWatching() {
         leaveDate={leavingDate}
         trailerUrl={trailerUrl ?? undefined}
         downloadLinks={downloadLinks}
+        directDownloadLinks={directDownloadLinks}
         description={currentFilmDescription || undefined}
       />
     </div>

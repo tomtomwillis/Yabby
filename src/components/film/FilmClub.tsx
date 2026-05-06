@@ -60,6 +60,7 @@ interface MonthDoc {
   nextFilm?: FilmData;
   winnerCalculated?: boolean;
   downloadLinks?: { label: string; url: string }[];
+  directDownloadLinks?: { label: string; url: string }[];
   currentFilmDescription?: string;
 }
 
@@ -87,6 +88,8 @@ function FilmClub() {
   const [allSubmissions, setAllSubmissions] = useState<(Submission & { docId: string })[]>([]);
   const [adminDownloadLinks, setAdminDownloadLinks] = useState<{ label: string; url: string }[]>([{ label: '', url: '' }, { label: '', url: '' }]);
   const [downloadSaveStatus, setDownloadSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [adminDirectDownloadLinks, setAdminDirectDownloadLinks] = useState<{ label: string; url: string }[]>([{ label: '', url: '' }]);
+  const [directDownloadSaveStatus, setDirectDownloadSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [adminDescription, setAdminDescription] = useState('');
   const [descriptionSaveStatus, setDescriptionSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [clearFilmStatus, setClearFilmStatus] = useState<'idle' | 'clearing' | 'error'>('idle');
@@ -100,6 +103,14 @@ function FilmClub() {
       setAdminDownloadLinks(links.length > 0 ? links : [{ label: '', url: '' }, { label: '', url: '' }]);
     }
   }, [monthData?.downloadLinks]);
+
+  // ── Pre-populate direct download links from Firestore ────────────────────
+  useEffect(() => {
+    if (monthData?.directDownloadLinks) {
+      const links = monthData.directDownloadLinks;
+      setAdminDirectDownloadLinks(links.length > 0 ? links : [{ label: '', url: '' }]);
+    }
+  }, [monthData?.directDownloadLinks]);
 
   // ── Pre-populate description from Firestore ──────────────────────────────
   useEffect(() => {
@@ -265,6 +276,19 @@ function FilmClub() {
     }
   };
 
+  // ── Admin: save direct download links ────────────────────────────────────
+  const handleAdminSaveDirectDownloadLinks = async () => {
+    setDirectDownloadSaveStatus('saving');
+    try {
+      const links = adminDirectDownloadLinks.filter((l) => l.url.trim());
+      await setDoc(doc(db, 'filmClub', monthId), { directDownloadLinks: links }, { merge: true });
+      setDirectDownloadSaveStatus('saved');
+    } catch (err) {
+      console.error('Direct download links save error:', err);
+      setDirectDownloadSaveStatus('error');
+    }
+  };
+
   // ── Admin: save description ──────────────────────────────────────────────
   const handleAdminSaveDescription = async () => {
     setDescriptionSaveStatus('saving');
@@ -323,6 +347,7 @@ function FilmClub() {
             leaveDate={leavingDate}
             trailerUrl={currentFilmTrailerUrl ?? undefined}
             downloadLinks={monthData.downloadLinks}
+            directDownloadLinks={monthData.directDownloadLinks}
             description={monthData.currentFilmDescription || undefined}
           />
         </div>
@@ -433,7 +458,7 @@ function FilmClub() {
             </div>
           )}
           <div style={{ marginBottom: '1.5rem' }}>
-            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Download links for current film</p>
+            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Magnet links for current film</p>
             {adminDownloadLinks.map((link, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <input
@@ -474,6 +499,52 @@ function FilmClub() {
               <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
             )}
             {downloadSaveStatus === 'error' && (
+              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+            )}
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Direct download links for current film</p>
+            {adminDirectDownloadLinks.map((link, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <input
+                  type="text"
+                  value={link.label}
+                  onChange={(e) => setAdminDirectDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, label: e.target.value } : l))}
+                  placeholder="Label (e.g. 1080p)"
+                  style={{ width: '8rem', flexShrink: 0, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                />
+                <input
+                  type="url"
+                  value={link.url}
+                  onChange={(e) => setAdminDirectDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, url: e.target.value } : l))}
+                  placeholder="https://…"
+                  style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                />
+                <button
+                  onClick={() => setAdminDirectDownloadLinks((prev) => prev.filter((_, j) => j !== i))}
+                  className="film-club-btn"
+                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', flexShrink: 0 }}
+                >✕</button>
+              </div>
+            ))}
+            <button
+              onClick={() => setAdminDirectDownloadLinks((prev) => [...prev, { label: '', url: '' }])}
+              className="film-club-btn"
+              style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', marginBottom: '0.5rem' }}
+            >+ Add link</button>
+            <button
+              onClick={handleAdminSaveDirectDownloadLinks}
+              disabled={directDownloadSaveStatus === 'saving'}
+              className="film-club-btn film-club-btn-primary"
+              style={{ marginTop: '0.5rem' }}
+            >
+              {directDownloadSaveStatus === 'saving' ? 'Saving…' : 'Save direct download links'}
+            </button>
+            {directDownloadSaveStatus === 'saved' && (
+              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+            )}
+            {directDownloadSaveStatus === 'error' && (
               <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
             )}
           </div>
