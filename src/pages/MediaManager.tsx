@@ -3,6 +3,7 @@ import Header from '../components/basic/Header';
 import { useMediaManager } from '../utils/useMediaManager';
 import CoverArtTool from '../components/media/CoverArtTool';
 import BeetsTerminal from '../components/media/BeetsTerminal';
+import MetadataEditor from '../components/media/MetadataEditor';
 import '../App.css';
 import './MediaManager.css';
 
@@ -10,10 +11,11 @@ import './MediaManager.css';
 // Types
 // ---------------------------------------------------------------------------
 
-type Tab = 'coverart' | 'import';
+type Tab = 'coverart' | 'metadata' | 'import';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'coverart', label: 'Cover Art' },
+  { key: 'metadata', label: 'Metadata Editor' },
   { key: 'import', label: 'Beets Import' },
 ];
 
@@ -65,6 +67,7 @@ const MediaManager: React.FC = () => {
 
       <div className="media-tab-content">
         {activeTab === 'coverart' && <CoverArtTool />}
+        {activeTab === 'metadata' && <MetadataEditor />}
         {activeTab === 'import' && <BeetsTerminal />}
       </div>
 

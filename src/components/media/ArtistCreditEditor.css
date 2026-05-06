@@ -1,0 +1,96 @@
+.artist-credit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.artist-credit__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.artist-credit__name {
+  flex: 1 1 180px;
+  min-width: 140px;
+  font-family: var(--font1);
+  font-size: 0.95em;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--colour5);
+  border: 1px solid var(--colour2);
+  border-radius: 4px;
+}
+
+.artist-credit__name:focus {
+  outline: 2px solid var(--colour2);
+  outline-offset: -1px;
+}
+
+.artist-credit__join {
+  font-family: var(--font2);
+  font-size: 0.85em;
+  padding: 4px 6px;
+  background: transparent;
+  color: var(--colour5);
+  border: 1px solid var(--colour2);
+  border-radius: 4px;
+}
+
+.artist-credit__controls {
+  display: flex;
+  gap: 2px;
+}
+
+.artist-credit__btn {
+  font-family: var(--font2);
+  font-size: 0.9em;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  color: var(--colour5);
+  border: 1px solid var(--colour2);
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.artist-credit__btn:hover:not(:disabled) {
+  background: var(--colour2);
+  color: var(--colour4);
+}
+
+.artist-credit__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.artist-credit__btn--remove {
+  border-color: var(--colour3);
+  color: var(--colour3);
+}
+
+.artist-credit__btn--remove:hover:not(:disabled) {
+  background: var(--colour3);
+  color: var(--colour4);
+}
+
+.artist-credit__add {
+  align-self: flex-start;
+  font-family: var(--font2);
+  font-size: 0.85em;
+  padding: 4px 10px;
+  margin-top: 2px;
+  background: transparent;
+  color: var(--colour2);
+  border: 1px dashed var(--colour2);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.artist-credit__add:hover {
+  background: var(--colour2);
+  color: var(--colour4);
+}

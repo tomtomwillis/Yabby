@@ -1,0 +1,240 @@
+.metadata-editor {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.metadata-editor__hint {
+  font-family: var(--font2);
+  color: var(--colour5);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.metadata-editor__album-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+}
+
+.metadata-editor__album-title {
+  font-family: var(--font1);
+  font-size: 1.1em;
+  color: var(--colour5);
+}
+
+.metadata-editor__album-artist {
+  font-family: var(--font2);
+  font-size: 0.9em;
+  color: var(--colour5);
+  opacity: 0.75;
+}
+
+.metadata-editor__section {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.metadata-editor__section-title {
+  font-family: var(--font1);
+  font-size: 1em;
+  color: var(--colour5);
+  margin: 0 0 4px;
+}
+
+.metadata-editor__section-hint {
+  font-family: var(--font2);
+  font-size: 0.8em;
+  color: var(--colour5);
+  opacity: 0.7;
+  margin: 0 0 10px;
+}
+
+.metadata-editor__label {
+  display: block;
+  font-family: var(--font2);
+  font-size: 0.8em;
+  color: var(--colour5);
+  margin: 8px 0 4px;
+  opacity: 0.85;
+}
+
+.metadata-editor__input {
+  width: 100%;
+  padding: 6px 8px;
+  font-family: var(--font1);
+  font-size: 0.95em;
+  color: var(--colour5);
+  background: transparent;
+  border: 1px solid var(--colour2);
+  border-radius: 4px;
+}
+
+.metadata-editor__input--title {
+  flex: 1;
+  font-size: 1em;
+}
+
+.metadata-editor__input:focus {
+  outline: 2px solid var(--colour2);
+  outline-offset: -1px;
+}
+
+.metadata-editor__changed-flag {
+  font-family: var(--font2);
+  font-size: 0.8em;
+  color: var(--colour1);
+  margin-top: 8px;
+}
+
+.metadata-editor__tracks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metadata-editor__track {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.metadata-editor__track:last-child {
+  border-bottom: none;
+}
+
+.metadata-editor__track-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.metadata-editor__track-num {
+  font-family: var(--font2);
+  font-size: 0.9em;
+  color: var(--colour5);
+  opacity: 0.6;
+  min-width: 26px;
+  text-align: right;
+}
+
+.metadata-editor__track-credit {
+  margin-left: 34px;
+}
+
+.metadata-editor__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.metadata-editor__diff-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+
+.metadata-editor__diff-item {
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+
+.metadata-editor__diff-title {
+  font-family: var(--font1);
+  font-size: 0.95em;
+  color: var(--colour5);
+  margin-bottom: 4px;
+}
+
+.metadata-editor__diff-changes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metadata-editor__diff-change {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font2);
+  font-size: 0.85em;
+  color: var(--colour5);
+  padding: 2px 0;
+}
+
+.metadata-editor__diff-field {
+  font-weight: 600;
+  min-width: 90px;
+}
+
+.metadata-editor__diff-before {
+  color: var(--colour3);
+  text-decoration: line-through;
+  opacity: 0.85;
+}
+
+.metadata-editor__diff-arrow {
+  opacity: 0.5;
+}
+
+.metadata-editor__diff-after {
+  color: var(--colour1);
+}
+
+.metadata-editor__status {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.metadata-editor__status-processing {
+  font-family: var(--font2);
+  color: var(--colour2);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.metadata-editor__status-success {
+  font-family: var(--font1);
+  font-size: 1.05em;
+  color: var(--colour1);
+  margin-bottom: 6px;
+}
+
+.metadata-editor__status-warning {
+  font-family: var(--font2);
+  font-size: 0.9em;
+  color: var(--colour3);
+  margin-bottom: 12px;
+}
+
+.metadata-editor__status-details {
+  font-family: var(--font2);
+  font-size: 0.85em;
+  color: var(--colour5);
+  opacity: 0.8;
+  margin-bottom: 12px;
+}
+
+.metadata-editor__status-error-title {
+  font-family: var(--font1);
+  font-size: 1.05em;
+  color: var(--colour3);
+  margin-bottom: 6px;
+}
+
+.metadata-editor__status-error-msg {
+  font-family: var(--font2);
+  color: var(--colour5);
+  margin-bottom: 12px;
+}
