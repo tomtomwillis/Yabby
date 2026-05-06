@@ -358,6 +358,9 @@ function FilmClub() {
 
       {/* Actions */}
       <div className="film-club-section film-club-actions">
+        <a href="/filmclubmessage" className="film-club-btn film-club-btn-primary film-club-btn-wide" style={{ marginBottom: '1rem' }}>
+          Film Club Message Board
+        </a>
         {isRevealPhase ? (
           <>
             <p className="normal-text">

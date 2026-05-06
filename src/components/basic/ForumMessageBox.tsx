@@ -8,7 +8,7 @@ import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 interface Result {
   id: string;
   name: string;
-  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel';
+  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action';
 }
 
 type SearchCommand = 'list' | 'playlist' | 'travel' | 'city';
@@ -48,6 +48,7 @@ interface ForumMessageBoxProps {
   showSendButton?: boolean;
   initialValue?: string;
   onImageAttach?: (file: File | null) => void;
+  onFilmAnnounce?: () => Promise<void>;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -60,6 +61,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   showSendButton = true,
   initialValue = '',
   onImageAttach,
+  onFilmAnnounce,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
@@ -356,7 +358,11 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           const searchMatches: Result[] = SEARCH_COMMANDS
             .filter((k) => k.startsWith(command))
             .map((k) => ({ id: k, name: `/${k} — ${SEARCH_COMMAND_LABELS[k]}`, type: k as Result['type'] }));
-          setSlashResults([...searchMatches, ...instantMatches]);
+          const actionMatches: Result[] = [];
+          if (onFilmAnnounce && 'filmannounce'.startsWith(command)) {
+            actionMatches.push({ id: 'filmannounce', name: '/filmannounce — post film club announcement', type: 'action' });
+          }
+          setSlashResults([...searchMatches, ...instantMatches, ...actionMatches]);
           setSlashMode('command');
         } else if (SEARCH_COMMANDS.includes(command as SearchCommand)) {
           setSlashMode(command as SearchCommand);
@@ -364,12 +370,16 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           if (command === 'list') ensureListsLoaded();
           if (command === 'travel' || command === 'city') ensurePlacesLoaded();
           if (command === 'playlist') ensurePlaylistsLoaded();
-        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command))) {
-          // Instant command typed with a trailing space
+        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && 'filmannounce'.startsWith(command))) {
+          // Instant or action command typed with a trailing space
           const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
             .filter(([k]) => k.startsWith(command))
             .map(([k, v]) => ({ id: k, name: `/${k} — ${v.label}`, type: 'instant' as const }));
-          setSlashResults(instantMatches);
+          const actionMatches: Result[] = [];
+          if (onFilmAnnounce && 'filmannounce'.startsWith(command)) {
+            actionMatches.push({ id: 'filmannounce', name: '/filmannounce — post film club announcement', type: 'action' });
+          }
+          setSlashResults([...instantMatches, ...actionMatches]);
           setSlashMode('command');
         } else {
           setSlashMode(null);
@@ -383,6 +393,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   };
 
   const selectResult = (result: Result) => {
+    if (result.type === 'action' && result.id === 'filmannounce') {
+      const triggerPos = triggerPositionRef.current;
+      if (triggerPos !== -1) {
+        const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
+        setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
+      }
+      clearSearch();
+      onFilmAnnounce?.();
+      return;
+    }
+
     let link: string;
     const linkText = result.type === 'instant' ? INSTANT_COMMANDS[result.id].label : result.name;
 
@@ -581,7 +602,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
               <li key={r.id}>
                 <button
                   onClick={() =>
-                    r.type === 'instant' ? selectResult(r) : activateSearchCommand(r.id)
+                    r.type === 'instant' || r.type === 'action' ? selectResult(r) : activateSearchCommand(r.id)
                   }
                 >
                   {r.name}

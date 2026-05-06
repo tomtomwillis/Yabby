@@ -19,6 +19,7 @@ import Radio from './pages/Radio';
 import FilmClub from './pages/FilmClub';
 import FilmClubSubmit from './pages/FilmClubSubmit';
 import FilmClubVote from './pages/FilmClubVote';
+import FilmClubMessagePage from './pages/FilmClubMessagePage';
 import PrivateRoute from './components/PrivateRoute';
 import MediaManager from './pages/MediaManager';
 import TravelPage from './pages/TravelPage';
@@ -48,6 +49,7 @@ function App() {
           <Route path="/film-club" element={<PrivateRoute><FilmClub /></PrivateRoute>} />
           <Route path="/film-club-submit" element={<PrivateRoute><FilmClubSubmit /></PrivateRoute>} />
           <Route path="/film-club-vote" element={<PrivateRoute><FilmClubVote /></PrivateRoute>} />
+          <Route path="/filmclubmessage" element={<PrivateRoute><FilmClubMessagePage /></PrivateRoute>} />
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
           <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
           <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />

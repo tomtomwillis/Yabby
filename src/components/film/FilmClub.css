@@ -21,13 +21,21 @@
 
 .film-club-action-row {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.75rem;
+  width: 100%;
+}
+
+.film-club-action-row .film-club-btn {
+  flex: 1;
+  text-align: center;
 }
 
 @media (max-width: 480px) {
   .film-club-action-row {
-    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .film-club-action-row .film-club-btn {
+    flex: 1 1 100%;
   }
 }
 
@@ -64,6 +72,13 @@
   background-color: var(--colour2);
   color: var(--colour4);
   text-decoration: none;
+}
+
+.film-club-btn-wide {
+  display: block;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .film-club-deadline {

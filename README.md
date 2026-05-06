@@ -73,9 +73,20 @@ VITE_COPYPARTY_LOCAL_URL=
 
 URL for your SLSKD instance
 
-'''
+```
 VITE_SLSK_REQUEST_URL=
-'''
+```
+
+### TMDB (optional - Film Club trailers)
+
+[The Movie Database](https://www.themoviedb.org/) API is used to fetch YouTube trailer links for the Film Club feature. Without it, trailer buttons will not appear on film cards.
+
+1. Create a free account at [themoviedb.org](https://www.themoviedb.org/)
+2. Generate an API key in your account settings
+3. Add to `.env`:
+   ```
+   VITE_TMDB_API_KEY=
+   ```
 
 ## Firestore Collections
 
@@ -85,6 +96,8 @@ The app uses these Firestore collections. They are created automatically when us
 |---|---|
 | `users` | User profiles (username, avatar, bio, location) |
 | `messages` | Message board posts (with `reactions` and `replies` subcollections) |
+| `filmClubMessages` | Film Club chat posts (same schema as `messages`, with `reactions` and `replies` subcollections) |
+| `filmClub` | Film Club state — one document per month (e.g. `2025-05`) storing `currentFilm`, `nextFilm`, `downloadLinks`, `currentFilmDescription`, `winnerCalculated`, with `submissions` and `votes` subcollections |
 | `stickers` | Stickers placed on album covers |
 | `lists` | User-created album lists (with `items` subcollection) |
 | `news` | Admin-only news posts |
@@ -98,9 +111,10 @@ Security rules are in `firestore.rules` - deploy them to your Firebase project t
 
 ```
 src/
-  pages/           # Route pages (Home, Profile, Stickers, Travel, Wiki, etc.)
+  pages/           # Route pages (Home, Profile, Stickers, Travel, Wiki, FilmClub, etc.)
   components/
-    basic/         # Reusable UI components (Button, Header, Carousel, ForumMessageBox, etc.)
+    basic/         # Reusable UI components (Button, Header, Carousel, ForumMessageBox, HelpLink, etc.)
+    film/          # Film Club feature components (FilmClub, NowWatching, FilmCard, etc.)
     media/         # Media manager tools
     travel/        # Travel feature components (TravelMap, TravelRecommendationList, etc.)
     ...            # Feature components (MessageBoard, StickerGrid, NewsPost, etc.)
@@ -111,7 +125,7 @@ src/
   App.css          # Global styles and colour/font variables
   firebaseConfig.ts
 public/
-  Stickers/        # Avatar images (webp)
+  Stickers/        # Avatar images (webp), including avatar_filmbot.webp
   skins/           # Webamp radio player skins
   icons/           # PWA icons
 ```

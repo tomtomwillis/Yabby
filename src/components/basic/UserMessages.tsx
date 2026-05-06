@@ -59,6 +59,7 @@ interface UserMessageProps {
   onDeleteReply?: (replyId: string) => void;
   edited?: boolean;
   imageId?: string;
+  posterUrl?: string;
 }
 
 // Utility function to validate and sanitize URLs
@@ -161,6 +162,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   onDeleteReply,
   edited,
   imageId,
+  posterUrl,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -328,6 +330,17 @@ const UserMessage: React.FC<UserMessageProps> = ({
             <img
               src={messageImageUrl}
               alt="Attached image"
+              className="user-message-image"
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        {posterUrl && isValidUrl(posterUrl) && (
+          <div className="user-message-image-container">
+            <img
+              src={posterUrl}
+              alt="Film poster"
               className="user-message-image"
               loading="lazy"
             />
