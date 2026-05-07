@@ -4,6 +4,11 @@
   gap: 6px;
 }
 
+.artist-credit--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .artist-credit__row {
   display: flex;
   align-items: center;

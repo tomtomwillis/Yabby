@@ -88,6 +88,7 @@ const MetadataEditor: React.FC = () => {
   const [origAlbum, setOrigAlbum] = useState('');
   const [albumArtists, setAlbumArtists] = useState<ArtistCredit[]>([]);
   const [origAlbumArtistString, setOrigAlbumArtistString] = useState('');
+  const [applyAlbumArtistToTracks, setApplyAlbumArtistToTracks] = useState(false);
   const [tracks, setTracks] = useState<DraftTrack[]>([]);
 
   const [applyResult, setApplyResult] = useState<ApplyResponse | null>(null);
@@ -102,6 +103,7 @@ const MetadataEditor: React.FC = () => {
     setOrigAlbum('');
     setAlbumArtists([]);
     setOrigAlbumArtistString('');
+    setApplyAlbumArtistToTracks(false);
     setTracks([]);
     setErrorMessage('');
     setStatusMessage('');
@@ -194,10 +196,11 @@ const MetadataEditor: React.FC = () => {
         changes.push({ field: 'Title', before: t.origTitle, after: t.title });
       }
 
-      const joinedArtists = joinCredits(t.artists);
+      const effectiveArtists = applyAlbumArtistToTracks ? albumArtists : t.artists;
+      const joinedArtists = joinCredits(effectiveArtists);
       const artistChanged = joinedArtists !== t.origArtistString;
       if (artistChanged) {
-        fields.artists = t.artists;
+        fields.artists = effectiveArtists;
         changes.push({ field: 'Artist', before: t.origArtistString, after: joinedArtists });
       }
 
@@ -296,7 +299,7 @@ const MetadataEditor: React.FC = () => {
     if (stage !== 'confirming' && stage !== 'editing') return { diff: [] as ReturnType<typeof buildEditsPayload>['diff'] };
     return buildEditsPayload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, albumDraft, origAlbum, albumArtists, origAlbumArtistString, tracks]);
+  }, [stage, albumDraft, origAlbum, albumArtists, origAlbumArtistString, tracks, applyAlbumArtistToTracks]);
 
   const hasAnyChanges = diff.length > 0;
 
@@ -354,6 +357,14 @@ const MetadataEditor: React.FC = () => {
               onChange={setAlbumArtists}
               ariaLabel="Album artist credit"
             />
+            <label className="metadata-editor__checkbox">
+              <input
+                type="checkbox"
+                checked={applyAlbumArtistToTracks}
+                onChange={(e) => setApplyAlbumArtistToTracks(e.target.checked)}
+              />
+              <span>Also apply album artist to every track's artist field</span>
+            </label>
             {albumLevelChanged && (
               <p className="metadata-editor__changed-flag">
                 Album-level changes will be applied to all {tracks.length} tracks.
@@ -383,6 +394,7 @@ const MetadataEditor: React.FC = () => {
                       value={t.artists}
                       onChange={(next) => updateTrack(i, { artists: next })}
                       ariaLabel={`Artist credit for ${t.title}`}
+                      disabled={applyAlbumArtistToTracks}
                     />
                   </div>
                 </li>

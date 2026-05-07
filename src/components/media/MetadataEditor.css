@@ -95,6 +95,21 @@
   margin-top: 8px;
 }
 
+.metadata-editor__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-family: var(--font2);
+  font-size: 0.85em;
+  color: var(--colour5);
+  cursor: pointer;
+}
+
+.metadata-editor__checkbox input {
+  cursor: pointer;
+}
+
 .metadata-editor__tracks {
   list-style: none;
   margin: 0;

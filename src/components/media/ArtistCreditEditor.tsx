@@ -24,9 +24,10 @@ interface Props {
   value: ArtistCredit[];
   onChange: (next: ArtistCredit[]) => void;
   ariaLabel?: string;
+  disabled?: boolean;
 }
 
-const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => {
+const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel, disabled = false }) => {
   const credits = value.length === 0
     ? [{ name: '', joinPhrase: DEFAULT_JOIN_PHRASE }]
     : value;
@@ -57,7 +58,12 @@ const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => 
   };
 
   return (
-    <div className="artist-credit" role="group" aria-label={ariaLabel}>
+    <div
+      className={`artist-credit${disabled ? ' artist-credit--disabled' : ''}`}
+      role="group"
+      aria-label={ariaLabel}
+      aria-disabled={disabled || undefined}
+    >
       {credits.map((credit, i) => {
         const isLast = i === credits.length - 1;
         return (
@@ -69,6 +75,7 @@ const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => 
               onChange={(e) => updateAt(i, { name: e.target.value })}
               placeholder="Artist name"
               maxLength={256}
+              disabled={disabled}
             />
             {!isLast && (
               <select
@@ -76,6 +83,7 @@ const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => 
                 value={credit.joinPhrase}
                 onChange={(e) => updateAt(i, { joinPhrase: e.target.value })}
                 aria-label="Join phrase"
+                disabled={disabled}
               >
                 {JOIN_PHRASES.map((p) => (
                   <option key={p} value={p}>{p.trim() || ','}</option>
@@ -87,7 +95,7 @@ const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => 
                 type="button"
                 className="artist-credit__btn"
                 onClick={() => move(i, -1)}
-                disabled={i === 0}
+                disabled={disabled || i === 0}
                 aria-label="Move up"
                 title="Move up"
               >↑</button>
@@ -95,7 +103,7 @@ const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => 
                 type="button"
                 className="artist-credit__btn"
                 onClick={() => move(i, 1)}
-                disabled={isLast}
+                disabled={disabled || isLast}
                 aria-label="Move down"
                 title="Move down"
               >↓</button>
@@ -103,6 +111,7 @@ const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => 
                 type="button"
                 className="artist-credit__btn artist-credit__btn--remove"
                 onClick={() => removeAt(i)}
+                disabled={disabled}
                 aria-label="Remove"
                 title="Remove"
               >×</button>
@@ -114,6 +123,7 @@ const ArtistCreditEditor: React.FC<Props> = ({ value, onChange, ariaLabel }) => 
         type="button"
         className="artist-credit__add"
         onClick={addArtist}
+        disabled={disabled}
       >
         + Add artist
       </button>
