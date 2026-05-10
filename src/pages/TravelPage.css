@@ -32,6 +32,32 @@
   pointer-events: none;
 }
 
+/* Drag handle on the desktop filter box */
+.travel-page__filter-handle {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 0 6px;
+  cursor: grab;
+  color: rgba(255, 255, 255, 0.45);
+  transition: color 0.15s ease;
+  user-select: none;
+  pointer-events: all;
+}
+
+.travel-page__filter-handle:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.travel-page__filter-handle:active {
+  cursor: grabbing;
+}
+
+.travel-page__filter-handle svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* Scroll-down arrow button */
 .travel-page__scroll-btn {
   position: fixed;

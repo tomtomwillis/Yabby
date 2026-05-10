@@ -20,6 +20,7 @@ interface TravelFiltersProps {
   onCityChange: (cityKey: string) => void;
   onUserChange: (userId: string) => void;
   onCategoryChange: (category: PlaceCategory | '') => void;
+  dragHandle?: React.ReactNode;
 }
 
 export default function TravelFilters({
@@ -31,11 +32,13 @@ export default function TravelFilters({
   onCityChange,
   onUserChange,
   onCategoryChange,
+  dragHandle,
 }: TravelFiltersProps) {
   const hasActive = cityFilter !== '' || userFilter !== '' || categoryFilter !== '';
 
   return (
     <div className="travel-filters">
+      {dragHandle}
       <label className="travel-filters__field">
         <span className="travel-filters__label">City</span>
         <select

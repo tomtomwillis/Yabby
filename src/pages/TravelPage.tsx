@@ -33,9 +33,10 @@ interface UserPlaceMembership {
   [userId: string]: Set<string>;
 }
 
-async function loadPlaces(): Promise<Place[]> {
+async function loadPlacesAndMemberships(): Promise<{ places: Place[]; memberships: UserPlaceMembership }> {
   const snap = await trackedGetDocs(collection(db, 'places'));
-  return snap.docs.map((d) => {
+
+  const places = snap.docs.map((d) => {
     const data = d.data();
     const category = (data.category as PlaceCategory) || 'other';
     const rawCategories = Array.isArray(data.categories) ? (data.categories as PlaceCategory[]) : null;
@@ -60,22 +61,26 @@ async function loadPlaces(): Promise<Place[]> {
       lastActivityAt: data.lastActivityAt ?? null,
     };
   });
-}
 
-async function loadUserMemberships(): Promise<UserPlaceMembership> {
-  const snap = await trackedGetDocs(collection(db, 'places'));
-  const byUser: UserPlaceMembership = {};
-  for (const placeDoc of snap.docs) {
-    const contribSnap = await trackedGetDocs(
-      collection(db, 'places', placeDoc.id, 'contributions'),
-    );
-    for (const c of contribSnap.docs) {
+  const contribResults = await Promise.all(
+    snap.docs.map((placeDoc) =>
+      trackedGetDocs(collection(db, 'places', placeDoc.id, 'contributions')).then((cs) => ({
+        placeId: placeDoc.id,
+        docs: cs.docs,
+      })),
+    ),
+  );
+
+  const memberships: UserPlaceMembership = {};
+  for (const { placeId, docs } of contribResults) {
+    for (const c of docs) {
       const uid = c.data().userId as string;
-      if (!byUser[uid]) byUser[uid] = new Set();
-      byUser[uid].add(placeDoc.id);
+      if (!memberships[uid]) memberships[uid] = new Set();
+      memberships[uid].add(placeId);
     }
   }
-  return byUser;
+
+  return { places, memberships };
 }
 
 export default function TravelPage() {
@@ -102,9 +107,8 @@ export default function TravelPage() {
     setLoading(true);
     setPageError(null);
     try {
-      const loaded = await loadPlaces();
+      const { places: loaded, memberships: m } = await loadPlacesAndMemberships();
       setPlaces(loaded);
-      const m = await loadUserMemberships();
       setMemberships(m);
 
       const userIds = Array.from(new Set(Object.keys(m)));
@@ -287,6 +291,31 @@ export default function TravelPage() {
   }, [filteredPlaces]);
   const recSectionRef = useRef<HTMLDivElement>(null);
   const [scrolledToList, setScrolledToList] = useState(false);
+  const [filterPos, setFilterPos] = useState<{ x: number; y: number } | null>(null);
+  const filterDragRef = useRef<{ startMouse: { x: number; y: number }; startEl: { x: number; y: number } } | null>(null);
+
+  const handleFilterDragStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const sidebar = (e.currentTarget as HTMLElement).closest('.travel-page__sidebar') as HTMLElement;
+    const rect = sidebar.getBoundingClientRect();
+    filterDragRef.current = {
+      startMouse: { x: e.clientX, y: e.clientY },
+      startEl: { x: rect.left, y: rect.top },
+    };
+    const onMove = (ev: MouseEvent) => {
+      if (!filterDragRef.current) return;
+      setFilterPos({
+        x: filterDragRef.current.startEl.x + (ev.clientX - filterDragRef.current.startMouse.x),
+        y: filterDragRef.current.startEl.y + (ev.clientY - filterDragRef.current.startMouse.y),
+      });
+    };
+    const onUp = () => {
+      filterDragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
 
   const handleScrollBtn = useCallback(() => {
     if (scrolledToList) {
@@ -348,7 +377,10 @@ export default function TravelPage() {
       </div>
 
       {/* Filters — fixed to viewport, left edge, overlays the map while scrolling */}
-      <div className="travel-page__sidebar">
+      <div
+        className="travel-page__sidebar"
+        style={filterPos ? { left: filterPos.x, top: filterPos.y, transform: 'none' } : undefined}
+      >
         <TravelFilters
           cities={cities}
           users={users}
@@ -365,6 +397,14 @@ export default function TravelPage() {
               /* ignore */
             }
           }}
+          dragHandle={
+            <div className="travel-page__filter-handle" onMouseDown={handleFilterDragStart} title="Drag to move">
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="4" r="1.2" /><circle cx="5" cy="8" r="1.2" /><circle cx="5" cy="12" r="1.2" />
+                <circle cx="11" cy="4" r="1.2" /><circle cx="11" cy="8" r="1.2" /><circle cx="11" cy="12" r="1.2" />
+              </svg>
+            </div>
+          }
         />
       </div>
 
