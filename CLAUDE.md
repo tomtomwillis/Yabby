@@ -133,7 +133,7 @@ Key groups: Firebase config, Navidrome/Subsonic API, Copyparty URLs, SLSK reques
 - Use existing sanitisation utils for any user-generated content — never bypass DOMPurify
 - Comments only when the WHY is non-obvious — never reference removed code or ongoing changes
 
-## Working With Mea and the codebase
+## Working With Me and the codebase
 
 - Be honest when you don't know something or aren't confident in an answer — say so directly rather than guessing.
 - If a request doesn't seem possible or practical, say that clearly and suggest viable alternatives instead of attempting something unlikely to work.
