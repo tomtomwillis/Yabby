@@ -340,12 +340,12 @@ service cloud.firestore {
     match /filmClub/{monthId} {
       allow read: if isSignedIn();
 
-      // Admin can create/update currentFilm, downloadLinks, and currentFilmDescription
+      // Admin can create/update currentFilm, downloadLinks, directDownloadLinks, and currentFilmDescription
       allow create: if isAdmin()
-        && request.resource.data.keys().hasOnly(['currentFilm', 'downloadLinks', 'currentFilmDescription']);
+        && request.resource.data.keys().hasOnly(['currentFilm', 'downloadLinks', 'directDownloadLinks', 'currentFilmDescription']);
 
       allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentFilm', 'downloadLinks', 'currentFilmDescription']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentFilm', 'downloadLinks', 'directDownloadLinks', 'currentFilmDescription']);
 
       // Any authenticated user can write nextFilm + winnerCalculated
       allow create: if isSignedIn()

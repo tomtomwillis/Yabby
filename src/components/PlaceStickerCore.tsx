@@ -62,6 +62,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [userSticker, setUserSticker] = useState<string | null>(null);
   const [alreadyHasSticker, setAlreadyHasSticker] = useState(false);
+  const [existingStickers, setExistingStickers] = useState<Array<{ position: { x: number; y: number }; sticker: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
@@ -136,27 +137,32 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     }
   };
 
-  const checkExistingSticker = async () => {
+  const loadAlbumStickers = async () => {
     const user = auth.currentUser;
     if (!user) return;
 
     try {
       const q = query(
         collection(db, 'stickers'),
-        where('userId', '==', user.uid),
         where('albumId', '==', albumInfo.id)
       );
       const snap = await getDocs(q);
-      setAlreadyHasSticker(!snap.empty);
+      const stickers = snap.docs.map(d => ({
+        position: d.data().position as { x: number; y: number },
+        sticker: d.data().sticker as string,
+        userId: d.data().userId as string,
+      }));
+      setExistingStickers(stickers.map(({ position, sticker }) => ({ position, sticker })));
+      setAlreadyHasSticker(stickers.some(s => s.userId === user.uid));
     } catch (error) {
-      console.error('Error checking existing sticker:', error);
+      console.error('Error loading album stickers:', error);
     }
   };
 
   useEffect(() => {
     fetchUserSticker();
     fetchAlbumTracks();
-    checkExistingSticker();
+    loadAlbumStickers();
   }, []);
 
   // Convert screen coordinates to normalized album coordinates (0-300 range)
@@ -315,9 +321,6 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
 
       const docRef = await addDoc(collection(db, 'stickers'), stickerData);
 
-      alert('Sticker placed successfully!');
-
-      // Call onSuccess callback if provided, otherwise reload
       if (onSuccess) {
         onSuccess({
           stickerId: docRef.id,
@@ -332,7 +335,9 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
           favoriteTrackId: selectedTrack?.id,
           favoriteTrackTitle: selectedTrack?.title,
         });
+        onClose?.();
       } else {
+        onClose?.();
         window.location.reload();
       }
     } catch (error) {
@@ -366,6 +371,27 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
             className="album-cover"
             draggable={false}
           />
+          {existingStickers.map((s, i) => {
+            const screenPos = albumToScreenCoords(s.position.x, s.position.y);
+            return (
+              <img
+                key={i}
+                src={s.sticker}
+                alt="Existing sticker"
+                className="sticker"
+                style={{
+                  left: `${screenPos.x}%`,
+                  top: `${screenPos.y}%`,
+                  width: `${(STICKER_SIZE / ALBUM_DISPLAY_SIZE) * 100}%`,
+                  height: `${(STICKER_SIZE / ALBUM_DISPLAY_SIZE) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  opacity: 0.65,
+                  pointerEvents: 'none',
+                }}
+                draggable={false}
+              />
+            );
+          })}
           {stickerPos && (
             <img
               src={userSticker || 'default-sticker.png'}
