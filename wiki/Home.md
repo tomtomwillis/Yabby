@@ -4,15 +4,18 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 
 ## Pages
 
+- [Film Club Message](Pages-FilmClubMessage)
 - [Home](Pages-Home)
 - [List Detail](Pages-ListDetail)
 - [Login](Pages-Login)
 - [Lists](Pages-Lists)
 - [Media Manager](Pages-MediaManager)
 - [Message Board](Pages-MessageBoard)
+- [News](Pages-News)
 - [Profile](Pages-Profile)
 - [Radio](Pages-Radio)
 - [Stickers](Pages-Stickers)
+- [Travel](Pages-Travel)
 - [Upload](Pages-Upload)
 - [User Profile](Pages-UserProfile)
 - [Wiki](Pages-Wiki)
@@ -21,15 +24,16 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 
 ### Basic (reusable UI building blocks)
 
-- [Button](Components-Button)
-- [Header](Components-Header)
-- [Carousel](Components-Carousel)
-- [MessageTextBox](Components-MessageTextBox)
-- [ForumMessageBox](Components-ForumMessageBox)
-- [UserMessages](Components-UserMessages)
 - [AlbumSearchBox](Components-AlbumSearchBox)
-- [Tips](Components-Tips)
+- [Button](Components-Button)
+- [Carousel](Components-Carousel)
+- [ForumMessageBox](Components-ForumMessageBox)
+- [Header](Components-Header)
+- [HelpLink](Components-HelpLink)
+- [MessageTextBox](Components-MessageTextBox)
 - [Star](Components-Star)
+- [Tips](Components-Tips)
+- [UserMessages](Components-UserMessages)
 
 ### Feature Components
 
@@ -40,7 +44,10 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 - [CarouselAlbums](Components-CarouselAlbums)
 - [CarouselStickers](Components-CarouselStickers)
 - [CreateList](Components-CreateList)
+- [FilmClub](Components-FilmClub)
 - [MessageBoard](Components-MessageBoard)
+- [NewsPost](Components-NewsPost)
+- [NowWatching](Components-NowWatching)
 - [Oneko](Components-Oneko)
 - [PlaceSticker](Components-PlaceSticker)
 - [PlaceStickerCore](Components-PlaceStickerCore)
@@ -49,6 +56,7 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 - [RecentLists](Components-RecentLists)
 - [Stats](Components-Stats)
 - [StickerGrid](Components-StickerGrid)
+- [TravelRecommendationList](Components-TravelRecommendationList)
 - [WebampRadio](Components-WebampRadio)
 - [WikiParser](Components-WikiParser)
 

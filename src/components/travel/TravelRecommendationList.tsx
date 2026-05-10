@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Place, PlaceCategory, TravelPhoto } from './travelTypes';
 import TravelPlaceBubble from './TravelPlaceBubble';
@@ -16,6 +16,7 @@ interface TravelRecommendationListProps {
   ) => Promise<void>;
   onDeleteContribution: (placeId: string, userId: string) => Promise<void>;
   onAddOwn?: (place: Place) => void;
+  initialExpandedId?: string | null;
 }
 
 const PAGE_SIZE = 20;
@@ -27,8 +28,13 @@ export default function TravelRecommendationList({
   onEditContribution,
   onDeleteContribution,
   onAddOwn,
+  initialExpandedId,
 }: TravelRecommendationListProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(initialExpandedId ?? null);
+
+  useEffect(() => {
+    if (initialExpandedId) setExpandedId(initialExpandedId);
+  }, [initialExpandedId]);
   const [showAll, setShowAll] = useState(false);
 
   if (places.length === 0) {

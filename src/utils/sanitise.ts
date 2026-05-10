@@ -82,6 +82,30 @@ export const parseMarkdownLinks = (text: string): string => {
 };
 
 /**
+ * Sanitizes HTML from a markdown renderer (marked) for wiki content.
+ * Allows a wider set of structural tags compared to sanitizeHtml.
+ */
+export const sanitizeWikiHtml = (dirty: string): string => {
+  return DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: [
+      'h2', 'h3', 'h4',
+      'p', 'br', 'hr',
+      'ul', 'ol', 'li',
+      'strong', 'em', 'b', 'i', 's',
+      'a',
+      'code', 'pre',
+      'img',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'blockquote',
+      'div', 'span',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'class', 'id'],
+    ALLOW_DATA_ATTR: false,
+    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+  });
+};
+
+/**
  * Auto-detects bare URLs in text and wraps them in <a> tags.
  * Skips URLs that are already inside <a> tags (from legacy HTML or markdown link parsing).
  */

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Header from '../components/basic/Header';
 import CopypartyUpload from '../components/CopypartyUpload';
 import '../components/CopypartyUpload.css';
-import '../components/WikiParser.css';
+import '../components/Wiki.css';
 
 const Upload: React.FC = () => {
   const [isTipsOpen, setIsTipsOpen] = useState(false);

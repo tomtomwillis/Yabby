@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './Tips.css';
 
 interface TipsProps {
-  text: string;
+  text: React.ReactNode;
   showOnMobile?: boolean;
   showOnDesktop?: boolean;
 }

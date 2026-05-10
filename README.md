@@ -85,6 +85,16 @@ An Express.js backend that handles cover art updates (REST) and interactive beet
 VITE_MEDIA_API_URL=          # Base URL for the media REST API (defaults to /api/media)
 VITE_MEDIA_WS_URL=           # WebSocket URL for the beets terminal (defaults to deriving from window.location)
 ```
+### TMDB (optional - Film Club trailers)
+
+[The Movie Database](https://www.themoviedb.org/) API is used to fetch YouTube trailer links for the Film Club feature. Without it, trailer buttons will not appear on film cards.
+
+1. Create a free account at [themoviedb.org](https://www.themoviedb.org/)
+2. Generate an API key in your account settings
+3. Add to `.env`:
+   ```
+   VITE_TMDB_API_KEY=
+   ```
 
 ## Firestore Collections
 
@@ -94,9 +104,13 @@ The app uses these Firestore collections. They are created automatically when us
 |---|---|
 | `users` | User profiles (username, avatar, bio, location) |
 | `messages` | Message board posts (with `reactions` and `replies` subcollections) |
+| `filmClubMessages` | Film Club chat posts (same schema as `messages`, with `reactions` and `replies` subcollections) |
+| `filmClub` | Film Club state — one document per month (e.g. `2025-05`) storing `currentFilm`, `nextFilm`, `downloadLinks`, `currentFilmDescription`, `winnerCalculated`, with `submissions` and `votes` subcollections |
 | `stickers` | Stickers placed on album covers |
 | `lists` | User-created album lists (with `items` subcollection) |
 | `news` | Admin-only news posts |
+| `places` | Travel recommendations (with `contributions` subcollection per place) |
+| `wiki` | Wiki content — single document `wiki/content` with a `text` field (Markdown) |
 | `admins` | Admin user IDs (manage via Firebase Console) |
 | `mediaManagers` | Media manager user IDs (manage via Firebase Console) |
 
@@ -106,22 +120,23 @@ Security rules are in `firestore.rules` - deploy them to your Firebase project t
 
 ```
 src/
-  pages/           # Route pages (Home, Profile, Stickers, etc.)
+  pages/           # Route pages (Home, Profile, Stickers, Travel, Wiki, FilmClub, etc.)
   components/
-    basic/         # Reusable UI components (Button, Header, Carousel, etc.)
-    media/         # Media management tools (CoverArtTool, BeetsTerminal)
-    ...            # Feature components (MessageBoard, StickerGrid, etc.)
-  utils/           # Sanitisation, rate limiting, caching
+    basic/         # Reusable UI components (Button, Header, Carousel, ForumMessageBox, HelpLink, etc.)
+    film/          # Film Club feature components (FilmClub, NowWatching, FilmCard, etc.)
+    media/         # Media manager tools (CoverArtTool, BeetsTerminal)
+    travel/        # Travel feature components (TravelMap, TravelRecommendationList, etc.)
+    ...            # Feature components (MessageBoard, StickerGrid, NewsPost, etc.)
+  utils/           # Sanitisation, rate limiting, caching, geocoding
   types/           # TypeScript type definitions
   assets/fonts/    # Custom fonts
   App.tsx          # Routing and layout
   App.css          # Global styles and colour/font variables
   firebaseConfig.ts
 public/
-  Stickers/        # Avatar images (webp)
+  Stickers/        # Avatar images (webp), including avatar_filmbot.webp
   skins/           # Webamp radio player skins
   icons/           # PWA icons
-  wiki/            # Wiki HTML content
 ```
 
 ## Styling
@@ -151,5 +166,7 @@ Detailed documentation for each page and component is in the [wiki/](wiki/) fold
 - **Navidrome** (Subsonic API)
 - **Embla Carousel** for sliders
 - **DOMPurify** for HTML sanitisation
+- **marked** for Markdown-to-HTML rendering (wiki content)
+- **Leaflet** for the travel map
 - **Webamp** for the radio player
 - **vite-plugin-pwa** for PWA support

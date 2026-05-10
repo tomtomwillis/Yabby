@@ -32,18 +32,19 @@ const SUBTITLES = [
   "🇵🇸 Free Palestine!! 🇵🇸",
   "Until Forever Fades Away",
   "And if I asked you to stop me from falling, Would you save me?",
-  "Hardcore will never day, but you will",
+  "Hardcore will never die, but you will",
   "Don't be daft, take a half",
   "Because steel is heavier than feathers",
   "Benny Harvey RIP",
-  "The world is a vampire",
   "Excellent value for money!",
   "My face is the front of shop",
   "Recommended by 9 out of 10 dentists",
   "Final release moving fast!",
+  "Archival maintenence is a radical practice",
   "Maximum Volume yields Maximum Results",
+  "Do Not Loook Directly At The Strobe",
   "for f in *.flac; do ffmpeg -i \"$f\" -b:a 320k \"${f%.flac}.mp3\"; done",
-  "Put a donk on it",
+  "Put a banging donk on it",
 ];
 
 function App() {

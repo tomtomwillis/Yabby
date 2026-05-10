@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Header from '../components/basic/Header';
 import MessageBoard from '../components/MessageBoard';
 import Tips from '../components/basic/Tips';
+import NowWatching from '../components/film/NowWatching';
 
 const tips: React.ComponentProps<typeof Tips>[] = [
   {
@@ -16,16 +17,17 @@ const tips: React.ComponentProps<typeof Tips>[] = [
   },
 ];
 
-const MessageBoardPage: React.FC = () => {
+const FilmClubMessagePage: React.FC = () => {
   const [tip] = useState(() => tips[Math.floor(Math.random() * tips.length)]);
 
   return (
     <div className="app-container">
-      <Header title="Message Board" subtitle="Get Chatty" />
+      <Header title="Film Club Chat" subtitle="Discuss This Month's Film" />
+      <NowWatching />
       <Tips {...tip} />
-      <MessageBoard enableReactions={true} enableReplies={true} />
+      <MessageBoard enableReactions={true} enableReplies={true} collectionName="filmClubMessages" />
     </div>
   );
 };
 
-export default MessageBoardPage;
+export default FilmClubMessagePage;

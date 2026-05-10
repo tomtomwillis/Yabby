@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { collection } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../firebaseConfig';
@@ -94,6 +95,8 @@ export default function TravelPage() {
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [mapView, setMapView] = useState<TravelMapView | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [deepLinkedPlaceId, setDeepLinkedPlaceId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -129,6 +132,22 @@ export default function TravelPage() {
       setCurrentUserAvatar(data.avatar || '');
     });
   }, [user]);
+
+  // Consume ?city= and ?place= query params once places are loaded
+  useEffect(() => {
+    if (places.length === 0) return;
+    const cityParam = searchParams.get('city');
+    const placeParam = searchParams.get('place');
+    if (cityParam) handleCityChange(cityParam);
+    if (placeParam) setDeepLinkedPlaceId(placeParam);
+  }, [places, searchParams]);
+
+  // Pan map to deep-linked place
+  useEffect(() => {
+    if (!deepLinkedPlaceId || places.length === 0) return;
+    const target = places.find((p) => p.id === deepLinkedPlaceId);
+    if (target) setFocus({ lat: target.lat, lng: target.lng, zoom: 15 });
+  }, [deepLinkedPlaceId, places]);
 
   const filteredPlaces = useMemo(() => {
     let list = places;
@@ -430,6 +449,7 @@ export default function TravelPage() {
               onDeleteContribution={deleteContribution}
               onFocus={(p) => setFocus({ lat: p.lat, lng: p.lng, zoom: 14 })}
               onAddOwn={handleAddOwn}
+              initialExpandedId={deepLinkedPlaceId}
             />
           )}
         </div>

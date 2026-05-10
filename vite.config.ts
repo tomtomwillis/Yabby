@@ -56,10 +56,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globDirectory: 'dev-dist', // Ensure this matches the correct directory
-        globPatterns: ['**/*.*'], // Match all files
-        globIgnores: ['**/node_modules/**/*'],
-        navigateFallback: 'index.html', // Set fallback for SPAs
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -92,9 +89,7 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: true,
-        type: 'module',
-        navigateFallback: 'index.html'
+        enabled: false
       }
     })
   ],

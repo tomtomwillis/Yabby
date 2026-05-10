@@ -1,0 +1,22 @@
+.help-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 1px solid var(--colour5);
+  color: var(--colour5);
+  font-family: var(--font2);
+  font-size: 0.65rem;
+  font-weight: bold;
+  line-height: 1;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.help-link:hover {
+  border-color: var(--colour2);
+  color: var(--colour2);
+}
