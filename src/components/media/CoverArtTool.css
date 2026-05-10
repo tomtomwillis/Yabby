@@ -1,135 +1,120 @@
-.coverart-tool {
-  max-width: 600px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-.coverart-hint {
-  font-family: var(--font2);
-  color: var(--colour5);
-  font-size: 0.9em;
-  margin-bottom: 20px;
-  text-align: center;
-}
+/* ============================================================
+   CoverArtTool — tool-specific layout only.
+   Shared chrome (window, titlebar, statusbar, buttons, inputs)
+   lives in mediaTheme.css.
+   ============================================================ */
 
 .coverart-album-card {
   display: flex;
   gap: 16px;
   align-items: center;
-  margin-bottom: 24px;
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid var(--colour2);
+  margin-bottom: 18px;
+  padding: 12px;
+  background: var(--mm-card-bg);
+  background-image: var(--mm-card-image);
+  border: 2px solid var(--mm-border);
+  box-shadow: 4px 4px 0 var(--mm-shadow);
 }
 
 .coverart-album-thumb {
   width: 100px;
   height: 100px;
-  border-radius: 4px;
+  border: 1px solid var(--mm-border);
   object-fit: cover;
+  background: var(--mm-input-bg);
+}
+
+.coverart-album-meta {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .coverart-album-title {
+  font-family: 'Comic Sans MS', 'Comic Sans', cursive;
   font-weight: bold;
-  color: var(--colour5);
-  font-family: var(--font1);
-  font-size: 1.1em;
-  margin-bottom: 4px;
+  font-size: 1.2em;
+  color: var(--mm-greeting-color);
+  text-shadow: 1px 1px 0 var(--mm-greeting-shadow-1);
+  margin: 0;
 }
 
 .coverart-album-artist {
-  color: var(--colour5);
-  font-family: var(--font2);
-  font-size: 0.9em;
-  opacity: 0.8;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: var(--mm-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
 }
 
-.coverart-label {
-  font-family: var(--font2);
-  color: var(--colour5);
-  font-size: 0.9em;
-  display: block;
-  margin-bottom: 8px;
-  text-align: center;
-}
-
-.coverart-input {
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--colour2);
-  font-family: var(--font2);
-  font-size: 0.9em;
-  color: var(--colour5);
-  background-color: transparent;
-  box-sizing: border-box;
-  outline: none;
+.coverart-album-action {
+  margin-top: 8px;
 }
 
 .coverart-preview-label {
-  font-family: var(--font2);
-  color: var(--colour5);
-  font-size: 0.85em;
-  margin-bottom: 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--mm-accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
   text-align: center;
+}
+
+.coverart-preview-label::before {
+  content: ">> ";
+  color: var(--mm-accent-secondary);
 }
 
 .coverart-preview-box {
   display: flex;
   justify-content: center;
-  padding: 12px;
-  border-radius: 8px;
-  border-style: solid;
-  min-height: 100px;
   align-items: center;
+  padding: 12px;
+  min-height: 100px;
+  background: var(--mm-card-bg);
+  background-image: var(--mm-card-image);
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--mm-border);
+  box-shadow: 3px 3px 0 var(--mm-shadow);
+}
+
+.coverart-preview-box--valid {
+  border-color: var(--mm-success-bright);
+}
+
+.coverart-preview-box--error {
+  border-color: var(--mm-error);
+}
+
+.coverart-preview-img {
+  max-width: 200px;
+  max-height: 200px;
+  display: block;
+  border: 1px solid var(--mm-border);
 }
 
 .coverart-preview-error {
-  color: var(--colour3);
-  font-family: var(--font2);
-  font-size: 0.85em;
-}
-
-.coverart-status {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: var(--mm-error);
+  margin: 0;
   text-align: center;
-  padding: 40px 0;
 }
 
-.coverart-status-processing {
-  font-family: var(--font2);
-  color: var(--colour2);
-  font-size: 1em;
-  animation: pulse 1.5s ease-in-out infinite;
+.coverart-section {
+  margin-bottom: 18px;
 }
 
-.coverart-status-success {
-  font-family: var(--font1);
-  color: var(--colour1);
-  font-size: 1.2em;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.coverart-status-details {
-  font-family: var(--font2);
-  color: var(--colour5);
-  font-size: 0.8em;
-  opacity: 0.7;
-  margin-bottom: 24px;
-}
-
-.coverart-status-error-title {
-  font-family: var(--font1);
-  color: var(--colour3);
-  font-size: 1.1em;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.coverart-status-error-msg {
-  font-family: var(--font2);
-  color: var(--colour5);
-  font-size: 0.9em;
-  margin-bottom: 24px;
+@media (max-width: 560px) {
+  .coverart-album-card {
+    flex-direction: column;
+    text-align: center;
+    box-shadow: 3px 3px 0 var(--mm-shadow);
+  }
 }

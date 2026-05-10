@@ -1,42 +1,112 @@
+/* ============================================================
+   Media Manager — folder-tab strip that sits on top of mm-window
+   Tabs read --mm-* theme vars so they restyle with the active palette.
+   ============================================================ */
+
 .media-tabs {
   display: flex;
-  justify-content: center;
-  gap: 4px;
-  margin-bottom: 24px;
-  padding: 0 20px;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 12px;
+  box-sizing: border-box;
+  /* Push the tab strip down so the active tab can overlap the
+     window's top border by 2px and visually merge into it. */
+  margin-bottom: -2px;
+  position: relative;
+  z-index: 2;
 }
 
 .media-tab {
-  padding: 8px 20px;
-  font-family: var(--font1);
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--colour5);
-  background: transparent;
-  border: 1px solid var(--colour2);
+  position: relative;
+  padding: 6px 18px 8px;
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.02em;
+  color: var(--mm-button-text, var(--colour5));
+  text-shadow: 1px 1px 0 var(--mm-button-text-shadow, transparent);
+  background: var(--mm-button-from, var(--colour2));
+  background-image: linear-gradient(
+    to bottom,
+    var(--mm-button-from, var(--colour2)) 0%,
+    var(--mm-button-to, var(--colour2)) 100%
+  );
+  border-top: 2px solid var(--mm-border, var(--colour2));
+  border-left: 2px solid var(--mm-border, var(--colour2));
+  border-right: 2px solid var(--mm-border, var(--colour2));
+  border-bottom: 2px solid var(--mm-border, var(--colour2));
   border-radius: 6px 6px 0 0;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  user-select: none;
+  transition: none;
+  /* Inactive tabs sit slightly lower so the active tab stands proud. */
+  margin-bottom: 0;
+  top: 2px;
 }
 
-.media-tab:hover {
-  background-color: var(--colour2);
-  color: var(--colour4);
+.media-tab:hover:not(.media-tab--active) {
+  background-image: linear-gradient(
+    to bottom,
+    var(--mm-button-hover-from, var(--colour2)) 0%,
+    var(--mm-button-hover-to, var(--colour2)) 100%
+  );
+  color: var(--mm-button-hover-text, var(--colour4));
+}
+
+.media-tab:focus-visible {
+  outline: 2px dotted var(--mm-accent-secondary, var(--colour1));
+  outline-offset: -4px;
 }
 
 .media-tab--active {
-  background-color: var(--colour2);
-  color: var(--colour4);
-  border-bottom-color: transparent;
+  background: var(--mm-titlebar-bg, var(--colour2));
+  background-image: var(--mm-titlebar-bg, none);
+  color: var(--mm-titlebar-text, var(--colour4));
+  text-shadow: 1px 1px 0 var(--mm-titlebar-shadow, transparent);
+  /* Active tab is taller and overlaps the window's top border. */
+  padding: 8px 20px 10px;
+  top: 0;
+  z-index: 1;
+  /* Drop bottom border so the tab merges with the titlebar below. */
+  border-bottom: 2px solid transparent;
+}
+
+/* The page sits inside a column-flex .app-container with align-items: center,
+   which collapses children to their content width. Without this, the window
+   shrinks to whichever tool happens to be active and changes size when you
+   switch tabs. Force the wrapper chain to fill the row so .mm-tool's
+   max-width: 880px is what actually decides the window size. */
+.app-container .app-container,
+.app-container > [data-theme],
+.media-tabs,
+.media-tab-content {
+  align-self: stretch;
+  width: 100%;
 }
 
 .media-tab-content {
-  padding: 0 20px;
+  position: relative;
+}
+
+/* Remove the tool's default top padding so the window's titlebar
+   sits flush under the tab strip. */
+.media-tab-content .mm-tool {
+  padding-top: 0;
 }
 
 @media (max-width: 768px) {
+  .media-tabs {
+    padding: 0 6px;
+    gap: 1px;
+  }
   .media-tab {
-    padding: 6px 14px;
-    font-size: 0.85rem;
+    padding: 5px 10px 7px;
+    font-size: 11px;
+  }
+  .media-tab--active {
+    padding: 7px 12px 9px;
   }
 }

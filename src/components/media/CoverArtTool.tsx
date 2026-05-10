@@ -4,6 +4,7 @@ import Button from '../basic/Button';
 import { useRateLimit } from '../../utils/useRateLimit';
 import { validateUrl } from '../../utils/sanitise';
 import { auth } from '../../firebaseConfig';
+import { useMediaTheme, MEDIA_THEMES } from '../../utils/useMediaTheme';
 import './CoverArtTool.css';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,7 @@ const NAVIDROME_CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
 const CoverArtTool: React.FC = () => {
   const { checkRateLimit } = useRateLimit({ maxAttempts: 5, windowMs: 10 * 60 * 1000 });
+  const { theme, setTheme } = useMediaTheme();
 
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumInfo | null>(null);
   const [imageUrl, setImageUrl] = useState('');
@@ -213,123 +215,205 @@ const CoverArtTool: React.FC = () => {
   // Render
   // -------------------------------------------------------------------------
 
+  const titlebarText: string = (() => {
+    switch (stage) {
+      case 'search':     return 'CoverArt v2.0  —  Pick an album';
+      case 'preview':    return selectedAlbum ? `CoverArt v2.0  —  ${selectedAlbum.title}.jpg` : 'CoverArt v2.0';
+      case 'processing': return 'CoverArt v2.0  —  Processing...';
+      case 'success':    return 'CoverArt v2.0  —  Done!';
+      case 'error':      return 'CoverArt v2.0  —  Error';
+      default:           return 'CoverArt v2.0';
+    }
+  })();
+
+  const statusbarLeft: string = (() => {
+    switch (stage) {
+      case 'search':     return 'Ready';
+      case 'preview':    return imagePreviewValid ? 'Image preview OK' : imagePreviewError ? 'Image failed to load' : 'Awaiting URL';
+      case 'processing': return 'Uploading...';
+      case 'success':    return 'Saved';
+      case 'error':      return 'Error';
+      default:           return 'Ready';
+    }
+  })();
+
+  const previewBoxClass = 'coverart-preview-box' +
+    (imagePreviewValid ? ' coverart-preview-box--valid' : imagePreviewError ? ' coverart-preview-box--error' : '');
+
   return (
-    <div className="coverart-tool">
+    <div className="mm-tool">
+      <div className="mm-window" role="region" aria-label="Cover art tool">
+        <div className="mm-titlebar">
+          <span className="mm-titlebar-icon" aria-hidden="true">🖼</span>
+          <span className="mm-titlebar-title">{titlebarText}</span>
+          <span className="mm-titlebar-controls" aria-hidden="true">
+            <span className="mm-titlebar-btn">_</span>
+            <span className="mm-titlebar-btn">▢</span>
+            <span className="mm-titlebar-btn">×</span>
+          </span>
+        </div>
 
-      {/* ---- STAGE: SEARCH ---- */}
-      {stage === 'search' && (
-        <>
-          <p className="coverart-hint">
-            Search for an album to update its cover art.
-          </p>
-          <AlbumSearchBox
-            placeholder="Search for an album or paste a Navidrome URL..."
-            onAlbumSelect={handleAlbumSelect}
-            onUrlSubmit={handleUrlSubmit}
-          />
-        </>
-      )}
+        <div className="mm-chrome">
+          {stage === 'search' && (
+            <div className="mm-welcome">
+              <p className="mm-welcome-greeting">
+                ✧ Pick an album to re-cover ✧
+              </p>
+              <p className="mm-hint">
+                Search for an album, or paste a Navidrome album URL.
+              </p>
+              <AlbumSearchBox
+                placeholder="Search for an album or paste a Navidrome URL..."
+                onAlbumSelect={handleAlbumSelect}
+                onUrlSubmit={handleUrlSubmit}
+              />
 
-      {/* ---- STAGE: PREVIEW ---- */}
-      {stage === 'preview' && selectedAlbum && (
-        <>
-          <div className="coverart-album-card">
-            <img
-              src={selectedAlbum.cover}
-              alt={`${selectedAlbum.title} current cover`}
-              className="coverart-album-thumb"
-            />
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div className="coverart-album-title">{selectedAlbum.title}</div>
-              <div className="coverart-album-artist">{selectedAlbum.artist}</div>
-              <div style={{ marginTop: '12px' }}>
-                <Button type="basic" label="← Change Album" onClick={handleReset} size="2em" />
+              <div className="mm-theme-picker">
+                <p className="mm-theme-picker-title">
+                  <span className="mm-theme-picker-title-deco" aria-hidden="true">✦</span>
+                  Pick your colour scheme
+                  <span className="mm-theme-picker-title-deco" aria-hidden="true">✦</span>
+                </p>
+                <div className="mm-theme-picker-grid" role="radiogroup" aria-label="Colour palette">
+                  {MEDIA_THEMES.map((t) => {
+                    const active = theme === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        className={
+                          'mm-theme-btn' +
+                          (active ? ' mm-theme-btn--active' : '')
+                        }
+                        onClick={() => setTheme(t.id)}
+                      >
+                        <span className="mm-theme-btn-swatch" aria-hidden="true">
+                          {t.swatch.map((c, idx) => (
+                            <span key={idx} style={{ background: c }} />
+                          ))}
+                        </span>
+                        <span className="mm-theme-btn-name">
+                          <span className="mm-theme-btn-star" aria-hidden="true">★</span>
+                          {t.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div style={{ marginBottom: '16px' }}>
-            <label className="coverart-label">Paste a link to the new cover image:</label>
-            <input
-              type="text"
-              value={imageUrl}
-              onChange={handleImageUrlChange}
-              placeholder="https://example.com/cover.jpg"
-              className="coverart-input"
-            />
-          </div>
-
-          {imageUrl && validateUrl(imageUrl) && (
-            <div style={{ marginBottom: '20px' }}>
-              <p className="coverart-preview-label">Preview:</p>
-              <div
-                className="coverart-preview-box"
-                style={{
-                  borderColor: imagePreviewValid
-                    ? 'var(--colour1)'
-                    : imagePreviewError
-                      ? 'var(--colour3)'
-                      : 'var(--colour2)',
-                  borderWidth: imagePreviewValid || imagePreviewError ? '2px' : '1px',
-                }}
-              >
-                {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+          {stage === 'preview' && selectedAlbum && (
+            <>
+              <div className="coverart-album-card">
                 <img
-                  src={imageUrl}
-                  alt="New cover preview"
-                  onLoad={handleImageLoad}
-                  onError={handleImageError}
-                  style={{
-                    maxWidth: '200px',
-                    maxHeight: '200px',
-                    borderRadius: '4px',
-                    display: imagePreviewError ? 'none' : 'block',
-                  }}
+                  src={selectedAlbum.cover}
+                  alt={`${selectedAlbum.title} current cover`}
+                  className="coverart-album-thumb"
                 />
-                {imagePreviewError && (
-                  <p className="coverart-preview-error">
-                    Unable to load image. Check the URL and try again.
-                  </p>
-                )}
+                <div className="coverart-album-meta">
+                  <p className="coverart-album-title">{selectedAlbum.title}</p>
+                  <p className="coverart-album-artist">{selectedAlbum.artist}</p>
+                  <div className="coverart-album-action">
+                    <Button type="basic" label="← Change Album" onClick={handleReset} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="coverart-section">
+                <label className="mm-label" htmlFor="coverart-url">Paste a link to the new cover image</label>
+                <input
+                  id="coverart-url"
+                  type="text"
+                  value={imageUrl}
+                  onChange={handleImageUrlChange}
+                  placeholder="https://example.com/cover.jpg"
+                  className="mm-input"
+                />
+              </div>
+
+              {imageUrl && validateUrl(imageUrl) && (
+                <div className="coverart-section">
+                  <p className="coverart-preview-label">Preview</p>
+                  <div className={previewBoxClass}>
+                    {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+                    <img
+                      src={imageUrl}
+                      alt="New cover preview"
+                      onLoad={handleImageLoad}
+                      onError={handleImageError}
+                      className="coverart-preview-img"
+                      style={{ display: imagePreviewError ? 'none' : 'block' }}
+                    />
+                    {imagePreviewError && (
+                      <p className="coverart-preview-error">
+                        Unable to load image. Check the URL and try again.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {imagePreviewValid && (
+                <div className="mm-actions">
+                  <span className="mm-btn-primary">
+                    <Button type="basic" label="Update Cover Art ✓" onClick={handleSubmit} />
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          {stage === 'processing' && (
+            <div className="mm-status">
+              <div className="mm-loader-icon" aria-hidden="true">⌛</div>
+              <p className="mm-status-processing">{statusMessage}</p>
+              <div className="mm-progress-bar" aria-hidden="true">
+                <div className="mm-progress-fill" />
               </div>
             </div>
           )}
 
-          {imagePreviewValid && (
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <Button type="basic" label="Update Cover Art" onClick={handleSubmit} />
+          {stage === 'success' && (
+            <div className="mm-status">
+              <p className="mm-status-success-banner" aria-hidden="true">
+                ━━━━━━ SUCCESS! ━━━━━━
+              </p>
+              <p className="mm-status-success">✓ {statusMessage}</p>
+              {resultDetails && <p className="mm-status-details">{resultDetails}</p>}
+              <div className="mm-actions">
+                <span className="mm-btn-primary">
+                  <Button type="basic" label="Update Another Album »" onClick={handleReset} />
+                </span>
+              </div>
             </div>
           )}
-        </>
-      )}
 
-      {/* ---- STAGE: PROCESSING ---- */}
-      {stage === 'processing' && (
-        <div className="coverart-status">
-          <p className="coverart-status-processing">{statusMessage}</p>
+          {stage === 'error' && (
+            <div className="mm-status">
+              <p className="mm-status-error-title">Error</p>
+              <p className="mm-status-error-msg">{statusMessage}</p>
+              <div className="mm-actions">
+                <Button type="basic" label="← Try Again" onClick={handleBackToPreview} />
+                <Button type="basic" label="Start Over" onClick={handleReset} />
+              </div>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* ---- STAGE: SUCCESS ---- */}
-      {stage === 'success' && (
-        <div className="coverart-status">
-          <p className="coverart-status-success">&#10003; {statusMessage}</p>
-          {resultDetails && <p className="coverart-status-details">{resultDetails}</p>}
-          <Button type="basic" label="Update Another Album" onClick={handleReset} />
+        <div className="mm-statusbar" aria-hidden="true">
+          <span className="mm-statusbar-section mm-statusbar-section--grow">
+            <span className="mm-statusbar-blip" />
+            {statusbarLeft}
+          </span>
+          <span className="mm-statusbar-section">
+            🖼 CoverArt 🖼
+          </span>
         </div>
-      )}
-
-      {/* ---- STAGE: ERROR ---- */}
-      {stage === 'error' && (
-        <div className="coverart-status">
-          <p className="coverart-status-error-title">Error</p>
-          <p className="coverart-status-error-msg">{statusMessage}</p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <Button type="basic" label="← Try Again" onClick={handleBackToPreview} />
-            <Button type="basic" label="Start Over" onClick={handleReset} />
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

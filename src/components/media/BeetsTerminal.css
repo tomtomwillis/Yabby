@@ -1,70 +1,75 @@
-.beets-terminal {
-  max-width: 700px;
-  width: 100%;
-  margin: 0 auto;
-}
+/* ============================================================
+   BeetsTerminal — Beets-specific layout only.
+   Shared chrome (window, titlebar, statusbar, buttons) lives in
+   mediaTheme.css. The xterm interior keeps its dark theme so
+   ANSI colors render correctly.
+   ============================================================ */
 
-/* Hints and status messages */
+/* Hints and inline status messages */
 
 .beets-hint {
-  font-family: var(--font2);
-  color: var(--colour5);
-  font-size: 0.9em;
+  font-family: Verdana, Geneva, sans-serif;
+  color: var(--mm-text-muted);
+  font-size: 13px;
   text-align: center;
-  margin-bottom: 20px;
+  margin: 0 0 14px;
 }
 
 .beets-status {
-  font-family: var(--font2);
-  font-size: 0.95em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
   text-align: center;
   padding: 24px 0;
+  color: var(--mm-text);
 }
 
 .beets-status--connecting {
-  color: var(--colour2);
-  animation: pulse 1.5s ease-in-out infinite;
+  color: var(--mm-accent-primary);
+  animation: mm-spin 1.5s ease-in-out infinite;
+  animation-name: mm-blink;
 }
 
 .beets-status--locked {
-  color: var(--colour3);
+  color: var(--mm-warning-text);
 }
 
 .beets-status--error {
-  color: var(--colour3);
+  color: var(--mm-error);
 }
 
 .beets-status--disconnected {
-  color: var(--colour5);
-  opacity: 0.7;
+  color: var(--mm-text-muted);
 }
 
 .beets-status--empty {
-  color: var(--colour5);
-  opacity: 0.6;
+  color: var(--mm-text-muted);
+  font-style: italic;
 }
 
 .beets-status--finished {
-  color: var(--colour1);
+  color: var(--mm-success-bright);
   font-weight: bold;
-}
-
-/* Actions row */
-
-.beets-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
 }
 
 /* Folder selection */
 
 .beets-folder-group {
   margin-bottom: 16px;
-  border: 1px solid var(--colour2);
-  border-radius: 8px;
+  background: var(--mm-card-bg);
+  background-image: var(--mm-card-image);
+  border: 2px solid var(--mm-border);
+  box-shadow: 3px 3px 0 var(--mm-shadow);
   overflow: hidden;
+}
+
+.beets-folder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-right: 10px;
+  background: var(--mm-highlight-bg);
+  border-bottom: 1px dashed var(--mm-border-soft);
 }
 
 .beets-folder-base {
@@ -72,17 +77,60 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  font-family: var(--font1);
-  font-weight: 600;
-  font-size: 0.95em;
-  color: var(--colour5);
-  background: rgba(26, 46, 204, 0.06);
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mm-accent-primary);
   cursor: pointer;
   user-select: none;
+  flex: 1;
+}
+
+.beets-folder-base--empty {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.beets-clean-btn {
+  padding: 4px 10px;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--mm-button-text);
+  background-image: linear-gradient(to bottom, var(--mm-button-from) 0%, var(--mm-button-to) 100%);
+  border-top: 2px solid var(--mm-button-bevel-light);
+  border-left: 2px solid var(--mm-button-bevel-light);
+  border-right: 2px solid var(--mm-button-bevel-dark);
+  border-bottom: 2px solid var(--mm-button-bevel-dark);
+  cursor: pointer;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 var(--mm-button-text-shadow);
+}
+
+.beets-clean-btn:hover:not(:disabled) {
+  background-image: linear-gradient(to bottom, var(--mm-button-hover-from) 0%, var(--mm-button-hover-to) 100%);
+  color: var(--mm-button-hover-text);
+}
+
+.beets-clean-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.beets-clean-result {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: var(--mm-text-muted);
+  padding: 6px 14px;
+  margin: 0;
+  background: var(--mm-row-alt);
+  border-top: 1px dashed var(--mm-border-soft);
 }
 
 .beets-folder-base input[type='checkbox'] {
-  accent-color: var(--colour2);
+  accent-color: var(--mm-accent-secondary);
   width: 16px;
   height: 16px;
 }
@@ -97,65 +145,56 @@
   align-items: center;
   gap: 10px;
   padding: 8px 14px 8px 32px;
-  font-family: var(--font2);
-  font-size: 0.88em;
-  color: var(--colour5);
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 13px;
+  color: var(--mm-text);
   cursor: pointer;
   user-select: none;
-  border-top: 1px solid rgba(26, 46, 204, 0.1);
+  border-top: 1px dashed var(--mm-border-softer);
 }
 
 .beets-folder-item:hover {
-  background: rgba(26, 46, 204, 0.04);
+  background: var(--mm-highlight-bg);
 }
 
 .beets-folder-item input[type='checkbox'] {
-  accent-color: var(--colour2);
+  accent-color: var(--mm-accent-secondary);
   width: 14px;
   height: 14px;
 }
 
-/* Terminal output */
+/* Terminal output (xterm.js host) — kept dark on purpose so ANSI
+   color codes render; framed by themed mm-window. */
 
 .beets-output {
   background: #1a1a2e;
-  color: #e0e0e0;
-  font-family: var(--font2);
-  font-size: 0.82em;
-  line-height: 1.5;
-  padding: 16px;
-  border-radius: 8px;
-  max-height: 400px;
-  overflow-y: auto;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
+  padding: 12px;
+  border: 2px solid var(--mm-border);
+  box-shadow: inset 2px 2px 0 #000;
+  width: 100%;
+  height: 480px;
   margin-bottom: 12px;
+  overflow: hidden;
   text-align: left;
+  box-sizing: border-box;
 }
 
-/* ANSI 8-colour palette */
-.ansi-fg-0 { color: #555555; }
-.ansi-fg-1 { color: #ff6b6b; }
-.ansi-fg-2 { color: #69ff47; }
-.ansi-fg-3 { color: #ffe234; }
-.ansi-fg-4 { color: #6b9fff; }
-.ansi-fg-5 { color: #ff87ff; }
-.ansi-fg-6 { color: #4dfff3; }
-.ansi-fg-7 { color: #e0e0e0; }
-.ansi-bold  { font-weight: bold; }
+.beets-output .xterm,
+.beets-output .xterm-viewport,
+.beets-output .xterm-screen {
+  height: 100% !important;
+}
 
-/* Custom scrollbar for terminal */
-.beets-output::-webkit-scrollbar {
+.beets-output .xterm-viewport::-webkit-scrollbar {
   width: 6px;
 }
 
-.beets-output::-webkit-scrollbar-track {
+.beets-output .xterm-viewport::-webkit-scrollbar-track {
   background: #1a1a2e;
 }
 
-.beets-output::-webkit-scrollbar-thumb {
-  background: var(--colour2);
+.beets-output .xterm-viewport::-webkit-scrollbar-thumb {
+  background: #555;
   border-radius: 3px;
 }
 
@@ -164,26 +203,85 @@
 .beets-prompt-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
-  padding: 12px 0;
+  padding: 10px 0;
 }
 
 .beets-prompt-btn {
-  padding: 8px 16px;
-  font-family: var(--font2);
-  font-size: 0.88em;
-  font-weight: 500;
-  color: var(--colour4);
-  background-color: var(--colour2);
-  border: none;
-  border-radius: 6px;
+  padding: 5px 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--mm-button-text);
+  background-image: linear-gradient(to bottom, var(--mm-button-from) 0%, var(--mm-button-to) 100%);
+  border-top: 2px solid var(--mm-button-bevel-light);
+  border-left: 2px solid var(--mm-button-bevel-light);
+  border-right: 2px solid var(--mm-button-bevel-dark);
+  border-bottom: 2px solid var(--mm-button-bevel-dark);
+  border-radius: 0;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  text-shadow: 1px 1px 0 var(--mm-button-text-shadow);
+  letter-spacing: 0.02em;
 }
 
-.beets-prompt-btn:hover {
-  background-color: var(--colour1);
+.beets-prompt-btn:hover:not(:disabled) {
+  background-image: linear-gradient(to bottom, var(--mm-button-hover-from) 0%, var(--mm-button-hover-to) 100%);
+  color: var(--mm-button-hover-text);
+}
+
+.beets-prompt-btn:active:not(:disabled) {
+  border-top-color: var(--mm-button-bevel-dark);
+  border-left-color: var(--mm-button-bevel-dark);
+  border-right-color: var(--mm-button-bevel-light);
+  border-bottom-color: var(--mm-button-bevel-light);
+}
+
+.beets-prompt-btn--disabled,
+.beets-prompt-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ID input bar — shown when beets asks for a MusicBrainz/Discogs release ID */
+
+.beets-id-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  flex-wrap: wrap;
+}
+
+.beets-id-label {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--mm-accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.beets-id-input {
+  flex: 1 1 320px;
+  min-width: 280px;
+  padding: 6px 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: var(--mm-input-text);
+  background: var(--mm-input-bg);
+  border-top: 2px solid var(--mm-input-border-dark);
+  border-left: 2px solid var(--mm-input-border-dark);
+  border-right: 2px solid var(--mm-input-border-light);
+  border-bottom: 2px solid var(--mm-input-border-light);
+  border-radius: 0;
+  outline: none;
+}
+
+.beets-id-input:focus {
+  background: var(--mm-input-bg-focus);
+  outline: 2px dotted var(--mm-accent-secondary);
+  outline-offset: 1px;
 }
 
 /* Session bar (timer + abort) */
@@ -192,37 +290,46 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 10px 12px;
   gap: 12px;
+  background: var(--mm-highlight-bg);
+  border: 1px dashed var(--mm-stripe-border);
+  margin-top: 6px;
 }
 
 .beets-timer {
-  font-family: var(--font2);
-  font-size: 0.85em;
-  color: var(--colour5);
-  opacity: 0.7;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--mm-text);
+  letter-spacing: 0.04em;
 }
 
 .beets-timer--warning {
-  color: var(--colour3);
-  opacity: 1;
+  color: var(--mm-error);
   font-weight: bold;
+  animation: mm-blink 1s steps(2) infinite;
 }
 
 .beets-abort-btn {
-  padding: 6px 14px;
-  font-family: var(--font1);
-  font-size: 0.85em;
-  color: var(--colour4);
-  background-color: var(--colour3);
-  border: none;
-  border-radius: 6px;
+  padding: 5px 12px;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--mm-button-primary-text);
+  background-image: linear-gradient(to bottom, var(--mm-button-primary-from) 0%, var(--mm-button-primary-to) 100%);
+  border-top: 2px solid var(--mm-button-bevel-light);
+  border-left: 2px solid var(--mm-button-bevel-light);
+  border-right: 2px solid var(--mm-button-bevel-dark);
+  border-bottom: 2px solid var(--mm-button-bevel-dark);
+  border-radius: 0;
   cursor: pointer;
-  transition: opacity 0.2s ease;
+  text-shadow: 1px 1px 0 var(--mm-button-primary-text-shadow);
 }
 
 .beets-abort-btn:hover {
-  opacity: 0.85;
+  background-image: linear-gradient(to bottom, var(--mm-button-primary-hover-from) 0%, var(--mm-button-primary-hover-to) 100%);
+  color: var(--mm-button-primary-hover-text);
 }
 
 /* Finished state */
@@ -236,14 +343,13 @@
 
 @media (max-width: 768px) {
   .beets-output {
-    font-size: 0.75em;
-    max-height: 300px;
-    padding: 12px;
+    height: 320px;
+    padding: 8px;
   }
 
   .beets-prompt-btn {
-    padding: 6px 12px;
-    font-size: 0.82em;
+    padding: 4px 8px;
+    font-size: 11px;
   }
 
   .beets-session-bar {
