@@ -33,6 +33,15 @@ export const avatarOptions: Record<string, string[]> = {
   kingsley1: ['yellow'],
   kingsley2: ['yellow'],
   egg: ['blue', 'green', 'pink', 'red'],
+  ring: ['blue', 'green', 'pink', 'red'],
+  heritage: ['blue', 'green', 'pink', 'red'],
+  benson: ['og', 'wenson'],
+  mietzee: ['og', 'fried'],
+  ninjatuna: ['og', 'blue', 'red', 'yellow'],
+  khadija: ['og', 'pink', 'red', 'yellow'],
+  visions: ['og', 'blue', 'pink', 'red'],
+  jonnie: ['cream', 'green', 'red', 'yellow'],
+  keith: ['cream', 'green', 'pink', 'red'],
 };
 
 // Helper function to get all available shapes
