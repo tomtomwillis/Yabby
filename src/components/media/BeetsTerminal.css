@@ -1,0 +1,360 @@
+/* ============================================================
+   BeetsTerminal — Beets-specific layout only.
+   Shared chrome (window, titlebar, statusbar, buttons) lives in
+   mediaTheme.css. The xterm interior keeps its dark theme so
+   ANSI colors render correctly.
+   ============================================================ */
+
+/* Hints and inline status messages */
+
+.beets-hint {
+  font-family: Verdana, Geneva, sans-serif;
+  color: var(--mm-text-muted);
+  font-size: 13px;
+  text-align: center;
+  margin: 0 0 14px;
+}
+
+.beets-status {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+  color: var(--mm-text);
+}
+
+.beets-status--connecting {
+  color: var(--mm-accent-primary);
+  animation: mm-spin 1.5s ease-in-out infinite;
+  animation-name: mm-blink;
+}
+
+.beets-status--locked {
+  color: var(--mm-warning-text);
+}
+
+.beets-status--error {
+  color: var(--mm-error);
+}
+
+.beets-status--disconnected {
+  color: var(--mm-text-muted);
+}
+
+.beets-status--empty {
+  color: var(--mm-text-muted);
+  font-style: italic;
+}
+
+.beets-status--finished {
+  color: var(--mm-success-bright);
+  font-weight: bold;
+}
+
+/* Folder selection */
+
+.beets-folder-group {
+  margin-bottom: 16px;
+  background: var(--mm-card-bg);
+  background-image: var(--mm-card-image);
+  border: 2px solid var(--mm-border);
+  box-shadow: 3px 3px 0 var(--mm-shadow);
+  overflow: hidden;
+}
+
+.beets-folder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-right: 10px;
+  background: var(--mm-highlight-bg);
+  border-bottom: 1px dashed var(--mm-border-soft);
+}
+
+.beets-folder-base {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mm-accent-primary);
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
+}
+
+.beets-folder-base--empty {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.beets-clean-btn {
+  padding: 4px 10px;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--mm-button-text);
+  background-image: linear-gradient(to bottom, var(--mm-button-from) 0%, var(--mm-button-to) 100%);
+  border-top: 2px solid var(--mm-button-bevel-light);
+  border-left: 2px solid var(--mm-button-bevel-light);
+  border-right: 2px solid var(--mm-button-bevel-dark);
+  border-bottom: 2px solid var(--mm-button-bevel-dark);
+  cursor: pointer;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 var(--mm-button-text-shadow);
+}
+
+.beets-clean-btn:hover:not(:disabled) {
+  background-image: linear-gradient(to bottom, var(--mm-button-hover-from) 0%, var(--mm-button-hover-to) 100%);
+  color: var(--mm-button-hover-text);
+}
+
+.beets-clean-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.beets-clean-result {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: var(--mm-text-muted);
+  padding: 6px 14px;
+  margin: 0;
+  background: var(--mm-row-alt);
+  border-top: 1px dashed var(--mm-border-soft);
+}
+
+.beets-folder-base input[type='checkbox'] {
+  accent-color: var(--mm-accent-secondary);
+  width: 16px;
+  height: 16px;
+}
+
+.beets-folder-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.beets-folder-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 32px;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 13px;
+  color: var(--mm-text);
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px dashed var(--mm-border-softer);
+}
+
+.beets-folder-item:hover {
+  background: var(--mm-highlight-bg);
+}
+
+.beets-folder-item input[type='checkbox'] {
+  accent-color: var(--mm-accent-secondary);
+  width: 14px;
+  height: 14px;
+}
+
+/* Terminal output (xterm.js host) — kept dark on purpose so ANSI
+   color codes render; framed by themed mm-window. */
+
+.beets-output {
+  background: #1a1a2e;
+  padding: 12px;
+  border: 2px solid var(--mm-border);
+  box-shadow: inset 2px 2px 0 #000;
+  width: 100%;
+  height: 480px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.beets-output .xterm,
+.beets-output .xterm-viewport,
+.beets-output .xterm-screen {
+  height: 100% !important;
+}
+
+.beets-output .xterm-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.beets-output .xterm-viewport::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+.beets-output .xterm-viewport::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+
+/* Prompt buttons bar */
+
+.beets-prompt-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.beets-prompt-btn {
+  padding: 5px 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--mm-button-text);
+  background-image: linear-gradient(to bottom, var(--mm-button-from) 0%, var(--mm-button-to) 100%);
+  border-top: 2px solid var(--mm-button-bevel-light);
+  border-left: 2px solid var(--mm-button-bevel-light);
+  border-right: 2px solid var(--mm-button-bevel-dark);
+  border-bottom: 2px solid var(--mm-button-bevel-dark);
+  border-radius: 0;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 var(--mm-button-text-shadow);
+  letter-spacing: 0.02em;
+}
+
+.beets-prompt-btn:hover:not(:disabled) {
+  background-image: linear-gradient(to bottom, var(--mm-button-hover-from) 0%, var(--mm-button-hover-to) 100%);
+  color: var(--mm-button-hover-text);
+}
+
+.beets-prompt-btn:active:not(:disabled) {
+  border-top-color: var(--mm-button-bevel-dark);
+  border-left-color: var(--mm-button-bevel-dark);
+  border-right-color: var(--mm-button-bevel-light);
+  border-bottom-color: var(--mm-button-bevel-light);
+}
+
+.beets-prompt-btn--disabled,
+.beets-prompt-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ID input bar — shown when beets asks for a MusicBrainz/Discogs release ID */
+
+.beets-id-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  flex-wrap: wrap;
+}
+
+.beets-id-label {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--mm-accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.beets-id-input {
+  flex: 1 1 320px;
+  min-width: 280px;
+  padding: 6px 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: var(--mm-input-text);
+  background: var(--mm-input-bg);
+  border-top: 2px solid var(--mm-input-border-dark);
+  border-left: 2px solid var(--mm-input-border-dark);
+  border-right: 2px solid var(--mm-input-border-light);
+  border-bottom: 2px solid var(--mm-input-border-light);
+  border-radius: 0;
+  outline: none;
+}
+
+.beets-id-input:focus {
+  background: var(--mm-input-bg-focus);
+  outline: 2px dotted var(--mm-accent-secondary);
+  outline-offset: 1px;
+}
+
+/* Session bar (timer + abort) */
+
+.beets-session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  gap: 12px;
+  background: var(--mm-highlight-bg);
+  border: 1px dashed var(--mm-stripe-border);
+  margin-top: 6px;
+}
+
+.beets-timer {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--mm-text);
+  letter-spacing: 0.04em;
+}
+
+.beets-timer--warning {
+  color: var(--mm-error);
+  font-weight: bold;
+  animation: mm-blink 1s steps(2) infinite;
+}
+
+.beets-abort-btn {
+  padding: 5px 12px;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--mm-button-primary-text);
+  background-image: linear-gradient(to bottom, var(--mm-button-primary-from) 0%, var(--mm-button-primary-to) 100%);
+  border-top: 2px solid var(--mm-button-bevel-light);
+  border-left: 2px solid var(--mm-button-bevel-light);
+  border-right: 2px solid var(--mm-button-bevel-dark);
+  border-bottom: 2px solid var(--mm-button-bevel-dark);
+  border-radius: 0;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 var(--mm-button-primary-text-shadow);
+}
+
+.beets-abort-btn:hover {
+  background-image: linear-gradient(to bottom, var(--mm-button-primary-hover-from) 0%, var(--mm-button-primary-hover-to) 100%);
+  color: var(--mm-button-primary-hover-text);
+}
+
+/* Finished state */
+
+.beets-finished {
+  padding: 16px 0;
+  text-align: center;
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+  .beets-output {
+    height: 320px;
+    padding: 8px;
+  }
+
+  .beets-prompt-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .beets-session-bar {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+}

@@ -77,6 +77,14 @@ URL for your SLSKD instance
 VITE_SLSK_REQUEST_URL=
 ```
 
+### Media Management API (optional - cover art and beets import)
+
+An Express.js backend that handles cover art updates (REST) and interactive beets music library imports (WebSocket). The backend is not part of this repository. Without it, the Media Manager page will not function.
+
+```
+VITE_MEDIA_API_URL=          # Base URL for the media REST API (defaults to /api/media)
+VITE_MEDIA_WS_URL=           # WebSocket URL for the beets terminal (defaults to deriving from window.location)
+```
 ### TMDB (optional - Film Club trailers)
 
 [The Movie Database](https://www.themoviedb.org/) API is used to fetch YouTube trailer links for the Film Club feature. Without it, trailer buttons will not appear on film cards.
@@ -104,6 +112,7 @@ The app uses these Firestore collections. They are created automatically when us
 | `places` | Travel recommendations (with `contributions` subcollection per place) |
 | `wiki` | Wiki content — single document `wiki/content` with a `text` field (Markdown) |
 | `admins` | Admin user IDs (manage via Firebase Console) |
+| `mediaManagers` | Media manager user IDs (manage via Firebase Console) |
 
 Security rules are in `firestore.rules` - deploy them to your Firebase project to enforce permissions.
 
@@ -115,7 +124,7 @@ src/
   components/
     basic/         # Reusable UI components (Button, Header, Carousel, ForumMessageBox, HelpLink, etc.)
     film/          # Film Club feature components (FilmClub, NowWatching, FilmCard, etc.)
-    media/         # Media manager tools
+    media/         # Media manager tools (CoverArtTool, BeetsTerminal)
     travel/        # Travel feature components (TravelMap, TravelRecommendationList, etc.)
     ...            # Feature components (MessageBoard, StickerGrid, NewsPost, etc.)
   utils/           # Sanitisation, rate limiting, caching, geocoding
@@ -144,7 +153,7 @@ Global colours and fonts are CSS variables in `App.css`:
 --font2: 'NectoMono', monospace;
 ```
 
-Components have their own CSS files alongside their `.tsx` files. Pages do not have their own styles - they use component and global styles.
+Components have their own CSS files alongside their `.tsx` files. Some pages (such as MediaManager) also have co-located CSS files.
 
 ## Wiki
 

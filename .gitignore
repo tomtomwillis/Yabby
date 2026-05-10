@@ -48,11 +48,15 @@ public/wiki/
 coverage/
 .nyc_output/
 *.test.js.snap
+_backend_plan
 
 # OS files
 Thumbs.db
 .Spotlight-V100
 .Trashes
+
+# Playwright MCP
+.playwright-mcp/
 
 # Temporary files
 *.tmp
@@ -63,4 +67,5 @@ Thumbs.db
 # Playwright
 .playwright-mcp/
 .claude/settings.local.json
+CLAUDE.local.md
 yabbyville-firebase-adminsdk.json

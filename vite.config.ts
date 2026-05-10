@@ -6,6 +6,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   server: {
     proxy: {
+      // WebSocket rule MUST come before the general /api/media rule
+      '/api/media/beets/terminal': {
+        target: 'wss://yabbyville.xyz',
+        ws: true,
+        changeOrigin: true,
+        secure: true,
+      },
       '/api/media': {
         target: 'https://yabbyville.xyz',
         changeOrigin: true,

@@ -1,0 +1,302 @@
+/* ============================================================
+   MetadataEditor — editor-specific layout only.
+   Theme palettes and shared chrome live in mediaTheme.css.
+   ============================================================ */
+
+.metadata-editor__input--title {
+  flex: 1;
+  font-size: 13px;
+}
+
+/* ---------- Album info card ---------- */
+
+.metadata-editor__album-card {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  margin-bottom: 18px;
+  background: var(--mm-card-bg);
+  background-image: var(--mm-card-image);
+  border: 2px solid var(--mm-border);
+  box-shadow: 4px 4px 0 var(--mm-shadow);
+}
+
+.metadata-editor__album-info {
+  flex: 1;
+  border-collapse: collapse;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 13px;
+  margin: 0;
+}
+
+.metadata-editor__album-info td {
+  padding: 6px 12px;
+  border-bottom: 1px dashed var(--mm-border-softer);
+}
+
+.metadata-editor__album-info tr:last-child td {
+  border-bottom: none;
+}
+
+.metadata-editor__album-info-label {
+  background: var(--mm-highlight-bg);
+  color: var(--mm-accent-primary);
+  font-weight: bold;
+  width: 110px;
+  font-family: 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.metadata-editor__album-info-value {
+  color: var(--mm-text);
+}
+
+.metadata-editor__album-card-action {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-left: 2px dashed var(--mm-border);
+  background: var(--mm-bg);
+}
+
+/* ---------- Changed flag ---------- */
+
+.metadata-editor__changed-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 6px 10px;
+  background: var(--mm-success-bg);
+  border-left: 4px solid var(--mm-success-bright);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: var(--mm-success);
+  font-weight: bold;
+}
+
+.metadata-editor__changed-flag::before {
+  content: "★";
+  color: var(--mm-success-bright);
+}
+
+/* ---------- Track list ---------- */
+
+.metadata-editor__tracks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--mm-input-border-dark);
+  border-left: 2px solid var(--mm-input-border-dark);
+  border-right: 2px solid var(--mm-input-border-light);
+  border-bottom: 2px solid var(--mm-input-border-light);
+  background: var(--mm-card-bg);
+}
+
+.metadata-editor__track {
+  padding: 10px 12px;
+  border-bottom: 1px dashed var(--mm-border-soft);
+}
+
+.metadata-editor__track:nth-child(even) {
+  background: var(--mm-row-alt);
+}
+
+.metadata-editor__track:last-child {
+  border-bottom: none;
+}
+
+.metadata-editor__track-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.metadata-editor__track-num {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--mm-accent-secondary);
+  min-width: 32px;
+  text-align: right;
+  background: var(--mm-track-num-bg);
+  padding: 2px 4px;
+  border: 1px dotted var(--mm-accent-secondary);
+}
+
+.metadata-editor__track-credit {
+  margin-left: 44px;
+}
+
+.metadata-editor__track-credit-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Locked state — applyAlbumArtistToTracks is on */
+.metadata-editor__track-credit--locked {
+  position: relative;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--mm-stripe-1) 0, var(--mm-stripe-1) 8px,
+    var(--mm-stripe-2) 8px, var(--mm-stripe-2) 16px
+  );
+  border: 1px dashed var(--mm-stripe-border);
+  padding: 8px 10px 10px;
+  margin-top: 6px;
+}
+
+.metadata-editor__track-credit--locked::after {
+  content: "🔒";
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: var(--mm-highlight-bg);
+  border: 1px solid var(--mm-stripe-border);
+  padding: 1px 6px;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.metadata-editor__track-credit-locked-msg {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: var(--mm-warning-text);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
+  padding-right: 28px;
+}
+
+.metadata-editor__track-credit-locked-msg::before {
+  content: "↑ ";
+  color: var(--mm-accent-secondary);
+}
+
+/* ---------- Confirm screen ---------- */
+
+.metadata-editor__confirm-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--mm-highlight-bg);
+  border: 2px solid var(--mm-stripe-border);
+  padding: 8px 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  color: var(--mm-warning-text);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 14px;
+}
+
+.metadata-editor__confirm-banner::before {
+  content: "⚠";
+  font-size: 18px;
+  color: var(--mm-stripe-border);
+}
+
+/* ---------- Diff list ---------- */
+
+.metadata-editor__diff-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+
+.metadata-editor__diff-item {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--mm-card-bg);
+  border: 1px solid var(--mm-border);
+  border-left: 4px solid var(--mm-accent-secondary);
+  position: relative;
+}
+
+.metadata-editor__diff-item::before {
+  content: "» ";
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  color: var(--mm-accent-secondary);
+  display: inline;
+}
+
+.metadata-editor__diff-title {
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--mm-text);
+  display: inline;
+  margin: 0 0 6px;
+}
+
+.metadata-editor__diff-changes {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.metadata-editor__diff-change {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: var(--mm-text);
+  padding: 3px 0;
+  align-items: baseline;
+}
+
+.metadata-editor__diff-field {
+  font-weight: bold;
+  min-width: 100px;
+  color: var(--mm-accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metadata-editor__diff-before {
+  color: var(--mm-text-faint);
+  text-decoration: line-through;
+  background: var(--mm-row-alt);
+  padding: 0 4px;
+}
+
+.metadata-editor__diff-arrow {
+  color: var(--mm-accent-secondary);
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.metadata-editor__diff-after {
+  color: var(--mm-success);
+  font-weight: bold;
+  background: var(--mm-success-bg);
+  padding: 0 4px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 560px) {
+  .metadata-editor__album-card {
+    flex-direction: column;
+    box-shadow: 3px 3px 0 var(--mm-shadow);
+  }
+  .metadata-editor__album-card-action {
+    border-left: none;
+    border-top: 2px dashed var(--mm-border);
+    justify-content: center;
+  }
+  .metadata-editor__track-credit {
+    margin-left: 0;
+  }
+}
