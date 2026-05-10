@@ -55,6 +55,9 @@ Thumbs.db
 .Spotlight-V100
 .Trashes
 
+# Playwright MCP
+.playwright-mcp/
+
 # Temporary files
 *.tmp
 *.temp
@@ -64,4 +67,5 @@ Thumbs.db
 # Playwright
 .playwright-mcp/
 .claude/settings.local.json
+CLAUDE.local.md
 yabbyville-firebase-adminsdk.json
