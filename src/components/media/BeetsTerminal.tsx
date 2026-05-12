@@ -72,13 +72,21 @@ const SAFE_BUTTONS: { value: string; label: string }[] = [
 
 // Client-side ID validation — must match server-side (utils/beetsCommand.js)
 const MBID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DISCOGS_ID_RE = /^\d{1,10}$/;
+// Accepts bare digits, r-prefixed (r38437), or bracket-wrapped ([r38437] / [38437])
+const DISCOGS_ID_RE = /^\[?r?(\d{1,10})\]?$/i;
 const ID_BLACKLIST_RE = /[\s\\/?]|:\/\//;
 
 function isValidId(value: string): boolean {
   if (!value || value.length > 50) return false;
   if (ID_BLACKLIST_RE.test(value)) return false;
   return MBID_RE.test(value) || DISCOGS_ID_RE.test(value);
+}
+
+// Strip Discogs display decoration ([r38437] → 38437) before sending to beets
+function normalizeId(value: string): string {
+  const m = DISCOGS_ID_RE.exec(value);
+  if (m) return m[1];
+  return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -442,7 +450,7 @@ const BeetsTerminal: React.FC = () => {
   const handleIdSubmit = () => {
     const trimmed = idInputValue.trim();
     if (!isValidId(trimmed)) return;
-    handlePromptResponse(trimmed);
+    handlePromptResponse(normalizeId(trimmed));
   };
 
   // -------------------------------------------------------------------------
