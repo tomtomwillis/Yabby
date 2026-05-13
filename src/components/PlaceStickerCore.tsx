@@ -64,6 +64,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const [alreadyHasSticker, setAlreadyHasSticker] = useState(false);
   const [existingStickers, setExistingStickers] = useState<Array<{ position: { x: number; y: number }; sticker: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
@@ -201,6 +202,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     const rect = e.currentTarget.getBoundingClientRect();
     const normalizedPos = screenToAlbumCoords(e.clientX, e.clientY, rect);
     setStickerPos(normalizedPos);
+    setSubmitError(null);
   };
 
   // Handle mouse down on sticker to start dragging
@@ -290,14 +292,30 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
 
   // Handle submission
   const handleSubmit = async () => {
-    if (!auth.currentUser || !albumInfo || !stickerPos || !stickerText.trim() || !userSticker) {
-      return alert('Please complete all fields before submitting.');
-    }
+    if (isSubmitting) return;
 
-    if (isSubmitting) {
+    if (!auth.currentUser) {
+      setSubmitError("You're not signed in. Please log in again to post a sticker.");
+      return;
+    }
+    if (!albumInfo) {
+      setSubmitError("Album info is missing. Try closing this and opening it again.");
+      return;
+    }
+    if (!userSticker) {
+      setSubmitError("You don't have a sticker yet. Set an avatar on your profile, then try again.");
+      return;
+    }
+    if (!stickerPos) {
+      setSubmitError("Click on the album cover to place your sticker before posting.");
+      return;
+    }
+    if (!stickerText.trim()) {
+      setSubmitError("Add a short message to go with your sticker.");
       return;
     }
 
+    setSubmitError(null);
     setIsSubmitting(true);
 
     try {
@@ -340,9 +358,18 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         onClose?.();
         window.location.reload();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting sticker:', error);
-      alert('Failed to submit sticker. Please try again.');
+      const code = error?.code as string | undefined;
+      if (code === 'permission-denied') {
+        setSubmitError("You don't have permission to post this sticker. If you just signed in, try refreshing the page.");
+      } else if (code === 'unavailable' || code === 'deadline-exceeded' || !navigator.onLine) {
+        setSubmitError("Couldn't reach the server. Check your connection and try again.");
+      } else if (code === 'resource-exhausted') {
+        setSubmitError("The server is busy right now. Please wait a moment and try again.");
+      } else {
+        setSubmitError("Something went wrong posting your sticker. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -472,11 +499,18 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         </div>
       </div>
 
+      {submitError && (
+        <p className="sticker-error-notice" role="alert">{submitError}</p>
+      )}
+
       <div className="sticker-controls" onClick={(e) => e.stopPropagation()}>
         <MessageTextBox
           placeholder="Write something to go with your sticker..."
           value={stickerText}
-          onChange={(text) => setStickerText(text)}
+          onChange={(text) => {
+            setStickerText(text);
+            if (submitError) setSubmitError(null);
+          }}
           onSend={handleSubmit}
           disabled={isSubmitting}
           maxWords={100}

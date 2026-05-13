@@ -29,6 +29,19 @@
   text-align: center;
 }
 
+/* Submission error message */
+.sticker-error-notice {
+  font-family: var(--font1);
+  color: #c0392b;
+  background-color: color-mix(in srgb, #c0392b 12%, transparent);
+  border: 1px solid color-mix(in srgb, #c0392b 40%, transparent);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0 0.5rem 0;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
 /* Button positioning */
 .popup-close-button {
   position: absolute;
