@@ -817,6 +817,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     if (!auth.currentUser) return;
     try {
       await deleteDoc(doc(db, collectionName, messageId, 'replies', replyId));
+      await updateDoc(doc(db, collectionName, messageId), {
+        replyCount: increment(-1),
+      });
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
