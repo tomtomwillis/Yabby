@@ -317,12 +317,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     try {
       const snapshot = await getDocs(collection(db, collectionName, messageId, 'reactions'));
       const reactions = snapshot.docs.map((d) => d.data() as Reaction);
-      const uid = auth.currentUser?.uid;
-      const currentUserReacted = uid ? reactions.some((r) => r.userId === uid) : false;
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
-            ? { ...m, reactions, reactionCount: reactions.length, currentUserReacted }
+            ? { ...m, reactions, reactionCount: reactions.length }
             : m,
         ),
       );
@@ -341,8 +339,6 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         collection(db, collectionName, messageId, 'replies', replyId, 'reactions'),
       );
       const reactions = snapshot.docs.map((d) => d.data() as Reaction);
-      const uid = auth.currentUser?.uid;
-      const currentUserReacted = uid ? reactions.some((r) => r.userId === uid) : false;
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
@@ -350,7 +346,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
                 ...m,
                 replies: m.replies?.map((r) =>
                   r.id === replyId
-                    ? { ...r, reactions, reactionCount: reactions.length, currentUserReacted }
+                    ? { ...r, reactions, reactionCount: reactions.length }
                     : r,
                 ),
               }
