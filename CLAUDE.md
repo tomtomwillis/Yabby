@@ -114,7 +114,7 @@ Free tier (50k reads/day) — minimising reads is critical:
 
 - Dockerised Express.js server
 - Built manually via Portainer (no CI/CD pipeline)
-- Beets runs on the **host** — Docker container needs volume mounts for the beets virtualenv, incoming/uploaded media directories, and beets config directory (config + library.db)
+- Beets is **executed inside the container** using a virtualenv mounted from the host at `/opt/beetsenv`. Config and `library.db` live on the host (mounted at `/etc/beets`), but the `beet` process and any subprocesses it spawns (e.g. `ffmpeg` for the convert plugin) run in the container — so all such binaries must be installed in the image.
 - Caddy reverse proxy handles WebSocket upgrades automatically — no special config needed
 - Beets import terminal uses WebSocket at `/api/media/beets/terminal` with single-instance session lock (one user at a time, 10-min idle timeout)
 
