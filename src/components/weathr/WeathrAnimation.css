@@ -1,0 +1,24 @@
+.weathr-host {
+  width: 100%;
+  max-width: 720px;
+  margin: 0.5rem 0;
+  background: transparent;
+}
+
+.weathr-host .xterm,
+.weathr-host .xterm-viewport,
+.weathr-host .xterm-screen {
+  background: transparent !important;
+}
+
+.weathr-host .xterm-viewport {
+  overflow: hidden !important;
+}
+
+.weathr-host .xterm {
+  font-size: clamp(8px, 1.4vw, 13px);
+  line-height: 1;
+  filter:
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35))
+    drop-shadow(0 0 1px rgba(0, 0, 0, 0.45));
+}
