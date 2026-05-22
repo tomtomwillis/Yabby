@@ -1,9 +1,9 @@
-import { createPortal } from 'react-dom';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { sanitizeHtml } from '../../utils/sanitise';
 import { uploadTravelPhoto, getTravelPhotoUrl } from '../../utils/travelApi';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
+import Lightbox from '../basic/Lightbox';
 import type { Contribution, PlaceCategory, TravelPhoto } from './travelTypes';
 import { PLACE_CATEGORIES } from './travelTypes';
 import './TravelContributionCard.css';
@@ -240,22 +240,7 @@ export default function TravelContributionCard({
 
       {error && <p className="travel-card__error">{error}</p>}
 
-      {lightboxUrl && createPortal(
-        <div
-          className="travel-card__lightbox"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <button
-            className="travel-card__lightbox-close"
-            onClick={() => setLightboxUrl(null)}
-            aria-label="Close"
-          >
-            ×
-          </button>
-          <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />
-        </div>,
-        document.body,
-      )}
+      {lightboxUrl && <Lightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   );
 }

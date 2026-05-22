@@ -7,6 +7,7 @@ import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash } from '
 import ForumBox from './ForumMessageBox';
 import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
+import Lightbox from './Lightbox';
 
 interface Reaction {
   userId: string;
@@ -165,6 +166,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   posterUrl,
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isLongPress, setIsLongPress] = useState(false);
   const [showReplyInput, setShowReplyInput] = useState(false);
@@ -332,6 +334,11 @@ const UserMessage: React.FC<UserMessageProps> = ({
               alt="Attached image"
               className="user-message-image"
               loading="lazy"
+              onClick={() => setLightboxUrl(messageImageUrl)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setLightboxUrl(messageImageUrl)}
+              aria-label="View image"
             />
           </div>
         )}
@@ -343,6 +350,11 @@ const UserMessage: React.FC<UserMessageProps> = ({
               alt="Film poster"
               className="user-message-image"
               loading="lazy"
+              onClick={() => setLightboxUrl(posterUrl)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setLightboxUrl(posterUrl)}
+              aria-label="View image"
             />
           </div>
         )}
@@ -535,6 +547,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
       {!hideCloseButton && ( // Conditionally render the close button
         <Button type='close' onClick={onClose} className="custom-close-button" />
       )}
+
+      {lightboxUrl && <Lightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   );
 };
