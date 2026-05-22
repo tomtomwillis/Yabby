@@ -40,6 +40,17 @@ service cloud.firestore {
         && text.size() <= 10000;
     }
 
+    function isValidNextFilm(film) {
+      return film is map
+        && film.tmdbId is int
+        && film.title is string && film.title.size() >= 1 && film.title.size() <= 200
+        && film.releaseYear is string && film.releaseYear.size() <= 10
+        && (film.posterPath == null || (film.posterPath is string && film.posterPath.size() <= 200))
+        && film.overview is string && film.overview.size() <= 2000
+        && film.pitch is string && film.pitch.size() <= 600
+        && film.submittedByUsername is string && film.submittedByUsername.size() <= 50;
+    }
+
     // Admin collection - managed via Firebase Console only
     match /admins/{userId} {
       allow read: if isSignedIn();
@@ -63,7 +74,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled'])
         && isValidUsername(request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
@@ -71,10 +82,11 @@ service cloud.firestore {
         && (!('bio' in request.resource.data) || validString(request.resource.data.bio, 0, 500))
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
-        && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool);
+        && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
+				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool);
 
       allow update: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled'])
         && isValidUsername(request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
@@ -82,7 +94,8 @@ service cloud.firestore {
         && (!('bio' in request.resource.data) || validString(request.resource.data.bio, 0, 500))
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
-        && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool);
+        && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
+				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool);
 
       allow delete: if false;
     }
@@ -347,12 +360,25 @@ service cloud.firestore {
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentFilm', 'downloadLinks', 'directDownloadLinks', 'currentFilmDescription']);
 
-      // Any authenticated user can write nextFilm + winnerCalculated
+      // Admin can overwrite nextFilm + winnerCalculated (escape hatch for stuck/corrupt state)
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextFilm', 'winnerCalculated'])
+        && request.resource.data.winnerCalculated is bool
+        && isValidNextFilm(request.resource.data.nextFilm);
+
+      // Any authenticated user can write the IRV result, but only once and only a valid shape
       allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['nextFilm', 'winnerCalculated']);
+        && request.resource.data.keys().hasOnly(['nextFilm', 'winnerCalculated'])
+        && request.resource.data.winnerCalculated == true
+        && request.resource.data.winnerCalculated is bool
+        && isValidNextFilm(request.resource.data.nextFilm);
 
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextFilm', 'winnerCalculated']);
+        && !resource.data.winnerCalculated
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextFilm', 'winnerCalculated'])
+        && request.resource.data.winnerCalculated == true
+        && request.resource.data.winnerCalculated is bool
+        && isValidNextFilm(request.resource.data.nextFilm);
 
       // Submissions subcollection — one doc per user+film (docId = {userId}_{tmdbId})
       match /submissions/{submissionId} {
@@ -361,8 +387,20 @@ service cloud.firestore {
         allow create, update: if isSignedIn()
           && submissionId.matches(request.auth.uid + '_.*')
           && request.resource.data.userId == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+               'userId', 'username', 'title', 'releaseYear',
+               'posterPath', 'overview', 'pitch', 'tmdbId', 'timestamp'
+             ])
+          && request.resource.data.username ==
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
+          && isValidUsername(request.resource.data.username)
           && validString(request.resource.data.title, 1, 200)
-          && validString(request.resource.data.pitch, 0, 600);
+          && validString(request.resource.data.pitch, 0, 600)
+          && validString(request.resource.data.overview, 0, 2000)
+          && request.resource.data.tmdbId is int
+          && (request.resource.data.posterPath == null
+              || (request.resource.data.posterPath is string
+                  && request.resource.data.posterPath.size() <= 200));
 
         allow delete: if isSignedIn()
           && (submissionId.matches(request.auth.uid + '_.*') || isAdmin());

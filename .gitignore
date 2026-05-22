@@ -15,6 +15,9 @@ dist-ssr
 dev-dist/
 local/
 
+# Local-only scripts (per-user maintenance / deploy helpers, not for the public repo)
+/scripts/
+
 
 # Environment files
 .env
