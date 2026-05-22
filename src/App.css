@@ -14,6 +14,33 @@
 }
 
 @font-face {
+  font-family: 'jgs5';
+  src: url('./assets/fonts/JGS/jgs5.woff2') format('woff2'),
+       url('./assets/fonts/JGS/jgs5.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'jgs7';
+  src: url('./assets/fonts/JGS/jgs7.woff2') format('woff2'),
+       url('./assets/fonts/JGS/jgs7.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'jgs9';
+  src: url('./assets/fonts/JGS/jgs9.woff2') format('woff2'),
+       url('./assets/fonts/JGS/jgs9.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'AvaraItalic';
   src: url('./assets/fonts/Avara-BoldItalic.otf') format('opentype'); /* Correct format for .otf */
   font-weight: normal;
@@ -60,6 +87,22 @@
   src: url('./assets/fonts/Ribes-Black.otf') format('opentype');
   font-weight: 900;
   font-style: normal;
+}
+
+@font-face {
+  font-family: 'AsciiArial';
+  src: url('./assets/fonts/ARIAL.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'DTNouveau';
+  src: url('./assets/fonts/DTNouveau-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
 }
 
 /* the main colour palette for the app */

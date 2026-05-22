@@ -55,13 +55,10 @@
     text-decoration: underline;
 }
 
-/* Spacing between navigation groups */
-.top-links {
-    margin-bottom: 1rem;
-}
-
-.bottom-links {
-    margin-top: 1rem;
+/* Primary nav row — single line, no wrap. */
+.primary-links {
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 /* +more button — styled to match nav links */

@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Carousel from "./basic/Carousel";
-import "./basic/Carousel.css";
 import "./CarouselAlbums.css";
 
 const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
@@ -89,7 +87,7 @@ const CarouselAlbums: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="carousel">
+      <div className="albums-marquee-frame">
         <p>Loading albums...</p>
       </div>
     );
@@ -97,7 +95,7 @@ const CarouselAlbums: React.FC = () => {
 
   if (error) {
     return (
-      <div className="carousel">
+      <div className="albums-marquee-frame">
         <p>Error loading albums: {error}</p>
         <button onClick={() => window.location.reload()}>Retry</button>
       </div>
@@ -106,46 +104,49 @@ const CarouselAlbums: React.FC = () => {
 
   if (albums.length === 0) {
     return (
-      <div className="carousel">
+      <div className="albums-marquee-frame">
         <p>No albums found</p>
       </div>
     );
   }
 
-  const slides = albums.map((album) => (
-    <div key={album.id} className="carousel__slide">
-      <a
-        href={`${SERVER_URL}/app/#/album/${album.id}/show`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <img
-          src={`${SERVER_URL}/rest/getCoverArt?id=${album.coverArt}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`} 
-          alt={album.name}
-          className="carousel__slide-image"
-          loading="lazy"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src =
-              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+";
-          }}
-        />
-        <div className="carousel__slide-info">
-          <div className="carousel__slide-text">
-            {album.name}
-            <br />
-            {album.artist}
-            <br />
-            {album.year || ""}
-          </div>
-        </div>
-      </a>
-    </div>
-  ));
+  // Duplicate the list so the CSS keyframe loop joins seamlessly.
+  const ticker = [...albums, ...albums];
+
+  const renderTile = (album: Album, i: number) => (
+    <a
+      key={`${album.id}-${i}`}
+      className="albums-marquee__tile"
+      href={`${SERVER_URL}/app/#/album/${album.id}/show`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`${album.name} — ${album.artist}${album.year ? ` (${album.year})` : ''}`}
+    >
+      <img
+        src={`${SERVER_URL}/rest/getCoverArt?id=${album.coverArt}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`}
+        alt={album.name}
+        className="albums-marquee__img"
+        loading="lazy"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.src =
+            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+";
+        }}
+      />
+      <span className="albums-marquee__caption">
+        <strong>{album.name}</strong>
+        <em>{album.artist}</em>
+      </span>
+    </a>
+  );
 
   return (
-    <div className="carousel-albums">
-      <Carousel slides={slides} loop autoplay />
+    <div className="albums-marquee-frame">
+      <div className="albums-marquee">
+        <div className="albums-marquee__track">
+          {ticker.map((album, i) => renderTile(album, i))}
+        </div>
+      </div>
     </div>
   );
 };

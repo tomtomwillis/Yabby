@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import Moveable from 'react-moveable';
 import Header from '../components/basic/Header';
 import '../App.css';
+import './Home.css';
 import '../components/basic/TextAnimations.css';
 import CarouselAlbums from '../components/CarouselAlbums';
 import CarouselStickers, { type CarouselStickersHandle } from '../components/CarouselStickers';
@@ -12,12 +14,12 @@ import RecentLists from '../components/RecentLists';
 import RecentNews from '../components/RecentNews';
 import { useRadioMetadata } from '../utils/useRadioMetadata';
 import AsciiMan from '../components/AsciiMan';
+import AsciiTitle from '../components/basic/AsciiTitle';
 import Weather from '../components/weather-app';
 
-// Lazy load the Stats component for better performance
 const Stats = lazy(() => import('../components/Stats'));
+const WeathrAnimation = lazy(() => import('../components/weathr/WeathrAnimation'));
 
-// Pool of random subtitles
 const SUBTITLES = [
   "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Yes Sir, I Can Boogie 🏴󠁧󠁢󠁳󠁣󠁴󠁿",
   "We <3 you",
@@ -73,10 +75,33 @@ function App() {
   const [subtitle, setSubtitle] = useState('');
   const radioContainerRef = useRef<HTMLDivElement>(null);
   const stickersRef = useRef<CarouselStickersHandle>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (editMode) {
+      document.body.classList.add('design-mode');
+    } else {
+      document.body.classList.remove('design-mode');
+      setSelectedTarget(null);
+    }
+    return () => {
+      document.body.classList.remove('design-mode');
+    };
+  }, [editMode]);
+
+  const onPanelClick = (e: React.MouseEvent<HTMLFieldSetElement>) => {
+    if (!editMode) return;
+    e.stopPropagation();
+    setSelectedTarget(e.currentTarget);
+  };
+
+  const onCanvasClick = () => {
+    if (editMode) setSelectedTarget(null);
+  };
 
   const handleStickerPlaced = (payload: PlacedStickerPayload) => {
     stickersRef.current?.injectSticker(payload);
-    // Background reconcile against Firestore state
     stickersRef.current?.refetch();
   };
 
@@ -84,13 +109,7 @@ function App() {
   const [webampLoading, setWebampLoading] = useState(false);
   const [webampError, setWebampError] = useState<string | null>(null);
   const [pageContentLoaded, setPageContentLoaded] = useState(false);
-  const [showPlayer, setShowPlayer] = useState(false);
-  const [initializePlayer, setInitializePlayer] = useState(false);
 
-  // Animation timing (in milliseconds)
-  const ANIMATION_DURATION = 500;
-
-  // Set random subtitle on mount; may be overridden by RecentNews callback
   useEffect(() => {
     setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
   }, []);
@@ -101,129 +120,145 @@ function App() {
     }
   };
 
-  // Wait for page content to load before allowing Webamp to initialize
+  // Defer Webamp init until the rest of the page has had a chance to render.
   useEffect(() => {
-    // Use a small delay after mount to allow carousels and content to render
     const timer = setTimeout(() => {
       setPageContentLoaded(true);
     }, 600);
-
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle player toggle with animation
-  const handleTogglePlayer = () => {
-    if (showPlayer) {
-      // CLOSE: Dispose Webamp first, then animate collapse
-      setInitializePlayer(false);
-
-      setTimeout(() => {
-        setShowPlayer(false);
-      }, 100); // Wait for Webamp to dispose
-
-    } else {
-      // OPEN: Animate expansion first, then initialize Webamp
-      setShowPlayer(true);
-
-      // Use requestAnimationFrame to ensure DOM update before animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          // After 2 frames, DOM is ready and CSS transition will work
-          setTimeout(() => {
-            setInitializePlayer(true);
-          }, ANIMATION_DURATION);
-        });
-      });
-    }
-  };
-
   return (
-    <div className="app-container">
-        <Header title="Welcome to Yabbyville" subtitle={subtitle} />
-
-      <div className="title1">
-        <Link to="/stickers">Stickers →</Link>
-      </div>
-      <CarouselStickers ref={stickersRef} />
-
-      <PlaceSticker onSuccess={handleStickerPlaced} />
-
-      <hr />
-
-      <div className="title1">
-        <Link to="/radio">Radio →</Link>
-      </div>
-
-      {webampLoading && (
-        <p className="webamp-radio-loading">Loading player...</p>
-      )}
-
-      {webampError && (
-        <p className="webamp-radio-error">{webampError}</p>
-      )}
-
-      {nowPlaying && (
-        <div className="webamp-radio-now-playing">
-          Now Playing: {nowPlaying}
-        </div>
-      )}
-
-      <button
-        className="webamp-radio-toggle"
-        onClick={handleTogglePlayer}
-        disabled={!pageContentLoaded}
-      >
-        {showPlayer ? 'Close Player' : 'Show Player'}
-      </button>
-
-      <div
-        ref={radioContainerRef}
-        className={`webamp-radio-container ${showPlayer ? 'expanded' : ''}`}
-        style={{ marginTop: '1rem' }}
+    <div className="app-container home-page" onClick={onCanvasClick}>
+      <Header
+        title="Welcome to"
+        subtitle={subtitle}
+        belowTitle={<AsciiTitle />}
       />
 
-      {pageContentLoaded && initializePlayer && (
-        <WebampRadio
-          containerRef={radioContainerRef}
-          onLoadingChange={setWebampLoading}
-          onErrorChange={setWebampError}
-        />
-      )}
+      <button
+        type="button"
+        className="design-toggle"
+        onClick={(e) => { e.stopPropagation(); setEditMode((v) => !v); }}
+      >
+        {editMode ? 'done' : '🎨 design mode'}
+      </button>
 
-      <hr />
+      <div className="home-grid">
+        {/* ── LEFT ── Stickers + Weather stacked */}
+        <div className="home-col home-col--left">
+          <fieldset className="panel panel--stickers" onClick={onPanelClick}>
+            <legend>
+              <Link to="/stickers">[ stickers → ]</Link>
+            </legend>
+            <CarouselStickers ref={stickersRef} />
+            <div className="panel-cta">
+              <PlaceSticker onSuccess={handleStickerPlaced} />
+            </div>
+          </fieldset>
 
-      <div className="news-inverted">
-        <div className="title1">
-          <Link to="/news">News →</Link>
+          <fieldset className="panel panel--weather" onClick={onPanelClick}>
+            <legend>[ weather ]</legend>
+            <div className="weather-strip">
+              <Weather />
+            </div>
+            <Suspense fallback={<p className="normal-text">…</p>}>
+              <WeathrAnimation />
+            </Suspense>
+          </fieldset>
         </div>
-        <RecentNews onLatestTimestamp={handleLatestNewsTimestamp} />
-      </div>
 
-      <hr />
+        {/* ── RIGHT ── Recently Added (full row), then Lists|Radio, then News|Stats */}
+        <div className="home-col home-col--right">
+          <fieldset className="panel panel--recent" onClick={onPanelClick}>
+            <legend>
+              <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">
+                [ recently added → ]
+              </a>
+            </legend>
+            <CarouselAlbums />
+          </fieldset>
 
-      <div className="title1">
-        <Link to="/lists">Lists →</Link>
-      </div>
-      <RecentLists />
+          <div className="home-right-grid">
+            <div className="home-subcol home-subcol--inner">
+              <fieldset className="panel panel--lists" onClick={onPanelClick}>
+                <legend>
+                  <Link to="/lists">[ lists → ]</Link>
+                </legend>
+                <RecentLists />
+              </fieldset>
 
-      <hr />
+              <fieldset className="panel panel--news news-inverted" onClick={onPanelClick}>
+                <legend>
+                  <Link to="/news">[ news → ]</Link>
+                </legend>
+                <RecentNews onLatestTimestamp={handleLatestNewsTimestamp} />
+              </fieldset>
+            </div>
 
-      <div className="title1">Stats</div>
-        <Suspense fallback={<div className="stats-container"><p className="normal-text">Loading stats...</p></div>}>
-        <Weather />
-          <Stats />
-        </Suspense>
-      <hr />
-        <div className="title1">
-          <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">Recently Added →</a>
+            <div className="home-subcol home-subcol--outer">
+              <fieldset className="panel panel--radio" onClick={onPanelClick}>
+                <legend>
+                  <Link to="/radio">[ on the radio → ]</Link>
+                </legend>
+
+                {webampError && (
+                  <p className="webamp-radio-error">{webampError}</p>
+                )}
+                {webampLoading && (
+                  <p className="webamp-radio-loading">tuning in...</p>
+                )}
+
+                <div
+                  ref={radioContainerRef}
+                  className="webamp-radio-container expanded"
+                />
+
+                {pageContentLoaded && (
+                  <WebampRadio
+                    containerRef={radioContainerRef}
+                    onLoadingChange={setWebampLoading}
+                    onErrorChange={setWebampError}
+                  />
+                )}
+
+                {nowPlaying && (
+                  <div className="webamp-radio-now-playing">
+                    ♪ now playing: {nowPlaying}
+                  </div>
+                )}
+              </fieldset>
+
+              <fieldset className="panel panel--stats" onClick={onPanelClick}>
+                <legend>[ stats ]</legend>
+                <Suspense fallback={<p className="normal-text">Loading stats...</p>}>
+                  <Stats />
+                </Suspense>
+              </fieldset>
+            </div>
+          </div>
         </div>
-        <CarouselAlbums />
+      </div>
 
       <AsciiMan />
+
+      {editMode && selectedTarget && (
+        <Moveable
+          target={selectedTarget}
+          draggable
+          scalable
+          origin={false}
+          throttleScale={0}
+          onDrag={({ target, transform }) => {
+            (target as HTMLElement).style.transform = transform;
+          }}
+          onScale={({ target, drag }) => {
+            (target as HTMLElement).style.transform = drag.transform;
+          }}
+        />
+      )}
     </div>
-    
   );
 }
-
 
 export default App;

@@ -21,6 +21,7 @@ import FilmClubSubmit from './pages/FilmClubSubmit';
 import FilmClubVote from './pages/FilmClubVote';
 import FilmClubMessagePage from './pages/FilmClubMessagePage';
 import PrivateRoute from './components/PrivateRoute';
+import DesignTool from './components/DesignTool';
 import MediaManager from './pages/MediaManager';
 import TravelPage from './pages/TravelPage';
 
@@ -30,6 +31,7 @@ function App() {
       <div className="app-container">
         <Star />
         <Oneko />
+        <DesignTool />
         <Routes>
           {/* Public route */}
           <Route path="/login" element={<Login />} />

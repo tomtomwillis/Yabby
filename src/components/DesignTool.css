@@ -1,0 +1,162 @@
+/* Floating panel */
+.design-tool {
+  position: fixed;
+  z-index: 9999;
+  min-width: 220px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+  font-size: 0.72rem;
+  font-family: monospace;
+  user-select: none;
+}
+
+/* Drag handle */
+.design-tool-handle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px 6px 0 0;
+  cursor: grab;
+}
+.design-tool-handle:active {
+  cursor: grabbing;
+}
+
+.design-tool-title {
+  font-weight: bold;
+  letter-spacing: 0.03em;
+}
+
+/* Selection info row */
+.design-tool-sel-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  min-height: 22px;
+  flex-wrap: wrap;
+}
+
+.design-tool-no-sel {
+  color: #aaa;
+  font-style: italic;
+}
+
+.design-tool-sel-chip {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.design-tool-sel-val {
+  color: #333;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-tool-sel-sep {
+  color: #bbb;
+}
+
+/* Control rows */
+.design-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.design-tool-row label {
+  width: 42px;
+  flex-shrink: 0;
+  color: #666;
+}
+
+.design-tool-row select {
+  font-size: 0.7rem;
+  padding: 1px 2px;
+  flex: 1;
+}
+
+/* Colour palette */
+.design-tool-palette {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.design-tool-swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.design-tool-swatch.active {
+  outline: 2px solid #000;
+  outline-offset: 1px;
+}
+
+.design-tool-wheel-btn {
+  height: 14px;
+  line-height: 1;
+  padding: 0 3px;
+  font-size: 0.72rem;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  cursor: pointer;
+  background: #eee;
+  flex-shrink: 0;
+}
+
+.design-tool-hidden-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Apply button */
+.design-tool-apply {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 6px 8px;
+  padding: 4px 0;
+  font-size: 0.72rem;
+  font-family: monospace;
+  cursor: pointer;
+  background: #2b2b2b;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  transition: opacity 0.15s;
+}
+
+.design-tool-apply:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.design-tool-apply:not(:disabled):hover {
+  background: #1a2ecc;
+}

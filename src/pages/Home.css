@@ -1,0 +1,626 @@
+/*
+ * Home page — two-column layout.
+ *
+ * Left column stacks Stickers + Weather. Right column has Recently Added
+ * spanning a top row, then a 2-sub-column grid: Lists|Radio with News|Stats
+ * stacked below them respectively.
+ */
+
+.home-page {
+  width: 100%;
+  min-height: 0;
+}
+
+/* The outer App-level .app-container also enforces 100vh — override it on home
+   so the page can be its natural height without trailing whitespace. */
+.app-container:has(.home-page) {
+  min-height: 0;
+}
+
+/* ─── Compact header on home only ─────────────────────── */
+
+.home-page header.header {
+  margin-bottom: 0;
+  padding: 0 0 0.25rem;
+}
+
+.home-page header.header h1 {
+  font-size: 1.3rem;
+  margin: 0;
+  line-height: 1.05;
+}
+
+.home-page .ascii-title {
+  margin: 0;
+}
+
+.home-page .ascii-title-pre {
+  transform-origin: top center;
+}
+
+.home-page header.header .small-text {
+  font-size: 1.17rem;
+  margin: 0.15rem 0 0.1rem;
+}
+
+.home-page header.header .desktop-nav {
+  margin: 0.25rem 0 0;
+}
+
+.home-page header.header .nav-links {
+  margin: 0;
+  gap: 0.25rem 1.25rem;
+}
+
+.home-page header.header .nav-links a,
+.home-page header.header .more-button {
+  font-size: 1.15rem;
+}
+
+.home-page header.header .primary-links { margin: 0; }
+.home-page header.header .more-links { margin-top: 0.25rem; }
+
+.home-page header.header hr {
+  display: none;
+}
+
+body:has(.home-page) #root,
+#root:has(.home-page) {
+  padding: 0.5rem 1.5rem;
+  max-width: min(90vw, 2000px);
+}
+
+/* At normal desktop widths, keep things from sprawling. */
+@media (max-width: 1999px) {
+  body:has(.home-page) #root,
+  #root:has(.home-page) {
+    max-width: 1600px;
+  }
+}
+
+/* ─── The 2-column outer flexbox ──────────────────────── */
+
+.home-grid {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 0.25rem;
+}
+
+.home-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-col--left  { flex: 1 1 calc(50% - 6px); }
+.home-col--right { flex: 1 1 calc(50% - 6px); }
+
+/* Inside the right column: a 2-sub-column flex row beneath Recently Added.
+   Stretches to fill remaining column height so subcols can align bottoms. */
+.home-right-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.home-subcol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 calc(50% - 4px);
+}
+
+@media (max-width: 1100px) {
+  .home-col--left,
+  .home-col--right { flex: 1 1 100%; }
+}
+
+@media (max-width: 700px) {
+  .home-subcol { flex: 1 1 100%; }
+}
+
+/* ─── The fieldset frame (panel) ──────────────────────── */
+
+.panel {
+  border: 2px solid var(--colour2);
+  border-radius: 0;
+  padding: 0.35rem 0.6rem 0.5rem;
+  margin: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.panel > legend {
+  font-family: var(--font2);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--colour2);
+  padding: 0 0.45rem;
+  margin-left: 0.4rem;
+  letter-spacing: 0.02em;
+}
+
+.panel > legend a {
+  color: var(--colour2);
+  text-decoration: none;
+}
+
+.panel > legend a:hover {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.panel .title1 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+  padding-left: 0;
+}
+
+/* ─── Per-panel tweaks ────────────────────────────────── */
+
+/* Stickers panel — post-form sits right below the wall. */
+.panel--stickers .panel-cta {
+  margin-top: 0.5rem;
+}
+
+.panel--stickers .place-sticker-container {
+  max-width: 100%;
+  padding: 0.5rem;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* Radio panel.
+   Webamp appends #webamp to <body> with position:absolute. Its own centering
+   logic mis-computes the bounding box when milkdrop has a custom extraHeight,
+   so WebampRadio.tsx pins the windows to the container's top-left after the
+   initial render. Container therefore matches the actual stack: main player
+   (116) + milkdrop (174) = 290px tall, 275 wide. */
+
+.panel--radio {
+  align-items: center;
+}
+
+.panel--radio .webamp-radio-container.expanded {
+  height: 290px;
+  width: 275px;
+  margin: 0 auto;
+}
+
+.panel--radio .webamp-radio-now-playing {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  text-align: center;
+  width: 100%;
+  opacity: 0.85;
+}
+
+.panel--radio .webamp-radio-loading,
+.panel--radio .webamp-radio-error {
+  text-align: center;
+  padding: 0.25rem 0;
+  margin: 0;
+}
+
+/* Lists panel — narrow column, cards stack vertically. */
+.panel--lists .recent-lists-container {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 0;
+}
+
+.panel--lists .recent-list-card {
+  flex: 0 0 auto;
+  max-width: 100%;
+  width: 100%;
+}
+
+.panel--lists .recent-list-image-wrapper {
+  height: auto;
+  aspect-ratio: 16 / 7;
+  width: 100%;
+}
+
+.panel--lists .recent-list-image-wrapper img {
+  max-height: none;
+  width: auto;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Recently added — marquee fills its frame. */
+.panel--recent .albums-marquee-frame {
+  margin: 0;
+}
+
+/* Shrink marquee tiles on home for vertical compactness. */
+.home-page .panel--recent .albums-marquee__tile,
+.home-page .panel--recent .albums-marquee__img,
+.home-page .panel--recent .albums-marquee__caption {
+  width: 72px;
+}
+
+.home-page .panel--recent .albums-marquee__img {
+  height: 72px;
+}
+
+/* Stats panel — tighter spacing. */
+.panel--stats .stats-container {
+  font-size: 0.9rem;
+}
+
+.panel--stats .normal-text {
+  margin-bottom: 0.3rem;
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+.panel--stats .github-stats {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+}
+
+.panel--stats .github-stats-title {
+  font-size: 1.05rem;
+  margin-bottom: 0.2rem;
+}
+
+/* ─── Combined Weather panel ──────────────────────────── */
+
+/* Temperature text runs along the top of the ASCII animation. The ASCII
+   engine sets its own dimensions; we just kill its padding and let the
+   weather-strip line ride above it. */
+
+.panel--weather .weather-strip .weather-card {
+  width: 100%;
+  text-align: left;
+  padding: 0;
+}
+
+.panel--weather .weather-strip .normal-text {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  font-family: var(--font2);
+  color: var(--colour2);
+  line-height: 1.2;
+}
+
+.panel--weather .weathr-frame {
+  padding-left: 0;
+}
+
+/* The weathr engine renders a wide ASCII pre; in a narrow column we want
+   it to scale down rather than overflow the panel. */
+.panel--weather .weathr-pre {
+  display: block;
+  width: 100%;
+  white-space: pre;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+/* News panel — release the 600px max-width on its inner wrapper.
+   Also override .news-inverted's width:100% which, combined with the
+   fieldset's content-box default, would burst the panel past its column. */
+.panel--news.news-inverted {
+  width: auto;
+  padding: 0.35rem 0.6rem 0.5rem;
+}
+
+.panel--news > div {
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* News + stats grow so their bottoms align with the column. */
+.home-page .panel--news,
+.home-page .panel--stats {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ─── Home-page squish — keep page within one viewport on 1440×900 ─── */
+
+/* Sticker wall: 6 cols × 2 rows in the wide left column on home. */
+.home-page .sticker-wall {
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+/* ─── Scale up at QHD+ ─────────────────────────────────────
+   Bigger screens get bigger marquee tiles, larger nav font, and the
+   panels naturally widen via the #root max-width bump above. */
+@media (min-width: 2000px) {
+  .home-page .panel--recent .albums-marquee__tile,
+  .home-page .panel--recent .albums-marquee__caption {
+    width: 96px;
+  }
+  .home-page .panel--recent .albums-marquee__img {
+    width: 96px;
+    height: 96px;
+  }
+
+  .home-page header.header h1 {
+    font-size: 1.7rem;
+  }
+
+  .home-page header.header .nav-links a,
+  .home-page header.header .more-button {
+    font-size: 1.35rem;
+  }
+
+  .home-page .panel > legend {
+    font-size: 1.05rem;
+  }
+
+  .home-page .panel--stats,
+  .home-page .panel--news,
+  .home-page .panel--stats .normal-text,
+  .home-page .panel--stats .github-stats-title,
+  .home-page .panel--stats .github-show-more,
+  .home-page .panel--news .user-message-username,
+  .home-page .panel--news .user-message-timestamp,
+  .home-page .panel--news .user-message-text {
+    font-size: 0.95rem;
+  }
+}
+
+@media (min-width: 2200px) {
+  .home-page .sticker-wall {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+  }
+
+  .home-page .panel--recent .albums-marquee__tile,
+  .home-page .panel--recent .albums-marquee__caption {
+    width: 120px;
+  }
+  .home-page .panel--recent .albums-marquee__img {
+    width: 120px;
+    height: 120px;
+  }
+
+  .home-page .panel--stats,
+  .home-page .panel--news,
+  .home-page .panel--stats .normal-text,
+  .home-page .panel--news .user-message-text {
+    font-size: 1.05rem;
+  }
+}
+
+/* Lists: shorter card thumbs and hide the 3rd card to keep the panel tight. */
+.home-page .panel--lists .recent-list-image-wrapper {
+  aspect-ratio: 16 / 3;
+}
+
+.home-page .panel--lists .recent-list-card:nth-child(n+3) {
+  display: none;
+}
+
+/* Weather panel: grow to align with the tallest right-column subcol so the
+   full ASCII animation has room to breathe. */
+.home-page .panel--weather {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.home-page .panel--weather .weathr-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Stats + News share font/size on home for a consistent pair. */
+.home-page .panel--stats,
+.home-page .panel--news {
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: var(--colour2);
+}
+
+.home-page .panel--stats .normal-text,
+.home-page .panel--stats .github-stats-title,
+.home-page .panel--stats .github-show-more,
+.home-page .panel--news .user-message-username,
+.home-page .panel--news .user-message-timestamp,
+.home-page .panel--news .user-message-text,
+.home-page .panel--news .user-message-username-link {
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.home-page .panel--stats .normal-text {
+  margin-bottom: 0.15rem;
+}
+
+.home-page .panel--stats .github-stats {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+}
+
+.home-page .panel--stats .github-stats-title {
+  font-weight: 600;
+  margin-bottom: 0.1rem;
+}
+
+.home-page .panel--stats .github-latest-heading,
+.home-page .panel--stats .github-show-more {
+  display: none;
+}
+
+/* Trim song-of-day on home — keeps stats compact enough to fit FHD. */
+.home-page .panel--stats .stats-container > .normal-text:nth-of-type(3) {
+  display: none;
+}
+
+/* Radio: drop the "now playing" line on home — already shown in header subtitle. */
+.home-page .panel--radio .webamp-radio-now-playing {
+  display: none;
+}
+
+/* News post body fills the available panel space, then clamps with ellipsis.
+   Show More opens a modal (RecentNews handles the trigger). */
+.home-page .panel--news .user-message {
+  height: 100%;
+}
+
+.home-page .panel--news .user-message-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.home-page .panel--news .user-message-text {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: clamp(90px, 11vh, 220px);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Fade-out at the bottom hints there's more text. */
+.home-page .panel--news .user-message-text::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2.4rem;
+  background: linear-gradient(to bottom, transparent, var(--colour4));
+  pointer-events: none;
+}
+
+/* Show More sits inside the text box, anchored bottom-right above the fade. */
+.home-page .recent-news-show-more {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.35rem;
+  z-index: 1;
+  padding: 0.1rem 0.35rem;
+  background: var(--colour4);
+  border: 1px solid var(--colour2);
+  cursor: pointer;
+  color: var(--colour2);
+  font-family: var(--font2);
+  font-size: 0.78rem;
+  text-decoration: none;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.home-page .recent-news-show-more:hover {
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+/* The wrapper around the post needs to position the show-more relative to it. */
+.home-page .panel--news .user-message-content {
+  position: relative;
+}
+
+/* Modal — centred dialog, click backdrop to close. */
+.recent-news-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+  padding: 1.5rem;
+}
+
+.recent-news-modal {
+  background: var(--colour4);
+  color: var(--colour2);
+  border: 2px solid var(--colour2);
+  border-radius: 0;
+  max-width: min(640px, 92vw);
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.15);
+  position: relative;
+  font-family: var(--font2);
+}
+
+.recent-news-modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.6rem;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--colour2);
+  padding: 0.15rem 0.4rem;
+  line-height: 1;
+}
+
+.recent-news-modal-close:hover {
+  color: var(--colour3);
+}
+
+/* Radio: trim margins around webamp + now-playing. */
+.home-page .panel--radio .webamp-radio-now-playing {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+}
+
+/* Place sticker form: tighter. */
+.home-page .panel--stickers .place-sticker-container {
+  padding: 0.25rem;
+}
+
+.home-page .panel--stickers .panel-cta {
+  margin-top: 0.25rem;
+}
+
+/* Footer ascii — sized 1.25× via font-size so it claims real layout space. */
+.home-page .ascii-art {
+  margin: 0.25rem auto 0.25rem;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* ─── Design-mode toy (react-moveable) ─────────────────── */
+
+.design-toggle {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 9999;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+  border: 1px solid #2b2b2b;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.design-toggle:hover {
+  opacity: 1;
+}
+
+body.design-mode .design-toggle {
+  background: #ffeb3b;
+  opacity: 1;
+}
+
+body.design-mode .panel {
+  cursor: move;
+  user-select: none;
+}

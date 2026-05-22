@@ -7,6 +7,7 @@ import { clearUserCache } from '../utils/userCache';
 import { sanitizeHtml } from '../utils/sanitise';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
+import { useAdmin } from '../utils/useAdmin';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
 
@@ -105,6 +106,8 @@ const Profile: React.FC = () => {
   const [flagDropdownOpen, setFlagDropdownOpen] = useState(false);
   const [limitError, setLimitError] = useState('');
   const [nekoEnabled, setNekoEnabled] = useState(false);
+  const [designToolEnabled, setDesignToolEnabled] = useState(false);
+  const { isAdmin } = useAdmin();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -129,6 +132,7 @@ const Profile: React.FC = () => {
             setLocationFlag(data.locationFlag || '');
             setLocationText(data.locationText || '');
             setNekoEnabled(data.nekoEnabled === true);
+            setDesignToolEnabled(data.designToolEnabled === true);
           }
         } catch (error) {
           console.error('Error fetching profile:', error);
@@ -271,6 +275,22 @@ const Profile: React.FC = () => {
       setNekoEnabled(!newValue);
       localStorage.setItem('nekoEnabled', String(!newValue));
       window.dispatchEvent(new CustomEvent('oneko-toggle', { detail: !newValue }));
+    }
+  };
+
+  const handleDesignToolToggle = async () => {
+    if (!user) return;
+    const newValue = !designToolEnabled;
+    setDesignToolEnabled(newValue);
+    localStorage.setItem('designToolEnabled', String(newValue));
+    window.dispatchEvent(new CustomEvent('design-tool-toggle', { detail: newValue }));
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { designToolEnabled: newValue });
+    } catch {
+      setDesignToolEnabled(!newValue);
+      localStorage.setItem('designToolEnabled', String(!newValue));
+      window.dispatchEvent(new CustomEvent('design-tool-toggle', { detail: !newValue }));
     }
   };
 
@@ -699,6 +719,34 @@ const Profile: React.FC = () => {
                   style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                 />
                 Oneko
+              </label>
+            </div>
+          </>
+        )}
+
+        {isAdmin && (
+          <>
+            <div style={{ height: '1rem' }}></div>
+            <div className="form-group" style={{ textAlign: 'center' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font2)',
+                  fontSize: '0.95em',
+                  color: 'var(--colour5)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={designToolEnabled}
+                  onChange={handleDesignToolToggle}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                Design Tool
               </label>
             </div>
           </>

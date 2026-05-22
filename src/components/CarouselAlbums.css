@@ -1,120 +1,121 @@
-/* Album slide specific styling - only affects carousel-albums */
-.carousel-albums .carousel__slide {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 4px; 
-    box-sizing: border-box;
-    overflow: visible;
-    flex-direction: column;
-    text-align: center;
-    font-family: var(--font2); 
+/* Recently Added — a horizontal ticker of small album covers.
+   Pure CSS @keyframes loop; the album list is duplicated in markup so the
+   translateX(-50%) cycle joins seamlessly. */
+
+.albums-marquee-frame {
+    width: 100%;
 }
 
-.carousel-albums .carousel__slide a {
+.albums-marquee-frame p {
+    text-align: center;
+    padding: 1rem;
+    color: var(--colour5);
+    font-size: 0.9rem;
+    font-family: var(--font2);
+    margin: 0;
+}
+
+.albums-marquee {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    /* Soft fade at both edges so tiles enter/exit gracefully. */
+    -webkit-mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        black 32px,
+        black calc(100% - 32px),
+        transparent 100%
+    );
+            mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        black 32px,
+        black calc(100% - 32px),
+        transparent 100%
+    );
+}
+
+.albums-marquee__track {
+    display: flex;
+    gap: 10px;
+    width: max-content;
+    animation: albums-marquee-scroll 60s linear infinite;
+    padding: 6px 0;
+}
+
+.albums-marquee:hover .albums-marquee__track {
+    animation-play-state: paused;
+}
+
+.albums-marquee__tile {
+    flex: 0 0 auto;
+    width: 96px;
     text-decoration: none;
     color: inherit;
-    display: block;
-    width: 100%;
-    position: relative;
-    transition: transform 0.2s ease;
-    font-family: var(--font2); 
-}
-
-.carousel-albums .carousel__slide a:hover {
-    transform: translateY(-2px);
-}
-
-.carousel-albums .carousel__slide-image:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-}
-
-/* Album information container - hidden by default, shown on hover */
-.carousel-albums .carousel__slide-info {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.3) 70%, rgba(0, 0, 0, 0.8) 100%);
+    font-family: var(--font2);
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    padding: 0 12px 8px 12px; /* Only bottom padding */
-    border-radius: 8px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-    font-family: var(--font2); 
+    align-items: center;
+    transition: transform 0.15s ease;
 }
 
-.carousel-albums .carousel__slide a:hover .carousel__slide-info {
-    opacity: 1;
+.albums-marquee__tile:hover {
+    transform: translateY(-3px);
 }
 
-/* Single text element styling - overlay text */
-.carousel-albums .carousel__slide-text {
-    font-size: 0.85rem;
-    color: var(--colour4);
-    line-height: 1.1; /* Control spacing between lines */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-    font-family: var(--font2);
-    white-space: pre-line; /* Preserves line breaks */
-    margin: 0;
-    text-align: left;
-}
-
-/* Dark theme support - overlay text already white, no changes needed */
-@media (prefers-color-scheme: dark) {
-    .carousel-albums .carousel__slide-image {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-    
-    .carousel-albums .carousel__slide-image:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    }
-}
-
-/* Responsive adjustments for text sizing */
-@media (max-width: 767px) {
-    .carousel-albums .carousel__slide-info {
-        min-height: 50px;
-        padding: 0 8px 6px 8px; /* Only bottom padding for mobile */
-    }
-    
-    .carousel-albums .carousel__slide-text {
-        font-size: 0.75rem;
-        line-height: 1.05; /* Slightly tighter on mobile */
-    }
-}
-
-/* Loading and error states */
-.carousel-albums p {
-    text-align: center;
-    padding: 2rem;
-    color: var(--colour5);
-    font-size: 1rem;
-    font-family: var(--font2);
-}
-
-/* Focus states for accessibility */
-.carousel-albums .carousel__slide a:focus {
-    outline: 2px solid var(--colour2);
-    outline-offset: 2px;
+.albums-marquee__img {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
     border-radius: 4px;
-    font-family: var(--font2);
+    display: block;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
-/* Sticker placement styles */
-.sticker {
-    position: absolute;
-    cursor: move;
-    border-radius: 50%;
-    transition: transform 0.1s ease;
-    z-index: 3;
+.albums-marquee__caption {
+    display: flex;
+    flex-direction: column;
+    width: 96px;
+    margin-top: 4px;
+    font-size: 0.7rem;
+    line-height: 1.15;
+    color: var(--colour5);
+    overflow: hidden;
+    text-align: center;
 }
 
-.sticker.dragging {
-    transform: translate(-50%, -50%) scale(1.1);
-    z-index: 4;
+.albums-marquee__caption strong {
+    font-weight: 600;
+    color: var(--colour2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.albums-marquee__caption em {
+    font-style: normal;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+@keyframes albums-marquee-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .albums-marquee__track { animation: none; }
+}
+
+@media (max-width: 600px) {
+    .albums-marquee__tile,
+    .albums-marquee__img,
+    .albums-marquee__caption { width: 80px; }
+    .albums-marquee__img { height: 80px; }
+    .albums-marquee__track { animation-duration: 40s; }
 }

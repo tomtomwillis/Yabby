@@ -1,5 +1,4 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Carousel } from './basic/Carousel';
 import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
@@ -375,17 +374,19 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
     };
   };
 
-  const carouselSlides = albums.map((album) => (
-    <div key={album.albumId} className="album-item">
+  const stickerTiles = albums.map((album) => (
+    <div key={album.albumId} className="sticker-tile">
       <div
         className="album-card"
         onClick={() => handleAlbumClick(album)}
         style={{ position: 'relative', cursor: 'pointer' }}
+        title={`${album.albumTitle} — ${album.albumArtist}`}
       >
         <img
           src={album.albumCover}
           alt={album.albumTitle}
           className="album-image"
+          loading="lazy"
         />
         {album.stickers.map((sticker, index) => {
           const stickerElement = document.querySelector(
@@ -444,12 +445,9 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
 
   return (
     <div className="sticker-album-carousel">
-      <Carousel
-        slides={carouselSlides}
-        loop={albums.length > 4}
-        autoplay={true}
-        autoplayDelay={3000}
-      />
+      <div className="sticker-wall">
+        {stickerTiles}
+      </div>
 
       {popup.visible && (
         <div className="popup-overlay" onClick={closePopup}>

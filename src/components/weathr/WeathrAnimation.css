@@ -1,24 +1,58 @@
-.weathr-host {
+/*
+ * WeathrAnimation
+ *
+ * The component is a left-aligned, transparent block that overlays the page
+ * background. A few subtle "make it stand out" effects sit on top of the
+ * transparent base — they're tagged below so they can be rolled back
+ * individually without touching the engine.
+ */
+
+.weathr-frame {
   width: 100%;
-  max-width: 720px;
-  margin: 0.5rem 0;
-  background: transparent;
+  padding: 0;
+  box-sizing: border-box;
+  text-align: left;
+  align-self: stretch;
+  overflow: hidden;
+  position: relative;
+
+  /* SUBTLE LIFT #1 — radial vignette mask so the scene blends into the page
+     instead of ending at a hard rectangle. Roll back: remove this mask-image. */
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 80% at 50% 55%,
+    black 70%,
+    transparent 100%
+  );
+          mask-image: radial-gradient(
+    ellipse 100% 80% at 50% 55%,
+    black 70%,
+    transparent 100%
+  );
 }
 
-.weathr-host .xterm,
-.weathr-host .xterm-viewport,
-.weathr-host .xterm-screen {
-  background: transparent !important;
-}
-
-.weathr-host .xterm-viewport {
-  overflow: hidden !important;
-}
-
-.weathr-host .xterm {
-  font-size: clamp(8px, 1.4vw, 13px);
+.weathr-pre {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
   line-height: 1;
-  filter:
-    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35))
-    drop-shadow(0 0 1px rgba(0, 0, 0, 0.45));
+  letter-spacing: 0;
+  tab-size: 1;
+  color: #1f2937;
+  background: transparent;
+  white-space: pre;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  /* SUBTLE LIFT #2 — soft white halo around each glyph for legibility on both
+     the white card body and the yellow/orange backdrop strips. Roll back:
+     remove this text-shadow declaration. */
+  text-shadow:
+    0 0 1.5px rgba(255, 255, 255, 0.85),
+    0 0 2.5px rgba(255, 255, 255, 0.45);
+
+  /* SUBTLE LIFT #3 — a faint warm drop shadow lifts the scene a hair off the
+     page; almost imperceptible but adds depth. Roll back: remove filter. */
+  filter: drop-shadow(0 1px 0 rgba(120, 80, 20, 0.18));
 }

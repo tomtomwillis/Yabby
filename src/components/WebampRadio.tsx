@@ -72,6 +72,7 @@ const WebampRadio: React.FC<WebampRadioProps> = ({
 
     const container = containerRef.current;
     let disposed = false;
+    const disposers: Array<() => void> = [];
 
     const initWebamp = async () => {
       onLoadingChange?.(true);
@@ -109,23 +110,22 @@ const WebampRadio: React.FC<WebampRadioProps> = ({
               closed: false,
             },
             equalizer: {
-              position: { top: 230, left: 0 },
+              position: { top: 0, left: 0 },
               shadeMode: false,
               closed: true,
             },
             playlist: {
-              position: { top: 28, left: 0 },
+              position: { top: 0, left: 0 },
               shadeMode: false,
-              size: { extraHeight: 3, extraWidth: 11 },
               closed: true,
             },
             milkdrop: {
-              position: { top: 0, left: 550 },
-              size: { extraWidth: 8, extraHeight: 4 },
+              position: { top: 116, left: 0 },
+              size: { extraWidth: 0, extraHeight: 2 },
               closed: false,
             },
           },
-          enableDoubleSizeMode: true,
+          enableDoubleSizeMode: false,
           __butterchurnOptions: {
             importButterchurn: () => Promise.resolve(butterchurn),
             getPresets: async () => {
@@ -144,6 +144,37 @@ const WebampRadio: React.FC<WebampRadioProps> = ({
 
         webampRef.current = webamp;
         hasRenderedRef.current = true;
+
+        // Webamp's centerWindowsInContainer mis-sizes the bounding box when
+        // milkdrop has a custom extraHeight, leaving a vertical offset and
+        // overflow. Pin windows to container top-left manually via the store.
+        const pinToContainer = () => {
+          if (disposed || !container || !webamp.store) return;
+          const r = container.getBoundingClientRect();
+          const x = Math.round(r.left + window.scrollX);
+          const y = Math.round(r.top + window.scrollY);
+          webamp.store.dispatch({
+            type: "UPDATE_WINDOW_POSITIONS",
+            positions: {
+              main: { x, y },
+              milkdrop: { x, y: y + 116 },
+            },
+            absolute: true,
+          });
+        };
+        // Run after layout settles (next animation frame + microtask flush).
+        requestAnimationFrame(() => requestAnimationFrame(pinToContainer));
+
+        // Re-pin on layout reflows (font load, panel resize, etc.).
+        const ro = new ResizeObserver(pinToContainer);
+        ro.observe(container);
+        window.addEventListener("scroll", pinToContainer, { passive: true });
+        window.addEventListener("resize", pinToContainer);
+        disposers.push(() => {
+          ro.disconnect();
+          window.removeEventListener("scroll", pinToContainer);
+          window.removeEventListener("resize", pinToContainer);
+        });
       } catch (err) {
         if (!disposed) {
           console.error("Webamp init failed:", err);
@@ -160,6 +191,7 @@ const WebampRadio: React.FC<WebampRadioProps> = ({
 
     return () => {
       disposed = true;
+      for (const d of disposers) d();
     };
   }, [isDesktop]);
 

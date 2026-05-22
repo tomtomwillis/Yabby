@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
@@ -23,6 +24,14 @@ interface RecentNewsProps {
 const RecentNews: React.FC<RecentNewsProps> = ({ onLatestTimestamp }) => {
   const [newsItem, setNewsItem] = useState<NewsItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModalOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [modalOpen]);
 
   const formatTimestamp = (timestamp: any): string => {
     if (!timestamp) return '';
@@ -98,27 +107,60 @@ const RecentNews: React.FC<RecentNewsProps> = ({ onLatestTimestamp }) => {
     ? Date.now() - newsItem.timestamp.seconds * 1000 < 24 * 60 * 60 * 1000
     : false;
 
+  const post = (
+    <NewsPost
+      username={newsItem.username}
+      message={newsItem.text}
+      timestamp={formatTimestamp(newsItem.timestamp)}
+      userSticker={newsItem.avatar || 'default-avatar.png'}
+      userId={newsItem.userId}
+      currentUserId={auth.currentUser?.uid}
+      edited={!!newsItem.editedAt}
+    />
+  );
+
   return (
-    <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '0 16px', boxSizing: 'border-box', position: 'relative' }}>
-      {isFresh && (
-        <img
-          src="/fresh.webp"
-          alt="Fresh!"
-          className="fresh-badge"
-        />
+    <>
+      <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '0 16px', boxSizing: 'border-box', position: 'relative' }}>
+        {isFresh && (
+          <img
+            src="/fresh.webp"
+            alt="Fresh!"
+            className="fresh-badge"
+          />
+        )}
+        {post}
+        <button
+          type="button"
+          className="recent-news-show-more"
+          onClick={() => setModalOpen(true)}
+        >
+          Show more →
+        </button>
+      </div>
+
+      {modalOpen && createPortal(
+        <div
+          className="recent-news-modal-backdrop"
+          onClick={() => setModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="recent-news-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="recent-news-modal-close"
+              onClick={() => setModalOpen(false)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            {post}
+          </div>
+        </div>,
+        document.body,
       )}
-      <NewsPost
-        username={newsItem.username}
-        message={newsItem.text}
-        timestamp={formatTimestamp(newsItem.timestamp)}
-        userSticker={newsItem.avatar || 'default-avatar.png'}
-        userId={newsItem.userId}
-        currentUserId={auth.currentUser?.uid}
-        edited={!!newsItem.editedAt}
-        truncate={true}
-        truncateWords={25}
-      />
-    </div>
+    </>
   );
 };
 

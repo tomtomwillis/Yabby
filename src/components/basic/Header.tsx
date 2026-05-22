@@ -7,9 +7,10 @@ import './TextAnimations.css';
 interface HeaderProps {
   title: string;
   subtitle: string;
+  belowTitle?: React.ReactNode;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
+const Header: React.FC<HeaderProps> = ({ title, subtitle, belowTitle }) => {
   const { isMediaManager } = useMediaManager();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -57,11 +58,12 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
     <>
       <header className="header">
         <h1 className="animated-text float-gentle">{title}</h1>
+        {belowTitle}
         <span className="small-text animated-text float-subtle">{subtitle}</span>
 
         {/* Desktop Navigation */}
         <nav className="desktop-nav">
-          <ul className="nav-links top-links">
+          <ul className="nav-links primary-links">
             <li><a href="/" className="links">🏠 </a></li>
             <li>
               <a
@@ -84,9 +86,6 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
                 request
               </a>
             </li>
-          </ul>
-
-          <ul className="nav-links bottom-links">
             <li><a href="/messageboard" className="links">message&nbsp;board</a></li>
             <li><a href="/lists" className="links">lists</a></li>
             <li><a href="/profile" className="links">profile</a></li>
@@ -98,21 +97,17 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           </ul>
 
           {isMoreOpen && (
-            <>
-              <ul className="nav-links more-links">
-                <li><a href="/news" className="links">news</a></li>
-                <li><a href="/wiki" className="links">wiki</a></li>
-                <li><a href="/stickers" className="links">stickers</a></li>
-                <li><a href="/radio" className="links">radio</a></li>
-              </ul>
-              <ul className="nav-links more-links">
-                <li><a href="/film-club" className="links">film&nbsp;club</a></li>
-                <li><a href="/travel" className="links">travel</a></li>
-                {isMediaManager && (
-                  <li><a href="/media" className="links">media&nbsp;management</a></li>
-                )}
-              </ul>
-            </>
+            <ul className="nav-links more-links">
+              <li><a href="/news" className="links">news</a></li>
+              <li><a href="/wiki" className="links">wiki</a></li>
+              <li><a href="/stickers" className="links">stickers</a></li>
+              <li><a href="/radio" className="links">radio</a></li>
+              <li><a href="/film-club" className="links">film&nbsp;club</a></li>
+              <li><a href="/travel" className="links">travel</a></li>
+              {isMediaManager && (
+                <li><a href="/media" className="links">media&nbsp;management</a></li>
+              )}
+            </ul>
           )}
         </nav>
 
