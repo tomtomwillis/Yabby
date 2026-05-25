@@ -23,6 +23,7 @@ import FilmClubMessagePage from './pages/FilmClubMessagePage';
 import PrivateRoute from './components/PrivateRoute';
 import MediaManager from './pages/MediaManager';
 import TravelPage from './pages/TravelPage';
+import CinemaPage from './pages/CinemaPage';
 
 function App() {
   return (
@@ -53,6 +54,7 @@ function App() {
           <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
           <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
           <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />
+          <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
         </Routes>
       </div>
     </Router>

@@ -440,6 +440,17 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid;
     }
 
+    // Cinema state — admin-set next showing time, read by all signed-in users.
+    match /cinema/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['nextShowingAt'])
+        && request.resource.data.nextShowingAt is string;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextShowingAt']);
+      allow delete: if isAdmin();
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

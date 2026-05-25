@@ -95,6 +95,10 @@ function FilmClub() {
   const [clearFilmStatus, setClearFilmStatus] = useState<'idle' | 'clearing' | 'error'>('idle');
   const [irvStatus, setIrvStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
 
+  const [nextShowingAt, setNextShowingAt] = useState<string>('');
+  const [nextShowingInput, setNextShowingInput] = useState<string>('');
+  const [nextShowingStatus, setNextShowingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
   const irvTriggeredRef = useRef(false);
 
   // ── Pre-populate download links from Firestore ───────────────────────────
@@ -147,6 +151,20 @@ function FilmClub() {
       })
       .catch(() => setNextFilmTrailerUrl(null));
   }, [monthData?.nextFilm?.tmdbId]);
+
+  // ── Firestore: cinema state (next showing time) ─────────────────────────
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, 'cinema', 'state'),
+      (snap) => {
+        const value = snap.exists() ? ((snap.data() as { nextShowingAt?: string }).nextShowingAt ?? '') : '';
+        setNextShowingAt(value);
+        setNextShowingInput(value);
+      },
+      (err) => console.error('Cinema state snapshot error:', err),
+    );
+    return unsub;
+  }, []);
 
   // ── Firestore: real-time month doc ──────────────────────────────────────
   useEffect(() => {
@@ -302,6 +320,30 @@ function FilmClub() {
     }
   };
 
+  // ── Admin: save / clear next cinema showing ──────────────────────────────
+  const handleSaveNextShowing = async () => {
+    if (!nextShowingInput) return;
+    setNextShowingStatus('saving');
+    try {
+      await setDoc(doc(db, 'cinema', 'state'), { nextShowingAt: nextShowingInput }, { merge: true });
+      setNextShowingStatus('saved');
+    } catch (err) {
+      console.error('Next showing save error:', err);
+      setNextShowingStatus('error');
+    }
+  };
+
+  const handleClearNextShowing = async () => {
+    setNextShowingStatus('saving');
+    try {
+      await updateDoc(doc(db, 'cinema', 'state'), { nextShowingAt: deleteField() });
+      setNextShowingStatus('saved');
+    } catch (err) {
+      console.error('Next showing clear error:', err);
+      setNextShowingStatus('error');
+    }
+  };
+
   // ── Admin: clear current film ────────────────────────────────────────────
   const handleAdminClearCurrentFilm = async () => {
     setClearFilmStatus('clearing');
@@ -432,6 +474,9 @@ function FilmClub() {
         <a href="/filmclubmessage" className="film-club-btn film-club-btn-primary film-club-btn-wide" style={{ marginBottom: '1rem' }}>
           Film Club Message Board
         </a>
+        {/* <a href="/cinema" className="film-club-btn film-club-btn-primary film-club-btn-wide" style={{ marginBottom: '1rem' }}>
+          Cinema
+        </a> */}
         {isRevealPhase ? (
           <>
             <p className="normal-text">
@@ -495,6 +540,46 @@ function FilmClub() {
             </button>
             {irvStatus === 'done' && <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Done — winner updated.</p>}
             {irvStatus === 'error' && <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Failed — no submissions, or IRV returned no result.</p>}
+          </div>
+
+          <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem', textAlign: 'center' }}>Next cinema showing</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <input
+                type="datetime-local"
+                value={nextShowingInput}
+                onChange={(e) => { setNextShowingInput(e.target.value); setNextShowingStatus('idle'); }}
+                style={{ padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+              />
+              <button
+                onClick={handleSaveNextShowing}
+                disabled={nextShowingStatus === 'saving' || !nextShowingInput || nextShowingInput === nextShowingAt}
+                className="film-club-btn film-club-btn-primary"
+              >
+                {nextShowingStatus === 'saving' ? 'Saving…' : 'Save'}
+              </button>
+              {nextShowingAt && (
+                <button
+                  onClick={handleClearNextShowing}
+                  disabled={nextShowingStatus === 'saving'}
+                  className="film-club-btn"
+                  style={{ backgroundColor: 'var(--colour3)', color: 'var(--colour4)', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {nextShowingAt && (
+              <p className="normal-text" style={{ marginTop: '0.5rem', fontSize: '0.85rem', textAlign: 'center' }}>
+                Currently set to: <strong>{new Date(nextShowingAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</strong>
+              </p>
+            )}
+            {nextShowingStatus === 'saved' && (
+              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem', textAlign: 'center' }}>Saved.</p>
+            )}
+            {nextShowingStatus === 'error' && (
+              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem', textAlign: 'center' }}>Error saving.</p>
+            )}
           </div>
 
           {allSubmissions.length > 0 && (
