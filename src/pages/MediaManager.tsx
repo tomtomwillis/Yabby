@@ -40,7 +40,7 @@ const MediaManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="app-container">
+      <div className="app-container media-manager-page">
         <Header title="Media Manager" subtitle="Loading..." />
         <p style={{ textAlign: 'center', color: 'var(--colour2)', padding: '40px' }}>
           Checking permissions...
@@ -51,7 +51,7 @@ const MediaManager: React.FC = () => {
 
   if (!isMediaManager) {
     return (
-      <div className="app-container">
+      <div className="app-container media-manager-page">
         <Header title="Media Manager" subtitle="Access Denied" />
         <p style={{ textAlign: 'center', color: 'var(--colour5)', padding: '40px' }}>
           You do not have media manager permissions.
@@ -61,7 +61,7 @@ const MediaManager: React.FC = () => {
   }
 
   return (
-    <div className="app-container">
+    <div className="app-container media-manager-page">
       <Header title="Media Manager" subtitle={TABS.find(t => t.key === activeTab)?.label ?? 'Media Manager'} />
 
       <MediaThemeProvider>

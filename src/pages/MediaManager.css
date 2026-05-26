@@ -3,6 +3,15 @@
    Tabs read --mm-* theme vars so they restyle with the active palette.
    ============================================================ */
 
+/* App container defaults to min-height: 100vh which, combined with #root's
+   padding, leaves empty scrollable space below the tool. Let the page size
+   to its actual content — both the outer container (from App.tsx) and the
+   inner one rendered by this page. */
+.app-container.media-manager-page,
+.app-container:has(> .app-container.media-manager-page) {
+  min-height: 0;
+}
+
 .media-tabs {
   display: flex;
   align-items: flex-end;
