@@ -28,7 +28,7 @@ import Button from './basic/Button';
 import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
 import { getUserData } from '../utils/userCache';
-import { getCurrentMonthId } from '../utils/useFilmClub';
+import { getCurrentMonthId, getPrevMonthId } from '../utils/useFilmClub';
 
 interface Reaction {
   userId: string;
@@ -436,12 +436,16 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     setLoading(true);
     try {
       const monthId = getCurrentMonthId();
-      const snap = await getDoc(doc(db, 'filmClub', monthId));
+      const prevMonthId = getPrevMonthId();
+      const [snap, prevSnap] = await Promise.all([
+        getDoc(doc(db, 'filmClub', monthId)),
+        getDoc(doc(db, 'filmClub', prevMonthId)),
+      ]);
       const monthData = snap.exists() ? snap.data() : null;
-      const film = monthData?.currentFilm as {
-        tmdbId: number; title: string; releaseYear: string; posterPath: string | null;
-        submittedByUsername: string;
-      } | undefined;
+      const prevMonthData = prevSnap.exists() ? prevSnap.data() : null;
+
+      type FilmData = { tmdbId: number; title: string; releaseYear: string; posterPath: string | null; submittedByUsername: string };
+      const film = (monthData?.currentFilm ?? prevMonthData?.nextFilm) as FilmData | undefined;
 
       if (!film) {
         alert('No film set for this month. Set one in the Film Club admin panel first.');
@@ -471,7 +475,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         : undefined;
 
       const submitter = film.submittedByUsername || 'the community';
-      const description = (monthData as Record<string, unknown>)?.currentFilmDescription as string | undefined;
+      const description = monthData?.currentFilmDescription as string | undefined;
       const origin = window.location.origin;
 
       let text = `The film has been selected for ${monthName} as <b>${film.title}</b> (${film.releaseYear}). `

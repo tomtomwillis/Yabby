@@ -18,6 +18,12 @@ export function getCurrentMonthId(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+export function getPrevMonthId(): string {
+  const now = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function getNextMonthId(): string {
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -58,6 +64,7 @@ function getPhaseInfo() {
 
 interface UseFilmClubReturn {
   monthId: string;
+  prevMonthId: string;
   nextMonthId: string;
   submitMonthId: string;
   isRevealPhase: boolean;
@@ -72,6 +79,7 @@ interface UseFilmClubReturn {
 
 export function useFilmClub(): UseFilmClubReturn {
   const monthId = getCurrentMonthId();
+  const prevMonthId = getPrevMonthId();
   const nextMonthId = getNextMonthId();
   const submitMonthId = getSubmitMonthId();
   const phaseInfo = getPhaseInfo();
@@ -99,6 +107,7 @@ export function useFilmClub(): UseFilmClubReturn {
 
   return {
     monthId,
+    prevMonthId,
     nextMonthId,
     submitMonthId,
     ...phaseInfo,

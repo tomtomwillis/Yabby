@@ -62,13 +62,14 @@ interface MonthDoc {
   downloadLinks?: { label: string; url: string }[];
   directDownloadLinks?: { label: string; url: string }[];
   currentFilmDescription?: string;
+  nextFilmDescription?: string;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
 
 function FilmClub() {
   const {
-    monthId, nextMonthId, isRevealPhase,
+    monthId, prevMonthId, nextMonthId, isRevealPhase,
     leavingDate, votingDeadline, nextMonthName, monthAfterNextName,
     userSubmissions, submissionsCount,
   } = useFilmClub();
@@ -92,6 +93,8 @@ function FilmClub() {
   const [directDownloadSaveStatus, setDirectDownloadSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [adminDescription, setAdminDescription] = useState('');
   const [descriptionSaveStatus, setDescriptionSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [adminNextDescription, setAdminNextDescription] = useState('');
+  const [nextDescriptionSaveStatus, setNextDescriptionSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [clearFilmStatus, setClearFilmStatus] = useState<'idle' | 'clearing' | 'error'>('idle');
   const [irvStatus, setIrvStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
 
@@ -99,7 +102,10 @@ function FilmClub() {
   const [nextShowingInput, setNextShowingInput] = useState<string>('');
   const [nextShowingStatus, setNextShowingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
+  const [prevMonthData, setPrevMonthData] = useState<MonthDoc | null>(null);
+
   const irvTriggeredRef = useRef(false);
+  const autoPromotedRef = useRef(false);
 
   // ── Pre-populate download links from Firestore ───────────────────────────
   useEffect(() => {
@@ -122,9 +128,13 @@ function FilmClub() {
     setAdminDescription(monthData?.currentFilmDescription ?? '');
   }, [monthData?.currentFilmDescription]);
 
+  useEffect(() => {
+    setAdminNextDescription(monthData?.nextFilmDescription ?? '');
+  }, [monthData?.nextFilmDescription]);
+
   // ── Fetch trailer for current film ──────────────────────────────────────
   useEffect(() => {
-    const tmdbId = monthData?.currentFilm?.tmdbId;
+    const tmdbId = monthData?.currentFilm?.tmdbId ?? prevMonthData?.nextFilm?.tmdbId;
     if (!tmdbId) return;
     fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/videos?api_key=${import.meta.env.VITE_TMDB_API_KEY}`)
       .then((r) => r.json())
@@ -135,7 +145,7 @@ function FilmClub() {
         setCurrentFilmTrailerUrl(trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null);
       })
       .catch(() => setCurrentFilmTrailerUrl(null));
-  }, [monthData?.currentFilm?.tmdbId]);
+  }, [monthData?.currentFilm?.tmdbId, prevMonthData?.nextFilm?.tmdbId]);
 
   // ── Fetch trailer for next film ──────────────────────────────────────────
   useEffect(() => {
@@ -193,6 +203,30 @@ function FilmClub() {
     );
     return unsub;
   }, [monthId]);
+
+  // ── Firestore: previous month doc (for nextFilm promotion) ─────────────
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, 'filmClub', prevMonthId),
+      (snap) => { setPrevMonthData(snap.exists() ? (snap.data() as MonthDoc) : null); },
+      console.error,
+    );
+    return unsub;
+  }, [prevMonthId]);
+
+  // ── Auto-promote prevMonth.nextFilm → currentMonth.currentFilm ──────────
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (loading) return;
+    if (monthData?.currentFilm) return;
+    if (!prevMonthData?.nextFilm) return;
+    if (autoPromotedRef.current) return;
+    autoPromotedRef.current = true;
+
+    const promotion: Partial<MonthDoc> = { currentFilm: prevMonthData.nextFilm };
+    if (prevMonthData.nextFilmDescription) promotion.currentFilmDescription = prevMonthData.nextFilmDescription;
+    setDoc(doc(db, 'filmClub', monthId), promotion, { merge: true }).catch(console.error);
+  }, [isAdmin, loading, monthData, prevMonthData, monthId]);
 
   // ── Load admin submissions (next month during reveal phase) ──────────────
   const adminMonthId = isRevealPhase ? nextMonthId : monthId;
@@ -320,6 +354,18 @@ function FilmClub() {
     }
   };
 
+  // ── Admin: save next film description ───────────────────────────────────
+  const handleAdminSaveNextDescription = async () => {
+    setNextDescriptionSaveStatus('saving');
+    try {
+      await setDoc(doc(db, 'filmClub', monthId), { nextFilmDescription: adminNextDescription }, { merge: true });
+      setNextDescriptionSaveStatus('saved');
+    } catch (err) {
+      console.error('Next film description save error:', err);
+      setNextDescriptionSaveStatus('error');
+    }
+  };
+
   // ── Admin: save / clear next cinema showing ──────────────────────────────
   const handleSaveNextShowing = async () => {
     if (!nextShowingInput) return;
@@ -416,27 +462,29 @@ function FilmClub() {
 
   const voteLink = isRevealPhase ? `/film-club-vote?month=${nextMonthId}` : '/film-club-vote';
 
+  const effectiveCurrentFilm = monthData?.currentFilm ?? prevMonthData?.nextFilm ?? null;
+
   if (loading) return null;
 
   return (
     <div className="film-club-container">
 
       {/* Current film */}
-      {monthData?.currentFilm ? (
+      {effectiveCurrentFilm ? (
         <div className="film-club-section">
           <FilmCard
             label="Now watching"
-            posterPath={monthData.currentFilm.posterPath}
-            title={monthData.currentFilm.title}
-            releaseYear={monthData.currentFilm.releaseYear}
-            overview={monthData.currentFilm.overview || undefined}
-            pitch={monthData.currentFilm.pitch || undefined}
-            submittedByUsername={monthData.currentFilm.submittedByUsername || undefined}
+            posterPath={effectiveCurrentFilm.posterPath}
+            title={effectiveCurrentFilm.title}
+            releaseYear={effectiveCurrentFilm.releaseYear}
+            overview={effectiveCurrentFilm.overview || undefined}
+            pitch={effectiveCurrentFilm.pitch || undefined}
+            submittedByUsername={effectiveCurrentFilm.submittedByUsername || undefined}
             leaveDate={leavingDate}
             trailerUrl={currentFilmTrailerUrl ?? undefined}
-            downloadLinks={monthData.downloadLinks}
-            directDownloadLinks={monthData.directDownloadLinks}
-            description={monthData.currentFilmDescription || undefined}
+            downloadLinks={monthData?.downloadLinks}
+            directDownloadLinks={monthData?.directDownloadLinks}
+            description={monthData?.currentFilmDescription || undefined}
           />
         </div>
       ) : (
@@ -717,6 +765,33 @@ function FilmClub() {
               <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
             )}
           </div>
+
+          {isRevealPhase && monthData?.nextFilm && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Description for next month's film ({nextMonthName})</p>
+              <textarea
+                value={adminNextDescription}
+                onChange={(e) => { setAdminNextDescription(e.target.value); setNextDescriptionSaveStatus('idle'); }}
+                placeholder={`Add context or notes about ${nextMonthName}'s film…`}
+                rows={4}
+                style={{ width: '100%', padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px', resize: 'vertical', boxSizing: 'border-box' }}
+              />
+              <button
+                onClick={handleAdminSaveNextDescription}
+                disabled={nextDescriptionSaveStatus === 'saving'}
+                className="film-club-btn film-club-btn-primary"
+                style={{ marginTop: '0.5rem' }}
+              >
+                {nextDescriptionSaveStatus === 'saving' ? 'Saving…' : 'Save description'}
+              </button>
+              {nextDescriptionSaveStatus === 'saved' && (
+                <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+              )}
+              {nextDescriptionSaveStatus === 'error' && (
+                <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+              )}
+            </div>
+          )}
 
           {monthData?.currentFilm && (
             <div style={{ marginBottom: '1.5rem' }}>
