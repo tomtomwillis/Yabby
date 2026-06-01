@@ -206,9 +206,16 @@ const Stats: React.FC = () => {
     // Get current date as string (YYYY-MM-DD)
     const today = new Date().toISOString().split("T")[0];
 
+    let albumCount = await getAlbumCountEfficient(serverUrl, username, password, appName);
+    if (albumCount === -1) {
+      const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
+      albumCount = stats.albumCount;
+    }
+    if (albumCount <= 0) throw new Error("Could not determine album count");
+
     // Generate deterministic indices from date
     const dateHash = hashString(today);
-    const albumIndex = dateHash % totalAlbums;
+    const albumIndex = dateHash % albumCount;
 
     // Fetch the album at the calculated index using pagination
     const pageSize = 500;
