@@ -48,7 +48,7 @@ interface ForumMessageBoxProps {
   showSendButton?: boolean;
   initialValue?: string;
   onImageAttach?: (file: File | null) => void;
-  onFilmAnnounce?: () => Promise<void>;
+  onFilmAnnounce?: (variant: 1 | 2 | 3) => Promise<void>;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -359,8 +359,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
             .filter((k) => k.startsWith(command))
             .map((k) => ({ id: k, name: `/${k} — ${SEARCH_COMMAND_LABELS[k]}`, type: k as Result['type'] }));
           const actionMatches: Result[] = [];
-          if (onFilmAnnounce && 'filmannounce'.startsWith(command)) {
-            actionMatches.push({ id: 'filmannounce', name: '/filmannounce — post film club announcement', type: 'action' });
+          if (onFilmAnnounce) {
+            const ANNOUNCE_LABELS: Record<string, string> = {
+              filmannounce1: 'announce current film',
+              filmannounce2: 'remind voting deadline',
+              filmannounce3: 'announce next month\'s film',
+            };
+            Object.keys(ANNOUNCE_LABELS).forEach((cmd) => {
+              if (cmd.startsWith(command)) {
+                actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
+              }
+            });
           }
           setSlashResults([...searchMatches, ...instantMatches, ...actionMatches]);
           setSlashMode('command');
@@ -370,14 +379,23 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           if (command === 'list') ensureListsLoaded();
           if (command === 'travel' || command === 'city') ensurePlacesLoaded();
           if (command === 'playlist') ensurePlaylistsLoaded();
-        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && 'filmannounce'.startsWith(command))) {
+        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command)))) {
           // Instant or action command typed with a trailing space
           const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
             .filter(([k]) => k.startsWith(command))
             .map(([k, v]) => ({ id: k, name: `/${k} — ${v.label}`, type: 'instant' as const }));
           const actionMatches: Result[] = [];
-          if (onFilmAnnounce && 'filmannounce'.startsWith(command)) {
-            actionMatches.push({ id: 'filmannounce', name: '/filmannounce — post film club announcement', type: 'action' });
+          if (onFilmAnnounce) {
+            const ANNOUNCE_LABELS: Record<string, string> = {
+              filmannounce1: 'announce current film',
+              filmannounce2: 'remind voting deadline',
+              filmannounce3: 'announce next month\'s film',
+            };
+            Object.keys(ANNOUNCE_LABELS).forEach((cmd) => {
+              if (cmd.startsWith(command)) {
+                actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
+              }
+            });
           }
           setSlashResults([...instantMatches, ...actionMatches]);
           setSlashMode('command');
@@ -393,14 +411,15 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   };
 
   const selectResult = (result: Result) => {
-    if (result.type === 'action' && result.id === 'filmannounce') {
+    if (result.type === 'action' && result.id.startsWith('filmannounce')) {
       const triggerPos = triggerPositionRef.current;
       if (triggerPos !== -1) {
         const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
         setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
       }
       clearSearch();
-      onFilmAnnounce?.();
+      const variant = parseInt(result.id.slice(-1)) as 1 | 2 | 3;
+      onFilmAnnounce?.(variant);
       return;
     }
 
