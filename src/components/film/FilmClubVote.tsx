@@ -206,6 +206,8 @@ function FilmClubVote() {
         }
       </p>
 
+      <a href="/film-club-submit" className="film-vote-save-btn">Submit a film</a>
+
       <button
         onClick={handleSave}
         disabled={saveStatus === 'saving'}

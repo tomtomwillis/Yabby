@@ -1,0 +1,127 @@
+.homepage-film-club {
+  padding: 0 15px;
+  margin-top: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.homepage-film-club-inner {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.homepage-film-club-poster-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.homepage-film-club-now-watching {
+  font-family: var(--font2);
+  font-size: 0.65rem;
+  color: var(--colour6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.homepage-film-club-poster {
+  width: 110px;
+  border-radius: 6px;
+  display: block;
+}
+
+.homepage-film-club-poster-placeholder {
+  width: 110px;
+  height: 165px;
+  background-color: var(--colour5);
+  opacity: 0.15;
+  border-radius: 6px;
+}
+
+.homepage-film-club-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.homepage-film-club-title {
+  font-family: var(--font1);
+  font-weight: bold;
+  color: var(--colour2);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.homepage-film-club-year {
+  font-weight: normal;
+  color: var(--colour5);
+  font-size: 0.875rem;
+}
+
+.homepage-film-club-meta {
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: var(--colour6);
+  margin: 0;
+}
+
+.homepage-film-club-pitch {
+  font-family: var(--font1);
+  font-size: 0.875rem;
+  color: var(--colour5);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.homepage-film-club-overview {
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  color: var(--colour5);
+  opacity: 0.6;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.homepage-film-club-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.homepage-film-club-btn {
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  text-decoration: none;
+  color: var(--colour2);
+  border: 1px solid var(--colour2);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.homepage-film-club-btn:hover {
+  background-color: var(--colour2);
+  color: var(--colour4);
+  text-decoration: none;
+}
+
+@media (max-width: 480px) {
+  .homepage-film-club-poster {
+    width: 80px;
+  }
+
+  .homepage-film-club-poster-placeholder {
+    height: 120px;
+  }
+}

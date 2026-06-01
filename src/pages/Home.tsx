@@ -14,8 +14,9 @@ import { useRadioMetadata } from '../utils/useRadioMetadata';
 import AsciiMan from '../components/AsciiMan';
 import Weather from '../components/weather-app';
 
-// Lazy load the Stats component for better performance
+// Lazy load heavy components
 const Stats = lazy(() => import('../components/Stats'));
+const HomepageFilmClub = lazy(() => import('../components/film/HomepageFilmClub'));
 
 // Pool of random subtitles
 const SUBTITLES = [
@@ -205,6 +206,15 @@ function App() {
         <Link to="/lists">Lists →</Link>
       </div>
       <RecentLists />
+
+      <hr />
+
+      <div className="title1">
+        <Link to="/film-club">Film Club →</Link>
+      </div>
+      <Suspense fallback={null}>
+        <HomepageFilmClub />
+      </Suspense>
 
       <hr />
 
