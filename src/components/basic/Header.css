@@ -55,36 +55,47 @@
     text-decoration: underline;
 }
 
-/* Spacing between navigation groups */
-.top-links {
-    margin-bottom: 1rem;
+/* Nav group header row */
+.nav-groups {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem 2rem;
 }
 
-.bottom-links {
-    margin-top: 1rem;
+.nav-groups li {
+    display: inline;
 }
 
-/* +more button — styled to match nav links */
-.more-button {
+/* Group header buttons */
+.nav-group-btn {
     background: none;
     border: none;
     padding: 0;
     cursor: pointer;
     font-family: var(--font2);
     font-size: var(--link-font-size);
-    font-weight: 500;
     color: var(--colour1);
-    text-decoration: none;
     transition: color 0.3s ease;
 }
 
-.more-button:hover {
+.nav-group-btn::after {
+    content: ' ▾';
+    font-size: 0.8em;
+}
+
+.nav-group-btn:hover,
+.nav-group-btn.active {
     color: var(--colour2);
     text-decoration: underline;
 }
 
-/* Expanded "more" links row */
-.more-links {
+/* Revealed group links row */
+.group-links {
     margin-top: 0.75rem;
 }
 
@@ -169,6 +180,22 @@
 .mobile-nav-overlay.active {
     opacity: 1;
     visibility: visible;
+}
+
+/* Mobile nav group headers */
+.mobile-nav-group-header {
+    display: block;
+    font-family: var(--font2);
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    color: var(--colour6);
+    padding: 1rem 0 0.25rem;
+    margin: 0;
+    font-weight: bold;
+}
+
+/* Mobile nav sub-links — indent the container so <a> padding isn't fought over */
+.mobile-nav-sublinks {
+    padding-left: 1.25rem;
 }
 
 /* Hide the burger menu on larger screens */
