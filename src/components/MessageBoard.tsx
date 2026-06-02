@@ -456,7 +456,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
       const lastDay = new Date(year, month, 0).getDate();
-      const origin = window.location.origin;
+      const origin = 'https://yabbyville.xyz';
 
       let text: string;
       let posterUrl: string | undefined;
