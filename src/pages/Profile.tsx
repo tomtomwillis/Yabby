@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -104,6 +104,8 @@ const Profile: React.FC = () => {
   const [flagSearch, setFlagSearch] = useState('');
   const [flagDropdownOpen, setFlagDropdownOpen] = useState(false);
   const [limitError, setLimitError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const usernameErrorRef = useRef<HTMLDivElement>(null);
   const [nekoEnabled, setNekoEnabled] = useState(false);
 
   useEffect(() => {
@@ -168,10 +170,30 @@ const Profile: React.FC = () => {
     setFlagSearch('');
     setSaveMessage('');
     setLimitError('');
+    setUsernameError('');
   };
 
   const handleSave = async () => {
     if (!user) return;
+
+    const trimmedUsername = editUsername.trim();
+    const showUsernameError = (msg: string) => {
+      setUsernameError(msg);
+      setTimeout(() => usernameErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
+    };
+    if (trimmedUsername.length < 2) {
+      showUsernameError('Username must be at least 2 characters.');
+      return;
+    }
+    if (trimmedUsername.length > 20) {
+      showUsernameError('Username must be 20 characters or fewer.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9 _-]+$/.test(trimmedUsername)) {
+      showUsernameError('Username can only contain letters, numbers, spaces, hyphens, and underscores.');
+      return;
+    }
+    setUsernameError('');
 
     setSaving(true);
     setSaveMessage('');
@@ -324,7 +346,7 @@ const Profile: React.FC = () => {
               <MessageTextBox
                 placeholder="Change Username..."
                 value={editUsername}
-                onChange={setEditUsername}
+                onChange={(val) => { setEditUsername(val); setUsernameError(''); }}
                 maxWords={5}
                 maxChars={50}
                 showSendButton={false}
@@ -332,6 +354,24 @@ const Profile: React.FC = () => {
                 className="form-input"
                 onLimitExceeded={(type) => handleLimitExceeded(type, 'Username')}
               />
+
+              {usernameError && (
+                <div
+                  ref={usernameErrorRef}
+                  style={{
+                    marginTop: '6px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f8d7da',
+                    color: '#721c24',
+                    border: '1px solid #f5c6cb',
+                    fontSize: '14px',
+                    fontFamily: 'var(--font2)',
+                  }}
+                >
+                  {usernameError}
+                </div>
+              )}
 
               <div style={{ height: '1rem' }}></div>
 
