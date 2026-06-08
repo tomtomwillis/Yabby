@@ -6,7 +6,7 @@ import "./CarouselAlbums.css";
 const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
 const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
 const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; 
+const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
 interface Album {
   id: string;
@@ -17,6 +17,11 @@ interface Album {
   genre?: string;
 }
 
+// Module-level cache — cleared on page refresh, shared across mounts within the same session.
+const CACHE_TTL_MS = 10 * 60 * 1000;
+let cachedAlbums: Album[] | null = null;
+let cacheTimestamp = 0;
+
 const CarouselAlbums: React.FC = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -24,12 +29,18 @@ const CarouselAlbums: React.FC = () => {
 
   useEffect(() => {
     const fetchAlbums = async () => {
+      if (cachedAlbums && Date.now() - cacheTimestamp < CACHE_TTL_MS) {
+        setAlbums(cachedAlbums);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
         const response = await fetch(
-          `${SERVER_URL}/rest/getAlbumList?type=newest&size=10&format=xml&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`, 
+          `${SERVER_URL}/rest/getAlbumList?type=newest&size=10&format=xml&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
           {
             headers: {
               Authorization: "Basic " + btoa(`${API_USERNAME}:${API_PASSWORD}`),
@@ -64,7 +75,7 @@ const CarouselAlbums: React.FC = () => {
           throw new Error("No albums found in response");
         }
 
-        const albums: Album[] = albumElements.map((album) => ({
+        const albumList: Album[] = albumElements.map((album) => ({
           id: album.getAttribute("id") || "",
           name: album.getAttribute("name") || album.getAttribute("title") || "Unknown Album",
           artist: album.getAttribute("artist") || album.getAttribute("displayArtist") || "Unknown Artist",
@@ -73,7 +84,9 @@ const CarouselAlbums: React.FC = () => {
           genre: album.getAttribute("genre") || "",
         }));
 
-        setAlbums(albums);
+        cachedAlbums = albumList;
+        cacheTimestamp = Date.now();
+        setAlbums(albumList);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "An unknown error occurred";

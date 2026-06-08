@@ -148,6 +148,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [messages, setMessages] = useState<Message[]>([]);
   const [, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(true);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -226,6 +227,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   }, [enableReactions, collectionName]);
 
   const loadInitialMessages = async () => {
+    setLoadingMessages(true);
     try {
       const q = query(
         collection(db, collectionName),
@@ -246,6 +248,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       hydrateUserReactions(loaded.map((m) => m.id));
     } catch (error) {
       console.error('Error fetching messages:', error);
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
@@ -869,6 +873,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     <div className="message-board-container">
       <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin ? handleFilmAnnounce : undefined} />
       <div className="messages-container">
+        {loadingMessages && <p className="messages-loading">Loading messages...</p>}
         {messages.map((message) => (
           <UserMessage
             key={message.id}
@@ -906,7 +911,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         ))}
       </div>
 
-      {hasMore && (
+      {!loadingMessages && hasMore && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', marginBottom: '20px' }}>
           <Button
             type="basic"
@@ -918,7 +923,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       )}
 
 
-      {!hasMore && messages.length > 0 && (
+      {!loadingMessages && !hasMore && messages.length > 0 && (
         <div style={{ textAlign: 'center', padding: '20px', color: 'var(--colour4)', fontStyle: 'italic' }}>
           No more messages to load
         </div>
