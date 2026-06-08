@@ -21,6 +21,7 @@ import FilmClubSubmit from './pages/FilmClubSubmit';
 import FilmClubVote from './pages/FilmClubVote';
 import FilmClubMessagePage from './pages/FilmClubMessagePage';
 import PrivateRoute from './components/PrivateRoute';
+import PullToRefresh from './components/PullToRefresh';
 import MediaManager from './pages/MediaManager';
 import TravelPage from './pages/TravelPage';
 import CinemaPage from './pages/CinemaPage';
@@ -29,6 +30,7 @@ function App() {
   return (
     <Router>
       <div className="app-container">
+        <PullToRefresh />
         <Star />
         <Oneko />
         <Routes>

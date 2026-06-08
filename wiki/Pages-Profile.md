@@ -7,12 +7,12 @@ Where users edit their profile details. There is also a public profile view at `
 
 ## What Users Can Edit
 
-- **Username** (2-20 characters, alphanumeric plus spaces, hyphens, underscores)
+- **Username** (2–20 characters, letters, numbers, spaces, hyphens, and underscores). Inline validation errors are shown immediately below the username field and the page scrolls to them automatically.
 - **Avatar** - select a shape and colour combination from the available sticker images
 - **Bio** - short text bio (max 500 characters, sanitised HTML)
-- **Location** - a flag emoji and text
+- **Location** - a flag emoji (searchable dropdown) and a short location text
 - **Password** - reset via Firebase email
-- **Oneko cat** - toggle the interactive cat that follows your cursor
+- **Oneko cat** - toggle the interactive cat that follows your cursor (desktop only; hidden on touch devices)
 
 ## Customising
 

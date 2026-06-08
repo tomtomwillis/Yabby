@@ -45,6 +45,8 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 - [CarouselStickers](Components-CarouselStickers)
 - [CreateList](Components-CreateList)
 - [FilmClub](Components-FilmClub)
+- [FilmClubVote](Components-FilmClubVote)
+- [HomepageFilmClub](Components-HomepageFilmClub)
 - [MessageBoard](Components-MessageBoard)
 - [NewsPost](Components-NewsPost)
 - [NowWatching](Components-NowWatching)

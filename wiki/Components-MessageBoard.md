@@ -25,7 +25,10 @@ The community forum component. Handles fetching, posting, editing, deleting, rep
 - Edit and delete own messages and replies
 - Admin can delete any message or reply
 - Rate limiting: 10 messages per 5 minutes
-- Admin-only film announcement: posts a formatted message as "Film Club Bot" (`avatar_filmbot.webp`) with the current month's film title, submitter, leaving date, trailer link, and a link to the Film Club page. Triggered via the `/filmannounce` slash command in `ForumMessageBox`
+- Admin-only film announcements (three variants) triggered via the `onFilmAnnounce` prop from `ForumMessageBox`. All post as "Film Club Bot" (`avatar_filmbot.webp`):
+  - **Variant 1** — monthly announcement: film title, submitter, leaving date, optional description, trailer link, and vote link
+  - **Variant 2** — voting reminder: days until voting closes, film title, links to the film club page and message board
+  - **Variant 3** — winner reveal: next month's film name, days left to watch the current film, message board link
 
 ## Usage
 

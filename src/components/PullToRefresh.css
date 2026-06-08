@@ -1,0 +1,36 @@
+.pull-to-refresh-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.pull-to-refresh-indicator.ptr-releasing {
+  transition: transform 0.25s ease;
+}
+
+.ptr-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--colour4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ptr-spin {
+  animation: ptr-rotate 0.6s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes ptr-rotate {
+  to { transform: rotate(360deg); }
+}

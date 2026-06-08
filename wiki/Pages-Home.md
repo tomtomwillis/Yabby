@@ -10,18 +10,21 @@ The landing page users see after logging in. It assembles several feature compon
 In order from top to bottom:
 
 - **Recent stickers carousel** (`CarouselStickers`) — the 10 most recent sticker placements with a link to `/stickers`
-- **Place a sticker** (`PlaceSticker` in `url-input` mode) — search for an album or paste a URL to place a sticker
+- **Place a sticker** (`PlaceSticker`) — search for an album or paste a URL to place a sticker
 - **Radio section** (`WebampRadio`) — "Now Playing" metadata and a toggle button that expands/collapses the Webamp player; links to `/radio`
+- **Recent news** (`RecentNews`) — latest news post snippet; if the most recent post is under 48 hours old the subtitle switches to "Fresh News!"
 - **Recent lists** (`RecentLists`) — up to three recently updated public lists; clicking a card navigates to that list; links to `/lists`
-- **Stats** (`Stats`) — library statistics (album count, song count, song of the day) lazy-loaded for performance
+- **Film Club** (`HomepageFilmClub`, lazy-loaded) — the current month's film club pick with poster, pitch, and links to the film club page and vote page
+- **Stats** (`Stats`, lazy-loaded) — library statistics (album count, song count, song of the day)
+- **Weather** (`Weather`) — current weather widget, rendered alongside Stats
 - **Recent albums carousel** (`CarouselAlbums`) — the 10 most recently added albums from Navidrome with a link to the Navidrome web app
 - **AsciiMan** — animated ASCII art figure at the very bottom of the page
 
-A random subtitle is chosen from a pool of community in-jokes on each page load.
+A random subtitle is chosen from a pool of community in-jokes on each page load. If the most recent news post is under 48 hours old, the subtitle is overridden to "Fresh News!" instead.
 
 ## Components Used
 
-`CarouselStickers`, `PlaceSticker`, `WebampRadio`, `RecentLists`, `Stats` (lazy), `CarouselAlbums`, `AsciiMan`
+`CarouselStickers`, `PlaceSticker`, `WebampRadio`, `RecentNews`, `RecentLists`, `HomepageFilmClub` (lazy), `Stats` (lazy), `CarouselAlbums`, `AsciiMan`
 
 ## Customising
 
