@@ -62,7 +62,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [userSticker, setUserSticker] = useState<string | null>(null);
   const [alreadyHasSticker, setAlreadyHasSticker] = useState(false);
-  const [existingStickers, setExistingStickers] = useState<Array<{ position: { x: number; y: number }; sticker: string }>>([]);
+  const [existingStickers, setExistingStickers] = useState<Array<{ id: string; position: { x: number; y: number }; sticker: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -116,11 +116,8 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       );
 
       const data = await response.json();
-      console.log('Album API response:', data);
       const album = data['subsonic-response']?.album;
       const songs = album?.song || [];
-
-      console.log('Fetched tracks:', songs);
 
       const trackList: Track[] = songs.map((song: any) => ({
         id: song.id,
@@ -130,7 +127,6 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       }));
 
       setTracks(trackList);
-      console.log('Track list set:', trackList);
     } catch (error) {
       console.error('Error fetching album tracks:', error);
     } finally {
@@ -149,11 +145,12 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       );
       const snap = await getDocs(q);
       const stickers = snap.docs.map(d => ({
+        id: d.id,
         position: d.data().position as { x: number; y: number },
         sticker: d.data().sticker as string,
         userId: d.data().userId as string,
       }));
-      setExistingStickers(stickers.map(({ position, sticker }) => ({ position, sticker })));
+      setExistingStickers(stickers.map(({ id, position, sticker }) => ({ id, position, sticker })));
       setAlreadyHasSticker(stickers.some(s => s.userId === user.uid));
     } catch (error) {
       console.error('Error loading album stickers:', error);
@@ -398,11 +395,11 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
             className="album-cover"
             draggable={false}
           />
-          {existingStickers.map((s, i) => {
+          {existingStickers.map((s) => {
             const screenPos = albumToScreenCoords(s.position.x, s.position.y);
             return (
               <img
-                key={i}
+                key={s.id}
                 src={s.sticker}
                 alt="Existing sticker"
                 className="sticker"

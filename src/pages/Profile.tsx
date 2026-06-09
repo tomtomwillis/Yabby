@@ -9,6 +9,7 @@ import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
+import './Profile.css';
 
 const FLAG_OPTIONS: { flag: string; label: string }[] = [
   { flag: '', label: 'None' },
@@ -475,36 +476,15 @@ const Profile: React.FC = () => {
                         }}
                       />
                     </div>
-                    {filteredFlags.map((opt, i) => (
+                    {filteredFlags.map((opt) => (
                       <div
-                        key={i}
+                        key={opt.label}
                         onClick={() => {
                           setEditLocationFlag(opt.flag);
                           setFlagDropdownOpen(false);
                           setFlagSearch('');
                         }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '8px 12px',
-                          cursor: 'pointer',
-                          backgroundColor: editLocationFlag === opt.flag ? 'var(--colour2)' : 'transparent',
-                          color: editLocationFlag === opt.flag ? 'var(--colour4)' : 'var(--colour5)',
-                          fontFamily: 'var(--font2)',
-                          fontSize: '0.9em',
-                          transition: 'background-color 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (editLocationFlag !== opt.flag) {
-                            e.currentTarget.style.backgroundColor = 'rgba(0,0,255,0.08)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (editLocationFlag !== opt.flag) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
+                        className={`flag-dropdown-option${editLocationFlag === opt.flag ? ' selected' : ''}`}
                       >
                         <span style={{ fontSize: '1.3em' }}>{opt.flag || '✕'}</span>
                         <span>{opt.label}</span>

@@ -387,14 +387,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
           alt={album.albumTitle}
           className="album-image"
         />
-        {album.stickers.map((sticker, index) => {
+        {album.stickers.map((sticker) => {
           const stickerElement = document.querySelector(
             `[data-album-id="${album.albumId}"] .album-image`,
           ) as HTMLElement;
 
           return (
             <img
-              key={index}
+              key={sticker.stickerId}
               src={`/Stickers/${sticker.sticker.split('/').pop()}`}
               alt="Sticker"
               className="sticker-overlay"

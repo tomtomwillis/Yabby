@@ -95,8 +95,7 @@ const Stats: React.FC = () => {
       }
 
       return -1;
-    } catch (error) {
-      console.log("Efficient method failed, falling back to paginated approach");
+    } catch {
       return -1;
     }
   };
@@ -297,13 +296,17 @@ const Stats: React.FC = () => {
     const today = new Date().toISOString().split("T")[0];
 
     if (storedSong && storedDate === today) {
-      setSongOfTheDay(JSON.parse(storedSong));
-      return;
+      try {
+        setSongOfTheDay(JSON.parse(storedSong));
+        return;
+      } catch {
+        localStorage.removeItem("songOfTheDay");
+        localStorage.removeItem("songOfTheDayDate");
+      }
     }
 
     try {
       // Try deterministic selection first
-      console.log("Attempting deterministic song selection...");
       const songData = await getDeterministicSongOfTheDay(
         serverUrl,
         username,
@@ -311,18 +314,12 @@ const Stats: React.FC = () => {
         appName
       );
 
-      console.log("Deterministic song selected:", songData);
       setSongOfTheDay(songData);
 
       localStorage.setItem("songOfTheDay", JSON.stringify(songData));
       localStorage.setItem("songOfTheDayDate", today);
-    } catch (deterministicErr) {
+    } catch {
       // Fall back to random song selection if deterministic fails
-      console.log(
-        "Deterministic selection failed, falling back to random:",
-        deterministicErr instanceof Error ? deterministicErr.message : deterministicErr
-      );
-
       try {
         const response = await fetch(
           `${serverUrl}/rest/getRandomSongs?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&size=1`,
@@ -338,11 +335,9 @@ const Stats: React.FC = () => {
         }
 
         const data = await response.json();
-        console.log("Random API Response:", data);
 
         if (data["subsonic-response"].status === "ok") {
           const song = data["subsonic-response"].randomSongs.song[0];
-          console.log("Random Song Selected:", song);
 
           const albumId = song.albumId || song.album?.id;
           if (!albumId) {
@@ -382,8 +377,13 @@ const Stats: React.FC = () => {
     if (cachedData && cachedTimestamp) {
       const age = Date.now() - parseInt(cachedTimestamp, 10);
       if (age < GITHUB_CACHE_TTL) {
-        setGithubStats(JSON.parse(cachedData));
-        return;
+        try {
+          setGithubStats(JSON.parse(cachedData));
+          return;
+        } catch {
+          localStorage.removeItem(GITHUB_CACHE_KEY);
+          localStorage.removeItem(GITHUB_CACHE_TS_KEY);
+        }
       }
     }
 
