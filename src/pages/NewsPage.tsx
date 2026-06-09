@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, startAfter, doc, serverTimestamp, QueryDocumentSnapshot } from 'firebase/firestore';
 import {
   trackedGetDocs as getDocs,
-  trackedOnSnapshot as onSnapshot,
   trackedAddDoc as addDoc,
   trackedUpdateDoc as updateDoc,
   trackedDeleteDoc as deleteDoc,
@@ -56,41 +55,48 @@ const NewsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'news'),
-      orderBy('timestamp', 'desc'),
-      limit(NEWS_PER_PAGE)
-    );
+    const loadInitial = async () => {
+      setLoading(true);
+      try {
+        const q = query(
+          collection(db, 'news'),
+          orderBy('timestamp', 'desc'),
+          limit(NEWS_PER_PAGE)
+        );
+        const snapshot = await getDocs(q);
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (snapshot.docs.length > 0) {
-        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-        setHasMore(snapshot.docs.length === NEWS_PER_PAGE);
-      } else {
-        setHasMore(false);
+        if (snapshot.docs.length > 0) {
+          setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+          setHasMore(snapshot.docs.length === NEWS_PER_PAGE);
+        } else {
+          setHasMore(false);
+        }
+
+        const items = await Promise.all(
+          snapshot.docs.map(async (docSnapshot) => {
+            const data = docSnapshot.data();
+            const userData = await getUserData(data.userId);
+            return {
+              id: docSnapshot.id,
+              text: data.text,
+              userId: data.userId,
+              timestamp: data.timestamp,
+              username: userData.username,
+              avatar: userData.avatar,
+              editedAt: data.editedAt,
+            };
+          })
+        );
+
+        setNewsItems(items);
+      } catch (error) {
+        console.error('Error loading news:', error);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const items = await Promise.all(
-        snapshot.docs.map(async (docSnapshot) => {
-          const data = docSnapshot.data();
-          const userData = await getUserData(data.userId);
-          return {
-            id: docSnapshot.id,
-            text: data.text,
-            userId: data.userId,
-            timestamp: data.timestamp,
-            username: userData.username,
-            avatar: userData.avatar,
-            editedAt: data.editedAt,
-          };
-        })
-      );
-
-      setNewsItems(items);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    loadInitial();
   }, []);
 
   const loadMore = async () => {
@@ -163,13 +169,25 @@ const NewsPage: React.FC = () => {
 
       const userData = await getUserData(auth.currentUser.uid);
 
-      await addDoc(collection(db, 'news'), {
+      const newDoc = await addDoc(collection(db, 'news'), {
         text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         username: userData.username,
         avatar: userData.avatar,
       });
+      // Optimistically prepend so the new post appears without a reload.
+      setNewsItems((prev) => [
+        {
+          id: newDoc.id,
+          text: sanitizedText,
+          userId: auth.currentUser!.uid,
+          timestamp: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+          username: userData.username,
+          avatar: userData.avatar,
+        },
+        ...prev,
+      ]);
     } catch (error) {
       console.error('Error posting news:', error);
       alert('Failed to post news. Please try again.');
@@ -185,6 +203,13 @@ const NewsPage: React.FC = () => {
         text: newText,
         editedAt: serverTimestamp(),
       });
+      setNewsItems((prev) =>
+        prev.map((item) =>
+          item.id === newsId
+            ? { ...item, text: newText, editedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 } }
+            : item
+        )
+      );
     } catch (error) {
       console.error('Error editing news:', error);
       alert('Failed to edit news post. Please try again.');
@@ -195,6 +220,7 @@ const NewsPage: React.FC = () => {
     if (!auth.currentUser) return;
     try {
       await deleteDoc(doc(db, 'news', newsId));
+      setNewsItems((prev) => prev.filter((item) => item.id !== newsId));
     } catch (error) {
       console.error('Error deleting news:', error);
       alert('Failed to delete news post. Please try again.');

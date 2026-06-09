@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, orderBy, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, getDocs, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import ListItem from '../components/ListItem';
@@ -88,16 +88,16 @@ const ListDetailPage: React.FC = () => {
     }
 
     try {
-      // Delete all items first
+      // Delete all items and the list document in one batch
       const itemsQuery = query(collection(db, 'lists', list.id, 'items'));
       const itemsSnapshot = await getDocs(itemsQuery);
-      
-      for (const itemDoc of itemsSnapshot.docs) {
-        await deleteDoc(itemDoc.ref);
-      }
 
-      // Delete the main list document
-      await deleteDoc(doc(db, 'lists', list.id));
+      const batch = writeBatch(db);
+      for (const itemDoc of itemsSnapshot.docs) {
+        batch.delete(itemDoc.ref);
+      }
+      batch.delete(doc(db, 'lists', list.id));
+      await batch.commit();
 
       alert('List deleted successfully!');
       navigate('/lists');

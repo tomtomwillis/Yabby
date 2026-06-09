@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import Hls from 'hls.js';
 import Header from '../components/basic/Header';
 import { auth, db } from '../firebaseConfig';
@@ -141,17 +141,14 @@ function CinemaPage() {
     };
   }, [user]);
 
-  // Subscribe to the admin-set next showing time.
+  // Load the admin-set next showing time once on mount.
   useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, 'cinema', 'state'),
-      (snap) => {
+    getDoc(doc(db, 'cinema', 'state'))
+      .then((snap) => {
         const value = snap.exists() ? ((snap.data() as { nextShowingAt?: string }).nextShowingAt ?? '') : '';
         setNextShowingAt(value);
-      },
-      (err) => console.error('[cinema] state snapshot failed', err),
-    );
-    return unsub;
+      })
+      .catch((err) => console.error('[cinema] state load failed', err));
   }, []);
 
   // First resolution of stream state snaps curtains without animating;

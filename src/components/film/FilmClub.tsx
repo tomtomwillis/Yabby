@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  doc, onSnapshot, collection, getDocs,
+  doc, getDoc, collection, getDocs,
   setDoc, runTransaction, deleteDoc, deleteField, updateDoc,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
@@ -163,55 +163,54 @@ function FilmClub() {
   }, [monthData?.nextFilm?.tmdbId]);
 
   // ── Firestore: cinema state (next showing time) ─────────────────────────
-  useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, 'cinema', 'state'),
-      (snap) => {
-        const value = snap.exists() ? ((snap.data() as { nextShowingAt?: string }).nextShowingAt ?? '') : '';
-        setNextShowingAt(value);
-        setNextShowingInput(value);
-      },
-      (err) => console.error('Cinema state snapshot error:', err),
-    );
-    return unsub;
+  const loadCinemaState = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, 'cinema', 'state'));
+      const value = snap.exists() ? ((snap.data() as { nextShowingAt?: string }).nextShowingAt ?? '') : '';
+      setNextShowingAt(value);
+      setNextShowingInput(value);
+    } catch (err) {
+      console.error('Cinema state load error:', err);
+    }
   }, []);
 
-  // ── Firestore: real-time month doc ──────────────────────────────────────
   useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, 'filmClub', monthId),
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() as MonthDoc & { downloadLinks?: unknown };
-          // Migrate old { small, medium, large } shape to array
-          if (data.downloadLinks && !Array.isArray(data.downloadLinks)) {
-            const old = data.downloadLinks as Record<string, string>;
-            data.downloadLinks = (['small', 'medium', 'large'] as const)
-              .filter((k) => old[k])
-              .map((k) => ({ label: k.charAt(0).toUpperCase() + k.slice(1), url: old[k] }));
-          }
-          setMonthData(data as MonthDoc);
-        } else {
-          setMonthData(null);
+    loadCinemaState();
+  }, [loadCinemaState]);
+
+  // ── Firestore: month doc (loaded once; refreshed after admin writes) ────
+  const loadMonthData = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, 'filmClub', monthId));
+      if (snap.exists()) {
+        const data = snap.data() as MonthDoc & { downloadLinks?: unknown };
+        // Migrate old { small, medium, large } shape to array
+        if (data.downloadLinks && !Array.isArray(data.downloadLinks)) {
+          const old = data.downloadLinks as Record<string, string>;
+          data.downloadLinks = (['small', 'medium', 'large'] as const)
+            .filter((k) => old[k])
+            .map((k) => ({ label: k.charAt(0).toUpperCase() + k.slice(1), url: old[k] }));
         }
-        setLoading(false);
-      },
-      (err) => {
-        console.error('FilmClub snapshot error:', err);
-        setLoading(false);
+        setMonthData(data as MonthDoc);
+      } else {
+        setMonthData(null);
       }
-    );
-    return unsub;
+    } catch (err) {
+      console.error('FilmClub month load error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [monthId]);
+
+  useEffect(() => {
+    loadMonthData();
+  }, [loadMonthData]);
 
   // ── Firestore: previous month doc (for nextFilm promotion) ─────────────
   useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, 'filmClub', prevMonthId),
-      (snap) => { setPrevMonthData(snap.exists() ? (snap.data() as MonthDoc) : null); },
-      console.error,
-    );
-    return unsub;
+    getDoc(doc(db, 'filmClub', prevMonthId))
+      .then((snap) => { setPrevMonthData(snap.exists() ? (snap.data() as MonthDoc) : null); })
+      .catch(console.error);
   }, [prevMonthId]);
 
   // ── Auto-promote prevMonth.nextFilm → currentMonth.currentFilm ──────────
@@ -225,8 +224,10 @@ function FilmClub() {
 
     const promotion: Partial<MonthDoc> = { currentFilm: prevMonthData.nextFilm };
     if (prevMonthData.nextFilmDescription) promotion.currentFilmDescription = prevMonthData.nextFilmDescription;
-    setDoc(doc(db, 'filmClub', monthId), promotion, { merge: true }).catch(console.error);
-  }, [isAdmin, loading, monthData, prevMonthData, monthId]);
+    setDoc(doc(db, 'filmClub', monthId), promotion, { merge: true })
+      .then(() => loadMonthData())
+      .catch(console.error);
+  }, [isAdmin, loading, monthData, prevMonthData, monthId, loadMonthData]);
 
   // ── Load admin submissions (next month during reveal phase) ──────────────
   const adminMonthId = isRevealPhase ? nextMonthId : monthId;
@@ -282,10 +283,11 @@ function FilmClub() {
         if (snap.data()?.winnerCalculated) return;
         tx.set(monthRef, { nextFilm, winnerCalculated: true }, { merge: true });
       });
+      await loadMonthData();
     };
 
     runIRV().catch(console.error);
-  }, [isRevealPhase, monthData, monthId]);
+  }, [isRevealPhase, monthData, monthId, loadMonthData]);
 
   // ── Admin: set current film ──────────────────────────────────────────────
   const handleAdminSetCurrentFilm = (film: FilmResult) => {
@@ -308,6 +310,7 @@ function FilmClub() {
         submittedByUsername: username,
       };
       await setDoc(doc(db, 'filmClub', monthId), { currentFilm }, { merge: true });
+      await loadMonthData();
       setAdminSaveStatus('saved');
       setAdminFilmSelection(null);
     } catch (err) {
@@ -322,6 +325,7 @@ function FilmClub() {
     try {
       const links = adminDownloadLinks.filter((l) => l.url.trim());
       await setDoc(doc(db, 'filmClub', monthId), { downloadLinks: links }, { merge: true });
+      await loadMonthData();
       setDownloadSaveStatus('saved');
     } catch (err) {
       console.error('Download links save error:', err);
@@ -335,6 +339,7 @@ function FilmClub() {
     try {
       const links = adminDirectDownloadLinks.filter((l) => l.url.trim());
       await setDoc(doc(db, 'filmClub', monthId), { directDownloadLinks: links }, { merge: true });
+      await loadMonthData();
       setDirectDownloadSaveStatus('saved');
     } catch (err) {
       console.error('Direct download links save error:', err);
@@ -347,6 +352,7 @@ function FilmClub() {
     setDescriptionSaveStatus('saving');
     try {
       await setDoc(doc(db, 'filmClub', monthId), { currentFilmDescription: adminDescription }, { merge: true });
+      await loadMonthData();
       setDescriptionSaveStatus('saved');
     } catch (err) {
       console.error('Description save error:', err);
@@ -359,6 +365,7 @@ function FilmClub() {
     setNextDescriptionSaveStatus('saving');
     try {
       await setDoc(doc(db, 'filmClub', monthId), { nextFilmDescription: adminNextDescription }, { merge: true });
+      await loadMonthData();
       setNextDescriptionSaveStatus('saved');
     } catch (err) {
       console.error('Next film description save error:', err);
@@ -372,6 +379,7 @@ function FilmClub() {
     setNextShowingStatus('saving');
     try {
       await setDoc(doc(db, 'cinema', 'state'), { nextShowingAt: nextShowingInput }, { merge: true });
+      setNextShowingAt(nextShowingInput);
       setNextShowingStatus('saved');
     } catch (err) {
       console.error('Next showing save error:', err);
@@ -383,6 +391,8 @@ function FilmClub() {
     setNextShowingStatus('saving');
     try {
       await updateDoc(doc(db, 'cinema', 'state'), { nextShowingAt: deleteField() });
+      setNextShowingAt('');
+      setNextShowingInput('');
       setNextShowingStatus('saved');
     } catch (err) {
       console.error('Next showing clear error:', err);
@@ -398,6 +408,7 @@ function FilmClub() {
         currentFilm: deleteField(),
         currentFilmDescription: deleteField(),
       });
+      await loadMonthData();
       setClearFilmStatus('idle');
     } catch (err) {
       console.error('Clear film error:', err);
@@ -443,6 +454,7 @@ function FilmClub() {
       };
 
       await setDoc(doc(db, 'filmClub', adminMonthId), { nextFilm, winnerCalculated: true }, { merge: true });
+      if (adminMonthId === monthId) await loadMonthData();
       setIrvStatus('done');
     } catch (err) {
       console.error('Admin IRV error:', err);

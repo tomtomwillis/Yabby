@@ -3,11 +3,12 @@ import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import './StickerGrid.css';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { getUserData } from '../utils/userCache';
 
 interface Sticker {
+  stickerId: string;
   userId: string;
   albumId: string;
   text: string;
@@ -94,35 +95,29 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
       const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
-      // Fetch all stickers ordered by timestamp
+      // Fetch all stickers once, newest first, and group by album client-side.
       const allStickersQuery = query(
         collection(db, 'stickers'),
         orderBy('timestamp', 'desc')
       );
       const allStickersSnapshot = await getDocs(allStickersQuery);
-      const allStickers: Sticker[] = allStickersSnapshot.docs.map((doc) => doc.data() as Sticker);
+      const allStickers: Sticker[] = allStickersSnapshot.docs.map((d) => ({
+        ...(d.data() as Omit<Sticker, 'stickerId'>),
+        stickerId: d.id,
+      }));
 
-      // Get unique album IDs
-      const uniqueAlbumIds = [...new Set(allStickers.map(sticker => sticker.albumId))];
+      // Docs are newest-first, so Map insertion order = album recency order
+      // and each album's stickers stay newest-first.
+      const stickersByAlbum = new Map<string, Sticker[]>();
+      for (const sticker of allStickers) {
+        const list = stickersByAlbum.get(sticker.albumId);
+        if (list) list.push(sticker);
+        else stickersByAlbum.set(sticker.albumId, [sticker]);
+      }
 
-      // For each album, fetch ALL stickers for that album
+      // Fetch album details from Navidrome API for each album
       const albumsWithAllStickers: AlbumWithStickers[] = await Promise.all(
-        uniqueAlbumIds.map(async (albumId) => {
-          // Fetch all stickers for this specific album
-          const albumStickersQuery = query(
-            collection(db, 'stickers'),
-            where('albumId', '==', albumId)
-          );
-          const albumStickersSnapshot = await getDocs(albumStickersQuery);
-          const allAlbumStickers: Sticker[] = albumStickersSnapshot.docs
-            .map((doc) => doc.data() as Sticker)
-            .sort((a, b) => {
-              const timestampA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
-              const timestampB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
-              return timestampB.getTime() - timestampA.getTime();
-            });
-
-          // Fetch album details from Navidrome API
+        Array.from(stickersByAlbum.entries()).map(async ([albumId, albumStickers]) => {
           const response = await fetch(
             `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
             {
@@ -149,27 +144,17 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
             'coverArt'
           )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
 
-          // Find the most recent sticker timestamp for this album
-          const mostRecentTimestamp = allAlbumStickers[0]?.timestamp?.toDate ?
-            allAlbumStickers[0].timestamp.toDate().getTime() : 0;
-
           return {
             albumId,
             albumCover,
             albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
             albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
-            stickers: allAlbumStickers,
-            mostRecentTimestamp, // Add this for sorting
+            stickers: albumStickers,
           };
         })
       );
 
-      // Sort by most recent sticker timestamp (chronological by default)
-      const sortedAlbums = albumsWithAllStickers.sort((a: any, b: any) =>
-        b.mostRecentTimestamp - a.mostRecentTimestamp
-      );
-
-      setAlbums(sortedAlbums);
+      setAlbums(albumsWithAllStickers);
 
       // Build sorted list of unique users who have posted stickers
       if (onUsersLoaded) {
@@ -373,14 +358,14 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
                 alt={album.albumTitle}
                 className="grid-album-image"
               />
-              {album.stickers.map((sticker, index) => {
+              {album.stickers.map((sticker) => {
                 const stickerElement = document.querySelector(
                   `[data-album-id="${album.albumId}"] .grid-album-image`
                 ) as HTMLElement;
 
                 return (
                   <img
-                    key={index}
+                    key={sticker.stickerId}
                     src={`/Stickers/${sticker.sticker.split('/').pop()}`}
                     alt="Sticker"
                     className="grid-sticker-overlay"
