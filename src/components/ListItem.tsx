@@ -122,6 +122,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
           <img
             src={itemDetails.imageUrl}
             alt={itemDetails.imageAlt}
+            loading="lazy"
             onClick={itemDetails.clickable ? handleItemClick : undefined}
             onError={handleImageError}
             style={{ 

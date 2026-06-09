@@ -386,6 +386,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
           src={album.albumCover}
           alt={album.albumTitle}
           className="album-image"
+          loading="lazy"
         />
         {album.stickers.map((sticker) => {
           const stickerElement = document.querySelector(

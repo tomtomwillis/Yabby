@@ -249,6 +249,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
           src={normalizedStickerPath}
           alt={`${username}'s avatar`}
           className="user-message-sticker"
+          loading="lazy"
           onError={handleImageError}
         />
       );

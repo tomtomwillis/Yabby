@@ -357,6 +357,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
                 src={album.albumCover}
                 alt={album.albumTitle}
                 className="grid-album-image"
+                loading="lazy"
               />
               {album.stickers.map((sticker) => {
                 const stickerElement = document.querySelector(
@@ -370,6 +371,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
                     alt="Sticker"
                     className="grid-sticker-overlay"
                     style={getStickerStyle(sticker.position, stickerElement)}
+                    loading="lazy"
                     data-album-id={album.albumId}
                   />
                 );
