@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, where, limit } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
@@ -34,6 +34,7 @@ interface List {
   userId: string;
   username: string;
   timestamp: any;
+  lastUpdated?: { seconds: number };
   itemCount: number;
   isPublic?: boolean;
   isCollaborative?: boolean;
@@ -50,29 +51,35 @@ const ListsPage: React.FC = () => {
   const fetchLists = useCallback(async () => {
     try {
       setLoading(true);
-      const listsQuery = query(
+      // Security rules only allow querying public lists or your own —
+      // fetch both and merge (own public lists appear in both results).
+      const publicQuery = query(
         collection(db, 'lists'),
-        orderBy('lastUpdated', 'desc')
+        where('isPublic', '==', true),
+        orderBy('lastUpdated', 'desc'),
+        limit(100)
       );
+      const uid = auth.currentUser?.uid;
+      const ownQuery = uid
+        ? query(collection(db, 'lists'), where('userId', '==', uid))
+        : null;
 
-      const snapshot = await getDocs(listsQuery);
-      const listsData: List[] = [];
+      const [publicSnap, ownSnap] = await Promise.all([
+        getDocs(publicQuery),
+        ownQuery ? getDocs(ownQuery) : Promise.resolve(null),
+      ]);
 
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-
-        // Client-side visibility filtering:
-        // Show public lists (isPublic undefined or true) and the current user's own lists
-        const isOwner = auth.currentUser && data.userId === auth.currentUser.uid;
-        const isPublic = data.isPublic !== false;
-
-        if (isOwner || isPublic) {
-          listsData.push({
-            ...data,
-            id: docSnap.id,
-          } as List);
-        }
+      const byId = new Map<string, List>();
+      publicSnap.forEach((docSnap) => {
+        byId.set(docSnap.id, { ...docSnap.data(), id: docSnap.id } as List);
       });
+      ownSnap?.forEach((docSnap) => {
+        byId.set(docSnap.id, { ...docSnap.data(), id: docSnap.id } as List);
+      });
+
+      const listsData = Array.from(byId.values()).sort(
+        (a, b) => ((b.lastUpdated?.seconds ?? 0) - (a.lastUpdated?.seconds ?? 0))
+      );
 
       setLists(listsData);
     } catch (err) {

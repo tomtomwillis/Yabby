@@ -98,7 +98,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       try {
         const listsQuery = query(
           collection(db, 'lists'),
-          where('isPublic', '!=', false),
+          where('isPublic', '==', true),
         );
         const snapshot = await getDocs(listsQuery);
         const lists: Result[] = [];

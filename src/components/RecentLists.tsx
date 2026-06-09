@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
 import './RecentLists.css';
@@ -42,16 +42,15 @@ const RecentLists: React.FC = () => {
       try {
         const q = query(
           collection(db, 'lists'),
+          where('isPublic', '==', true),
           orderBy('lastUpdated', 'desc'),
-          limit(10),
+          limit(3),
         );
         const snapshot = await getDocs(q);
 
         const result: RecentList[] = [];
         for (const docSnap of snapshot.docs) {
-          if (result.length >= 3) break;
           const data = docSnap.data();
-          if (data.isPublic === false) continue;
           result.push({
             id: docSnap.id,
             title: data.title || 'Untitled',

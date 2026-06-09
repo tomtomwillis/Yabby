@@ -259,9 +259,15 @@ service cloud.firestore {
       }
     }
 
-    // Lists - user-created music lists
+    // Lists - user-created music lists.
+    // Private lists are readable only by their owner. Queries must constrain
+    // to isPublic == true or userId == auth.uid (rules are not filters).
     match /lists/{listId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn()
+        && (resource.data.isPublic != false || resource.data.userId == request.auth.uid);
+
+      allow list: if isSignedIn()
+        && (resource.data.isPublic == true || resource.data.userId == request.auth.uid);
 
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
@@ -281,7 +287,10 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.userId);
 
       match /items/{itemId} {
-        allow read: if isSignedIn();
+        // Items inherit the parent list's visibility (one billed read per request)
+        allow read: if isSignedIn()
+          && (get(/databases/$(database)/documents/lists/$(listId)).data.isPublic != false
+            || get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
 
         allow create, update: if isSignedIn()
           && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid
@@ -439,7 +448,7 @@ service cloud.firestore {
         && request.resource.data.text.size() <= 100000
         && request.resource.data.updatedBy == request.auth.uid;
     }
-
+    
     // Cinema state — admin-set next showing time, read by all signed-in users.
     match /cinema/{docId} {
       allow read: if isSignedIn();
