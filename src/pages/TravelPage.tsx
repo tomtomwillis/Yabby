@@ -62,21 +62,16 @@ async function loadPlacesAndMemberships(): Promise<{ places: Place[]; membership
     };
   });
 
-  const contribResults = await Promise.all(
-    snap.docs.map((placeDoc) =>
-      trackedGetDocs(collection(db, 'places', placeDoc.id, 'contributions')).then((cs) => ({
-        placeId: placeDoc.id,
-        docs: cs.docs,
-      })),
-    ),
-  );
-
+  // Membership comes from the denormalised contributorIds array on each
+  // place doc (maintained by the travel API) — no subcollection reads.
   const memberships: UserPlaceMembership = {};
-  for (const { placeId, docs } of contribResults) {
-    for (const c of docs) {
-      const uid = c.data().userId as string;
+  for (const placeDoc of snap.docs) {
+    const ids = placeDoc.data().contributorIds;
+    if (!Array.isArray(ids)) continue;
+    for (const uid of ids) {
+      if (typeof uid !== 'string' || !uid) continue;
       if (!memberships[uid]) memberships[uid] = new Set();
-      memberships[uid].add(placeId);
+      memberships[uid].add(placeDoc.id);
     }
   }
 
