@@ -370,11 +370,19 @@ const Wiki: React.FC = () => {
             <div className="wiki-collapsible">
               <div className="wiki-title-section">
                 <h1 className="wiki-main-title">Yabbyville Wiki</h1>
-                {isAdmin && (
-                  <button className="wiki-edit-open-btn" onClick={handleEditOpen}>
-                    Edit Wiki
-                  </button>
-                )}
+                <div className="wiki-title-actions">
+                  {sections.length > 0 && (
+                    <>
+                      <button className="wiki-expand-btn" onClick={() => setOpenSections(new Set(sections.map((s) => s.id)))}>Expand all</button>
+                      <button className="wiki-expand-btn" onClick={() => setOpenSections(new Set())}>Collapse all</button>
+                    </>
+                  )}
+                  {isAdmin && (
+                    <button className="wiki-edit-open-btn" onClick={handleEditOpen}>
+                      Edit Wiki
+                    </button>
+                  )}
+                </div>
               </div>
 
               {sections.length === 0 ? (

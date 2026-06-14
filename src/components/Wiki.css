@@ -334,6 +334,33 @@
     font-family: var(--font1);
 }
 
+.wiki-title-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.wiki-expand-btn {
+    font-family: var(--font1);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.9rem;
+    background: transparent;
+    border: 1px solid var(--colour2);
+    border-radius: 8px;
+    color: var(--colour2);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+    opacity: 0.7;
+}
+
+.wiki-expand-btn:hover {
+    background: var(--colour2);
+    color: var(--colour4);
+    opacity: 1;
+}
+
 .wiki-edit-open-btn {
     font-family: var(--font1);
     font-size: 0.85rem;
