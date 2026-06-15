@@ -4,6 +4,7 @@ import Button from './Button';
 import { collection, query, where } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
+import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
 
 interface Result {
   id: string;
@@ -87,11 +88,6 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const placesFetchPromiseRef = useRef<Promise<void> | null>(null);
   const playlistsFetchPromiseRef = useRef<Promise<void> | null>(null);
 
-  const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-  const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-  const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-  const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
-
   const ensureListsLoaded = (): Promise<void> => {
     if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
     const p = (async () => {
@@ -150,14 +146,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (playlistsFetchPromiseRef.current) return playlistsFetchPromiseRef.current;
     const p = (async () => {
       try {
-        const response = await fetch(
-          `${SERVER_URL}/rest/getPlaylists?u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-          { headers: { Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`) } },
-        );
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const text = await response.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, 'application/xml');
+        const xmlDoc = await fetchSubsonicXml('getPlaylists');
         const playlists: Result[] = Array.from(xmlDoc.getElementsByTagName('playlist')).map((el) => ({
           id: el.getAttribute('id') || '',
           name: el.getAttribute('name') || 'Unknown Playlist',
@@ -175,33 +164,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
   const fetchResults = async (queryStr: string): Promise<Result[][]> => {
     setSearchStatus("Searching...");
-    const response = await fetch(
-      `${SERVER_URL}/rest/search3?query=${queryStr}&artistCount=5&albumCount=5&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-      {
-        headers: {
-          Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-        },
-      }
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const text = await response.text();
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(text, 'application/xml');
-
-    const parserError = xmlDoc.querySelector('parsererror');
-    if (parserError) {
-      throw new Error('XML parsing error: ' + parserError.textContent);
-    }
-
-    const subsonicResponse = xmlDoc.querySelector('subsonic-response');
-    if (subsonicResponse?.getAttribute('status') === 'failed') {
-      const errorElement = xmlDoc.querySelector('error');
-      const errorMessage = errorElement?.getAttribute('message') || 'Unknown API error';
-      throw new Error(`API Error: ${errorMessage}`);
-    }
+    const xmlDoc = await fetchSubsonicXml('search3', { query: queryStr, artistCount: 5, albumCount: 5 });
 
     const artistEls = Array.from(xmlDoc.getElementsByTagName('artist'));
     const albumEls = Array.from(xmlDoc.getElementsByTagName('album'));
@@ -429,7 +392,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (result.type === 'instant') {
       link = `${window.location.origin}${INSTANT_COMMANDS[result.id].path}`;
     } else if (result.type === 'playlist') {
-      link = `${SERVER_URL}/app/#/playlist/${result.id}/show`;
+      link = `${NAVIDROME_SERVER_URL}/app/#/playlist/${result.id}/show`;
     } else if (result.type === 'place') {
       link = `${window.location.origin}/travel?place=${result.id}`;
     } else if (result.type === 'city') {
@@ -437,7 +400,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     } else if (result.type === 'list') {
       link = `${window.location.origin}/lists/${result.id}`;
     } else {
-      link = `${SERVER_URL}/app/#/${result.type}/${result.id}/show`;
+      link = `${NAVIDROME_SERVER_URL}/app/#/${result.type}/${result.id}/show`;
     }
 
     const triggerPos = triggerPositionRef.current;

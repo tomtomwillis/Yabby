@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   query,
@@ -8,7 +8,8 @@ import {
   limit,
   startAfter,
   increment,
-  runTransaction,
+  arrayUnion,
+  arrayRemove,
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import {
@@ -44,6 +45,7 @@ interface Reply {
   username: string;
   avatar: string;
   reactions?: Reaction[];
+  reactedBy?: string[];
   reactionCount?: number;
   currentUserReacted?: boolean;
   editedAt?: any;
@@ -59,6 +61,7 @@ interface Message {
   username: string;
   avatar: string;
   reactions?: Reaction[];
+  reactedBy?: string[];
   reactionCount?: number;
   currentUserReacted?: boolean;
   replies?: Reply[];
@@ -111,6 +114,8 @@ function sortByBump(messages: Message[]): Message[] {
 
 function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
   const data = docSnap.data();
+  const reactedBy: string[] = Array.isArray(data.reactedBy) ? data.reactedBy : [];
+  const uid = auth.currentUser?.uid;
   return {
     id: docSnap.id,
     text: data.text,
@@ -119,9 +124,10 @@ function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
     lastActivityAt: data.lastActivityAt,
     username: data.username || 'Anonymous',
     avatar: data.avatar || '',
-    reactionCount: typeof data.reactionCount === 'number' ? data.reactionCount : 0,
+    reactedBy,
+    reactionCount: typeof data.reactionCount === 'number' ? data.reactionCount : reactedBy.length,
     replyCount: typeof data.replyCount === 'number' ? data.replyCount : 0,
-    currentUserReacted: false,
+    currentUserReacted: uid ? reactedBy.includes(uid) : false,
     editedAt: data.editedAt,
     imageId: data.imageId || undefined,
     posterUrl: data.posterUrl || undefined,
@@ -130,6 +136,8 @@ function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
 
 function mapReplyDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Reply {
   const data = docSnap.data();
+  const reactedBy: string[] = Array.isArray(data.reactedBy) ? data.reactedBy : [];
+  const uid = auth.currentUser?.uid;
   return {
     id: docSnap.id,
     text: data.text,
@@ -137,8 +145,9 @@ function mapReplyDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Reply {
     timestamp: data.timestamp,
     username: data.username || 'Anonymous',
     avatar: data.avatar || '',
-    reactionCount: typeof data.reactionCount === 'number' ? data.reactionCount : 0,
-    currentUserReacted: false,
+    reactedBy,
+    reactionCount: typeof data.reactionCount === 'number' ? data.reactionCount : reactedBy.length,
+    currentUserReacted: uid ? reactedBy.includes(uid) : false,
     editedAt: data.editedAt,
     imageId: data.imageId,
   };
@@ -155,76 +164,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
 
-  // Listener cleanup refs
-  const messagesUnsubRef = useRef<(() => void) | null>(null);
-  const replyUnsubsRef = useRef<Map<string, () => void>>(new Map());
-
   const { isAdmin } = useAdmin();
   const { checkRateLimit } = useRateLimit({ maxAttempts: 10, windowMs: 5 * 60 * 1000 });
-
-  // Tracks which message/reply reactor lists have been fetched (for hover tooltip).
-  const fetchedReactionsRef = useRef<Set<string>>(new Set());
-  const fetchedReplyReactionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     loadInitialMessages();
     // No listeners — nothing to clean up.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableReactions, enableReplies]);
-
-  // Fetch currentUserReacted for each message in parallel (1 read per message).
-  // Doc ID in messages/{id}/reactions/{uid} is the uid — getDoc is a direct point-read.
-  const hydrateUserReactions = useCallback(async (messageIds: string[]) => {
-    if (!enableReactions) return;
-    const uid = auth.currentUser?.uid;
-    if (!uid || messageIds.length === 0) return;
-    try {
-      const results = await Promise.all(
-        messageIds.map(async (id) => {
-          const snap = await getDoc(doc(db, collectionName, id, 'reactions', uid));
-          return { id, reacted: snap.exists() };
-        }),
-      );
-      const reactedMap = new Map(results.map((r) => [r.id, r.reacted]));
-      setMessages((prev) =>
-        prev.map((m) =>
-          reactedMap.has(m.id) ? { ...m, currentUserReacted: reactedMap.get(m.id)! } : m,
-        ),
-      );
-    } catch (error) {
-      console.error('Error hydrating user reactions:', error);
-    }
-  }, [enableReactions, collectionName]);
-
-  // Same pattern for replies of a single message.
-  const hydrateUserReplyReactions = useCallback(async (messageId: string, replyIds: string[]) => {
-    if (!enableReactions) return;
-    const uid = auth.currentUser?.uid;
-    if (!uid || replyIds.length === 0) return;
-    try {
-      const results = await Promise.all(
-        replyIds.map(async (rid) => {
-          const snap = await getDoc(doc(db, collectionName, messageId, 'replies', rid, 'reactions', uid));
-          return { rid, reacted: snap.exists() };
-        }),
-      );
-      const reactedMap = new Map(results.map((r) => [r.rid, r.reacted]));
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? {
-                ...m,
-                replies: m.replies?.map((r) =>
-                  reactedMap.has(r.id) ? { ...r, currentUserReacted: reactedMap.get(r.id)! } : r,
-                ),
-              }
-            : m,
-        ),
-      );
-    } catch (error) {
-      console.error('Error hydrating reply reactions:', error);
-    }
-  }, [enableReactions, collectionName]);
 
   const loadInitialMessages = async () => {
     setLoadingMessages(true);
@@ -245,7 +192,6 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
       const loaded = sortByBump(snapshot.docs.map(mapMessageDoc));
       setMessages(loaded);
-      hydrateUserReactions(loaded.map((m) => m.id));
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -272,7 +218,6 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
       const newMessages = snapshot.docs.map(mapMessageDoc);
       setMessages((prev) => [...prev, ...newMessages]);
-      hydrateUserReactions(newMessages.map((m) => m.id));
     } catch (error) {
       console.error('Error loading more messages:', error);
     } finally {
@@ -292,11 +237,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, replies, replyCount: replies.length, repliesLoaded: true } : m)),
       );
-      hydrateUserReplyReactions(messageId, replies.map((r) => r.id));
     } catch (error) {
       console.error('Error fetching replies:', error);
     }
-  }, [hydrateUserReplyReactions, collectionName]);
+  }, [collectionName]);
 
   const handleToggleReplies = (messageId: string) => {
     setExpandedReplies((prev) => {
@@ -314,54 +258,49 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
   };
 
-  // Lazy-fetch reactor list for a specific message on first hover.
+  // Resolve reactor usernames for the hover tooltip from the reactedBy uid
+  // array via the shared user cache — no subcollection reads.
+  const resolveReactions = async (reactedBy: string[]): Promise<Reaction[]> => {
+    return Promise.all(
+      reactedBy.map(async (uid) => {
+        const data = await getUserData(uid);
+        return { userId: uid, username: data.username, timestamp: null };
+      }),
+    );
+  };
+
   const handleReactionHover = useCallback(async (messageId: string) => {
-    if (fetchedReactionsRef.current.has(messageId)) return;
-    fetchedReactionsRef.current.add(messageId);
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg || msg.reactions || !msg.reactedBy?.length) return;
     try {
-      const snapshot = await getDocs(collection(db, collectionName, messageId, 'reactions'));
-      const reactions = snapshot.docs.map((d) => d.data() as Reaction);
+      const reactions = await resolveReactions(msg.reactedBy);
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? { ...m, reactions, reactionCount: reactions.length }
-            : m,
-        ),
+        prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)),
       );
     } catch (error) {
-      console.error('Error fetching reactions:', error);
-      fetchedReactionsRef.current.delete(messageId);
+      console.error('Error resolving reactions:', error);
     }
-  }, [collectionName]);
+  }, [messages]);
 
   const handleReplyReactionHover = useCallback(async (messageId: string, replyId: string) => {
-    const key = `${messageId}/${replyId}`;
-    if (fetchedReplyReactionsRef.current.has(key)) return;
-    fetchedReplyReactionsRef.current.add(key);
+    const reply = messages.find((m) => m.id === messageId)?.replies?.find((r) => r.id === replyId);
+    if (!reply || reply.reactions || !reply.reactedBy?.length) return;
     try {
-      const snapshot = await getDocs(
-        collection(db, collectionName, messageId, 'replies', replyId, 'reactions'),
-      );
-      const reactions = snapshot.docs.map((d) => d.data() as Reaction);
+      const reactions = await resolveReactions(reply.reactedBy);
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
             ? {
                 ...m,
-                replies: m.replies?.map((r) =>
-                  r.id === replyId
-                    ? { ...r, reactions, reactionCount: reactions.length }
-                    : r,
-                ),
+                replies: m.replies?.map((r) => (r.id === replyId ? { ...r, reactions } : r)),
               }
             : m,
         ),
       );
     } catch (error) {
-      console.error('Error fetching reply reactions:', error);
-      fetchedReplyReactionsRef.current.delete(key);
+      console.error('Error resolving reply reactions:', error);
     }
-  }, [collectionName]);
+  }, [messages]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() && !pendingImage) return;
@@ -403,6 +342,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         lastActivityAt: serverTimestamp(),
         username: userData.username,
         avatar: userData.avatar,
+        reactedBy: [],
+        reactionCount: 0,
       };
       if (imageId) messageData.imageId = imageId;
 
@@ -417,6 +358,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
           username: userData.username,
           avatar: userData.avatar,
+          reactedBy: [],
           reactionCount: 0,
           replyCount: 0,
           currentUserReacted: false,
@@ -521,6 +463,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         lastActivityAt: serverTimestamp(),
         username: 'Film Club Bot',
         avatar: 'avatar_filmbot.webp',
+        reactedBy: [],
+        reactionCount: 0,
       };
       if (posterUrl) messageData.posterUrl = posterUrl;
 
@@ -535,6 +479,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
           username: 'FilmClub Bot',
           avatar: 'avatar_filmbot.webp',
+          reactedBy: [],
           reactionCount: 0,
           replyCount: 0,
           currentUserReacted: false,
@@ -557,65 +502,33 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
     const uid = auth.currentUser.uid;
     const messageRef = doc(db, collectionName, messageId);
-    const reactionRef = doc(db, collectionName, messageId, 'reactions', uid);
 
     const current = messages.find((m) => m.id === messageId);
     const wasReacted = current?.currentUserReacted ?? false;
     const delta = wasReacted ? -1 : 1;
 
-    // Optimistic UI.
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId
-          ? {
-              ...m,
-              currentUserReacted: !wasReacted,
-              reactionCount: Math.max(0, (m.reactionCount ?? 0) + delta),
-              reactions: wasReacted
-                ? m.reactions?.filter((r) => r.userId !== uid)
-                : m.reactions
-                ? [...m.reactions, { userId: uid, username: 'You', timestamp: null }]
-                : undefined,
-            }
-          : m,
-      ),
-    );
+    // Optimistic UI; reactions tooltip is re-resolved from reactedBy on next hover.
+    const toggleLocal = (m: Message, reacted: boolean): Message => ({
+      ...m,
+      currentUserReacted: reacted,
+      reactionCount: Math.max(0, (m.reactionCount ?? 0) + (reacted ? 1 : -1)),
+      reactedBy: reacted
+        ? [...(m.reactedBy ?? []), uid]
+        : (m.reactedBy ?? []).filter((id) => id !== uid),
+      reactions: undefined,
+    });
+
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? toggleLocal(m, !wasReacted) : m)));
 
     try {
-      const userData = await getUserData(uid);
-      await runTransaction(db, async (tx) => {
-        const existing = await tx.get(reactionRef);
-        if (existing.exists()) {
-          tx.delete(reactionRef);
-          tx.update(messageRef, { reactionCount: increment(-1) });
-        } else {
-          tx.set(reactionRef, {
-            userId: uid,
-            username: userData.username,
-            timestamp: serverTimestamp(),
-          });
-          tx.update(messageRef, { reactionCount: increment(1) });
-        }
+      await updateDoc(messageRef, {
+        reactedBy: wasReacted ? arrayRemove(uid) : arrayUnion(uid),
+        reactionCount: increment(delta),
       });
-      // Invalidate cached reactor list so next hover refetches with accurate names.
-      fetchedReactionsRef.current.delete(messageId);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, reactions: undefined } : m)),
-      );
     } catch (error) {
       console.error('Error toggling reaction:', error);
       // Revert optimistic state.
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? {
-                ...m,
-                currentUserReacted: wasReacted,
-                reactionCount: Math.max(0, (m.reactionCount ?? 0) - delta),
-              }
-            : m,
-        ),
-      );
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? toggleLocal(m, wasReacted) : m)));
       alert('Failed to update reaction. Please try again.');
     }
   };
@@ -652,6 +565,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         timestamp: serverTimestamp(),
         username: userData.username,
         avatar: userData.avatar,
+        reactedBy: [],
+        reactionCount: 0,
       };
       if (imageId) replyData.imageId = imageId;
 
@@ -669,6 +584,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         timestamp: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
         username: userData.username,
         avatar: userData.avatar,
+        reactedBy: [],
         reactionCount: 0,
         currentUserReacted: false,
         imageId,
@@ -700,84 +616,41 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
     const uid = auth.currentUser.uid;
     const replyRef = doc(db, collectionName, messageId, 'replies', replyId);
-    const reactionRef = doc(db, collectionName, messageId, 'replies', replyId, 'reactions', uid);
 
     const parent = messages.find((m) => m.id === messageId);
     const reply = parent?.replies?.find((r) => r.id === replyId);
     const wasReacted = reply?.currentUserReacted ?? false;
     const delta = wasReacted ? -1 : 1;
 
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId
-          ? {
-              ...m,
-              replies: m.replies?.map((r) =>
-                r.id === replyId
-                  ? {
-                      ...r,
-                      currentUserReacted: !wasReacted,
-                      reactionCount: Math.max(0, (r.reactionCount ?? 0) + delta),
-                      reactions: wasReacted
-                        ? r.reactions?.filter((rr) => rr.userId !== uid)
-                        : r.reactions
-                        ? [...r.reactions, { userId: uid, username: 'You', timestamp: null }]
-                        : undefined,
-                    }
-                  : r,
-              ),
-            }
-          : m,
-      ),
-    );
+    const toggleLocal = (r: Reply, reacted: boolean): Reply => ({
+      ...r,
+      currentUserReacted: reacted,
+      reactionCount: Math.max(0, (r.reactionCount ?? 0) + (reacted ? 1 : -1)),
+      reactedBy: reacted
+        ? [...(r.reactedBy ?? []), uid]
+        : (r.reactedBy ?? []).filter((id) => id !== uid),
+      reactions: undefined,
+    });
+
+    const applyToggle = (reacted: boolean) =>
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, replies: m.replies?.map((r) => (r.id === replyId ? toggleLocal(r, reacted) : r)) }
+            : m,
+        ),
+      );
+
+    applyToggle(!wasReacted);
 
     try {
-      const userData = await getUserData(uid);
-      await runTransaction(db, async (tx) => {
-        const existing = await tx.get(reactionRef);
-        if (existing.exists()) {
-          tx.delete(reactionRef);
-          tx.update(replyRef, { reactionCount: increment(-1) });
-        } else {
-          tx.set(reactionRef, {
-            userId: uid,
-            username: userData.username,
-            timestamp: serverTimestamp(),
-          });
-          tx.update(replyRef, { reactionCount: increment(1) });
-        }
+      await updateDoc(replyRef, {
+        reactedBy: wasReacted ? arrayRemove(uid) : arrayUnion(uid),
+        reactionCount: increment(delta),
       });
-      fetchedReplyReactionsRef.current.delete(`${messageId}/${replyId}`);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? {
-                ...m,
-                replies: m.replies?.map((r) => (r.id === replyId ? { ...r, reactions: undefined } : r)),
-              }
-            : m,
-        ),
-      );
     } catch (error) {
       console.error('Error toggling reply reaction:', error);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? {
-                ...m,
-                replies: m.replies?.map((r) =>
-                  r.id === replyId
-                    ? {
-                        ...r,
-                        currentUserReacted: wasReacted,
-                        reactionCount: Math.max(0, (r.reactionCount ?? 0) - delta),
-                      }
-                    : r,
-                ),
-              }
-            : m,
-        ),
-      );
+      applyToggle(wasReacted);
       alert('Failed to update reaction. Please try again.');
     }
   };

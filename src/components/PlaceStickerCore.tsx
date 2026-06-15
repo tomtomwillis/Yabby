@@ -6,6 +6,7 @@ import { db, auth } from '../firebaseConfig';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
+import { fetchSubsonicJson } from '../utils/navidrome';
 
 interface AlbumInfo {
   id: string;
@@ -96,28 +97,8 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const fetchAlbumTracks = async () => {
     setIsLoadingTracks(true);
     try {
-      const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-      const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-      const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
-
-      if (!SERVER_URL || !API_USERNAME || !API_PASSWORD) {
-        console.error('Missing Navidrome credentials');
-        return;
-      }
-
-      const response = await fetch(
-        `${SERVER_URL}/rest/getAlbum?u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}&f=json&id=${albumInfo.id}`,
-        {
-          headers: {
-            Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-          },
-        }
-      );
-
-      const data = await response.json();
-      const album = data['subsonic-response']?.album;
-      const songs = album?.song || [];
+      const data = await fetchSubsonicJson('getAlbum', { id: albumInfo.id });
+      const songs = data.album?.song || [];
 
       const trackList: Track[] = songs.map((song: any) => ({
         id: song.id,

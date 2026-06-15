@@ -40,6 +40,54 @@ service cloud.firestore {
         && text.size() <= 10000;
     }
 
+    // Reaction toggle on a parent doc's reactedBy array: the caller may only
+    // add or remove their own uid, and reactionCount must equal the array size
+    function isValidReactionToggle(before, after, newCount) {
+      let added = after.difference(before);
+      let removed = before.difference(after);
+      return newCount == after.size()
+        && (
+          (added == [request.auth.uid].toSet() && removed.size() == 0)
+          || (removed == [request.auth.uid].toSet() && added.size() == 0)
+        );
+    }
+
+    // reactedBy/reactionCount may be present at creation only as empty/zero
+    function hasNoPriorReactions(data) {
+      return (!('reactedBy' in data) || data.reactedBy == [])
+        && (!('reactionCount' in data) || data.reactionCount == 0);
+    }
+
+    // Denormalised username on a created doc must match the author's profile,
+    // so users can't post under someone else's name. Admins are exempt
+    // (Film Club Bot announcements post with a bot identity).
+    function usernameMatchesProfile(username) {
+      return username == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
+        || isAdmin();
+    }
+
+    function isValidListItem(data) {
+      return data.keys().hasOnly([
+          'type', 'userText', 'order', 'timestamp',
+          'addedByUserId', 'addedByUsername', 'addedByAvatar',
+          'albumId', 'albumTitle', 'albumArtist', 'albumCover',
+          'title', 'imageUrl', 'linkUrl'
+        ])
+        && data.type in ['album', 'custom']
+        && data.userText is string && data.userText.size() <= 2000
+        && data.order is number
+        && (!('albumId' in data) || validString(data.albumId, 1, 100))
+        && (!('albumTitle' in data) || validString(data.albumTitle, 0, 300))
+        && (!('albumArtist' in data) || validString(data.albumArtist, 0, 300))
+        && (!('albumCover' in data) || validString(data.albumCover, 0, 1000))
+        && (!('title' in data) || validString(data.title, 0, 300))
+        && (!('imageUrl' in data) || validString(data.imageUrl, 0, 1000))
+        && (!('linkUrl' in data) || validString(data.linkUrl, 0, 1000))
+        && (!('addedByUserId' in data) || validString(data.addedByUserId, 1, 128))
+        && (!('addedByUsername' in data) || validString(data.addedByUsername, 0, 50))
+        && (!('addedByAvatar' in data) || validString(data.addedByAvatar, 0, 200));
+    }
+
     function isValidNextFilm(film) {
       return film is map
         && film.tmdbId is int
@@ -109,9 +157,11 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount'])
+        && hasNoPriorReactions(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
+        && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
         && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
         && (!('posterUrl' in request.resource.data) || validString(request.resource.data.posterUrl, 0, 500));
@@ -121,23 +171,30 @@ service cloud.firestore {
         && isValidMessage(request.resource.data.text)
         && request.resource.data.editedAt == request.time;
 
+      // Reaction toggle: own uid in/out of reactedBy, count kept in sync
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'reactionCount', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+        && isValidReactionToggle(
+          resource.data.get('reactedBy', []).toSet(),
+          request.resource.data.reactedBy.toSet(),
+          request.resource.data.reactionCount
+        );
+
+      // Reply-count bump on reply create/delete: ±1 only
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
 
       allow delete: if isOwner(resource.data.userId) || isAdmin();
 
+      // Retired: reactions live on the parent doc's reactedBy array.
+      // Legacy subcollection kept readable during transition.
       match /reactions/{reactionId} {
         allow read: if isSignedIn();
-
-        allow create: if isSignedIn()
-          && reactionId == request.auth.uid
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-          && validString(request.resource.data.username, 1, 50);
-
-        allow delete: if isSignedIn() && reactionId == request.auth.uid;
-        allow update: if false;
+        allow create, update, delete: if false;
       }
 
       match /replies/{replyId} {
@@ -148,9 +205,11 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 10000
           && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId'])
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount'])
+          && hasNoPriorReactions(request.resource.data)
           && request.resource.data.timestamp == request.time
           && validString(request.resource.data.username, 1, 50)
+          && usernameMatchesProfile(request.resource.data.username)
           && validString(request.resource.data.avatar, 0, 200)
           && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
 
@@ -159,22 +218,21 @@ service cloud.firestore {
           && isValidMessage(request.resource.data.text)
           && request.resource.data.editedAt == request.time;
 
+        // Reaction toggle: own uid in/out of reactedBy, count kept in sync
         allow update: if isSignedIn()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCount']);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+          && isValidReactionToggle(
+            resource.data.get('reactedBy', []).toSet(),
+            request.resource.data.reactedBy.toSet(),
+            request.resource.data.reactionCount
+          );
 
         allow delete: if isOwner(resource.data.userId) || isAdmin();
 
+        // Retired: reactions live on the parent reply's reactedBy array.
         match /reactions/{reactionId} {
           allow read: if isSignedIn();
-
-          allow create: if isSignedIn()
-            && reactionId == request.auth.uid
-            && request.resource.data.userId == request.auth.uid
-            && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-            && validString(request.resource.data.username, 1, 50);
-
-          allow delete: if isSignedIn() && reactionId == request.auth.uid;
-          allow update: if false;
+          allow create, update, delete: if false;
         }
       }
     }
@@ -189,9 +247,11 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount'])
+        && hasNoPriorReactions(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
+        && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
         && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
         && (!('posterUrl' in request.resource.data) || validString(request.resource.data.posterUrl, 0, 500));
@@ -201,23 +261,30 @@ service cloud.firestore {
         && isValidMessage(request.resource.data.text)
         && request.resource.data.editedAt == request.time;
 
+      // Reaction toggle: own uid in/out of reactedBy, count kept in sync
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'reactionCount', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+        && isValidReactionToggle(
+          resource.data.get('reactedBy', []).toSet(),
+          request.resource.data.reactedBy.toSet(),
+          request.resource.data.reactionCount
+        );
+
+      // Reply-count bump on reply create/delete: ±1 only
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
 
       allow delete: if isOwner(resource.data.userId) || isAdmin();
 
+      // Retired: reactions live on the parent doc's reactedBy array.
+      // Legacy subcollection kept readable during transition.
       match /reactions/{reactionId} {
         allow read: if isSignedIn();
-
-        allow create: if isSignedIn()
-          && reactionId == request.auth.uid
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-          && validString(request.resource.data.username, 1, 50);
-
-        allow delete: if isSignedIn() && reactionId == request.auth.uid;
-        allow update: if false;
+        allow create, update, delete: if false;
       }
 
       match /replies/{replyId} {
@@ -228,9 +295,11 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 10000
           && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId'])
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount'])
+          && hasNoPriorReactions(request.resource.data)
           && request.resource.data.timestamp == request.time
           && validString(request.resource.data.username, 1, 50)
+          && usernameMatchesProfile(request.resource.data.username)
           && validString(request.resource.data.avatar, 0, 200)
           && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
 
@@ -239,22 +308,21 @@ service cloud.firestore {
           && isValidMessage(request.resource.data.text)
           && request.resource.data.editedAt == request.time;
 
+        // Reaction toggle: own uid in/out of reactedBy, count kept in sync
         allow update: if isSignedIn()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCount']);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+          && isValidReactionToggle(
+            resource.data.get('reactedBy', []).toSet(),
+            request.resource.data.reactedBy.toSet(),
+            request.resource.data.reactionCount
+          );
 
         allow delete: if isOwner(resource.data.userId) || isAdmin();
 
+        // Retired: reactions live on the parent reply's reactedBy array.
         match /reactions/{reactionId} {
           allow read: if isSignedIn();
-
-          allow create: if isSignedIn()
-            && reactionId == request.auth.uid
-            && request.resource.data.userId == request.auth.uid
-            && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-            && validString(request.resource.data.username, 1, 50);
-
-          allow delete: if isSignedIn() && reactionId == request.auth.uid;
-          allow update: if false;
+          allow create, update, delete: if false;
         }
       }
     }
@@ -273,6 +341,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
+        && usernameMatchesProfile(request.resource.data.username)
         && request.resource.data.timestamp == request.time;
 
       allow update: if isOwner(resource.data.userId)
@@ -294,14 +363,14 @@ service cloud.firestore {
 
         allow create, update: if isSignedIn()
           && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid
-          && request.resource.data.type in ['album', 'custom'];
+          && isValidListItem(request.resource.data);
 
         allow delete: if isSignedIn()
           && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid;
 
         allow create, update: if isSignedIn()
           && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true
-          && request.resource.data.type in ['album', 'custom'];
+          && isValidListItem(request.resource.data);
 
         allow delete: if isSignedIn()
           && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true;
@@ -347,8 +416,17 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['userId', 'albumId', 'text', 'position', 'sticker', 'timestamp', 'favoriteTrackId', 'favoriteTrackTitle'])
+        && request.resource.data.keys().hasOnly(['userId', 'albumId', 'text', 'position', 'sticker', 'timestamp', 'favoriteTrackId', 'favoriteTrackTitle', 'albumName', 'albumArtist'])
         && isValidMessage(request.resource.data.text)
+        && validString(request.resource.data.albumId, 1, 100)
+        && validString(request.resource.data.sticker, 1, 200)
+        && request.resource.data.position is map
+        && request.resource.data.position.x is number
+        && request.resource.data.position.y is number
+        && (!('favoriteTrackId' in request.resource.data) || validString(request.resource.data.favoriteTrackId, 0, 100))
+        && (!('favoriteTrackTitle' in request.resource.data) || validString(request.resource.data.favoriteTrackTitle, 0, 300))
+        && (!('albumName' in request.resource.data) || validString(request.resource.data.albumName, 0, 300))
+        && (!('albumArtist' in request.resource.data) || validString(request.resource.data.albumArtist, 0, 300))
         && request.resource.data.timestamp == request.time;
 
       allow update: if isOwner(resource.data.userId)

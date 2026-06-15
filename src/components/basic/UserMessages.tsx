@@ -7,6 +7,7 @@ import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash } from '
 import ForumBox from './ForumMessageBox';
 import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
+import { formatTimestamp } from '../../utils/formatTimestamp';
 import Lightbox from './Lightbox';
 
 interface Reaction {
@@ -196,15 +197,6 @@ const UserMessage: React.FC<UserMessageProps> = ({
       longPressTimer.current = null;
     }
     setIsLongPress(false);
-  };
-
-  const formatTimestamp = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-      return new Date(timestamp.seconds * 1000).toLocaleString();
-    } catch (error) {
-      return '';
-    }
   };
 
   const handleStartEdit = () => {

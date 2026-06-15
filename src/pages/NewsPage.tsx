@@ -12,6 +12,7 @@ import { sanitizeHtml } from '../utils/sanitise';
 import { useAdmin } from '../utils/useAdmin';
 import { useRateLimit } from '../utils/useRateLimit';
 import { getUserData } from '../utils/userCache';
+import { formatTimestamp } from '../utils/formatTimestamp';
 import Header from '../components/basic/Header';
 import NewsPost from '../components/NewsPost';
 import ForumBox from '../components/basic/ForumMessageBox';
@@ -44,15 +45,6 @@ const NewsPage: React.FC = () => {
     maxAttempts: 10,
     windowMs: 5 * 60 * 1000,
   });
-
-  const formatTimestamp = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-      return new Date(timestamp.seconds * 1000).toLocaleString();
-    } catch {
-      return '';
-    }
-  };
 
   useEffect(() => {
     const loadInitial = async () => {

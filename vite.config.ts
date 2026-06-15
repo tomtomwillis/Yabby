@@ -34,7 +34,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png', 'Stickers/*.webp'],
+      includeAssets: ['icons/*.png'],
       manifest: {
         name: 'Yabbyville',
         short_name: 'Yabbyville',
@@ -62,7 +62,26 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: 'index.html',
+        // Webamp + butterchurn (~2.3MB) only load when the player is opened —
+        // don't precache them at SW install
+        globIgnores: ['**/*butterchurn*'],
         runtimeCaching: [
+          {
+            // Stickers are immutable images; cache on first use instead of
+            // precaching all ~15MB of them at install time
+            urlPattern: /\/Stickers\/.*\.webp$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'sticker-images',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',

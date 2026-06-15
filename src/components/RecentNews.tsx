@@ -3,6 +3,7 @@ import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
 import { getUserData } from '../utils/userCache';
+import { formatTimestamp } from '../utils/formatTimestamp';
 import NewsPost from './NewsPost';
 import './MessageBoard.css';
 
@@ -23,15 +24,6 @@ interface RecentNewsProps {
 const RecentNews: React.FC<RecentNewsProps> = ({ onLatestTimestamp }) => {
   const [newsItem, setNewsItem] = useState<NewsItem | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const formatTimestamp = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-      return new Date(timestamp.seconds * 1000).toLocaleString();
-    } catch {
-      return '';
-    }
-  };
 
   useEffect(() => {
     let cancelled = false;

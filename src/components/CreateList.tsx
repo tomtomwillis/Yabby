@@ -5,6 +5,7 @@ import AlbumSearchBox from './basic/AlbumSearchBox';
 import Button from './basic/Button';
 import MessageTextBox from './basic/MessageTextBox';
 import './basic/Button.css';
+import { fetchSubsonicXml, coverArtUrl, NAVIDROME_SERVER_URL } from '../utils/navidrome';
 
 interface AlbumInfo {
   id: string;
@@ -149,12 +150,6 @@ const CreateList: React.FC<CreateListProps> = ({
     }
   };
 
-  // Environment variables for Navidrome API
-  const NAVIDROME_SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-  const NAVIDROME_API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-  const NAVIDROME_API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-  const NAVIDROME_CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
-
   // Extract album ID from Navidrome URL
   const extractAlbumId = (url: string): string | null => {
     const match = url.match(/album\/(.*?)\/show/);
@@ -164,22 +159,7 @@ const CreateList: React.FC<CreateListProps> = ({
   // Fetch album info from Navidrome API
   const fetchAlbumInfoById = async (albumId: string): Promise<AlbumInfo | null> => {
     try {
-      const response = await fetch(
-        `${NAVIDROME_SERVER_URL}/rest/getAlbum?id=${albumId}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
-        {
-          headers: {
-            Authorization: 'Basic ' + btoa(`${NAVIDROME_API_USERNAME}:${NAVIDROME_API_PASSWORD}`),
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const text = await response.text();
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(text, 'application/xml');
+      const xmlDoc = await fetchSubsonicXml('getAlbum', { id: albumId });
 
       const albumElement = xmlDoc.querySelector('album');
       if (!albumElement) {
@@ -190,9 +170,7 @@ const CreateList: React.FC<CreateListProps> = ({
         id: albumElement.getAttribute('id') || '',
         artist: albumElement.getAttribute('artist') || 'Unknown Artist',
         title: albumElement.getAttribute('name') || 'Unknown Album',
-        cover: `${NAVIDROME_SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-          'coverArt'
-        )}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
+        cover: coverArtUrl(albumElement.getAttribute('coverArt') || ''),
       };
     } catch (error) {
       console.error('Failed to fetch album info:', error);

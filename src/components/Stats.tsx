@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./Stats.css";
+import { fetchSubsonicJson, NAVIDROME_SERVER_URL } from "../utils/navidrome";
 
 interface GitHubStats {
   totalCommits: number;
@@ -25,29 +26,17 @@ const Stats: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Helper function to get API credentials
-  const getApiConfig = () => {
-    return {
-      serverUrl: import.meta.env.VITE_NAVIDROME_SERVER_URL,
-      username: import.meta.env.VITE_NAVIDROME_API_USERNAME,
-      password: import.meta.env.VITE_NAVIDROME_API_PASSWORD,
-      appName: import.meta.env.VITE_NAVIDROME_CLIENT_ID,
-    };
-  };
-
   const fetchLibraryStats = async () => {
-    const { serverUrl, username, password, appName } = getApiConfig();
-
     try {
-      let albumCount = await getAlbumCountEfficient(serverUrl, username, password, appName);
+      let albumCount = await getAlbumCountEfficient();
       let songCount = 0;
 
       if (albumCount === -1) {
-        const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
+        const stats = await getAlbumCountPaginated();
         albumCount = stats.albumCount;
         songCount = stats.songCount;
       } else {
-        songCount = await getSongCountFromAlbums(serverUrl, username, password, appName);
+        songCount = await getSongCountFromAlbums();
       }
 
       setTotalAlbums(albumCount);
@@ -60,38 +49,17 @@ const Stats: React.FC = () => {
     }
   };
 
-  const getAlbumCountEfficient = async (
-    serverUrl: string,
-    username: string,
-    password: string,
-    appName: string
-  ): Promise<number> => {
+  const getAlbumCountEfficient = async (): Promise<number> => {
     try {
-      const response = await fetch(
-        `${serverUrl}/rest/getAlbumList2?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&type=alphabeticalByName&size=0`,
-        {
-          headers: {
-            Authorization: "Basic " + btoa(`${username}:${password}`),
-          },
-        }
-      );
+      const data = await fetchSubsonicJson("getAlbumList2", { type: "alphabeticalByName", size: 0 });
+      const albumList = data.albumList2;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (albumList.totalCount !== undefined) {
+        return albumList.totalCount;
       }
 
-      const data = await response.json();
-
-      if (data["subsonic-response"].status === "ok") {
-        const albumList = data["subsonic-response"].albumList2;
-
-        if (albumList.totalCount !== undefined) {
-          return albumList.totalCount;
-        }
-
-        if (albumList.album && Array.isArray(albumList.album)) {
-          return albumList.album.length;
-        }
+      if (albumList.album && Array.isArray(albumList.album)) {
+        return albumList.album.length;
       }
 
       return -1;
@@ -100,12 +68,7 @@ const Stats: React.FC = () => {
     }
   };
 
-  const getAlbumCountPaginated = async (
-    serverUrl: string,
-    username: string,
-    password: string,
-    appName: string
-  ): Promise<{ albumCount: number; songCount: number }> => {
+  const getAlbumCountPaginated = async (): Promise<{ albumCount: number; songCount: number }> => {
     let totalAlbums = 0;
     let totalSongs = 0;
     let offset = 0;
@@ -113,58 +76,37 @@ const Stats: React.FC = () => {
     let hasMore = true;
 
     while (hasMore) {
-      const response = await fetch(
-        `${serverUrl}/rest/getAlbumList2?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&type=alphabeticalByName&size=${pageSize}&offset=${offset}`,
-        {
-          headers: {
-            Authorization: "Basic " + btoa(`${username}:${password}`),
-          },
-        }
-      );
+      const data = await fetchSubsonicJson("getAlbumList2", {
+        type: "alphabeticalByName",
+        size: pageSize,
+        offset,
+      });
+      const albums = data.albumList2.album || [];
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (albums.length === 0) {
+        hasMore = false;
+      } else {
+        totalAlbums += albums.length;
 
-      const data = await response.json();
+        const batchSongCount = albums.reduce(
+          (sum: number, album: any) => sum + (album.songCount || 0),
+          0
+        );
+        totalSongs += batchSongCount;
 
-      if (data["subsonic-response"].status === "ok") {
-        const albums = data["subsonic-response"].albumList2.album || [];
-
-        if (albums.length === 0) {
+        if (albums.length < pageSize) {
           hasMore = false;
         } else {
-          totalAlbums += albums.length;
-
-          const batchSongCount = albums.reduce(
-            (sum: number, album: any) => sum + (album.songCount || 0),
-            0
-          );
-          totalSongs += batchSongCount;
-
-          if (albums.length < pageSize) {
-            hasMore = false;
-          } else {
-            offset += pageSize;
-          }
+          offset += pageSize;
         }
-      } else {
-        const errorMessage =
-          data["subsonic-response"].error?.message || "Unknown API error";
-        throw new Error(errorMessage);
       }
     }
 
     return { albumCount: totalAlbums, songCount: totalSongs };
   };
 
-  const getSongCountFromAlbums = async (
-    serverUrl: string,
-    username: string,
-    password: string,
-    appName: string
-  ): Promise<number> => {
-    const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
+  const getSongCountFromAlbums = async (): Promise<number> => {
+    const stats = await getAlbumCountPaginated();
     return stats.songCount;
   };
 
@@ -191,12 +133,7 @@ const Stats: React.FC = () => {
     return Math.abs(hash);
   };
 
-  const getDeterministicSongOfTheDay = async (
-    serverUrl: string,
-    username: string,
-    password: string,
-    appName: string
-  ): Promise<{
+  const getDeterministicSongOfTheDay = async (): Promise<{
     title: string;
     artist: string;
     album: string;
@@ -205,9 +142,9 @@ const Stats: React.FC = () => {
     // Get current date as string (YYYY-MM-DD)
     const today = new Date().toISOString().split("T")[0];
 
-    let albumCount = await getAlbumCountEfficient(serverUrl, username, password, appName);
+    let albumCount = await getAlbumCountEfficient();
     if (albumCount === -1) {
-      const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
+      const stats = await getAlbumCountPaginated();
       albumCount = stats.albumCount;
     }
     if (albumCount <= 0) throw new Error("Could not determine album count");
@@ -221,26 +158,12 @@ const Stats: React.FC = () => {
     const targetPage = Math.floor(albumIndex / pageSize);
     const indexInPage = albumIndex % pageSize;
 
-    const albumListResponse = await fetch(
-      `${serverUrl}/rest/getAlbumList2?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&type=alphabeticalByName&size=${pageSize}&offset=${targetPage * pageSize}`,
-      {
-        headers: {
-          Authorization: "Basic " + btoa(`${username}:${password}`),
-        },
-      }
-    );
-
-    if (!albumListResponse.ok) {
-      throw new Error(`HTTP error! status: ${albumListResponse.status}`);
-    }
-
-    const albumListData = await albumListResponse.json();
-
-    if (albumListData["subsonic-response"].status !== "ok") {
-      throw new Error("Failed to fetch album list");
-    }
-
-    const albums = albumListData["subsonic-response"].albumList2.album || [];
+    const albumListData = await fetchSubsonicJson("getAlbumList2", {
+      type: "alphabeticalByName",
+      size: pageSize,
+      offset: targetPage * pageSize,
+    });
+    const albums = albumListData.albumList2.album || [];
 
     if (albums.length === 0 || indexInPage >= albums.length) {
       throw new Error("Album index out of range");
@@ -249,26 +172,8 @@ const Stats: React.FC = () => {
     const selectedAlbum = albums[indexInPage];
 
     // Fetch the album details to get the track list
-    const albumResponse = await fetch(
-      `${serverUrl}/rest/getAlbum?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&id=${selectedAlbum.id}`,
-      {
-        headers: {
-          Authorization: "Basic " + btoa(`${username}:${password}`),
-        },
-      }
-    );
-
-    if (!albumResponse.ok) {
-      throw new Error(`HTTP error! status: ${albumResponse.status}`);
-    }
-
-    const albumData = await albumResponse.json();
-
-    if (albumData["subsonic-response"].status !== "ok") {
-      throw new Error("Failed to fetch album details");
-    }
-
-    const album = albumData["subsonic-response"].album;
+    const albumData = await fetchSubsonicJson("getAlbum", { id: selectedAlbum.id });
+    const album = albumData.album;
     const songs = album.song || [];
 
     if (songs.length === 0) {
@@ -284,13 +189,11 @@ const Stats: React.FC = () => {
       title: selectedSong.title,
       artist: selectedSong.artist,
       album: album.name,
-      url: `${serverUrl}/app/#/album/${album.id}/show`,
+      url: `${NAVIDROME_SERVER_URL}/app/#/album/${album.id}/show`,
     };
   };
 
   const fetchSongOfTheDay = async () => {
-    const { serverUrl, username, password, appName } = getApiConfig();
-
     const storedSong = localStorage.getItem("songOfTheDay");
     const storedDate = localStorage.getItem("songOfTheDayDate");
     const today = new Date().toISOString().split("T")[0];
@@ -307,12 +210,7 @@ const Stats: React.FC = () => {
 
     try {
       // Try deterministic selection first
-      const songData = await getDeterministicSongOfTheDay(
-        serverUrl,
-        username,
-        password,
-        appName
-      );
+      const songData = await getDeterministicSongOfTheDay();
 
       setSongOfTheDay(songData);
 
@@ -321,45 +219,25 @@ const Stats: React.FC = () => {
     } catch {
       // Fall back to random song selection if deterministic fails
       try {
-        const response = await fetch(
-          `${serverUrl}/rest/getRandomSongs?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&size=1`,
-          {
-            headers: {
-              Authorization: "Basic " + btoa(`${username}:${password}`),
-            },
-          }
-        );
+        const data = await fetchSubsonicJson("getRandomSongs", { size: 1 });
+        const song = data.randomSongs.song[0];
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        const albumId = song.albumId || song.album?.id;
+        if (!albumId) {
+          throw new Error("Album ID is missing in the API response.");
         }
 
-        const data = await response.json();
+        const songData = {
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          url: `${NAVIDROME_SERVER_URL}/app/#/album/${albumId}/show`,
+        };
 
-        if (data["subsonic-response"].status === "ok") {
-          const song = data["subsonic-response"].randomSongs.song[0];
+        setSongOfTheDay(songData);
 
-          const albumId = song.albumId || song.album?.id;
-          if (!albumId) {
-            throw new Error("Album ID is missing in the API response.");
-          }
-
-          const songData = {
-            title: song.title,
-            artist: song.artist,
-            album: song.album,
-            url: `${serverUrl}/app/#/album/${albumId}/show`,
-          };
-
-          setSongOfTheDay(songData);
-
-          localStorage.setItem("songOfTheDay", JSON.stringify(songData));
-          localStorage.setItem("songOfTheDayDate", today);
-        } else {
-          const errorMessage =
-            data["subsonic-response"].error?.message || "Unknown API error";
-          throw new Error(errorMessage);
-        }
+        localStorage.setItem("songOfTheDay", JSON.stringify(songData));
+        localStorage.setItem("songOfTheDayDate", today);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "An unknown error occurred";
