@@ -41,15 +41,14 @@ service cloud.firestore {
     }
 
     // Reaction toggle on a parent doc's reactedBy array: the caller may only
-    // add or remove their own uid, and reactionCount must equal the array size
-    function isValidReactionToggle(before, after, newCount) {
+    // add or remove their own uid, and reactionCount must move by the matching
+    // ±1. Count uses increment semantics (not array size) so legacy docs whose
+    // reactionCount predates the reactedBy array can still be toggled.
+    function isValidReactionToggle(before, after, oldCount, newCount) {
       let added = after.difference(before);
       let removed = before.difference(after);
-      return newCount == after.size()
-        && (
-          (added == [request.auth.uid].toSet() && removed.size() == 0)
-          || (removed == [request.auth.uid].toSet() && added.size() == 0)
-        );
+      return (added == [request.auth.uid].toSet() && removed.size() == 0 && newCount == oldCount + 1)
+        || (removed == [request.auth.uid].toSet() && added.size() == 0 && newCount == oldCount - 1);
     }
 
     // reactedBy/reactionCount may be present at creation only as empty/zero
@@ -177,6 +176,7 @@ service cloud.firestore {
         && isValidReactionToggle(
           resource.data.get('reactedBy', []).toSet(),
           request.resource.data.reactedBy.toSet(),
+          resource.data.get('reactionCount', 0),
           request.resource.data.reactionCount
         );
 
@@ -224,6 +224,7 @@ service cloud.firestore {
           && isValidReactionToggle(
             resource.data.get('reactedBy', []).toSet(),
             request.resource.data.reactedBy.toSet(),
+            resource.data.get('reactionCount', 0),
             request.resource.data.reactionCount
           );
 
@@ -267,6 +268,7 @@ service cloud.firestore {
         && isValidReactionToggle(
           resource.data.get('reactedBy', []).toSet(),
           request.resource.data.reactedBy.toSet(),
+          resource.data.get('reactionCount', 0),
           request.resource.data.reactionCount
         );
 
@@ -314,6 +316,7 @@ service cloud.firestore {
           && isValidReactionToggle(
             resource.data.get('reactedBy', []).toSet(),
             request.resource.data.reactedBy.toSet(),
+            resource.data.get('reactionCount', 0),
             request.resource.data.reactionCount
           );
 
