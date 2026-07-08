@@ -37,6 +37,17 @@
   gap: 0.5rem;
 }
 
+.popup-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.center-button {
+  width: 100%;
+}
+
 .favorite-track-display {
   font-family: var(--font1);
   color: var(--colour5);
