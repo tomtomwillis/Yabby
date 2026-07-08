@@ -9,6 +9,7 @@ import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanit
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import { formatTimestamp } from '../../utils/formatTimestamp';
 import Lightbox from './Lightbox';
+import PollBlock from './PollBlock';
 
 interface Reaction {
   userId: string;
@@ -62,6 +63,13 @@ interface UserMessageProps {
   edited?: boolean;
   imageId?: string;
   posterUrl?: string;
+  pollQuestion?: string;
+  pollOptions?: string[];
+  pollMultiple?: boolean;
+  pollVotes?: Record<string, number[]>;
+  pollVoterNames?: Record<number, string[]>;
+  onTogglePollVote?: (optionIndex: number) => void;
+  onPollVoterHover?: (optionIndex: number) => void;
 }
 
 // Utility function to validate and sanitize URLs
@@ -165,6 +173,13 @@ const UserMessage: React.FC<UserMessageProps> = ({
   edited,
   imageId,
   posterUrl,
+  pollQuestion,
+  pollOptions,
+  pollMultiple,
+  pollVotes,
+  pollVoterNames,
+  onTogglePollVote,
+  onPollVoterHover,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -350,6 +365,19 @@ const UserMessage: React.FC<UserMessageProps> = ({
               aria-label="View image"
             />
           </div>
+        )}
+
+        {!isReply && pollQuestion && pollOptions && (
+          <PollBlock
+            question={pollQuestion}
+            options={pollOptions}
+            multiple={!!pollMultiple}
+            votes={pollVotes ?? {}}
+            currentUserId={currentUserId}
+            voterNames={pollVoterNames}
+            onToggleVote={onTogglePollVote}
+            onVoterHover={onPollVoterHover}
+          />
         )}
 
         {/* Reply count indicator - only show for non-reply messages with replies */}

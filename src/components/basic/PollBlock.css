@@ -1,0 +1,118 @@
+.poll-block {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--colour2);
+  border-radius: 8px;
+  background: var(--colour4);
+  max-width: 360px;
+}
+
+.poll-block__question {
+  font-family: var(--font1);
+  font-weight: 700;
+  color: var(--colour2);
+  margin-bottom: 8px;
+}
+
+.poll-block__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poll-block__option {
+  position: relative;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.poll-block__option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.poll-block__indicator {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--colour2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.poll-block__indicator--radio {
+  border-radius: 50%;
+}
+
+.poll-block__indicator--checkbox {
+  border-radius: 3px;
+}
+
+.poll-block__indicator-fill {
+  width: 8px;
+  height: 8px;
+  background: var(--colour2);
+}
+
+.poll-block__indicator--radio .poll-block__indicator-fill {
+  border-radius: 50%;
+}
+
+.poll-block__indicator--checkbox .poll-block__indicator-fill {
+  border-radius: 1px;
+}
+
+.poll-block__option-label {
+  flex: 1;
+  font-family: var(--font2);
+  font-size: 0.9rem;
+  color: var(--colour5);
+  word-break: break-word;
+}
+
+.poll-block__option-count {
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  color: rgba(43, 43, 43, 0.6);
+  flex-shrink: 0;
+}
+
+.poll-block__option--selected .poll-block__option-label {
+  font-weight: 700;
+}
+
+.poll-block__bar-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(26, 46, 204, 0.12);
+  margin-top: 4px;
+  margin-left: 24px;
+  overflow: hidden;
+}
+
+.poll-block__bar-fill {
+  height: 100%;
+  background: var(--colour2);
+  transition: width 0.2s ease;
+}
+
+.poll-block__tooltip {
+  position: absolute;
+  top: 100%;
+  left: 24px;
+  margin-top: 4px;
+  background-color: var(--colour1);
+  color: var(--colour4);
+  border: 2px solid var(--colour5);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.poll-block__tooltip div {
+  margin: 2px 0;
+}

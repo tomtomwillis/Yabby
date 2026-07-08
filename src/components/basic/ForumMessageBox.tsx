@@ -5,11 +5,12 @@ import { collection, query, where } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
+import PollComposeModal, { type PollDraft } from './PollComposeModal';
 
 interface Result {
   id: string;
   name: string;
-  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action';
+  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll';
 }
 
 type SearchCommand = 'list' | 'playlist' | 'travel' | 'city';
@@ -50,6 +51,7 @@ interface ForumMessageBoxProps {
   initialValue?: string;
   onImageAttach?: (file: File | null) => void;
   onFilmAnnounce?: (variant: 1 | 2 | 3) => Promise<void>;
+  onPollAttach?: (poll: PollDraft | null) => void;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -63,6 +65,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   initialValue = '',
   onImageAttach,
   onFilmAnnounce,
+  onPollAttach,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
@@ -71,6 +74,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState(initialValue);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [pendingPoll, setPendingPoll] = useState<PollDraft | null>(null);
+  const [pollComposeOpen, setPollComposeOpen] = useState(false);
 
   // Slash command state
   const [slashMode, setSlashMode] = useState<SlashMode>(null);
@@ -246,7 +251,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists]);
 
   const handleSend = () => {
-    if ((newMessage.trim() || imagePreviewUrl) && onSend && !disabled) {
+    if ((newMessage.trim() || imagePreviewUrl || pendingPoll) && onSend && !disabled) {
       onSend(newMessage.trim());
       setNewMessage('');
       if (imagePreviewUrl) {
@@ -254,8 +259,23 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         setImagePreviewUrl(null);
         onImageAttach?.(null);
       }
+      if (pendingPoll) {
+        setPendingPoll(null);
+        onPollAttach?.(null);
+      }
       clearSearch();
     }
+  };
+
+  const savePollDraft = (draft: PollDraft) => {
+    setPendingPoll(draft);
+    onPollAttach?.(draft);
+    setPollComposeOpen(false);
+  };
+
+  const removePollDraft = () => {
+    setPendingPoll(null);
+    onPollAttach?.(null);
   };
 
   const clearSearch = () => {
@@ -334,6 +354,9 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
               }
             });
           }
+          if (onPollAttach && 'poll'.startsWith(command)) {
+            actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
+          }
           setSlashResults([...searchMatches, ...instantMatches, ...actionMatches]);
           setSlashMode('command');
         } else if (SEARCH_COMMANDS.includes(command as SearchCommand)) {
@@ -342,7 +365,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           if (command === 'list') ensureListsLoaded();
           if (command === 'travel' || command === 'city') ensurePlacesLoaded();
           if (command === 'playlist') ensurePlaylistsLoaded();
-        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command)))) {
+        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command))) || (onPollAttach && 'poll'.startsWith(command))) {
           // Instant or action command typed with a trailing space
           const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
             .filter(([k]) => k.startsWith(command))
@@ -359,6 +382,9 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
                 actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
               }
             });
+          }
+          if (onPollAttach && 'poll'.startsWith(command)) {
+            actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
           }
           setSlashResults([...instantMatches, ...actionMatches]);
           setSlashMode('command');
@@ -383,6 +409,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       clearSearch();
       const variant = parseInt(result.id.slice(-1)) as 1 | 2 | 3;
       onFilmAnnounce?.(variant);
+      return;
+    }
+
+    if (result.type === 'poll') {
+      const triggerPos = triggerPositionRef.current;
+      if (triggerPos !== -1) {
+        const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
+        setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
+      }
+      clearSearch();
+      setPollComposeOpen(true);
       return;
     }
 
@@ -493,7 +530,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
   const wordCount = newMessage.trim() ? newMessage.trim().split(/\s+/).length : 0;
   const charCount = newMessage.length;
-  const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl) && wordCount <= maxWords && charCount <= maxChars && !disabled;
+  const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl || !!pendingPoll) && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
   const isSlashSearchMode = slashMode !== null && slashMode !== 'command';
   const slashModeLabel = isSlashSearchMode ? SLASH_MODE_LABELS[slashMode as SearchCommand] : '';
@@ -549,6 +586,32 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         </div>
       )}
 
+      {pendingPoll && (
+        <div className="poll-draft-chip" onClick={() => setPollComposeOpen(true)} role="button" tabIndex={0}>
+          <span className="poll-draft-chip__label">📊 {pendingPoll.question}</span>
+          <span className="poll-draft-chip__meta">{pendingPoll.options.length} options</span>
+          <button
+            type="button"
+            className="poll-draft-chip__remove"
+            onClick={(e) => {
+              e.stopPropagation();
+              removePollDraft();
+            }}
+            aria-label="Remove poll"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {pollComposeOpen && (
+        <PollComposeModal
+          initialValue={pendingPoll}
+          onSave={savePollDraft}
+          onCancel={() => setPollComposeOpen(false)}
+        />
+      )}
+
       {isSearching && <p>{searchStatus}</p>}
 
       {artistResults.length > 0 && (
@@ -584,7 +647,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
               <li key={r.id}>
                 <button
                   onClick={() =>
-                    r.type === 'instant' || r.type === 'action' ? selectResult(r) : activateSearchCommand(r.id)
+                    r.type === 'instant' || r.type === 'action' || r.type === 'poll' ? selectResult(r) : activateSearchCommand(r.id)
                   }
                 >
                   {r.name}

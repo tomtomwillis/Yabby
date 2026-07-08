@@ -220,3 +220,55 @@
   .image-preview-remove:active {
     transform: scale(0.95);
   }
+
+  /* Poll draft chip */
+  .poll-draft-chip {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--colour2);
+    border-radius: 8px;
+    background: var(--colour4);
+    cursor: pointer;
+  }
+
+  .poll-draft-chip__label {
+    flex: 1;
+    font-family: var(--font2);
+    font-size: 0.85em;
+    color: var(--colour2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .poll-draft-chip__meta {
+    font-family: var(--font2);
+    font-size: 0.75em;
+    color: rgba(43, 43, 43, 0.5);
+    flex-shrink: 0;
+  }
+
+  .poll-draft-chip__remove {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: var(--colour3);
+    color: var(--colour4);
+    font-size: 0.75em;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .poll-draft-chip__remove:hover {
+    background: var(--colour6);
+  }

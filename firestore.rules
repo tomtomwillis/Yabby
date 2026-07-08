@@ -57,6 +57,48 @@ service cloud.firestore {
         && (!('reactionCount' in data) || data.reactionCount == 0);
     }
 
+    // Poll options: 2-6 plain-text labels, 1-100 chars each. Rules have no
+    // loops, so each index is checked explicitly up to the size cap.
+    function isValidPollOptions(options) {
+      return options is list
+        && options.size() >= 2 && options.size() <= 6
+        && validString(options[0], 1, 100)
+        && validString(options[1], 1, 100)
+        && (options.size() < 3 || validString(options[2], 1, 100))
+        && (options.size() < 4 || validString(options[3], 1, 100))
+        && (options.size() < 5 || validString(options[4], 1, 100))
+        && (options.size() < 6 || validString(options[5], 1, 100));
+    }
+
+    // A poll may only be created with a valid question/options/mode and no
+    // votes yet (mirrors hasNoPriorReactions).
+    function isValidPollCreate(data) {
+      return (!('pollQuestion' in data) && !('pollOptions' in data) && !('pollMultiple' in data))
+        || (
+          validString(data.pollQuestion, 1, 300)
+          && data.pollMultiple is bool
+          && isValidPollOptions(data.pollOptions)
+          && (!('pollVotes' in data) || data.pollVotes == {})
+        );
+    }
+
+    // A voter may only replace their own option-index selection in pollVotes.
+    // `before`/`after` are the caller's own array (before/after the write);
+    // indices are unrolled the same way as isValidPollOptions since rules
+    // have no loop construct.
+    function isValidPollVote(before, after, optionCount, multiple) {
+      return after is list
+        && before != after
+        && after.size() == after.toSet().size()
+        && after.size() <= (multiple ? optionCount : 1)
+        && (after.size() < 1 || (after[0] is int && after[0] >= 0 && after[0] < optionCount))
+        && (after.size() < 2 || (after[1] is int && after[1] >= 0 && after[1] < optionCount))
+        && (after.size() < 3 || (after[2] is int && after[2] >= 0 && after[2] < optionCount))
+        && (after.size() < 4 || (after[3] is int && after[3] >= 0 && after[3] < optionCount))
+        && (after.size() < 5 || (after[4] is int && after[4] >= 0 && after[4] < optionCount))
+        && (after.size() < 6 || (after[5] is int && after[5] >= 0 && after[5] < optionCount));
+    }
+
     // Denormalised username on a created doc must match the author's profile,
     // so users can't post under someone else's name. Admins are exempt
     // (Film Club Bot announcements post with a bot identity).
@@ -155,9 +197,10 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
-        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount'])
+        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
         && hasNoPriorReactions(request.resource.data)
+        && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
         && usernameMatchesProfile(request.resource.data.username)
@@ -178,6 +221,18 @@ service cloud.firestore {
           request.resource.data.reactedBy.toSet(),
           resource.data.get('reactionCount', 0),
           request.resource.data.reactionCount
+        );
+
+      // Poll vote toggle: caller may only replace their own entry in pollVotes.
+      allow update: if isSignedIn()
+        && 'pollOptions' in resource.data
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pollVotes'])
+        && request.resource.data.pollVotes.diff(resource.data.get('pollVotes', {})).affectedKeys().hasOnly([request.auth.uid])
+        && isValidPollVote(
+          resource.data.get('pollVotes', {}).get(request.auth.uid, []),
+          request.resource.data.pollVotes.get(request.auth.uid, []),
+          resource.data.pollOptions.size(),
+          resource.data.pollMultiple
         );
 
       // Reply-count bump on reply create/delete: ±1 only
@@ -247,9 +302,10 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
-        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount'])
+        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
         && hasNoPriorReactions(request.resource.data)
+        && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
         && usernameMatchesProfile(request.resource.data.username)
@@ -270,6 +326,18 @@ service cloud.firestore {
           request.resource.data.reactedBy.toSet(),
           resource.data.get('reactionCount', 0),
           request.resource.data.reactionCount
+        );
+
+      // Poll vote toggle: caller may only replace their own entry in pollVotes.
+      allow update: if isSignedIn()
+        && 'pollOptions' in resource.data
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pollVotes'])
+        && request.resource.data.pollVotes.diff(resource.data.get('pollVotes', {})).affectedKeys().hasOnly([request.auth.uid])
+        && isValidPollVote(
+          resource.data.get('pollVotes', {}).get(request.auth.uid, []),
+          request.resource.data.pollVotes.get(request.auth.uid, []),
+          resource.data.pollOptions.size(),
+          resource.data.pollMultiple
         );
 
       // Reply-count bump on reply create/delete: ±1 only

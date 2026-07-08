@@ -21,10 +21,11 @@ import {
 } from '../utils/firestoreMetrics';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { sanitizeHtml } from '../utils/sanitise';
+import { sanitizeHtml, sanitizeText } from '../utils/sanitise';
 import UserMessage from './basic/UserMessages';
 import './MessageBoard.css';
 import ForumBox from './basic/ForumMessageBox';
+import type { PollDraft } from './basic/PollComposeModal';
 import Button from './basic/Button';
 import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
@@ -70,6 +71,11 @@ interface Message {
   editedAt?: any;
   imageId?: string;
   posterUrl?: string;
+  pollQuestion?: string;
+  pollOptions?: string[];
+  pollMultiple?: boolean;
+  pollVotes?: Record<string, number[]>;
+  pollVoterNames?: Record<number, string[]>;
 }
 
 interface MessageBoardProps {
@@ -131,6 +137,10 @@ function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
     editedAt: data.editedAt,
     imageId: data.imageId || undefined,
     posterUrl: data.posterUrl || undefined,
+    pollQuestion: data.pollQuestion || undefined,
+    pollOptions: Array.isArray(data.pollOptions) ? data.pollOptions : undefined,
+    pollMultiple: data.pollMultiple,
+    pollVotes: data.pollVotes && typeof data.pollVotes === 'object' ? data.pollVotes : undefined,
   };
 }
 
@@ -163,6 +173,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingPoll, setPendingPoll] = useState<PollDraft | null>(null);
 
   const { isAdmin } = useAdmin();
   const { checkRateLimit } = useRateLimit({ maxAttempts: 10, windowMs: 5 * 60 * 1000 });
@@ -303,7 +314,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
   }, [messages]);
 
   const handleSendMessage = async (text: string) => {
-    if (!text.trim() && !pendingImage) return;
+    if (!text.trim() && !pendingImage && !pendingPoll) return;
     if (!auth.currentUser) {
       alert('You must be logged in to send messages.');
       return;
@@ -313,10 +324,26 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       return;
     }
 
+    let pollFields: Record<string, any> | undefined;
+    if (pendingPoll) {
+      const sanitizedQuestion = sanitizeText(pendingPoll.question);
+      const sanitizedOptions = pendingPoll.options.map((o) => sanitizeText(o)).filter(Boolean);
+      if (!sanitizedQuestion || sanitizedOptions.length < 2) {
+        alert('Your poll contains invalid content. Please try again.');
+        return;
+      }
+      pollFields = {
+        pollQuestion: sanitizedQuestion,
+        pollOptions: sanitizedOptions,
+        pollMultiple: pendingPoll.multiple,
+        pollVotes: {},
+      };
+    }
+
     setLoading(true);
     try {
       const sanitizedText = sanitizeHtml(text.trim());
-      if (!sanitizedText.trim() && !pendingImage) {
+      if (!sanitizedText.trim() && !pendingImage && !pollFields) {
         alert('Your message contains invalid content. Please try again.');
         setLoading(false);
         return;
@@ -344,6 +371,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         avatar: userData.avatar,
         reactedBy: [],
         reactionCount: 0,
+        ...pollFields,
       };
       if (imageId) messageData.imageId = imageId;
 
@@ -363,16 +391,77 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           replyCount: 0,
           currentUserReacted: false,
           imageId,
+          ...pollFields,
         },
         ...prev,
       ]);
       setPendingImage(null);
+      setPendingPoll(null);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTogglePollVote = async (messageId: string, optionIndex: number) => {
+    if (!auth.currentUser) {
+      alert('You must be logged in to vote.');
+      return;
+    }
+    const uid = auth.currentUser.uid;
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg?.pollOptions) return;
+    const current = msg.pollVotes?.[uid] ?? [];
+
+    let next: number[];
+    if (msg.pollMultiple) {
+      next = current.includes(optionIndex)
+        ? current.filter((i) => i !== optionIndex)
+        : [...current, optionIndex];
+    } else {
+      next = current.length === 1 && current[0] === optionIndex ? [] : [optionIndex];
+    }
+
+    const applyLocal = (selection: number[]) =>
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, pollVotes: { ...m.pollVotes, [uid]: selection }, pollVoterNames: undefined }
+            : m,
+        ),
+      );
+
+    applyLocal(next);
+    try {
+      await updateDoc(doc(db, collectionName, messageId), { [`pollVotes.${uid}`]: next });
+    } catch (error) {
+      console.error('Error toggling poll vote:', error);
+      applyLocal(current);
+      alert('Failed to update your vote. Please try again.');
+    }
+  };
+
+  const handlePollVoterHover = async (messageId: string, optionIndex: number) => {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg?.pollVotes || msg.pollVoterNames?.[optionIndex]) return;
+    const uids = Object.entries(msg.pollVotes)
+      .filter(([, selection]) => selection.includes(optionIndex))
+      .map(([uid]) => uid);
+    if (uids.length === 0) return;
+    try {
+      const names = await Promise.all(uids.map(async (uid) => (await getUserData(uid)).username));
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, pollVoterNames: { ...m.pollVoterNames, [optionIndex]: names } }
+            : m,
+        ),
+      );
+    } catch (error) {
+      console.error('Error resolving poll voters:', error);
     }
   };
 
@@ -744,7 +833,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   return (
     <div className="message-board-container">
-      <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin ? handleFilmAnnounce : undefined} />
+      <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin ? handleFilmAnnounce : undefined} onPollAttach={setPendingPoll} />
       <div className="messages-container">
         {loadingMessages && <p className="messages-loading">Loading messages...</p>}
         {messages.map((message) => (
@@ -764,6 +853,13 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             edited={!!message.editedAt}
             imageId={message.imageId}
             posterUrl={message.posterUrl}
+            pollQuestion={message.pollQuestion}
+            pollOptions={message.pollOptions}
+            pollMultiple={message.pollMultiple}
+            pollVotes={message.pollVotes}
+            pollVoterNames={message.pollVoterNames}
+            onTogglePollVote={(optionIndex: number) => handleTogglePollVote(message.id, optionIndex)}
+            onPollVoterHover={(optionIndex: number) => handlePollVoterHover(message.id, optionIndex)}
             onClose={() => {}}
             hideCloseButton={true}
             reactions={enableReactions ? message.reactions : undefined}
