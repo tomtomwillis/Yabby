@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 import Button from './Button';
 import { useMediaManager } from '../../utils/useMediaManager';
+import { useAdmin } from '../../utils/useAdmin';
 import './Header.css';
 import './TextAnimations.css';
+
+// Module-level cache — Header mounts on every page, avoid a count query per navigation
+const ISSUE_COUNT_TTL = 5 * 60 * 1000;
+let issueCountCache: { count: number; timestamp: number } | null = null;
 
 interface NavLink {
   label: string;
   href: string;
   external?: true;
   condition?: boolean;
+  badge?: number;
 }
 
 interface NavGroup {
@@ -23,6 +31,8 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
   const { isMediaManager } = useMediaManager();
+  const { isAdmin } = useAdmin();
+  const [issueCount, setIssueCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,6 +50,21 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
   };
 
   useEffect(() => () => clearHideTimeout(), []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (issueCountCache && Date.now() - issueCountCache.timestamp < ISSUE_COUNT_TTL) {
+      setIssueCount(issueCountCache.count);
+      return;
+    }
+    getCountFromServer(query(collection(db, 'issues'), where('status', '==', 'inprogress')))
+      .then((snap) => {
+        const count = snap.data().count;
+        issueCountCache = { count, timestamp: Date.now() };
+        setIssueCount(count);
+      })
+      .catch((error) => console.error('Error fetching issue count:', error));
+  }, [isAdmin]);
 
   const navGroups: NavGroup[] = [
     {
@@ -67,7 +92,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         { label: 'profile', href: '/profile' },
         { label: 'news', href: '/news' },
         { label: 'wiki', href: '/wiki' },
-        { label: 'issues', href: '/issues' },
+        { label: 'issues', href: '/issues', badge: isAdmin ? issueCount : undefined },
         { label: 'media management', href: '/media', condition: isMediaManager },
       ],
     },
@@ -139,11 +164,12 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
                 <li key={link.href}>
                   <a
                     href={link.href}
-                    className="links"
+                    className={`links${link.badge ? ' has-badge' : ''}`}
                     target={link.external ? '_blank' : undefined}
                     rel={link.external ? 'noopener noreferrer' : undefined}
                   >
                     {link.label}
+                    {link.badge ? <span className="nav-badge">{link.badge}</span> : null}
                   </a>
                 </li>
               ))}
@@ -181,11 +207,13 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
                   <a
                     key={link.href}
                     href={link.href}
+                    className={link.badge ? 'has-badge' : undefined}
                     onClick={closeMobileMenu}
                     target={link.external ? '_blank' : undefined}
                     rel={link.external ? 'noopener noreferrer' : undefined}
                   >
                     {link.label}
+                    {link.badge ? <span className="nav-badge">{link.badge}</span> : null}
                   </a>
                 ))}
             </div>

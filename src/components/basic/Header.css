@@ -99,6 +99,37 @@
     margin-top: 0.75rem;
 }
 
+/* Notification badge on nav links (e.g. in-progress issues for admins) */
+.has-badge {
+    position: relative;
+}
+
+.nav-badge {
+    position: absolute;
+    top: -0.7em;
+    right: -1.1em;
+    min-width: 1.4em;
+    height: 1.4em;
+    padding: 0 0.3em;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background-color: var(--colour3);
+    color: var(--colour4);
+    font-family: var(--font2);
+    font-size: 0.6em;
+    line-height: 1;
+    text-decoration: none;
+}
+
+/* Mobile nav links are full-width rows — keep the badge next to the label */
+.mobile-nav .nav-badge {
+    position: static;
+    margin-left: 0.5em;
+}
+
 /* Horizontal rule styling */
 .header hr {
     border: none;
