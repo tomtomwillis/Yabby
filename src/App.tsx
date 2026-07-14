@@ -29,6 +29,7 @@ const FilmClubMessagePage = lazy(() => import('./pages/FilmClubMessagePage'));
 const MediaManager = lazy(() => import('./pages/MediaManager'));
 const TravelPage = lazy(() => import('./pages/TravelPage'));
 const CinemaPage = lazy(() => import('./pages/CinemaPage'));
+const IssuesPage = lazy(() => import('./pages/IssuesPage'));
 
 function App() {
   return (
@@ -62,6 +63,7 @@ function App() {
             <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
             <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />
             <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
+            <Route path="/issues" element={<PrivateRoute><IssuesPage /></PrivateRoute>} />
           </Routes>
         </Suspense>
       </div>

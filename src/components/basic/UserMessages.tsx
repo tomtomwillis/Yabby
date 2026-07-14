@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
-import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash, FaCheck, FaUndo } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
 import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
@@ -70,6 +70,8 @@ interface UserMessageProps {
   pollVoterNames?: Record<number, string[]>;
   onTogglePollVote?: (optionIndex: number) => void;
   onPollVoterHover?: (optionIndex: number) => void;
+  status?: 'inprogress' | 'complete';
+  onToggleStatus?: () => void;
 }
 
 // Utility function to validate and sanitize URLs
@@ -180,6 +182,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
   pollVoterNames,
   onTogglePollVote,
   onPollVoterHover,
+  status,
+  onToggleStatus,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -491,6 +495,26 @@ const UserMessage: React.FC<UserMessageProps> = ({
             }}
           >
             <FaTrash />
+          </div>
+        )}
+
+        {/* Status toggle - admin only, issues board */}
+        {onToggleStatus && !isReply && !isEditing && (
+          <div
+            className="user-message-status-button"
+            onClick={onToggleStatus}
+            role="button"
+            tabIndex={0}
+            aria-label={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+            title={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onToggleStatus();
+              }
+            }}
+          >
+            {status === 'complete' ? <FaUndo /> : <FaCheck />}
           </div>
         )}
 

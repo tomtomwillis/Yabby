@@ -54,3 +54,13 @@
     gap: 12px;
   }
 }
+/* Deep-linked message flash */
+.mb-msg-highlight {
+  animation: mb-highlight-flash 2s ease-out;
+  border-radius: 8px;
+}
+
+@keyframes mb-highlight-flash {
+  0% { background-color: rgba(232, 122, 58, 0.35); }
+  100% { background-color: transparent; }
+}

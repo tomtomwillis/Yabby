@@ -67,6 +67,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         { label: 'profile', href: '/profile' },
         { label: 'news', href: '/news' },
         { label: 'wiki', href: '/wiki' },
+        { label: 'issues', href: '/issues' },
         { label: 'media management', href: '/media', condition: isMediaManager },
       ],
     },

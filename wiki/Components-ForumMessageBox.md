@@ -16,7 +16,8 @@ A compose box for the message board and news page. Supports `@` tagging for Navi
 | `showSendButton` | `boolean` | Show or hide the Send button (default: `true`) |
 | `initialValue` | `string` | Pre-fills the textarea (used when editing a post) |
 | `onImageAttach` | `(file: File \| null) => void` | Called when the user pastes an image; passes the File or null when removed |
-| `onFilmAnnounce` | `() => Promise<void>` | Optional. When provided (admins only), exposes the `/filmannounce` slash command which calls this handler to post a Film Club bot announcement |
+| `onFilmAnnounce` | `(variant: 1 \| 2 \| 3) => Promise<void>` | Optional. When provided (admins only), exposes the `/filmannounce1-3` slash commands which call this handler to post a Film Club bot announcement |
+| `onPollAttach` | `(poll: PollDraft \| null) => void` | Optional. When provided, exposes the `/poll` slash command which opens `PollComposeModal`; called with the draft (or null when removed) |
 
 ## Tagging
 
@@ -28,11 +29,12 @@ Type `@` (at word start) followed by at least 3 characters to search Navidrome. 
 
 Type `/` (at word start) to open the command menu. Two categories of commands are available:
 
-**Action commands** — trigger a side-effect rather than inserting a link (admin only):
+**Action commands** — trigger a side-effect rather than inserting a link:
 
 | Command | Effect |
 |---------|--------|
-| `/filmannounce` | Posts a Film Club bot announcement for the current month's film (calls `onFilmAnnounce` if provided) |
+| `/filmannounce1-3` | Posts a Film Club bot announcement (calls `onFilmAnnounce` if provided — admins only) |
+| `/poll` | Opens the poll compose modal (calls `onPollAttach` if provided) |
 
 **Instant links** — insert a direct link to a community page:
 
@@ -43,6 +45,7 @@ Type `/` (at word start) to open the command menu. Two categories of commands ar
 | `/news` | News page |
 | `/stickers` | Stickers page |
 | `/wiki` | Wiki page |
+| `/issues` | Issues page |
 
 **Search commands** — open a search mode to find and link a specific item:
 
@@ -52,6 +55,7 @@ Type `/` (at word start) to open the command menu. Two categories of commands ar
 | `/playlist <query>` | Navidrome public playlists |
 | `/travel <query>` | Travel recommendations (places) |
 | `/city <query>` | Cities with travel recs (links to filtered travel view) |
+| `/issueresolved <query>` | Issue posts (all statuses, 50 most recent); links deep-link to the post via `/issues?issue=<id>` |
 
 All results are inserted as Markdown links `[Name](url)`.
 

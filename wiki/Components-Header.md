@@ -19,7 +19,7 @@ Links are organised into three named groups defined as `navGroups` inside the co
 |-------|-------|
 | Music | listen (Navidrome), upload, request (SLSK), radio |
 | Social | message board, travel, lists, film club, stickers |
-| Yabby | profile, news, wiki, media management (media managers only) |
+| Yabby | profile, news, wiki, issues, media management (media managers only) |
 
 On desktop, hovering or clicking a group name reveals its sub-links in a second row. The dropdown hides automatically after 2.5 seconds of mouse-leave. On mobile, all groups and their sub-links are shown in a full-screen overlay panel that slides in from the left.
 

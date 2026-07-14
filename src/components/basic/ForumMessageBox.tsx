@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ForumMessageBox.css';
 import Button from './Button';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
@@ -10,11 +10,15 @@ import PollComposeModal, { type PollDraft } from './PollComposeModal';
 interface Result {
   id: string;
   name: string;
-  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll';
+  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll' | 'issue';
 }
 
-type SearchCommand = 'list' | 'playlist' | 'travel' | 'city';
+type SearchCommand = 'list' | 'playlist' | 'travel' | 'city' | 'issueresolved';
 type SlashMode = 'command' | SearchCommand | null;
+
+// Inserted links are stored in messages, so they must not depend on the
+// current origin (e.g. localhost during development).
+const SITE_ORIGIN = 'https://yabbyville.xyz';
 
 const INSTANT_COMMANDS: Record<string, { label: string; path: string }> = {
   filmclub: { label: 'Film Club', path: '/film-club' },
@@ -22,15 +26,17 @@ const INSTANT_COMMANDS: Record<string, { label: string; path: string }> = {
   news:     { label: 'News',      path: '/news' },
   stickers: { label: 'Stickers',  path: '/stickers' },
   wiki:     { label: 'Wiki',      path: '/wiki' },
+  issues:   { label: 'Issues',    path: '/issues' },
 };
 
-const SEARCH_COMMANDS: readonly SearchCommand[] = ['list', 'playlist', 'travel', 'city'];
+const SEARCH_COMMANDS: readonly SearchCommand[] = ['list', 'playlist', 'travel', 'city', 'issueresolved'];
 
 const SEARCH_COMMAND_LABELS: Record<SearchCommand, string> = {
   list:     'search lists',
   playlist: 'search public playlists',
   travel:   'search a travel rec',
   city:     'search a list of filtered recs for a city',
+  issueresolved: 'link to a specific issue',
 };
 
 const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
@@ -38,6 +44,7 @@ const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
   playlist: 'Playlists',
   travel:   'Places',
   city:     'Cities',
+  issueresolved: 'Issues',
 };
 
 interface ForumMessageBoxProps {
@@ -86,12 +93,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [allLists, setAllLists] = useState<Result[]>([]);
   const [allPlaces, setAllPlaces] = useState<{ id: string; displayName: string; city: string; cityKey: string }[]>([]);
   const [allPlaylists, setAllPlaylists] = useState<Result[]>([]);
+  const [allIssues, setAllIssues] = useState<Result[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const triggerPositionRef = useRef<number>(-1);
   const listsFetchPromiseRef = useRef<Promise<void> | null>(null);
   const placesFetchPromiseRef = useRef<Promise<void> | null>(null);
   const playlistsFetchPromiseRef = useRef<Promise<void> | null>(null);
+  const issuesFetchPromiseRef = useRef<Promise<void> | null>(null);
 
   const ensureListsLoaded = (): Promise<void> => {
     if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
@@ -164,6 +173,38 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       }
     })();
     playlistsFetchPromiseRef.current = p;
+    return p;
+  };
+
+  const ensureIssuesLoaded = (): Promise<void> => {
+    if (issuesFetchPromiseRef.current) return issuesFetchPromiseRef.current;
+    const p = (async () => {
+      try {
+        const issuesQuery = query(
+          collection(db, 'issues'),
+          orderBy('lastActivityAt', 'desc'),
+          limit(50),
+        );
+        const snapshot = await getDocs(issuesQuery);
+        const issues: Result[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          // Issues have no title — derive a snippet from the message text.
+          const plain = String(data.text || '')
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const name = plain ? (plain.length > 60 ? `${plain.slice(0, 60)}…` : plain) : '(image post)';
+          issues.push({ id: docSnap.id, name, type: 'issue' as const });
+        });
+        setAllIssues(issues);
+      } catch (error) {
+        console.error('Error fetching issues:', error);
+        issuesFetchPromiseRef.current = null;
+      }
+    })();
+    issuesFetchPromiseRef.current = p;
     return p;
   };
 
@@ -247,8 +288,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         .filter((p) => p.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
         .slice(0, 5);
       setSlashResults(filtered);
+    } else if (slashMode === 'issueresolved') {
+      // Empty term shows the most recent issues (kept in lastActivityAt order).
+      const filtered = allIssues
+        .filter((i) => !slashSearchTerm.trim() || i.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
+        .slice(0, 5);
+      setSlashResults(filtered);
     }
-  }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists]);
+  }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists, allIssues]);
 
   const handleSend = () => {
     if ((newMessage.trim() || imagePreviewUrl || pendingPoll) && onSend && !disabled) {
@@ -365,6 +412,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           if (command === 'list') ensureListsLoaded();
           if (command === 'travel' || command === 'city') ensurePlacesLoaded();
           if (command === 'playlist') ensurePlaylistsLoaded();
+          if (command === 'issueresolved') ensureIssuesLoaded();
         } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command))) || (onPollAttach && 'poll'.startsWith(command))) {
           // Instant or action command typed with a trailing space
           const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
@@ -427,15 +475,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     const linkText = result.type === 'instant' ? INSTANT_COMMANDS[result.id].label : result.name;
 
     if (result.type === 'instant') {
-      link = `${window.location.origin}${INSTANT_COMMANDS[result.id].path}`;
+      link = `${SITE_ORIGIN}${INSTANT_COMMANDS[result.id].path}`;
     } else if (result.type === 'playlist') {
       link = `${NAVIDROME_SERVER_URL}/app/#/playlist/${result.id}/show`;
     } else if (result.type === 'place') {
-      link = `${window.location.origin}/travel?place=${result.id}`;
+      link = `${SITE_ORIGIN}/travel?place=${result.id}`;
     } else if (result.type === 'city') {
-      link = `${window.location.origin}/travel?city=${result.id}`;
+      link = `${SITE_ORIGIN}/travel?city=${result.id}`;
     } else if (result.type === 'list') {
-      link = `${window.location.origin}/lists/${result.id}`;
+      link = `${SITE_ORIGIN}/lists/${result.id}`;
+    } else if (result.type === 'issue') {
+      link = `${SITE_ORIGIN}/issues?issue=${result.id}`;
     } else {
       link = `${NAVIDROME_SERVER_URL}/app/#/${result.type}/${result.id}/show`;
     }
@@ -479,6 +529,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (cmd === 'list') ensureListsLoaded();
     if (cmd === 'travel' || cmd === 'city') ensurePlacesLoaded();
     if (cmd === 'playlist') ensurePlaylistsLoaded();
+    if (cmd === 'issueresolved') ensureIssuesLoaded();
 
     setTimeout(() => {
       if (textareaRef.current) {
@@ -540,6 +591,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (slashMode === 'playlist') return 'Type to search playlists…';
     if (slashMode === 'travel') return allPlaces.length === 0 ? 'Loading places…' : 'Type to search places…';
     if (slashMode === 'city') return allPlaces.length === 0 ? 'Loading cities…' : 'No cities found';
+    if (slashMode === 'issueresolved') return allIssues.length === 0 ? 'Loading issues…' : 'No matching issues';
     return '';
   })();
 

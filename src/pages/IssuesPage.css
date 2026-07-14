@@ -1,0 +1,45 @@
+.issues-tabs {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  max-width: 600px;
+  margin: 16px auto -16px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.issues-tab {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--colour5);
+  background: var(--colour4);
+  border: 2px solid var(--colour5);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.issues-tab:hover {
+  opacity: 0.85;
+}
+
+.issues-tab--active {
+  background: var(--colour3);
+  color: var(--colour4);
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .issues-tabs {
+    padding: 0 12px;
+    margin-bottom: -12px;
+  }
+
+  .issues-tab {
+    flex: 1;
+    padding: 8px 10px;
+  }
+}

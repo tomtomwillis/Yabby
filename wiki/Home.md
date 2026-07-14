@@ -6,6 +6,7 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 
 - [Film Club Message](Pages-FilmClubMessage)
 - [Home](Pages-Home)
+- [Issues](Pages-Issues)
 - [List Detail](Pages-ListDetail)
 - [Login](Pages-Login)
 - [Lists](Pages-Lists)

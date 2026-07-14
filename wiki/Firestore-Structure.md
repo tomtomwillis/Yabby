@@ -93,6 +93,29 @@ User-created album lists.
 
 ---
 
+## `issues/{issueId}`
+
+Bug/problem reports shown on the Issues page. Same shape as `messages` (minus poll fields and `posterUrl`) plus a status field.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `text` | string (HTML, sanitised) | |
+| `userId` | string | |
+| `username` | string | |
+| `avatar` | string | |
+| `timestamp` | Timestamp | |
+| `lastActivityAt` | Timestamp | Bumped on reply |
+| `status` | string | `'inprogress'` (required at create) or `'complete'`; only admins can change it |
+| `imageId` | string | Optional attached image |
+| `reactedBy` / `reactionCount` | array / number | Heart reactions |
+| `replyCount` | number | Denormalised reply count |
+
+**Subcollection:** `replies/{replyId}` — threaded replies (same shape as message replies).
+
+The status-filtered tab queries require a composite index (`status` ascending + `lastActivityAt` descending), defined in `firestore.indexes.json` — deploy with `firebase deploy --only firestore`.
+
+---
+
 ## `news/{newsId}`
 
 Admin-only news posts. Same structure as `messages`. Only users in the `admins` collection can create or edit news.

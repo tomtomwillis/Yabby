@@ -1,6 +1,6 @@
 # Yabbyville
 
-A private music community web app built with React, Firebase, and Navidrome. Members can browse albums, place stickers on album covers, post on a message board, create shareable lists, listen to community radio, and upload files.
+A private music community web app built with React, Firebase, and Navidrome. Members can browse albums, place stickers on album covers, post on a message board, report issues, create shareable lists, listen to community radio, and upload files.
 
 Built as a Progressive Web App (PWA) so it can be installed on phones and desktops.
 
@@ -42,9 +42,9 @@ Firebase provides **authentication** (email/password login) and **Firestore** (t
    VITE_FIREBASE_MESSAGING_SENDER_ID=
    VITE_FIREBASE_APP_ID=
    ```
-5. Deploy the Firestore security rules from `firestore.rules`:
+5. Deploy the Firestore security rules (`firestore.rules`) and composite indexes (`firestore.indexes.json`):
    ```bash
-   firebase deploy --only firestore:rules
+   firebase deploy --only firestore
    ```
 
 Create user accounts through the Firebase Console.
@@ -106,6 +106,7 @@ The app uses these Firestore collections. They are created automatically when us
 | `messages` | Message board posts (with `reactions` and `replies` subcollections) |
 | `filmClubMessages` | Film Club chat posts (same schema as `messages`, with `reactions` and `replies` subcollections) |
 | `filmClub` | Film Club state — one document per month (e.g. `2025-05`) storing `currentFilm`, `nextFilm`, `downloadLinks`, `currentFilmDescription`, `winnerCalculated`, with `submissions` and `votes` subcollections |
+| `issues` | Bug/problem reports (same schema as `messages` plus a `status` field toggled by admins; with a `replies` subcollection) |
 | `stickers` | Stickers placed on album covers |
 | `lists` | User-created album lists (with `items` subcollection) |
 | `news` | Admin-only news posts |

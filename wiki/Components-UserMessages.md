@@ -39,6 +39,11 @@ Displays a single user message with avatar, username, timestamp, and content. Su
 | `replyingToUsername` | `string` | Username shown in the reply input header |
 | `enableReplies` | `boolean` | When `false`, hides all reply UI |
 | `isReply` | `boolean` | Marks this instance as a nested reply (suppresses reply/close controls) |
+| `pollQuestion` / `pollOptions` / `pollMultiple` / `pollVotes` / `pollVoterNames` | various | Poll data rendered via `PollBlock` when `pollQuestion` is set |
+| `onTogglePollVote` | `(optionIndex: number) => void` | Called when a poll option is clicked |
+| `onPollVoterHover` | `(optionIndex: number) => void` | Called on option hover to lazy-fetch voter names |
+| `status` | `'inprogress' \| 'complete'` | Issue status — decides the status toggle icon (check vs undo) |
+| `onToggleStatus` | `() => void` | When provided (admins on the Issues board), shows a status toggle button next to delete |
 
 ## Usage
 

@@ -398,6 +398,90 @@ service cloud.firestore {
       }
     }
 
+    // Issues - bug/problem reports. Mirrors messages rules minus polls and
+    // posterUrl; adds a status field toggled by admins only.
+    match /issues/{issueId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 10000
+        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount', 'status'])
+        && request.resource.data.status == 'inprogress'
+        && hasNoPriorReactions(request.resource.data)
+        && request.resource.data.timestamp == request.time
+        && validString(request.resource.data.username, 1, 50)
+        && usernameMatchesProfile(request.resource.data.username)
+        && validString(request.resource.data.avatar, 0, 200)
+        && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
+
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+        && isValidMessage(request.resource.data.text)
+        && request.resource.data.editedAt == request.time;
+
+      // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+        && isValidReactionToggle(
+          resource.data.get('reactedBy', []).toSet(),
+          request.resource.data.reactedBy.toSet(),
+          resource.data.get('reactionCount', 0),
+          request.resource.data.reactionCount
+        );
+
+      // Reply-count bump on reply create/delete: ±1 only
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+
+      // Status toggle: admin only
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['inprogress', 'complete'];
+
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+
+      match /replies/{replyId} {
+        allow read: if isSignedIn();
+
+        allow create: if isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000
+          && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount'])
+          && hasNoPriorReactions(request.resource.data)
+          && request.resource.data.timestamp == request.time
+          && validString(request.resource.data.username, 1, 50)
+          && usernameMatchesProfile(request.resource.data.username)
+          && validString(request.resource.data.avatar, 0, 200)
+          && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
+
+        allow update: if isOwner(resource.data.userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+          && isValidMessage(request.resource.data.text)
+          && request.resource.data.editedAt == request.time;
+
+        // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+        allow update: if isSignedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+          && isValidReactionToggle(
+            resource.data.get('reactedBy', []).toSet(),
+            request.resource.data.reactedBy.toSet(),
+            resource.data.get('reactionCount', 0),
+            request.resource.data.reactionCount
+          );
+
+        allow delete: if isOwner(resource.data.userId) || isAdmin();
+      }
+    }
+
     // Lists - user-created music lists.
     // Private lists are readable only by their owner. Queries must constrain
     // to isPublic == true or userId == auth.uid (rules are not filters).

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   collection,
   query,
+  where,
   orderBy,
   doc,
   serverTimestamp,
@@ -71,6 +72,7 @@ interface Message {
   editedAt?: any;
   imageId?: string;
   posterUrl?: string;
+  status?: string;
   pollQuestion?: string;
   pollOptions?: string[];
   pollMultiple?: boolean;
@@ -82,6 +84,13 @@ interface MessageBoardProps {
   enableReactions?: boolean;
   enableReplies?: boolean;
   collectionName?: string;
+  // When set, only messages with this status are loaded and new posts are
+  // created as 'inprogress'. Changing the filter requires a remount (key prop).
+  statusFilter?: 'inprogress' | 'complete';
+  enablePolls?: boolean;
+  enableFilmAnnounce?: boolean;
+  showComposer?: boolean;
+  highlightMessageId?: string;
 }
 
 const MESSAGES_PER_PAGE = 20;
@@ -137,6 +146,7 @@ function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
     editedAt: data.editedAt,
     imageId: data.imageId || undefined,
     posterUrl: data.posterUrl || undefined,
+    status: data.status || undefined,
     pollQuestion: data.pollQuestion || undefined,
     pollOptions: Array.isArray(data.pollOptions) ? data.pollOptions : undefined,
     pollMultiple: data.pollMultiple,
@@ -163,7 +173,16 @@ function mapReplyDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Reply {
   };
 }
 
-const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, enableReplies = false, collectionName = 'messages' }) => {
+const MessageBoard: React.FC<MessageBoardProps> = ({
+  enableReactions = false,
+  enableReplies = false,
+  collectionName = 'messages',
+  statusFilter,
+  enablePolls = true,
+  enableFilmAnnounce = true,
+  showComposer = true,
+  highlightMessageId,
+}) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -177,6 +196,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   const { isAdmin } = useAdmin();
   const { checkRateLimit } = useRateLimit({ maxAttempts: 10, windowMs: 5 * 60 * 1000 });
+  const highlightFetchedRef = useRef(false);
+  const highlightScrolledRef = useRef(false);
 
   useEffect(() => {
     loadInitialMessages();
@@ -184,11 +205,40 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableReactions, enableReplies]);
 
+  // Deep link: pin the linked message if it's beyond the first page, then scroll to it once.
+  useEffect(() => {
+    if (!highlightMessageId || loadingMessages) return;
+    const present = messages.some((m) => m.id === highlightMessageId);
+    if (!present && !highlightFetchedRef.current) {
+      highlightFetchedRef.current = true;
+      (async () => {
+        try {
+          const snap = await getDoc(doc(db, collectionName, highlightMessageId));
+          if (snap.exists()) {
+            const pinned = mapMessageDoc(snap as QueryDocumentSnapshot<DocumentData>);
+            setMessages((prev) => [pinned, ...prev.filter((m) => m.id !== highlightMessageId)]);
+          }
+        } catch (error) {
+          console.error('Error fetching linked message:', error);
+        }
+      })();
+      return;
+    }
+    if (present && !highlightScrolledRef.current) {
+      highlightScrolledRef.current = true;
+      setTimeout(() => {
+        document.getElementById(`mb-msg-${highlightMessageId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightMessageId, loadingMessages, messages]);
+
   const loadInitialMessages = async () => {
     setLoadingMessages(true);
     try {
       const q = query(
         collection(db, collectionName),
+        ...(statusFilter ? [where('status', '==', statusFilter)] : []),
         orderBy('lastActivityAt', 'desc'),
         limit(MESSAGES_PER_PAGE),
       );
@@ -216,6 +266,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     try {
       const q = query(
         collection(db, collectionName),
+        ...(statusFilter ? [where('status', '==', statusFilter)] : []),
         orderBy('lastActivityAt', 'desc'),
         startAfter(lastDoc),
         limit(MESSAGES_PER_PAGE),
@@ -228,7 +279,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
       setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
       setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
       const newMessages = snapshot.docs.map(mapMessageDoc);
-      setMessages((prev) => [...prev, ...newMessages]);
+      // Dedupe: a deep-linked message pinned to the top can page back in.
+      setMessages((prev) => [...prev, ...newMessages.filter((nm) => !prev.some((p) => p.id === nm.id))]);
     } catch (error) {
       console.error('Error loading more messages:', error);
     } finally {
@@ -374,6 +426,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
         ...pollFields,
       };
       if (imageId) messageData.imageId = imageId;
+      if (statusFilter) messageData.status = 'inprogress';
 
       const newDoc = await addDoc(collection(db, collectionName), messageData);
       // Optimistically prepend so the new post appears without a reload.
@@ -391,6 +444,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
           replyCount: 0,
           currentUserReacted: false,
           imageId,
+          status: statusFilter ? 'inprogress' : undefined,
           ...pollFields,
         },
         ...prev,
@@ -762,6 +816,22 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
     }
   };
 
+  const handleToggleStatus = async (messageId: string) => {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg) return;
+    const newStatus = msg.status === 'complete' ? 'inprogress' : 'complete';
+    // Optimistic: the message no longer matches the active tab's filter.
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    try {
+      await updateDoc(doc(db, collectionName, messageId), { status: newStatus });
+      window.umami?.track?.('issue-status-toggled', { status: newStatus });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setMessages((prev) => sortByBump([...prev, msg]));
+      alert('Failed to update status. Please try again.');
+    }
+  };
+
   const handleDeleteMessage = async (messageId: string) => {
     if (!auth.currentUser) return;
     try {
@@ -833,12 +903,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
 
   return (
     <div className="message-board-container">
-      <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin ? handleFilmAnnounce : undefined} onPollAttach={setPendingPoll} />
+      {showComposer && (
+        <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} />
+      )}
       <div className="messages-container">
         {loadingMessages && <p className="messages-loading">Loading messages...</p>}
         {messages.map((message) => (
+          <div key={message.id} id={`mb-msg-${message.id}`} className={message.id === highlightMessageId ? 'mb-msg-highlight' : undefined}>
           <UserMessage
-            key={message.id}
             username={message.username || 'Anonymous'}
             message={message.text}
             timestamp={formatTimestamp(message.timestamp)}
@@ -876,7 +948,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({ enableReactions = false, en
             onReplyReactionHover={enableReplies && enableReactions ? (replyId: string) => handleReplyReactionHover(message.id, replyId) : undefined}
             replyingToUsername={message.username}
             enableReplies={enableReplies}
+            status={message.status as 'inprogress' | 'complete' | undefined}
+            onToggleStatus={isAdmin && statusFilter ? () => handleToggleStatus(message.id) : undefined}
           />
+          </div>
         ))}
       </div>
 
