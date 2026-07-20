@@ -1,0 +1,105 @@
+/* ============================================================
+   PlaylistManager — Playlists-specific layout only.
+   Shared chrome (window, titlebar, statusbar, buttons) lives in
+   mediaTheme.css.
+   ============================================================ */
+
+.playlist-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.playlist-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 220px;
+}
+
+.playlist-job-btn {
+  padding: 10px 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: left;
+  color: var(--mm-button-text);
+  background-image: linear-gradient(to bottom, var(--mm-button-from) 0%, var(--mm-button-to) 100%);
+  border-top: 2px solid var(--mm-button-bevel-light);
+  border-left: 2px solid var(--mm-button-bevel-light);
+  border-right: 2px solid var(--mm-button-bevel-dark);
+  border-bottom: 2px solid var(--mm-button-bevel-dark);
+  cursor: pointer;
+  text-shadow: 1px 1px 0 var(--mm-button-text-shadow);
+}
+
+.playlist-job-btn:hover:not(:disabled) {
+  background-image: linear-gradient(to bottom, var(--mm-button-hover-from) 0%, var(--mm-button-hover-to) 100%);
+  color: var(--mm-button-hover-text);
+}
+
+.playlist-job-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.playlist-terminal {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-log {
+  background: #1a1a2e;
+  color: #cfe8d8;
+  padding: 12px;
+  border: 2px solid var(--mm-border);
+  box-shadow: inset 2px 2px 0 #000;
+  width: 100%;
+  height: 360px;
+  margin-bottom: 12px;
+  overflow-y: auto;
+  text-align: left;
+  box-sizing: border-box;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+.playlist-log-empty {
+  color: #6c7f77;
+  font-style: italic;
+  margin: 0;
+}
+
+.playlist-log-line {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.playlist-creds-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.playlist-prompt-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+@media (max-width: 768px) {
+  .playlist-layout {
+    flex-direction: column;
+  }
+
+  .playlist-jobs {
+    flex: none;
+    width: 100%;
+  }
+
+  .playlist-log {
+    height: 260px;
+  }
+}
