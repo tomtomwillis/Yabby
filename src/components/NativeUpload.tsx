@@ -201,6 +201,9 @@ const NativeUpload: React.FC = () => {
   }, []);
 
   const uploadFile = useCallback(async (uploadFileItem: UploadFile): Promise<void> => {
+    // Immediately claim this file so processQueue doesn't re-pick it while we work.
+    updateFile(uploadFileItem.id, { status: 'verifying', progress: 0, error: undefined });
+
     const token = await getAuthToken();
     if (!token) {
       setFileError(uploadFileItem.id, 'You must be logged in to upload.');
@@ -209,12 +212,11 @@ const NativeUpload: React.FC = () => {
 
     let sha256 = uploadFileItem.sha256;
     if (!sha256) {
-      updateFile(uploadFileItem.id, { status: 'verifying' });
       sha256 = await computeSha256Chunked(uploadFileItem.file);
       updateFile(uploadFileItem.id, { sha256 });
     }
 
-    updateFile(uploadFileItem.id, { status: 'uploading', progress: 0, error: undefined });
+    updateFile(uploadFileItem.id, { status: 'uploading', progress: 0 });
 
     const controller = new AbortController();
     abortControllersRef.current.set(uploadFileItem.id, controller);
@@ -308,7 +310,7 @@ const NativeUpload: React.FC = () => {
       });
     }
 
-    const remaining = session.files.some(f => f.status === 'queued' || f.status === 'uploading');
+    const remaining = session.files.some(f => f.status === 'queued' || f.status === 'uploading' || f.status === 'verifying');
     if (!remaining) {
       const hasErrors = session.files.some(f => f.status === 'error');
       if (hasErrors) {
