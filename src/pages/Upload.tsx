@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Header from '../components/basic/Header';
-import CopypartyUpload from '../components/CopypartyUpload';
-import '../components/CopypartyUpload.css';
+import NativeUpload from '../components/NativeUpload';
+import '../components/NativeUpload.css';
 import '../components/Wiki.css';
 
 const Upload: React.FC = () => {
@@ -18,7 +18,7 @@ const Upload: React.FC = () => {
       
 
       <div className="upload-iframe-wrapper">
-        <CopypartyUpload height="100%" />
+        <NativeUpload />
       </div>
       {/* Expandable Tips Section */}
       <div className="wiki-collapsible" style={{ maxWidth: '800px', margin: '0 auto 20px auto' }}>
