@@ -129,6 +129,10 @@ const NativeUpload: React.FC = () => {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const speedWindowRef = useRef<{ time: number; bytes: number }[]>([]);
   const lastProgressRef = useRef<Map<string, number>>(new Map());
+  const filesRef = useRef<UploadFile[]>(session.files);
+  const statusRef = useRef<SessionStatus>(session.status);
+  const uploadedBytesRef = useRef(0);
+  const processQueueRef = useRef<(() => Promise<void>) | null>(null);
 
   const totalBytes = useMemo(() => session.files.reduce((sum, f) => sum + f.size, 0), [session.files]);
   const uploadedBytes = useMemo(() =>
@@ -147,6 +151,10 @@ const NativeUpload: React.FC = () => {
     }
     setOverallProgress(Math.round((uploadedBytes / totalBytes) * 100));
   }, [uploadedBytes, totalBytes]);
+
+  useEffect(() => {
+    uploadedBytesRef.current = uploadedBytes;
+  }, [uploadedBytes]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -183,6 +191,7 @@ const NativeUpload: React.FC = () => {
   }, [session.files]);
 
   const updateFile = useCallback((id: string, patch: Partial<UploadFile>) => {
+    filesRef.current = filesRef.current.map(f => (f.id === id ? { ...f, ...patch } : f));
     setSession(prev => ({
       ...prev,
       files: prev.files.map(f => (f.id === id ? { ...f, ...patch } : f)),
@@ -236,7 +245,7 @@ const NativeUpload: React.FC = () => {
         const previous = lastProgressRef.current.get(uploadFileItem.id) || 0;
         const delta = event.loaded - previous;
         if (delta > 0) {
-          speedWindowRef.current.push({ time: now, bytes: uploadedBytes + event.loaded });
+          speedWindowRef.current.push({ time: now, bytes: uploadedBytesRef.current + event.loaded });
           lastProgressRef.current.set(uploadFileItem.id, event.loaded);
         }
       });
@@ -294,37 +303,15 @@ const NativeUpload: React.FC = () => {
       formData.append('file', uploadFileItem.file);
       xhr.send(formData);
     });
-  }, [getAuthToken, session.sessionId, setFileError, updateFile, uploadedBytes]);
-
-  const processQueue = useCallback(async () => {
-    if (session.status !== 'uploading') return;
-
-    while (activeCountRef.current < MAX_CONCURRENT) {
-      const next = session.files.find(f => f.status === 'queued');
-      if (!next) break;
-
-      activeCountRef.current += 1;
-      uploadFile(next).finally(() => {
-        activeCountRef.current -= 1;
-        processQueue();
-      });
-    }
-
-    const remaining = session.files.some(f => f.status === 'queued' || f.status === 'uploading' || f.status === 'verifying');
-    if (!remaining) {
-      const hasErrors = session.files.some(f => f.status === 'error');
-      if (hasErrors) {
-        setSession(prev => ({ ...prev, status: 'error' }));
-      } else {
-        await finalizeSessionInternal();
-      }
-    }
-  }, [session.files, session.status, uploadFile]);
+  }, [getAuthToken, session.sessionId, setFileError, updateFile]);
 
   const finalizeSessionInternal = useCallback(async () => {
+    if (statusRef.current === 'finalizing' || statusRef.current === 'complete') return;
+    statusRef.current = 'finalizing';
     setSession(prev => ({ ...prev, status: 'finalizing' }));
     const token = await getAuthToken();
     if (!token) {
+      statusRef.current = 'error';
       setSession(prev => ({ ...prev, status: 'error', error: 'You must be logged in to finalize.' }));
       return;
     }
@@ -341,17 +328,49 @@ const NativeUpload: React.FC = () => {
 
       const data = await response.json();
       if (!response.ok) {
+        statusRef.current = 'error';
         setSession(prev => ({ ...prev, status: 'error', error: data.error || 'Finalize failed.' }));
         return;
       }
 
+      statusRef.current = 'complete';
       setSession(prev => ({ ...prev, status: 'complete', result: data }));
     } catch (err) {
+      statusRef.current = 'error';
       setSession(prev => ({ ...prev, status: 'error', error: 'Finalize request failed. Please try again.' }));
     }
   }, [getAuthToken, session.sessionId]);
 
+  const processQueue = useCallback(async () => {
+    if (statusRef.current !== 'uploading') return;
+
+    while (activeCountRef.current < MAX_CONCURRENT) {
+      const next = filesRef.current.find(f => f.status === 'queued');
+      if (!next) break;
+
+      activeCountRef.current += 1;
+      uploadFile(next).finally(() => {
+        activeCountRef.current -= 1;
+        processQueueRef.current?.();
+      });
+    }
+
+    const remaining = filesRef.current.some(f => f.status === 'queued' || f.status === 'uploading' || f.status === 'verifying');
+    if (!remaining) {
+      const hasErrors = filesRef.current.some(f => f.status === 'error');
+      if (hasErrors) {
+        statusRef.current = 'error';
+        setSession(prev => ({ ...prev, status: 'error' }));
+      } else {
+        await finalizeSessionInternal();
+      }
+    }
+  }, [uploadFile, finalizeSessionInternal]);
+
+  processQueueRef.current = processQueue;
+
   const startUpload = useCallback(() => {
+    statusRef.current = 'uploading';
     setSession(prev => ({ ...prev, status: 'uploading' }));
   }, []);
 
@@ -371,6 +390,8 @@ const NativeUpload: React.FC = () => {
         console.error('Failed to cancel session:', err);
       }
     }
+    filesRef.current = [];
+    statusRef.current = 'idle';
     setSession({ sessionId: crypto.randomUUID(), files: [], status: 'idle' });
     activeCountRef.current = 0;
     abortControllersRef.current.clear();
@@ -382,6 +403,7 @@ const NativeUpload: React.FC = () => {
 
   const retryFile = useCallback(async (id: string) => {
     updateFile(id, { status: 'queued', progress: 0, error: undefined });
+    statusRef.current = 'uploading';
     setSession(prev => ({ ...prev, status: 'uploading' }));
   }, [updateFile]);
 
@@ -407,18 +429,19 @@ const NativeUpload: React.FC = () => {
 
     if (newFiles.length === 0) return;
 
-    setSession(prev => ({
-      ...prev,
-      status: prev.status === 'idle' ? 'uploading' : prev.status,
-      files: [...prev.files, ...newFiles],
-    }));
+    filesRef.current = [...filesRef.current, ...newFiles];
+    setSession(prev => {
+      const status = prev.status === 'idle' ? 'uploading' : prev.status;
+      statusRef.current = status;
+      return { ...prev, status, files: [...prev.files, ...newFiles] };
+    });
   }, []);
 
   useEffect(() => {
     if (session.status === 'uploading') {
-      processQueue();
+      processQueueRef.current?.();
     }
-  }, [session.status, session.files.length, processQueue]);
+  }, [session.status, session.files.length]);
 
   const handleDirectorySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     addFiles(e.target.files, true);
