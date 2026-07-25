@@ -13,6 +13,7 @@
   --sp-accent-dim: #5566c9;
   --sp-bg: var(--colour4);
   --sp-bg-alt: #eef1fb;
+  --sp-star: #a67c00;
 
   font-family: var(--font2);
 }
@@ -49,6 +50,85 @@
 .sp-toggle:hover,
 .sp-toggle:focus-visible {
   background-color: var(--colour1);
+}
+
+.sp-panel {
+  padding: 0.75rem;
+  background: var(--sp-bg);
+  border: 1px solid var(--sp-accent-dim);
+  color: var(--sp-accent);
+}
+
+.sp-status {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--sp-accent-dim);
+}
+
+/* ── Track list ────────────────────────────────────────── */
+
+.sp-tracks {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.sp-track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 36px;
+  padding: 0.25rem 0.35rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--sp-accent-dim);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sp-track:hover,
+.sp-track:focus-visible {
+  background: var(--sp-bg-alt);
+  color: var(--sp-accent);
+}
+
+.sp-track.is-current {
+  color: var(--sp-accent);
+  background: var(--sp-bg-alt);
+}
+
+.sp-track-cue {
+  flex: 0 0 1ch;
+}
+
+.sp-track-num {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+.sp-track-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-track-star {
+  flex: 0 0 auto;
+  color: var(--sp-star);
+}
+
+.sp-track-dur {
+  flex: 0 0 auto;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Transport (docked mini-bar) ────────────────────────── */
@@ -172,21 +252,23 @@
 .sp-navidrome {
   display: block;
   width: 100%;
-  margin: 0 auto;
-  padding: 0;
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
   background: none;
   border: none;
-  color: var(--colour2);
-  font-family: var(--font1);
-  font-size: 0.85rem;
+  border-top: 1px dashed var(--sp-accent-dim);
+  border-radius: 0;
+  color: var(--sp-accent-dim);
+  font: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
   text-align: center;
-  text-decoration: underline;
   cursor: pointer;
 }
 
 .sp-navidrome:hover,
 .sp-navidrome:focus-visible {
-  color: var(--colour1);
+  color: var(--sp-accent);
 }
 
 /* ── Favourite-track play button ───────────────────────── */

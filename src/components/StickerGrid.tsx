@@ -411,6 +411,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
                 albumId={popup.albumId}
                 albumTitle={popup.albumTitle}
                 albumArtist={popup.albumArtist}
+                favoriteTrackIds={popup.stickers.flatMap(s => (s.favoriteTrackId ? [s.favoriteTrackId] : []))}
               />
             </div>
 

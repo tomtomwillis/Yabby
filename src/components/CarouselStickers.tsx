@@ -472,6 +472,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
                 albumId={popup.albumId}
                 albumTitle={popup.albumTitle}
                 albumArtist={popup.albumArtist}
+                favoriteTrackIds={popup.stickers.flatMap(s => (s.favoriteTrackId ? [s.favoriteTrackId] : []))}
               />
             </div>
 
