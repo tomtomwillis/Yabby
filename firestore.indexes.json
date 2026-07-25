@@ -9,6 +9,14 @@
       ]
     },
     {
+      "collectionGroup": "testLists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPublic", "order": "ASCENDING" },
+        { "fieldPath": "lastUpdated", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "issues",
       "queryScope": "COLLECTION",
       "fields": [

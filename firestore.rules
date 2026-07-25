@@ -140,6 +140,24 @@ service cloud.firestore {
         && film.submittedByUsername is string && film.submittedByUsername.size() <= 50;
     }
 
+    // Sandbox twins for the /test page.
+    //
+    // Each pair below shares one rule block so the test collections can never
+    // drift from the live ones. The blocks match on a wildcard collection name,
+    // so EVERY `allow` in them must start with its guard - without it the block
+    // would grant access on every collection in the database.
+    function isBoardCollection(c) {
+      return c in ['messages', 'testMessages'];
+    }
+
+    function isListCollection(c) {
+      return c in ['lists', 'testLists'];
+    }
+
+    function isStickerCollection(c) {
+      return c in ['stickers', 'testStickers'];
+    }
+
     // Admin collection - managed via Firebase Console only
     match /admins/{userId} {
       allow read: if isSignedIn();
@@ -189,11 +207,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Messages - main forum
-    match /messages/{messageId} {
-      allow read: if isSignedIn();
+    // Messages - main forum, plus its /test sandbox twin
+    match /{board}/{messageId} {
+      allow read: if isBoardCollection(board) && isSignedIn();
 
-      allow create: if isSignedIn()
+      allow create: if isBoardCollection(board) && isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
@@ -208,13 +226,13 @@ service cloud.firestore {
         && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
         && (!('posterUrl' in request.resource.data) || validString(request.resource.data.posterUrl, 0, 500));
 
-      allow update: if isOwner(resource.data.userId)
+      allow update: if isBoardCollection(board) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
         && isValidMessage(request.resource.data.text)
         && request.resource.data.editedAt == request.time;
 
       // Reaction toggle: own uid in/out of reactedBy, count kept in sync
-      allow update: if isSignedIn()
+      allow update: if isBoardCollection(board) && isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
         && isValidReactionToggle(
           resource.data.get('reactedBy', []).toSet(),
@@ -224,7 +242,7 @@ service cloud.firestore {
         );
 
       // Poll vote toggle: caller may only replace their own entry in pollVotes.
-      allow update: if isSignedIn()
+      allow update: if isBoardCollection(board) && isSignedIn()
         && 'pollOptions' in resource.data
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pollVotes'])
         && request.resource.data.pollVotes.diff(resource.data.get('pollVotes', {})).affectedKeys().hasOnly([request.auth.uid])
@@ -236,26 +254,26 @@ service cloud.firestore {
         );
 
       // Reply-count bump on reply create/delete: ±1 only
-      allow update: if isSignedIn()
+      allow update: if isBoardCollection(board) && isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
           || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
           || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
 
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isBoardCollection(board) && (isOwner(resource.data.userId) || isAdmin());
 
       // Retired: reactions live on the parent doc's reactedBy array.
       // Legacy subcollection kept readable during transition.
       match /reactions/{reactionId} {
-        allow read: if isSignedIn();
+        allow read: if isBoardCollection(board) && isSignedIn();
         allow create, update, delete: if false;
       }
 
       match /replies/{replyId} {
-        allow read: if isSignedIn();
+        allow read: if isBoardCollection(board) && isSignedIn();
 
-        allow create: if isSignedIn()
+        allow create: if isBoardCollection(board) && isSignedIn()
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 10000
@@ -268,13 +286,13 @@ service cloud.firestore {
           && validString(request.resource.data.avatar, 0, 200)
           && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
 
-        allow update: if isOwner(resource.data.userId)
+        allow update: if isBoardCollection(board) && isOwner(resource.data.userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
           && isValidMessage(request.resource.data.text)
           && request.resource.data.editedAt == request.time;
 
         // Reaction toggle: own uid in/out of reactedBy, count kept in sync
-        allow update: if isSignedIn()
+        allow update: if isBoardCollection(board) && isSignedIn()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
           && isValidReactionToggle(
             resource.data.get('reactedBy', []).toSet(),
@@ -283,11 +301,11 @@ service cloud.firestore {
             request.resource.data.reactionCount
           );
 
-        allow delete: if isOwner(resource.data.userId) || isAdmin();
+        allow delete: if isBoardCollection(board) && (isOwner(resource.data.userId) || isAdmin());
 
         // Retired: reactions live on the parent reply's reactedBy array.
         match /reactions/{reactionId} {
-          allow read: if isSignedIn();
+          allow read: if isBoardCollection(board) && isSignedIn();
           allow create, update, delete: if false;
         }
       }
@@ -482,53 +500,53 @@ service cloud.firestore {
       }
     }
 
-    // Lists - user-created music lists.
+    // Lists - user-created music lists, plus the /test sandbox twin.
     // Private lists are readable only by their owner. Queries must constrain
     // to isPublic == true or userId == auth.uid (rules are not filters).
-    match /lists/{listId} {
-      allow get: if isSignedIn()
+    match /{listCollection}/{listId} {
+      allow get: if isListCollection(listCollection) && isSignedIn()
         && (resource.data.isPublic != false || resource.data.userId == request.auth.uid);
 
-      allow list: if isSignedIn()
+      allow list: if isListCollection(listCollection) && isSignedIn()
         && (resource.data.isPublic == true || resource.data.userId == request.auth.uid);
 
-      allow create: if isSignedIn()
+      allow create: if isListCollection(listCollection) && isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
         && usernameMatchesProfile(request.resource.data.username)
         && request.resource.data.timestamp == request.time;
 
-      allow update: if isOwner(resource.data.userId)
+      allow update: if isListCollection(listCollection) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200);
 
-      allow update: if isSignedIn()
+      allow update: if isListCollection(listCollection) && isSignedIn()
         && resource.data.isCollaborative == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200);
 
-      allow delete: if isOwner(resource.data.userId);
+      allow delete: if isListCollection(listCollection) && isOwner(resource.data.userId);
 
       match /items/{itemId} {
         // Items inherit the parent list's visibility (one billed read per request)
-        allow read: if isSignedIn()
-          && (get(/databases/$(database)/documents/lists/$(listId)).data.isPublic != false
-            || get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid);
+        allow read: if isListCollection(listCollection) && isSignedIn()
+          && (get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isPublic != false
+            || get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.userId == request.auth.uid);
 
-        allow create, update: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid
+        allow create, update: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.userId == request.auth.uid
           && isValidListItem(request.resource.data);
 
-        allow delete: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid;
+        allow delete: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.userId == request.auth.uid;
 
-        allow create, update: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true
+        allow create, update: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isCollaborative == true
           && isValidListItem(request.resource.data);
 
-        allow delete: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true;
+        allow delete: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isCollaborative == true;
       }
     }
 
@@ -565,11 +583,11 @@ service cloud.firestore {
       }
     }
 
-    // Stickers
-    match /stickers/{stickerId} {
-      allow read: if isSignedIn();
+    // Stickers, plus the /test sandbox twin
+    match /{stickerCollection}/{stickerId} {
+      allow read: if isStickerCollection(stickerCollection) && isSignedIn();
 
-      allow create: if isSignedIn()
+      allow create: if isStickerCollection(stickerCollection) && isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasOnly(['userId', 'albumId', 'text', 'position', 'sticker', 'timestamp', 'favoriteTrackId', 'favoriteTrackTitle', 'albumName', 'albumArtist'])
         && isValidMessage(request.resource.data.text)
@@ -584,11 +602,11 @@ service cloud.firestore {
         && (!('albumArtist' in request.resource.data) || validString(request.resource.data.albumArtist, 0, 300))
         && request.resource.data.timestamp == request.time;
 
-      allow update: if isOwner(resource.data.userId)
+      allow update: if isStickerCollection(stickerCollection) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
         && isValidMessage(request.resource.data.text);
 
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isStickerCollection(stickerCollection) && (isOwner(resource.data.userId) || isAdmin());
     }
 
     // Film Club collection
