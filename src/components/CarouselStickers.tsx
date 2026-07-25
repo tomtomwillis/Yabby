@@ -3,6 +3,7 @@ import { Carousel } from './basic/Carousel';
 import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
+import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './CarouselStickers.css';
 import { collection, query, orderBy, doc, limit, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -41,6 +42,7 @@ interface PopupData {
     username: string;
     avatar: string;
     timestamp: string;
+    favoriteTrackId?: string;
     favoriteTrackTitle?: string;
   }[];
   visible: boolean;
@@ -293,6 +295,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
             username: userData.username,
             avatar: `/Stickers/${sticker.sticker.split('/').pop()}`,
             timestamp: timestamp,
+            favoriteTrackId: sticker.favoriteTrackId,
             favoriteTrackTitle: sticker.favoriteTrackTitle,
           };
         }),
@@ -460,16 +463,15 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
             <div className="popup-buttons">
               <Button
                 type="basic"
-                label="Click to listen"
-                onClick={() => window.open(`${import.meta.env.VITE_NAVIDROME_SERVER_URL}/app/#/album/${popup.albumId}/show`, '_blank')}
-                className="center-button"
-              />
-
-              <Button
-                type="basic"
                 label="Place Sticker on Album"
                 onClick={handlePlaceStickerClick}
                 className="center-button"
+              />
+
+              <StickerAlbumPlayer
+                albumId={popup.albumId}
+                albumTitle={popup.albumTitle}
+                albumArtist={popup.albumArtist}
               />
             </div>
 
@@ -495,6 +497,15 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
                   {sticker.favoriteTrackTitle && (
                     <p className="favorite-track-display">
                       🎵 Favorite track: <span className="track-name">{sticker.favoriteTrackTitle}</span>
+                      {sticker.favoriteTrackId && (
+                        <StickerFavoritePlay
+                          albumId={popup.albumId}
+                          albumTitle={popup.albumTitle}
+                          albumArtist={popup.albumArtist}
+                          trackId={sticker.favoriteTrackId}
+                          trackTitle={sticker.favoriteTrackTitle}
+                        />
+                      )}
                     </p>
                   )}
                 </div>

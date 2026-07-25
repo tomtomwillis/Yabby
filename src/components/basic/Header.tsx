@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import Button from './Button';
@@ -143,7 +144,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         <nav className="desktop-nav" onMouseLeave={scheduleHide} onMouseEnter={clearHideTimeout}>
           <ul className="nav-groups">
             <li>
-              <a href="/" className="links">🏠</a>
+              <Link to="/" className="links">🏠</Link>
             </li>
             {navGroups.map(group => (
               <li key={group.name}>
@@ -160,19 +161,26 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
 
           {activeGroup && (
             <ul className="nav-links group-links">
-              {activeGroupLinks.map(link => (
-                <li key={link.href}>
-                  <a
-                    href={link.href}
-                    className={`links${link.badge ? ' has-badge' : ''}`}
-                    target={link.external ? '_blank' : undefined}
-                    rel={link.external ? 'noopener noreferrer' : undefined}
-                  >
+              {activeGroupLinks.map(link => {
+                const className = `links${link.badge ? ' has-badge' : ''}`;
+                const content = (
+                  <>
                     {link.label}
                     {link.badge ? <span className="nav-badge">{link.badge}</span> : null}
-                  </a>
-                </li>
-              ))}
+                  </>
+                );
+                return (
+                  <li key={link.href}>
+                    {link.external ? (
+                      <a href={link.href} className={className} target="_blank" rel="noopener noreferrer">
+                        {content}
+                      </a>
+                    ) : (
+                      <Link to={link.href} className={className}>{content}</Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </nav>
@@ -196,26 +204,38 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
 
       {/* Mobile Navigation Menu */}
       <div className={`mobile-nav ${isMobileMenuOpen ? 'active' : ''}`}>
-        <a href="/" onClick={closeMobileMenu}>🏠 Home</a>
+        <Link to="/" onClick={closeMobileMenu}>🏠 Home</Link>
         {navGroups.map(group => (
           <React.Fragment key={group.name}>
             <span className="mobile-nav-group-header">{group.name}</span>
             <div className="mobile-nav-sublinks">
               {group.links
                 .filter(l => l.condition !== false)
-                .map(link => (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    className={link.badge ? 'has-badge' : undefined}
-                    onClick={closeMobileMenu}
-                    target={link.external ? '_blank' : undefined}
-                    rel={link.external ? 'noopener noreferrer' : undefined}
-                  >
-                    {link.label}
-                    {link.badge ? <span className="nav-badge">{link.badge}</span> : null}
-                  </a>
-                ))}
+                .map(link => {
+                  const className = link.badge ? 'has-badge' : undefined;
+                  const content = (
+                    <>
+                      {link.label}
+                      {link.badge ? <span className="nav-badge">{link.badge}</span> : null}
+                    </>
+                  );
+                  return link.external ? (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      className={className}
+                      onClick={closeMobileMenu}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {content}
+                    </a>
+                  ) : (
+                    <Link key={link.href} to={link.href} className={className} onClick={closeMobileMenu}>
+                      {content}
+                    </Link>
+                  );
+                })}
             </div>
           </React.Fragment>
         ))}

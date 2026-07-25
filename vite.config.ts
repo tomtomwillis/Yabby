@@ -97,6 +97,13 @@ export default defineConfig({
             }
           },
           {
+            // Must precede the general music rule. Audio seeking issues Range
+            // requests, and NetworkFirst has no Range support — a cached full
+            // 200 body served for a Range request breaks seeking (notably Safari).
+            urlPattern: /^https:\/\/music\.yabbyville\.xyz\/rest\/stream/i,
+            handler: 'NetworkOnly'
+          },
+          {
             urlPattern: /^https:\/\/music\.yabbyville\.xyz\/.*/i,
             handler: 'NetworkFirst',
             options: {

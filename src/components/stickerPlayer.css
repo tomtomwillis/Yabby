@@ -1,0 +1,324 @@
+/* Terminal-styled Subsonic player, shared by the sticker popup accordion and
+   the docked mini-bar. Standalone — no dependency on media/mediaTheme.css.
+   All classes are prefixed sp- because .track-title / .track-number / .track-name
+   are already taken globally by PlaceStickerCore.css and .favorite-track-display. */
+
+.sp-player,
+.sp-dock,
+.sp-fav-play {
+  /* colour1 (#4CAF50) only hits ~2.8:1 on white — fails AA. colour2 is the
+     app's existing accent and clears ~9:1, so it stands in for the terminal
+     green here instead of a one-off shade. */
+  --sp-accent: var(--colour2);
+  --sp-accent-dim: #5566c9;
+  --sp-bg: var(--colour4);
+  --sp-bg-alt: #eef1fb;
+
+  font-family: var(--font2);
+}
+
+/* ── Accordion ─────────────────────────────────────────── */
+
+.sp-player {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+/* Matches .basic-button (Button.css) rather than the terminal look below —
+   this is the entry point sitting among ordinary popup buttons. */
+.sp-toggle {
+  display: block;
+  width: 100%;
+  min-height: 2em;
+  margin: 0 auto;
+  padding: 0.8em 1.5em;
+  background-color: var(--colour2);
+  color: var(--colour4);
+  border: none;
+  border-radius: 7px;
+  font-family: var(--font1);
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.sp-toggle:hover,
+.sp-toggle:focus-visible {
+  background-color: var(--colour1);
+}
+
+/* ── Transport (docked mini-bar) ────────────────────────── */
+
+.sp-transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sp-btn {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 0.4rem;
+  background: var(--sp-bg-alt);
+  color: var(--sp-accent);
+  border: 1px solid var(--sp-accent-dim);
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.sp-btn:hover:not(:disabled),
+.sp-btn:focus-visible:not(:disabled) {
+  border-color: var(--sp-accent);
+}
+
+.sp-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sp-time {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Block-glyph bars ──────────────────────────────────── */
+
+/* A real range input sits invisibly on top of the glyph string, so drag,
+   touch, arrow keys, Home/End and slider semantics all come for free. */
+.sp-blocks {
+  position: relative;
+  flex: 1 1 8rem;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1;
+}
+
+/* One grid cell per block — cells always sum to the container's actual
+   rendered width, unlike a fixed-length unicode string sized by font metrics. */
+.sp-blocks-glyphs {
+  display: grid;
+  /* Sized to fit the ~8-9px cells the JS resolution calc targets (see
+     SEEK_CELL_PX/VOLUME_CELL_PX) — block count adapts to width, not this. */
+  font-size: 0.6rem;
+  color: var(--sp-accent-dim);
+  /* Dragging the range input on top would otherwise text-select the glyphs,
+     painting the selection highlight over the bar. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sp-blocks-cell {
+  overflow: hidden;
+  text-align: center;
+}
+
+.sp-blocks-fill {
+  color: var(--sp-accent);
+}
+
+.sp-blocks:focus-within .sp-blocks-glyphs {
+  outline: 1px dotted var(--sp-accent);
+  outline-offset: 2px;
+}
+
+.sp-range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Thumb kept present but invisible — opacity on the input itself would kill
+   the focus ring that .sp-blocks:focus-within draws. */
+.sp-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1px;
+  height: 100%;
+  opacity: 0;
+}
+
+.sp-range::-moz-range-thumb {
+  width: 1px;
+  height: 100%;
+  border: none;
+  opacity: 0;
+}
+
+.sp-vol {
+  flex: 0 0 auto;
+}
+
+.sp-vol .sp-blocks-glyphs {
+  min-width: 8ch;
+}
+
+/* ── Open in Navidrome ─────────────────────────────────── */
+
+.sp-navidrome {
+  display: block;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--colour2);
+  font-family: var(--font1);
+  font-size: 0.85rem;
+  text-align: center;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sp-navidrome:hover,
+.sp-navidrome:focus-visible {
+  color: var(--colour1);
+}
+
+/* ── Favourite-track play button ───────────────────────── */
+
+.sp-fav-play {
+  min-width: 28px;
+  min-height: 28px;
+  margin-left: 0.4rem;
+  padding: 0 0.3rem;
+  background: var(--sp-bg);
+  color: var(--sp-accent);
+  border: 1px solid var(--sp-accent-dim);
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.7rem;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.sp-fav-play:hover,
+.sp-fav-play:focus-visible {
+  border-color: var(--sp-accent);
+}
+
+/* ── Docked mini-bar ───────────────────────────────────── */
+
+.sp-dock {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* Above .popup-overlay (1000) and the Header drawer (1000/1001) so it stays
+     reachable; it hides itself when the playing album's accordion is open. */
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  background: var(--sp-bg);
+  border-top: 1px solid var(--sp-accent);
+  /* Page background is the same white as --sp-bg now, so without a shadow
+     the fixed dock wouldn't read as a separate layer. */
+  box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+  color: var(--sp-accent);
+  overflow: hidden;
+}
+
+.sp-dock-meta {
+  flex: 1 1 8rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.sp-dock-title,
+.sp-dock-album {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-dock-album {
+  color: var(--sp-accent-dim);
+  font-size: 0.7rem;
+}
+
+.sp-dock .sp-transport {
+  flex: 2 1 14rem;
+}
+
+.sp-dock-close {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  background: none;
+  color: var(--sp-accent-dim);
+  border: 1px solid var(--sp-accent-dim);
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.sp-dock-close:hover,
+.sp-dock-close:focus-visible {
+  color: var(--sp-accent);
+  border-color: var(--sp-accent);
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+
+/* Keep the dock inside the 4rem gutter the Header drawer already reserves —
+   it must stay one row, so the transport may not wrap and everything shrinks. */
+@media (max-width: 600px) {
+  .sp-dock {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
+  }
+
+  .sp-dock .sp-vol,
+  .sp-dock .sp-dock-album {
+    display: none;
+  }
+
+  .sp-dock-meta {
+    flex: 3 1 5rem;
+  }
+
+  .sp-dock .sp-transport {
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .sp-dock .sp-blocks {
+    flex: 1 1 2.5rem;
+  }
+
+  .sp-dock .sp-btn,
+  .sp-dock-close {
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0 0.2rem;
+  }
+
+  .sp-dock .sp-time {
+    font-size: 0.65rem;
+  }
+}
