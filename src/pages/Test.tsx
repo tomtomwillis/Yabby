@@ -11,6 +11,7 @@ import UserMessage from '../components/basic/UserMessages';
 import Carousel from '../components/basic/Carousel';
 import CarouselAlbums from '../components/CarouselAlbums';
 import MessageBoard from '../components/MessageBoard';
+import { NAVIDROME_SERVER_URL, fetchSubsonicJson } from '../utils/navidrome';
 import '../App.css';
 import '../components/basic/TextAnimations.css';
 import './Test.css';
@@ -280,6 +281,7 @@ export default function Test() {
         />
 
         <MessageVariants />
+        <NavidromeTagSample />
       </section>
     </div>
   );
@@ -351,6 +353,46 @@ function QuickChecks() {
         })}
       </div>
     </section>
+  );
+}
+
+/** A message carrying an album and an artist tag, so the Navidrome hover cards have
+ *  a fixed place to be checked by hand. The ids come from the library rather than
+ *  being hardcoded, since they change whenever it is rescanned. */
+function NavidromeTagSample() {
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSubsonicJson('getAlbumList2', { type: 'newest', size: 1 })
+      .then((data) => {
+        const album = data.albumList2?.album?.[0];
+        if (cancelled) return;
+        if (!album) {
+          setError('No albums in the library to tag.');
+          return;
+        }
+        const albumTag = `[${album.name}](${NAVIDROME_SERVER_URL}/app/#/album/${album.id}/show)`;
+        const artistTag = `[${album.artist}](${NAVIDROME_SERVER_URL}/app/#/artist/${album.artistId}/show)`;
+        setMessage(`Hover ${albumTag} for the album card, or ${artistTag} for the artist card. Click either to pin it.`);
+      })
+      .catch((err) => { if (!cancelled) setError(err.message); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (error) return <p className="test-note">Navidrome tags unavailable: {error}</p>;
+  if (!message) return <p className="test-note">Loading Navidrome tag sample…</p>;
+
+  return (
+    <UserMessage
+      username="yabbybot"
+      message={message}
+      timestamp="2.30pm - 12.05.25"
+      userSticker="/Stickers/avatar_astro_green.webp"
+      onClose={() => {}}
+      hideCloseButton
+    />
   );
 }
 

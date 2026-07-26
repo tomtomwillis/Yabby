@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { fetchSubsonicJson, subsonicUrl } from './navidrome';
+import { subsonicUrl } from './navidrome';
+import { loadAlbumCard } from './navidromeCards';
 
 export interface PlayerTrack {
   id: string;
@@ -22,31 +23,10 @@ export function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Caches the promise rather than the result, so the favourite-track button and
-// the popup's "Click to Listen" share a single request instead of racing.
-const trackCache = new Map<string, Promise<PlayerTrack[]>>();
-
+/** Track list for an album. Shares navidromeCards' promise cache with the hover
+ *  cards, so opening a card and then playing from it is a single getAlbum. */
 export function loadAlbumTracks(albumId: string): Promise<PlayerTrack[]> {
-  const cached = trackCache.get(albumId);
-  if (cached) return cached;
-
-  const pending = fetchSubsonicJson('getAlbum', { id: albumId })
-    .then((data) => {
-      const songs = data.album?.song || [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return songs.map((song: any) => ({
-        id: song.id,
-        title: song.title,
-        duration: song.duration,
-      })) as PlayerTrack[];
-    })
-    .catch((err) => {
-      trackCache.delete(albumId);
-      throw err;
-    });
-
-  trackCache.set(albumId, pending);
-  return pending;
+  return loadAlbumCard(albumId).then((album) => album.tracks);
 }
 
 interface StickerPlayerValue {

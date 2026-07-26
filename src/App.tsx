@@ -10,6 +10,7 @@ import PrivateRoute from './components/PrivateRoute';
 import PullToRefresh from './components/PullToRefresh';
 import StickerMiniBar from './components/StickerMiniBar';
 import { StickerPlayerProvider } from './utils/useStickerPlayer';
+import { NavidromeCardProvider } from './utils/useNavidromeCard';
 
 // Route-level code splitting: heavy dependencies (leaflet, hls.js, xterm,
 // marked) stay out of the initial bundle. Home and Login load eagerly.
@@ -36,42 +37,44 @@ const IssuesPage = lazy(() => import('./pages/IssuesPage'));
 function App() {
   return (
     <StickerPlayerProvider>
-      <Router>
-        <div className="app-container">
-          <PullToRefresh />
-          <Star />
-          <Oneko />
-          <Suspense fallback={null}>
-            <Routes>
-              {/* Public route */}
-              <Route path="/login" element={<Login />} />
+      <NavidromeCardProvider>
+        <Router>
+          <div className="app-container">
+            <PullToRefresh />
+            <Star />
+            <Oneko />
+            <Suspense fallback={null}>
+              <Routes>
+                {/* Public route */}
+                <Route path="/login" element={<Login />} />
 
-              {/* Private routes */}
-              <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
-              <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-              <Route path="/wiki" element={<PrivateRoute><Wiki /></PrivateRoute>} />
-              <Route path="/messageboard" element={<PrivateRoute><MessageBoard /></PrivateRoute>} />
-              <Route path="/upload" element={<PrivateRoute><Upload /></PrivateRoute>} />
-              <Route path="/stickers" element={<PrivateRoute><Stickers /></PrivateRoute>} />
-              <Route path="/lists" element={<PrivateRoute><ListsPage /></PrivateRoute>} />
-              <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
-              <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
-              <Route path="/news" element={<PrivateRoute><NewsPage /></PrivateRoute>} />
-              <Route path="/radio" element={<PrivateRoute><Radio /></PrivateRoute>} />
-              <Route path="/film-club" element={<PrivateRoute><FilmClub /></PrivateRoute>} />
-              <Route path="/film-club-submit" element={<PrivateRoute><FilmClubSubmit /></PrivateRoute>} />
-              <Route path="/film-club-vote" element={<PrivateRoute><FilmClubVote /></PrivateRoute>} />
-              <Route path="/filmclubmessage" element={<PrivateRoute><FilmClubMessagePage /></PrivateRoute>} />
-              <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
-              <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
-              <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />
-              <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
-              <Route path="/issues" element={<PrivateRoute><IssuesPage /></PrivateRoute>} />
-            </Routes>
-          </Suspense>
-          <StickerMiniBar />
-        </div>
-      </Router>
+                {/* Private routes */}
+                <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+                <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                <Route path="/wiki" element={<PrivateRoute><Wiki /></PrivateRoute>} />
+                <Route path="/messageboard" element={<PrivateRoute><MessageBoard /></PrivateRoute>} />
+                <Route path="/upload" element={<PrivateRoute><Upload /></PrivateRoute>} />
+                <Route path="/stickers" element={<PrivateRoute><Stickers /></PrivateRoute>} />
+                <Route path="/lists" element={<PrivateRoute><ListsPage /></PrivateRoute>} />
+                <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
+                <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+                <Route path="/news" element={<PrivateRoute><NewsPage /></PrivateRoute>} />
+                <Route path="/radio" element={<PrivateRoute><Radio /></PrivateRoute>} />
+                <Route path="/film-club" element={<PrivateRoute><FilmClub /></PrivateRoute>} />
+                <Route path="/film-club-submit" element={<PrivateRoute><FilmClubSubmit /></PrivateRoute>} />
+                <Route path="/film-club-vote" element={<PrivateRoute><FilmClubVote /></PrivateRoute>} />
+                <Route path="/filmclubmessage" element={<PrivateRoute><FilmClubMessagePage /></PrivateRoute>} />
+                <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
+                <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
+                <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />
+                <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
+                <Route path="/issues" element={<PrivateRoute><IssuesPage /></PrivateRoute>} />
+              </Routes>
+            </Suspense>
+            <StickerMiniBar />
+          </div>
+        </Router>
+      </NavidromeCardProvider>
     </StickerPlayerProvider>
   );
 }

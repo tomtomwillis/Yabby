@@ -25,6 +25,14 @@ const DEFAULT_AUTH = createSubsonicAuth(API_USERNAME, API_PASSWORD);
 /** Base server URL, for non-API links like /app/#/album/... */
 export const NAVIDROME_SERVER_URL: string = SERVER_URL;
 
+const SERVER_ORIGIN = (() => {
+  try {
+    return new URL(SERVER_URL).origin;
+  } catch {
+    return '';
+  }
+})();
+
 /** Build an authenticated Subsonic REST URL. Params are URL-encoded; array values are repeated (e.g. songId for playlists). */
 export function subsonicUrl(endpoint: string, params: Record<string, string | number | string[]> = {}, auth: SubsonicAuth = DEFAULT_AUTH): string {
   const search = new URLSearchParams({
@@ -44,9 +52,32 @@ export function subsonicUrl(endpoint: string, params: Record<string, string | nu
   return `${SERVER_URL}/rest/${endpoint}?${search.toString()}`;
 }
 
-/** Cover-art image URL for use in img src. */
-export function coverArtUrl(coverArtId: string): string {
-  return subsonicUrl('getCoverArt', { id: coverArtId });
+/** Cover-art image URL for use in img src. Omit size for the original image. */
+export function coverArtUrl(coverArtId: string, size?: number): string {
+  return subsonicUrl('getCoverArt', size ? { id: coverArtId, size } : { id: coverArtId });
+}
+
+export interface NavidromeLink {
+  type: 'album' | 'artist';
+  id: string;
+}
+
+/** Recognise an album or artist link into the Navidrome web UI, as inserted by
+ *  the message box's @ tagging. Returns null for anything else, including links
+ *  to a different host. */
+export function parseNavidromeLink(href: string): NavidromeLink | null {
+  if (!SERVER_ORIGIN) return null;
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  if (url.origin !== SERVER_ORIGIN) return null;
+  // The web UI is a hash router, so the route is in the fragment, not the path.
+  const match = url.hash.match(/^#\/(album|artist)\/([^/]+)\/show$/);
+  if (!match) return null;
+  return { type: match[1] as 'album' | 'artist', id: decodeURIComponent(match[2]) };
 }
 
 /** Fetch a Subsonic endpoint and return the parsed XML document. Throws on HTTP, parse or API errors. */
