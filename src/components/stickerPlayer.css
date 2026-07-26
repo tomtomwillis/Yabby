@@ -4,7 +4,7 @@
    are already taken globally by PlaceStickerCore.css and .favorite-track-display. */
 
 .sp-player,
-.sp-dock,
+.sp-dock-wrap,
 .sp-fav-play {
   /* colour1 (#4CAF50) only hits ~2.8:1 on white — fails AA. colour2 is the
      app's existing accent and clears ~9:1, so it stands in for the terminal
@@ -296,7 +296,11 @@
 
 /* ── Docked mini-bar ───────────────────────────────────── */
 
-.sp-dock {
+/* The fixed layer is the wrapper, not the dock itself, so the queue popup can
+   be positioned against the dock's top edge without being clipped by the
+   dock's overflow: hidden. Wrapper height is the dock's — the absolutely
+   positioned popup adds none, so nothing above the bar swallows clicks. */
+.sp-dock-wrap {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -304,6 +308,10 @@
   /* Above .popup-overlay (1000) and the Header drawer (1000/1001) so it stays
      reachable; it hides itself when the playing album's accordion is open. */
   z-index: 1002;
+}
+
+.sp-dock {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -361,6 +369,42 @@
   border-color: var(--sp-accent);
 }
 
+/* ── Dock queue popup ──────────────────────────────────── */
+
+.sp-queue {
+  position: absolute;
+  bottom: 100%;
+  right: 0.75rem;
+  width: min(26rem, calc(100vw - 1.5rem));
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--sp-bg);
+  box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.sp-queue-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--sp-accent-dim);
+}
+
+.sp-queue-album {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.sp-queue .sp-tracks {
+  margin-bottom: 0;
+  max-height: none;
+}
+
 /* ── Responsive ────────────────────────────────────────── */
 
 /* Keep the dock inside the 4rem gutter the Header drawer already reserves —
@@ -402,5 +446,11 @@
 
   .sp-dock .sp-time {
     font-size: 0.65rem;
+  }
+
+  .sp-queue {
+    right: 0.5rem;
+    left: 0.5rem;
+    width: auto;
   }
 }
