@@ -81,10 +81,6 @@ const WebampRadio: React.FC<WebampRadioProps> = ({
         const mod = await import("webamp/butterchurn");
         const WebampClass = mod.default || mod;
 
-        const butterchurn = await import("butterchurn");
-        const presetsMod = await import("butterchurn-presets");
-        const presetMap = presetsMod.default || presetsMod;
-
         if (disposed) return;
 
         const skins = generateSkinsList();
@@ -126,16 +122,6 @@ const WebampRadio: React.FC<WebampRadioProps> = ({
             },
           },
           enableDoubleSizeMode: true,
-          __butterchurnOptions: {
-            importButterchurn: () => Promise.resolve(butterchurn),
-            getPresets: async () => {
-              return Object.keys(presetMap).map((name) => ({
-                name,
-                butterchurnPresetObject: presetMap[name],
-              }));
-            },
-            butterchurnOpen: true,
-          },
         });
 
         if (disposed) return;
