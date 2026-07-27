@@ -16,7 +16,7 @@ type SlashMode = 'command' | SearchCommand | null;
 
 const INSTANT_COMMANDS: Record<string, { label: string; path: string }> = {
   filmclub: { label: 'Film Club', path: '/film-club' },
-  radio:    { label: 'Radio',     path: '/radio' },
+  radio:    { label: 'Radio',     path: '/' },
   news:     { label: 'News',      path: '/news' },
   stickers: { label: 'Stickers',  path: '/stickers' },
   wiki:     { label: 'Wiki',      path: '/wiki' },

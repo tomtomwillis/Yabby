@@ -1,8 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 import Button from './Button';
 import { useMediaManager } from '../../utils/useMediaManager';
+import { useAdmin } from '../../utils/useAdmin';
 import './Header.css';
 import './TextAnimations.css';
+
+// Module-level cache — Header mounts on every page, avoid a count query per navigation
+const ISSUE_COUNT_TTL = 5 * 60 * 1000;
+let issueCountCache: { count: number; timestamp: number } | null = null;
+
+interface NavLink {
+  label: string;
+  href: string;
+  external?: true;
+  condition?: boolean;
+  badge?: number;
+}
+
+interface NavGroup {
+  name: string;
+  links: NavLink[];
+}
 
 interface HeaderProps {
   title: string;
@@ -12,22 +33,79 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title, subtitle, belowTitle }) => {
   const { isMediaManager } = useMediaManager();
+  const { isAdmin } = useAdmin();
+  const [issueCount, setIssueCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
+  const clearHideTimeout = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
   };
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
+  const scheduleHide = () => {
+    clearHideTimeout();
+    hideTimeoutRef.current = setTimeout(() => setActiveGroup(null), 2500);
   };
+
+  useEffect(() => () => clearHideTimeout(), []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (issueCountCache && Date.now() - issueCountCache.timestamp < ISSUE_COUNT_TTL) {
+      setIssueCount(issueCountCache.count);
+      return;
+    }
+    getCountFromServer(query(collection(db, 'issues'), where('status', '==', 'inprogress')))
+      .then((snap) => {
+        const count = snap.data().count;
+        issueCountCache = { count, timestamp: Date.now() };
+        setIssueCount(count);
+      })
+      .catch((error) => console.error('Error fetching issue count:', error));
+  }, [isAdmin]);
+
+  const navGroups: NavGroup[] = [
+    {
+      name: 'Music',
+      links: [
+        { label: 'listen', href: import.meta.env.VITE_NAVIDROME_SERVER_URL, external: true },
+        { label: 'upload', href: '/upload' },
+        { label: 'request', href: import.meta.env.VITE_SLSK_REQUEST_URL, external: true },
+        { label: 'radio', href: '/' },
+      ],
+    },
+    {
+      name: 'Social',
+      links: [
+        { label: 'message board', href: '/messageboard' },
+        { label: 'travel', href: '/travel' },
+        { label: 'lists', href: '/lists' },
+        { label: 'film club', href: '/film-club' },
+        { label: 'stickers', href: '/stickers' },
+      ],
+    },
+    {
+      name: 'Yabby',
+      links: [
+        { label: 'profile', href: '/profile' },
+        { label: 'news', href: '/news' },
+        { label: 'wiki', href: '/wiki' },
+        { label: 'issues', href: '/issues', badge: isAdmin ? issueCount : undefined },
+        { label: 'media management', href: '/media', condition: isMediaManager },
+      ],
+    },
+  ];
+
+  const toggleMobileMenu = () => setIsMobileMenuOpen(open => !open);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        closeMobileMenu();
-      }
+      if (e.key === 'Escape') closeMobileMenu();
     };
 
     if (isMobileMenuOpen) {
@@ -54,6 +132,9 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, belowTitle }) => {
     };
   }, [isMobileMenuOpen]);
 
+  const activeGroupLinks =
+    navGroups.find(g => g.name === activeGroup)?.links.filter(l => l.condition !== false) ?? [];
+
   return (
     <>
       <header className="header">
@@ -62,51 +143,46 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, belowTitle }) => {
         <span className="small-text animated-text float-subtle">{subtitle}</span>
 
         {/* Desktop Navigation */}
-        <nav className="desktop-nav">
-          <ul className="nav-links primary-links">
-            <li><a href="/" className="links">🏠 </a></li>
+        <nav className="desktop-nav" onMouseLeave={scheduleHide} onMouseEnter={clearHideTimeout}>
+          <ul className="nav-groups">
             <li>
-              <a
-                href={import.meta.env.VITE_NAVIDROME_SERVER_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="links"
-              >
-                listen
-              </a>
+              <Link to="/" className="links">🏠</Link>
             </li>
-            <li><a href="/upload" className="links">upload</a></li>
-            <li>
-              <a
-                href={import.meta.env.VITE_SLSK_REQUEST_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="links"
-              >
-                request
-              </a>
-            </li>
-            <li><a href="/messageboard" className="links">message&nbsp;board</a></li>
-            <li><a href="/lists" className="links">lists</a></li>
-            <li><a href="/profile" className="links">profile</a></li>
-            <li>
-              <button className="more-button" onClick={() => setIsMoreOpen(!isMoreOpen)}>
-                {isMoreOpen ? '−more' : '+more'}
-              </button>
-            </li>
+            {navGroups.map(group => (
+              <li key={group.name}>
+                <button
+                  className={`nav-group-btn links${activeGroup === group.name ? ' active' : ''}`}
+                  onMouseEnter={() => { clearHideTimeout(); setActiveGroup(group.name); }}
+                  onClick={() => setActiveGroup(prev => prev === group.name ? null : group.name)}
+                >
+                  {group.name.toLowerCase()}
+                </button>
+              </li>
+            ))}
           </ul>
 
-          {isMoreOpen && (
-            <ul className="nav-links more-links">
-              <li><a href="/news" className="links">news</a></li>
-              <li><a href="/wiki" className="links">wiki</a></li>
-              <li><a href="/stickers" className="links">stickers</a></li>
-              <li><a href="/radio" className="links">radio</a></li>
-              <li><a href="/film-club" className="links">film&nbsp;club</a></li>
-              <li><a href="/travel" className="links">travel</a></li>
-              {isMediaManager && (
-                <li><a href="/media" className="links">media&nbsp;management</a></li>
-              )}
+          {activeGroup && (
+            <ul className="nav-links group-links">
+              {activeGroupLinks.map(link => {
+                const className = `links${link.badge ? ' has-badge' : ''}`;
+                const content = (
+                  <>
+                    {link.label}
+                    {link.badge ? <span className="nav-badge">{link.badge}</span> : null}
+                  </>
+                );
+                return (
+                  <li key={link.href}>
+                    {link.external ? (
+                      <a href={link.href} className={className} target="_blank" rel="noopener noreferrer">
+                        {content}
+                      </a>
+                    ) : (
+                      <Link to={link.href} className={className}>{content}</Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </nav>
@@ -130,36 +206,41 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, belowTitle }) => {
 
       {/* Mobile Navigation Menu */}
       <div className={`mobile-nav ${isMobileMenuOpen ? 'active' : ''}`}>
-        <a href="/" onClick={closeMobileMenu}>Home</a>
-        <a
-          href={import.meta.env.VITE_NAVIDROME_SERVER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={closeMobileMenu}
-        >
-          Listen
-        </a>
-        <a href="/upload" onClick={closeMobileMenu}>Upload</a>
-        <a
-          href={import.meta.env.VITE_SLSK_REQUEST_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={closeMobileMenu}
-        >
-          Request
-        </a>
-        <a href="/messageboard" onClick={closeMobileMenu}>Message Board</a>
-        <a href="/lists" onClick={closeMobileMenu}>Lists</a>
-        <a href="/profile" onClick={closeMobileMenu}>Profile</a>
-        <a href="/news" onClick={closeMobileMenu}>News</a>
-        <a href="/wiki" onClick={closeMobileMenu}>Wiki</a>
-        <a href="/stickers" onClick={closeMobileMenu}>Stickers</a>
-        <a href="/radio" onClick={closeMobileMenu}>Radio</a>
-        <a href="/film-club" onClick={closeMobileMenu}>Film Club</a>
-        <a href="/travel" onClick={closeMobileMenu}>Travel</a>
-        {isMediaManager && (
-          <a href="/media" onClick={closeMobileMenu}>Media Management</a>
-        )}
+        <Link to="/" onClick={closeMobileMenu}>🏠 Home</Link>
+        {navGroups.map(group => (
+          <React.Fragment key={group.name}>
+            <span className="mobile-nav-group-header">{group.name}</span>
+            <div className="mobile-nav-sublinks">
+              {group.links
+                .filter(l => l.condition !== false)
+                .map(link => {
+                  const className = link.badge ? 'has-badge' : undefined;
+                  const content = (
+                    <>
+                      {link.label}
+                      {link.badge ? <span className="nav-badge">{link.badge}</span> : null}
+                    </>
+                  );
+                  return link.external ? (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      className={className}
+                      onClick={closeMobileMenu}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {content}
+                    </a>
+                  ) : (
+                    <Link key={link.href} to={link.href} className={className} onClick={closeMobileMenu}>
+                      {content}
+                    </Link>
+                  );
+                })}
+            </div>
+          </React.Fragment>
+        ))}
       </div>
     </>
   );

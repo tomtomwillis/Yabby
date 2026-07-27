@@ -4,6 +4,8 @@ const STATUS_URL = "https://radio.yabbyville.xyz/status-json.xsl";
 
 export const useRadioMetadata = () => {
   const [nowPlaying, setNowPlaying] = useState("");
+  const [artist, setArtist] = useState("");
+  const [title, setTitle] = useState("");
   const pollAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -25,6 +27,16 @@ export const useRadioMetadata = () => {
         if (typeof title === "string" && title.trim() !== "") {
           const decoded = new DOMParser().parseFromString(title.trim(), "text/html").documentElement.textContent ?? title.trim();
           setNowPlaying(decoded);
+          // Icecast reports "Artist - Title"; split on the first " - " only, so
+          // titles containing a dash keep it. No separator → artist blank, title raw.
+          const dash = decoded.indexOf(" - ");
+          if (dash !== -1) {
+            setArtist(decoded.slice(0, dash).trim());
+            setTitle(decoded.slice(dash + 3).trim());
+          } else {
+            setArtist("");
+            setTitle(decoded);
+          }
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") return;
@@ -47,5 +59,5 @@ export const useRadioMetadata = () => {
     };
   }, []);
 
-  return { nowPlaying };
+  return { nowPlaying, artist, title };
 };

@@ -192,27 +192,6 @@ body:has(.home-page) #root,
   align-items: center;
 }
 
-.panel--radio .webamp-radio-container.expanded {
-  height: 290px;
-  width: 275px;
-  margin: 0 auto;
-}
-
-.panel--radio .webamp-radio-now-playing {
-  margin-top: 0.6rem;
-  font-size: 0.8rem;
-  text-align: center;
-  width: 100%;
-  opacity: 0.85;
-}
-
-.panel--radio .webamp-radio-loading,
-.panel--radio .webamp-radio-error {
-  text-align: center;
-  padding: 0.25rem 0;
-  margin: 0;
-}
-
 /* Lists panel — narrow column, cards stack vertically. */
 .panel--lists .recent-lists-container {
   flex-direction: column;
@@ -467,11 +446,6 @@ body:has(.home-page) #root,
   display: none;
 }
 
-/* Radio: drop the "now playing" line on home — already shown in header subtitle. */
-.home-page .panel--radio .webamp-radio-now-playing {
-  display: none;
-}
-
 /* News post body fills the available panel space, then clamps with ellipsis.
    Show More opens a modal (RecentNews handles the trigger). */
 .home-page .panel--news .user-message {
@@ -571,12 +545,6 @@ body:has(.home-page) #root,
 
 .recent-news-modal-close:hover {
   color: var(--colour3);
-}
-
-/* Radio: trim margins around webamp + now-playing. */
-.home-page .panel--radio .webamp-radio-now-playing {
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
 }
 
 /* Place sticker form: tighter. */

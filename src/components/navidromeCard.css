@@ -1,0 +1,500 @@
+/* Album/artist hover cards for message-board tags. Track rows are borrowed from
+   stickerPlayer.css (.sp-track*) so playback UI looks the same everywhere; the
+   nc- prefixed classes here are the frame, the layout and the release grid. */
+
+/* The tag in the message text. Dotted underline marks it as opening a card
+   rather than navigating away like the plain links beside it. */
+.navidrome-tag {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.nc-card {
+  /* Same accent pair as the player — colour1 fails AA on white, colour2 clears it. */
+  --nc-accent: var(--colour2);
+  --nc-accent-dim: #5566c9;
+  --nc-bg: var(--colour4);
+  --nc-bg-alt: #eef1fb;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* Above .popup-overlay (1000) and the player dock (1002), below Lightbox (2000). */
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  /* Roomier at the bottom so a scrolling pane's scrollbar sits inside the
+     padding rather than over the ASCII edge. */
+  padding: 0.9rem 0.75rem 1.2rem;
+  background: var(--nc-bg);
+  border-left: 1px solid var(--nc-accent-dim);
+  border-right: 1px solid var(--nc-accent-dim);
+  color: var(--nc-accent);
+  font-family: var(--font2);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  /* Unpinned it trails the cursor: taking pointer events would let it swallow the
+     mouseleave and click on the tag that opened it. */
+  pointer-events: none;
+}
+
+.nc-card.is-pinned {
+  pointer-events: auto;
+}
+
+/* A hover card sits over the pinned one it is temporarily standing in for. */
+.nc-card:not(.is-pinned) {
+  z-index: 1600;
+}
+
+/* ── Floating "click to pin" hint ──────────────────────── */
+
+.nc-pin-hint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1700;
+  padding: 0.55rem 0.9rem;
+  background: var(--colour4);
+  border-left: 1px solid #5566c9;
+  border-right: 1px solid #5566c9;
+  color: var(--colour2);
+  font-family: var(--font2);
+  pointer-events: none;
+}
+
+.nc-pin-hint .nc-edge,
+.nc-pin-hint .nc-corner {
+  color: #5566c9;
+  font-size: 0.7rem;
+}
+
+.nc-pin-hint .nc-corner {
+  background: var(--colour4);
+}
+
+.nc-pin-hint-text {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* ── ASCII frame ───────────────────────────────────────── */
+
+/* Clipped rather than measured: the string is longer than any card width, so a
+   resized or dragged-wider frame still has edge left to draw. */
+.nc-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  color: var(--nc-accent-dim);
+  font-size: 0.8rem;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nc-edge-top {
+  top: 0;
+}
+
+.nc-edge-bottom {
+  bottom: 0;
+}
+
+/* Opaque, so each corner glyph covers the edge strip running underneath it. */
+.nc-corner {
+  position: absolute;
+  padding: 0 0.1rem;
+  background: var(--nc-bg);
+  color: var(--nc-accent-dim);
+  font-size: 0.8rem;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nc-corner-tl { top: 0; left: 0; }
+.nc-corner-tr { top: 0; right: 0; }
+.nc-corner-bl { bottom: 0; left: 0; }
+.nc-corner-br { bottom: 0; right: 0; }
+
+/* The bottom-right corner doubles as the resize grip once pinned. */
+.nc-resize {
+  border: none;
+  font-family: inherit;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.nc-resize:hover,
+.nc-resize:focus-visible {
+  color: var(--nc-accent);
+}
+
+/* ── Title bar ─────────────────────────────────────────── */
+
+.nc-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px dashed var(--nc-accent-dim);
+  /* Stops a drag from selecting the title text, and keeps touch drags from
+     scrolling the page instead of moving the card. */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.nc-bar-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.nc-btn {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.3rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--nc-accent-dim);
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.nc-btn:hover,
+.nc-btn:focus-visible {
+  color: var(--nc-accent);
+}
+
+.nc-close {
+  min-width: 44px;
+  min-height: 32px;
+}
+
+/* A scroll container even when nothing overflows, so a wheel anywhere over the
+   card stops here instead of chaining to the page once an inner pane hits its
+   limit. Every inner scroller contains its own overscroll for the same reason. */
+.nc-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── Album card: details left, tracks right ────────────── */
+
+.nc-album {
+  display: flex;
+  gap: 0.75rem;
+  height: 100%;
+}
+
+.nc-details {
+  display: flex;
+  flex: 0 0 8rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.nc-cover {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--nc-accent-dim);
+  border-radius: 0;
+  cursor: zoom-in;
+  line-height: 0;
+}
+
+.nc-cover img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.nc-title,
+.nc-artist {
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
+.nc-title {
+  color: var(--nc-accent);
+  font-weight: 700;
+}
+
+.nc-artist {
+  color: var(--nc-accent-dim);
+  font-size: 0.75rem;
+}
+
+a.nc-title:hover,
+a.nc-title:focus-visible,
+a.nc-artist:hover,
+a.nc-artist:focus-visible {
+  text-decoration: underline;
+}
+
+.nc-meta {
+  color: var(--nc-accent-dim);
+  font-size: 0.7rem;
+}
+
+.nc-pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* column-count comes from useTrackColumns, so the columns always divide the pane
+   evenly with none left empty. Dragging the card taller reflows them. */
+.nc-pane .nc-tracks {
+  height: 100%;
+  margin: 0;
+  max-height: none;
+  overflow: visible;
+  column-gap: 1rem;
+  column-rule: 1px dashed var(--nc-accent-dim);
+}
+
+.nc-tracks li {
+  break-inside: avoid;
+}
+
+/* ── Artist card ───────────────────────────────────────── */
+
+.nc-artist-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.nc-artist-head {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: 3.5rem 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 0.6rem;
+}
+
+.nc-artist-img {
+  grid-row: 1 / span 2;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 1px solid var(--nc-accent-dim);
+  object-fit: cover;
+}
+
+.nc-artist-head .nc-title {
+  align-self: end;
+  font-size: 0.95rem;
+}
+
+.nc-artist-head .nc-meta {
+  align-self: start;
+}
+
+.nc-releases {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  min-height: 0;
+  padding-right: 0.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Cover on top at full tile width, title under it — the artwork is what this card
+   is for, so two covers fill most of the window. Year and label move to the
+   accordion, which is the only place they are needed. */
+.nc-release {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: var(--nc-accent-dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nc-release:hover,
+.nc-release:focus-visible,
+.nc-release.is-open {
+  background: var(--nc-bg-alt);
+  border-color: var(--nc-accent-dim);
+  color: var(--nc-accent);
+}
+
+.nc-release img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.nc-release-name {
+  /* Two lines before ellipsing — release names are long and the tile is narrow. */
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.nc-accordion {
+  grid-column: 1 / -1;
+  padding: 0.4rem;
+  background: var(--nc-bg-alt);
+  border: 1px solid var(--nc-accent-dim);
+}
+
+.nc-accordion-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.nc-accordion-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nc-accordion-link {
+  flex: 0 0 auto;
+  color: var(--nc-accent-dim);
+  font-size: 0.65rem;
+}
+
+.nc-accordion-link:hover,
+.nc-accordion-link:focus-visible {
+  color: var(--nc-accent);
+}
+
+.nc-accordion-meta {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+
+/* Roughly the height of the release grid it expands into, so the panel scrolls
+   itself rather than pushing the grid into a long scroll. */
+/* Deliberately chains rather than contains: running out of track list should carry
+   on scrolling the release grid behind it. That grid contains its own overscroll,
+   so the chain still stops at the edge of the card. */
+.nc-accordion .sp-tracks {
+  margin-bottom: 0;
+  max-height: 11rem;
+}
+
+/* ── Bottom sheet on small screens ─────────────────────── */
+
+/* No hover to follow and no room to drag or resize, so the card becomes a sheet
+   above the player dock. Positioning is entirely CSS here — the JS placement,
+   drag and resize handlers all bail out below this width. */
+@media (max-width: 600px) {
+  .nc-card {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    /* Below the player dock (1002) rather than above it: a full-width sheet at
+       1500 would bury the transport controls with no way to reach them. */
+    z-index: 1001;
+    width: auto;
+    height: auto;
+    max-height: 72vh;
+    padding-bottom: calc(0.9rem + env(safe-area-inset-bottom));
+    border-left: none;
+    border-right: none;
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Keep the sheet's own content clear of the dock overlapping its bottom edge. */
+  body:has(.sp-dock) .nc-card {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  .nc-body {
+    overflow-y: auto;
+  }
+
+  /* Stack details above tracks — 9rem of cover plus a track column does not fit. */
+  .nc-album {
+    flex-direction: column;
+    gap: 0.5rem;
+    height: auto;
+  }
+
+  .nc-details {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: 4.5rem 1fr;
+    /* Four rows: title, artist, year, label. Fewer of them just leave rows empty;
+       without the explicit rows the last one wraps under the cover instead. */
+    grid-template-rows: repeat(4, auto);
+    align-content: start;
+    gap: 0 0.6rem;
+    overflow: visible;
+  }
+
+  .nc-details > :not(.nc-cover) {
+    grid-column: 2;
+  }
+
+  .nc-cover {
+    grid-row: 1 / span 4;
+    margin-bottom: 0;
+  }
+
+  /* The pane's height is its content here, so useTrackColumns measures room for
+     every track and settles on one column — the rule just has nothing to draw. */
+  .nc-pane,
+  .nc-pane .nc-tracks {
+    height: auto;
+    overflow: visible;
+    column-rule: none;
+  }
+
+  .nc-artist-body {
+    height: auto;
+  }
+
+  .nc-releases {
+    overflow-y: visible;
+  }
+}

@@ -1,122 +1,249 @@
-.radio-player {
-  width: 100%;
-  padding: 0.75rem 0;
-  box-sizing: border-box;
-}
+/* Terminal-styled native radio, replacing the old Webamp player. Shares the
+   sticker player's visual language (see stickerPlayer.css) but is standalone.
+   Classes prefixed rp- to avoid clashing with the sp- player. */
 
-/* Controls: play, mute, volume in a row */
-.radio-player-controls {
+.rp {
+  /* colour1 green fails AA on white; colour2 is the app accent and stands in
+     for terminal green, matching the sticker player's choice. */
+  --rp-accent: var(--colour2);
+  --rp-accent-dim: #5566c9;
+  --rp-bg: var(--colour4);
+  --rp-bg-alt: #eef1fb;
+
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  font-family: var(--font2);
 }
 
-/* Shared button style */
-.radio-player-play,
-.radio-player-mute {
-  background-color: var(--colour2);
-  color: var(--colour4);
-  border: none;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  font-family: var(--font2);
-  font-size: 0.85rem;
+/* ── Player frame ──────────────────────────────────────── */
+
+.rp-frame {
+  padding: 0.15rem 0.6rem;
+  background: var(--rp-bg);
+  border: 1px solid var(--rp-accent-dim);
+  color: var(--rp-accent);
+}
+
+.rp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0;
+}
+
+.rp-brand {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--rp-accent);
+}
+
+.rp-vol-label {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  color: var(--rp-accent-dim);
+}
+
+.rp-nowplaying {
+  padding: 0.3rem 0;
+  overflow: hidden;
+  font-size: 0.8rem;
+  color: var(--rp-accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Buttons ───────────────────────────────────────────── */
+
+.rp-btn {
+  flex: 0 0 auto;
+  min-width: 40px;
+  min-height: 32px;
+  padding: 0 0.5rem;
+  background: var(--rp-bg-alt);
+  color: var(--rp-accent);
+  border: 1px solid var(--rp-accent-dim);
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-height: 44px;
+}
+
+.rp-btn:hover,
+.rp-btn:focus-visible {
+  border-color: var(--rp-accent);
+}
+
+.rp-play {
   min-width: 44px;
 }
 
-.radio-player-play:hover,
-.radio-player-mute:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+/* ── Wave borders ──────────────────────────────────────── */
+
+.rp-wave {
+  display: flex;
+  overflow: hidden;
+  height: 1em;
+  color: var(--rp-accent-dim);
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
-.radio-player-mute {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8rem;
+.rp-wave-ch {
+  flex: 0 0 auto;
 }
 
-/* Volume slider */
-.radio-player-volume {
-  flex: 1;
-  max-width: 140px;
-  height: 18px;
-  -webkit-appearance: none;
+/* Each char is phase-shifted by its index, so the row reads as a travelling
+   wave. Only runs while the stream is playing. */
+.rp-is-playing .rp-wave-ch {
+  animation: rp-wave 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.06s);
+}
+
+@keyframes rp-wave {
+  0%, 100% { transform: translateY(-1.5px); }
+  50%      { transform: translateY(1.5px); }
+}
+
+/* ── Volume block bar ──────────────────────────────────── */
+
+/* An invisible range input sits on top of the glyph string, so drag, touch and
+   keyboard work for free — same trick as the sticker player's sp-blocks. */
+.rp-blocks {
+  position: relative;
+  flex: 1 1 5rem;
+  min-width: 4rem;
+  max-width: 11rem;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.rp-blocks-glyphs {
+  display: flex;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--rp-accent-dim);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rp-blocks-fill {
+  color: var(--rp-accent);
+}
+
+.rp-blocks:focus-within .rp-blocks-glyphs {
+  outline: 1px dotted var(--rp-accent);
+  outline-offset: 2px;
+}
+
+.rp-range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   appearance: none;
+  -webkit-appearance: none;
   background: transparent;
   cursor: pointer;
-  outline: none;
 }
 
-/* WebKit track */
-.radio-player-volume::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    #00f5ff 0%,
-    #9bffb8 40%,
-    #ffd86b 70%,
-    #ff6b6b 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* WebKit thumb */
-.radio-player-volume::-webkit-slider-thumb {
+.rp-range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  margin-top: -5px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  border: 2px solid rgba(255, 255, 255, 0.9);
+  width: 1px;
+  height: 100%;
+  opacity: 0;
 }
 
-/* Firefox track */
-.radio-player-volume::-moz-range-track {
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    #00f5ff 0%,
-    #9bffb8 40%,
-    #ffd86b 70%,
-    #ff6b6b 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.rp-range::-moz-range-thumb {
+  width: 1px;
+  height: 100%;
+  border: none;
+  opacity: 0;
 }
 
-/* Firefox thumb */
-.radio-player-volume::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+/* ── Visualiser (docked) ───────────────────────────────── */
+
+.rp-viz {
+  position: relative;
+  width: 100%;
 }
 
-/* Very small screens: tighten up but keep touch targets */
-@media (max-width: 480px) {
-  .radio-player-controls {
-    gap: 0.5rem;
+.rp-viz-dock {
+  width: 100%;
+  height: 150px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--rp-accent-dim);
+}
+
+/* While fullscreen the canvas lives in the fixed layer, so the docked box would
+   otherwise sit here as an opaque black rectangle over the effect. The home
+   panels are transparent, so clearing its background lets the fullscreen
+   visualiser (z-index -2) show through the box instead. */
+.rp-viz--fs .rp-viz-dock {
+  background: transparent;
+  border-color: transparent;
+}
+
+.rp-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Appears on hover in the bottom-right corner of the docked visualiser. */
+.rp-viz-fs {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  padding: 0.2rem 0.45rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--colour4);
+  border: 1px solid var(--rp-accent);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.rp-viz:hover .rp-viz-fs,
+.rp-viz-fs:focus-visible {
+  opacity: 1;
+}
+
+/* ── Visualiser (fullscreen, behind everything) ────────── */
+
+/* Fills the viewport behind all page content AND the star (which sits at
+   z-index -1), per the design. pointer-events: none keeps the page usable;
+   Esc returns the canvas to the docked box. Transparent/opacity:0 when idle
+   so no full-screen layer paints while the canvas lives in the dock. */
+.rp-viz-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.rp-viz-fullscreen.is-active {
+  opacity: 1;
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .rp-viz-dock {
+    height: 120px;
   }
 
-  .radio-player-play,
-  .radio-player-mute {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  .radio-player-volume {
-    max-width: 100px;
-    min-height: 44px;
+  .rp-brand {
+    font-size: 0.72rem;
   }
 }

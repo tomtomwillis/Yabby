@@ -31,6 +31,7 @@ npm run preview    # Preview production build locally
 
 Verify changes with `npm run build` to catch TypeScript errors.
 
+
 ## Architecture
 
 **Yabbyville** is a private music community SPA using Firebase Auth (email/password) and Firestore. Root url is yabbyville.xyz
@@ -101,12 +102,13 @@ Free tier (50k reads/day) — minimising reads is critical:
 
 - All authorization enforced server-side via Firestore security rules, not client-side UI checks
 - Client-side `useAdmin` hook is UI-only; always validate permissions on read/write operations
+- After editing `firestore.rules`, deploy then run the affected `/test` suites — they assert both the allowed and the denied paths
 
 ### External Integrations
 
 - **Navidrome**: Music library via Subsonic API
 - **Copyparty**: File upload server
-- **SLSK**: Soulseek request integration
+- **SLSKD**: Soulseek request integration
 - **Beets**: Music library management via WebSocket terminal on host
 - **Umami**: Analytics (page views, custom events via `window.umami?.track()`) — suggest adding tracking when implementing features that don't have it
 
@@ -199,3 +201,31 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+## Test Page (`/test`)
+
+Live end-to-end checks against a real Firestore, not unit tests. Files: `src/pages/Test.tsx` (page), `testSuites.ts` (suites), `testChecks.ts` (status row), `Test.css`.
+
+The page has four parts:
+
+1. **Status row** — runs on page load. Signed-in user, profile doc, Firestore read, message board query, lists composite index, Navidrome, backend API, and whether the sandbox rules are deployed. Answers "is the site working" without running anything.
+2. **Test suites** — Message board, Lists, Stickers (full read/write/delete cycles) and Travel (read only). Each suite also checks the rules *reject* bad writes: foreign `userId`, protected fields, invalid shapes.
+3. **Sandbox message board** — a real `MessageBoard` on `testMessages` for clicking through the UI by hand.
+4. **Component gallery** — carousels, buttons, text boxes, `UserMessage` variants.
+
+### Sandboxing
+
+Writes go to `testMessages`, `testLists`, `testStickers`. No other page reads these, so nothing a test creates appears on the live board, lists, sticker grid or map. Reads point at the live collections, since only real data proves the shapes and indexes are right.
+
+Each pair (`messages`/`testMessages`, `lists`/`testLists`, `stickers`/`testStickers`) **shares one rules block** via a wildcard match guarded by `isBoardCollection` / `isListCollection` / `isStickerCollection`. The sandbox therefore cannot drift from production, and a passing suite proves the real rules work.
+
+**Every `allow` inside those wildcard blocks must start with its guard.** Without it the block grants access on every collection in the database. `allow ...: if false` lines are exempt (they grant nothing).
+
+Test docs are tagged `[yabby-test]` and registered with `ctx.cleanup`, which the runner drains after each suite even when a test throws.
+
+### Using it
+
+After changing anything that reads or writes Firestore, run the affected suite and report whether it passed. Adding a feature with new collections means adding a suite, including the rejection cases. Claude runs the page through Playwright MCP signed in as the test user in `.env.local`.
+
+Rules changes need `firebase deploy --only firestore:rules,firestore:indexes` before the suite reflects them. The status row flags when this has not been done.
+
+Not covered: adding travel pins (backend has no sandbox), image uploads (backend cannot delete images), the map itself, media manager, beets, radio, film club, cinema.

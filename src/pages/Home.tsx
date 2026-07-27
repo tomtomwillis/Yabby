@@ -9,10 +9,9 @@ import CarouselAlbums from '../components/CarouselAlbums';
 import CarouselStickers, { type CarouselStickersHandle } from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
 import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
-import WebampRadio from '../components/WebampRadio';
+import RadioPlayer from '../components/RadioPlayer';
 import RecentLists from '../components/RecentLists';
 import RecentNews from '../components/RecentNews';
-import { useRadioMetadata } from '../utils/useRadioMetadata';
 import AsciiMan from '../components/AsciiMan';
 import AsciiTitle from '../components/basic/AsciiTitle';
 import Weather from '../components/weather-app';
@@ -73,7 +72,6 @@ const SUBTITLES = [
 
 function App() {
   const [subtitle, setSubtitle] = useState('');
-  const radioContainerRef = useRef<HTMLDivElement>(null);
   const stickersRef = useRef<CarouselStickersHandle>(null);
   const [editMode, setEditMode] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<HTMLElement | null>(null);
@@ -105,11 +103,6 @@ function App() {
     stickersRef.current?.refetch();
   };
 
-  const { nowPlaying } = useRadioMetadata();
-  const [webampLoading, setWebampLoading] = useState(false);
-  const [webampError, setWebampError] = useState<string | null>(null);
-  const [pageContentLoaded, setPageContentLoaded] = useState(false);
-
   useEffect(() => {
     setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
   }, []);
@@ -119,14 +112,6 @@ function App() {
       setSubtitle('Fresh News!');
     }
   };
-
-  // Defer Webamp init until the rest of the page has had a chance to render.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPageContentLoaded(true);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, []);
 
   return (
     <div className="app-container home-page" onClick={onCanvasClick}>
@@ -198,35 +183,8 @@ function App() {
 
             <div className="home-subcol home-subcol--outer">
               <fieldset className="panel panel--radio" onClick={onPanelClick}>
-                <legend>
-                  <Link to="/radio">[ on the radio → ]</Link>
-                </legend>
-
-                {webampError && (
-                  <p className="webamp-radio-error">{webampError}</p>
-                )}
-                {webampLoading && (
-                  <p className="webamp-radio-loading">tuning in...</p>
-                )}
-
-                <div
-                  ref={radioContainerRef}
-                  className="webamp-radio-container expanded"
-                />
-
-                {pageContentLoaded && (
-                  <WebampRadio
-                    containerRef={radioContainerRef}
-                    onLoadingChange={setWebampLoading}
-                    onErrorChange={setWebampError}
-                  />
-                )}
-
-                {nowPlaying && (
-                  <div className="webamp-radio-now-playing">
-                    ♪ now playing: {nowPlaying}
-                  </div>
-                )}
+                <legend>[ on the radio ]</legend>
+                <RadioPlayer />
               </fieldset>
 
               <fieldset className="panel panel--stats" onClick={onPanelClick}>

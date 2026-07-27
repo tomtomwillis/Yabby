@@ -55,34 +55,79 @@
     text-decoration: underline;
 }
 
-/* Primary nav row — single line, no wrap. */
-.primary-links {
-    flex-wrap: nowrap;
-    white-space: nowrap;
+/* Nav group header row */
+.nav-groups {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem 2rem;
 }
 
-/* +more button — styled to match nav links */
-.more-button {
+.nav-groups li {
+    display: inline;
+}
+
+/* Group header buttons */
+.nav-group-btn {
     background: none;
     border: none;
     padding: 0;
     cursor: pointer;
     font-family: var(--font2);
     font-size: var(--link-font-size);
-    font-weight: 500;
     color: var(--colour1);
-    text-decoration: none;
     transition: color 0.3s ease;
 }
 
-.more-button:hover {
+.nav-group-btn::after {
+    content: ' ▾';
+    font-size: 0.8em;
+}
+
+.nav-group-btn:hover,
+.nav-group-btn.active {
     color: var(--colour2);
     text-decoration: underline;
 }
 
-/* Expanded "more" links row */
-.more-links {
+/* Revealed group links row */
+.group-links {
     margin-top: 0.75rem;
+}
+
+/* Notification badge on nav links (e.g. in-progress issues for admins) */
+.has-badge {
+    position: relative;
+}
+
+.nav-badge {
+    position: absolute;
+    top: -0.7em;
+    right: -1.1em;
+    min-width: 1.4em;
+    height: 1.4em;
+    padding: 0 0.3em;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background-color: var(--colour3);
+    color: var(--colour4);
+    font-family: var(--font2);
+    font-size: 0.6em;
+    line-height: 1;
+    text-decoration: none;
+}
+
+/* Mobile nav links are full-width rows — keep the badge next to the label */
+.mobile-nav .nav-badge {
+    position: static;
+    margin-left: 0.5em;
 }
 
 /* Horizontal rule styling */
@@ -104,7 +149,7 @@
     height: 100dvh;
     width: 300px;
     max-width: 80vw;
-    padding: 2rem 2rem calc(4rem + env(safe-area-inset-bottom)) 2rem;
+    padding: 2rem 2rem calc(4rem + env(safe-area-inset-bottom)) 0;
     box-sizing: border-box;
     background-color: var(--colour4);
     box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2);
@@ -166,6 +211,31 @@
 .mobile-nav-overlay.active {
     opacity: 1;
     visibility: visible;
+}
+
+/* Mobile nav group headers */
+.mobile-nav-group-header {
+    display: block;
+    font-family: var(--font2);
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    color: var(--colour6);
+    padding: 1.25rem 0 0.4rem;
+    margin: 0;
+    font-weight: bold;
+    border-bottom: 1px solid black;
+}
+
+.mobile-nav > a {
+    padding-left: 1rem;
+}
+
+/* Mobile nav sub-links — indent the container so <a> padding isn't fought over */
+.mobile-nav-sublinks {
+    padding-left: 1.5rem;
+}
+
+.mobile-nav-sublinks a:last-child {
+    border-bottom: none;
 }
 
 /* Hide the burger menu on larger screens */

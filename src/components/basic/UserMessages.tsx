@@ -8,6 +8,9 @@ import ForumBox from './ForumMessageBox';
 import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import Lightbox from './Lightbox';
+import PollBlock from './PollBlock';
+import NavidromeTagLink from './NavidromeTagLink';
+import { parseNavidromeLink } from '../../utils/navidrome';
 
 interface Reaction {
   userId: string;
@@ -99,6 +102,15 @@ export const parseMessageHTML = (htmlString: string): React.ReactNode => {
           const href = attribs?.href;
           if (!href || !isValidUrl(href)) {
             return <span>{domToReact(children as DOMNode[], options)}</span>;
+          }
+          // @-tagged albums and artists get a hover card instead of a bare link.
+          const navidromeTarget = parseNavidromeLink(href);
+          if (navidromeTarget) {
+            return (
+              <NavidromeTagLink target={navidromeTarget} href={href}>
+                {domToReact(children as DOMNode[], options)}
+              </NavidromeTagLink>
+            );
           }
           return (
             <a

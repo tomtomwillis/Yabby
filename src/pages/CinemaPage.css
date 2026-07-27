@@ -1,0 +1,234 @@
+/* ---------------------------------------------------------------------------
+   Yabbyville Cinema — pure black backdrop, animated velvet curtains.
+   The global Star (z-index -1) shines through on top of the black layer below.
+--------------------------------------------------------------------------- */
+
+/* Fixed black layer behind the global Star so the orange star sits on black. */
+.cinema-blackout {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.cinema-stage {
+  position: relative;
+  padding: 0.5rem 1rem 0;
+  color: #e9d8a8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ---- the screen / player frame ----
+   Width capped by viewport width AND by available viewport height after the
+   tall header (~300px), root padding, divider, plate, and ~10% breathing
+   room at the bottom. Use dvh so mobile browser chrome is handled. */
+.cinema-frame {
+  position: relative;
+  width: min(94vw, 1600px, calc((100dvh - 580px) * 16 / 9));
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+}
+
+.cinema-screen {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  border-radius: 6px;
+  padding: 12px;
+  background-image:
+    linear-gradient(135deg, #d4af37 0%, #8b6f1f 35%, #f5d97a 50%, #8b6f1f 65%, #4a3a10 100%);
+  box-shadow:
+    0 0 0 2px #1a0f00,
+    0 0 40px rgba(0, 0, 0, 0.9),
+    0 18px 50px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(255, 230, 150, 0.4);
+  filter: saturate(0.95);
+  transition: box-shadow 0.6s ease;
+}
+
+.cinema-screen--live {
+  box-shadow:
+    0 0 0 2px #1a0f00,
+    0 0 60px rgba(241, 199, 90, 0.35),
+    0 18px 50px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(255, 230, 150, 0.6);
+}
+
+.cinema-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #000;
+  border-radius: 2px;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.9);
+}
+
+/* ---- velvet curtains.
+   Two-state behaviour driven by width + anchor, not transform:
+     CLOSED — each curtain is 100% of frame wide, anchored at frame center,
+              solid mask covers half the player.
+     OPEN   — each curtain shrinks to a narrow flank (25%) anchored just
+              outside the frame edge, fading quickly into the void.
+   Inset top/bottom by the screen's gold padding so the gold edge stays visible. */
+.cinema-curtain {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  width: 100%;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    90deg,
+    #3a070d 0%,
+    #8a1020 8%,
+    #4d0913 16%,
+    #9c1426 24%,
+    #4d0913 32%,
+    #8a1020 40%,
+    #5a0a16 48%,
+    #9c1426 56%,
+    #4d0913 64%,
+    #8a1020 72%,
+    #4d0913 80%,
+    #9c1426 88%,
+    #3a070d 100%
+  );
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.7));
+}
+
+.cinema-curtain--anim {
+  transition: width 0.7s cubic-bezier(0.65, 0, 0.35, 1),
+              right 0.7s cubic-bezier(0.65, 0, 0.35, 1),
+              left 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Mask: fade transparent on the outer (away-from-player) edge, solid on the
+   inner edge. The fade is short so when the curtain shrinks open, the flanking
+   strip blends into the black almost immediately past the player. */
+.cinema-curtain--left {
+  right: 50%;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 30%, #000 100%);
+          mask-image: linear-gradient(to right, transparent 0%, #000 30%, #000 100%);
+}
+
+.cinema-curtain--right {
+  left: 50%;
+  -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 30%, #000 100%);
+          mask-image: linear-gradient(to left, transparent 0%, #000 30%, #000 100%);
+}
+
+/* Open: shrink to a flank and slide the inner edge to the frame edge. */
+.cinema-curtain--left.cinema-curtain--open {
+  right: 100%;
+  width: 25%;
+}
+.cinema-curtain--right.cinema-curtain--open {
+  left: 100%;
+  width: 25%;
+}
+
+/* ---- tap-to-play overlay (autoplay was blocked) ---- */
+.cinema-play-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 50px;
+  transform: translateX(-50%);
+  padding: 0.6rem 1.2rem;
+  background: rgba(0, 0, 0, 0.75);
+  color: #f1c75a;
+  border: 1px solid rgba(241, 199, 90, 0.6);
+  border-radius: 999px;
+  font-family: var(--font2), monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.cinema-play-prompt:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+/* ---- ASCII divider between screen and plate ---- */
+.cinema-divider {
+  font-family: var(--font2), monospace;
+  color: rgba(241, 199, 90, 0.55);
+  letter-spacing: 0.4em;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+/* ---- now-showing plate — ASCII bracket framing, no pill background ---- */
+.cinema-plate {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  justify-content: center;
+  padding: 0.3rem 0;
+}
+
+.cinema-plate__bracket {
+  font-family: var(--font2), monospace;
+  font-size: 1.5rem;
+  color: rgba(241, 199, 90, 0.7);
+  font-weight: 300;
+}
+
+.cinema-plate__text {
+  font-family: var(--font2), monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.28em;
+  color: #f1c75a;
+  text-shadow: 0 0 6px rgba(241, 199, 90, 0.4);
+}
+
+.cinema-plate__bulb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff5c8 0%, #f1c75a 40%, #8b6f1f 100%);
+  box-shadow: 0 0 8px rgba(241, 199, 90, 0.7);
+  animation: cinema-bulb 2.4s ease-in-out infinite;
+}
+
+.cinema-plate__bulb:nth-of-type(2) {
+  animation-delay: 1.2s;
+}
+
+@keyframes cinema-bulb {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(241, 199, 90, 0.7); }
+  50%      { opacity: 0.55; box-shadow: 0 0 3px rgba(241, 199, 90, 0.3); }
+}
+
+/* ---- mobile tweaks ---- */
+@media (max-width: 640px) {
+  .cinema-stage {
+    padding: 0.5rem 0.25rem 0;
+    gap: 0.75rem;
+  }
+  .cinema-frame {
+    width: min(96vw, calc((100dvh - 380px) * 16 / 9));
+  }
+  .cinema-screen {
+    padding: 6px;
+  }
+  .cinema-curtain {
+    top: 6px;
+    bottom: 6px;
+  }
+  .cinema-divider {
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+  }
+  .cinema-plate__text {
+    font-size: 0.8rem;
+    letter-spacing: 0.22em;
+  }
+  .cinema-plate__bracket {
+    font-size: 1.2rem;
+  }
+}

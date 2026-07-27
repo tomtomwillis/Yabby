@@ -1,0 +1,23 @@
+/* Profile.css */
+
+.flag-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--colour5);
+  font-family: var(--font2);
+  font-size: 0.9em;
+  transition: background-color 0.15s ease;
+}
+
+.flag-dropdown-option:hover:not(.selected) {
+  background-color: rgba(0, 0, 255, 0.08);
+}
+
+.flag-dropdown-option.selected {
+  background-color: var(--colour2);
+  color: var(--colour4);
+}

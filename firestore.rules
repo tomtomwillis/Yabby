@@ -40,6 +40,95 @@ service cloud.firestore {
         && text.size() <= 10000;
     }
 
+    // Reaction toggle on a parent doc's reactedBy array: the caller may only
+    // add or remove their own uid, and reactionCount must move by the matching
+    // ±1. Count uses increment semantics (not array size) so legacy docs whose
+    // reactionCount predates the reactedBy array can still be toggled.
+    function isValidReactionToggle(before, after, oldCount, newCount) {
+      let added = after.difference(before);
+      let removed = before.difference(after);
+      return (added == [request.auth.uid].toSet() && removed.size() == 0 && newCount == oldCount + 1)
+        || (removed == [request.auth.uid].toSet() && added.size() == 0 && newCount == oldCount - 1);
+    }
+
+    // reactedBy/reactionCount may be present at creation only as empty/zero
+    function hasNoPriorReactions(data) {
+      return (!('reactedBy' in data) || data.reactedBy == [])
+        && (!('reactionCount' in data) || data.reactionCount == 0);
+    }
+
+    // Poll options: 2-6 plain-text labels, 1-100 chars each. Rules have no
+    // loops, so each index is checked explicitly up to the size cap.
+    function isValidPollOptions(options) {
+      return options is list
+        && options.size() >= 2 && options.size() <= 6
+        && validString(options[0], 1, 100)
+        && validString(options[1], 1, 100)
+        && (options.size() < 3 || validString(options[2], 1, 100))
+        && (options.size() < 4 || validString(options[3], 1, 100))
+        && (options.size() < 5 || validString(options[4], 1, 100))
+        && (options.size() < 6 || validString(options[5], 1, 100));
+    }
+
+    // A poll may only be created with a valid question/options/mode and no
+    // votes yet (mirrors hasNoPriorReactions).
+    function isValidPollCreate(data) {
+      return (!('pollQuestion' in data) && !('pollOptions' in data) && !('pollMultiple' in data))
+        || (
+          validString(data.pollQuestion, 1, 300)
+          && data.pollMultiple is bool
+          && isValidPollOptions(data.pollOptions)
+          && (!('pollVotes' in data) || data.pollVotes == {})
+        );
+    }
+
+    // A voter may only replace their own option-index selection in pollVotes.
+    // `before`/`after` are the caller's own array (before/after the write);
+    // indices are unrolled the same way as isValidPollOptions since rules
+    // have no loop construct.
+    function isValidPollVote(before, after, optionCount, multiple) {
+      return after is list
+        && before != after
+        && after.size() == after.toSet().size()
+        && after.size() <= (multiple ? optionCount : 1)
+        && (after.size() < 1 || (after[0] is int && after[0] >= 0 && after[0] < optionCount))
+        && (after.size() < 2 || (after[1] is int && after[1] >= 0 && after[1] < optionCount))
+        && (after.size() < 3 || (after[2] is int && after[2] >= 0 && after[2] < optionCount))
+        && (after.size() < 4 || (after[3] is int && after[3] >= 0 && after[3] < optionCount))
+        && (after.size() < 5 || (after[4] is int && after[4] >= 0 && after[4] < optionCount))
+        && (after.size() < 6 || (after[5] is int && after[5] >= 0 && after[5] < optionCount));
+    }
+
+    // Denormalised username on a created doc must match the author's profile,
+    // so users can't post under someone else's name. Admins are exempt
+    // (Film Club Bot announcements post with a bot identity).
+    function usernameMatchesProfile(username) {
+      return username == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
+        || isAdmin();
+    }
+
+    function isValidListItem(data) {
+      return data.keys().hasOnly([
+          'type', 'userText', 'order', 'timestamp',
+          'addedByUserId', 'addedByUsername', 'addedByAvatar',
+          'albumId', 'albumTitle', 'albumArtist', 'albumCover',
+          'title', 'imageUrl', 'linkUrl'
+        ])
+        && data.type in ['album', 'custom']
+        && data.userText is string && data.userText.size() <= 2000
+        && data.order is number
+        && (!('albumId' in data) || validString(data.albumId, 1, 100))
+        && (!('albumTitle' in data) || validString(data.albumTitle, 0, 300))
+        && (!('albumArtist' in data) || validString(data.albumArtist, 0, 300))
+        && (!('albumCover' in data) || validString(data.albumCover, 0, 1000))
+        && (!('title' in data) || validString(data.title, 0, 300))
+        && (!('imageUrl' in data) || validString(data.imageUrl, 0, 1000))
+        && (!('linkUrl' in data) || validString(data.linkUrl, 0, 1000))
+        && (!('addedByUserId' in data) || validString(data.addedByUserId, 1, 128))
+        && (!('addedByUsername' in data) || validString(data.addedByUsername, 0, 50))
+        && (!('addedByAvatar' in data) || validString(data.addedByAvatar, 0, 200));
+    }
+
     function isValidNextFilm(film) {
       return film is map
         && film.tmdbId is int
@@ -49,6 +138,24 @@ service cloud.firestore {
         && film.overview is string && film.overview.size() <= 2000
         && film.pitch is string && film.pitch.size() <= 600
         && film.submittedByUsername is string && film.submittedByUsername.size() <= 50;
+    }
+
+    // Sandbox twins for the /test page.
+    //
+    // Each pair below shares one rule block so the test collections can never
+    // drift from the live ones. The blocks match on a wildcard collection name,
+    // so EVERY `allow` in them must start with its guard - without it the block
+    // would grant access on every collection in the database.
+    function isBoardCollection(c) {
+      return c in ['messages', 'testMessages'];
+    }
+
+    function isListCollection(c) {
+      return c in ['lists', 'testLists'];
+    }
+
+    function isStickerCollection(c) {
+      return c in ['stickers', 'testStickers'];
     }
 
     // Admin collection - managed via Firebase Console only
@@ -100,81 +207,106 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Messages - main forum
-    match /messages/{messageId} {
-      allow read: if isSignedIn();
+    // Messages - main forum, plus its /test sandbox twin
+    match /{board}/{messageId} {
+      allow read: if isBoardCollection(board) && isSignedIn();
 
-      allow create: if isSignedIn()
+      allow create: if isBoardCollection(board) && isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
-        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl'])
+        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
+        && hasNoPriorReactions(request.resource.data)
+        && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
+        && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
         && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
         && (!('posterUrl' in request.resource.data) || validString(request.resource.data.posterUrl, 0, 500));
 
-      allow update: if isOwner(resource.data.userId)
+      allow update: if isBoardCollection(board) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
         && isValidMessage(request.resource.data.text)
         && request.resource.data.editedAt == request.time;
 
-      allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'reactionCount', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time);
+      // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+      allow update: if isBoardCollection(board) && isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+        && isValidReactionToggle(
+          resource.data.get('reactedBy', []).toSet(),
+          request.resource.data.reactedBy.toSet(),
+          resource.data.get('reactionCount', 0),
+          request.resource.data.reactionCount
+        );
 
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      // Poll vote toggle: caller may only replace their own entry in pollVotes.
+      allow update: if isBoardCollection(board) && isSignedIn()
+        && 'pollOptions' in resource.data
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pollVotes'])
+        && request.resource.data.pollVotes.diff(resource.data.get('pollVotes', {})).affectedKeys().hasOnly([request.auth.uid])
+        && isValidPollVote(
+          resource.data.get('pollVotes', {}).get(request.auth.uid, []),
+          request.resource.data.pollVotes.get(request.auth.uid, []),
+          resource.data.pollOptions.size(),
+          resource.data.pollMultiple
+        );
 
+      // Reply-count bump on reply create/delete: ±1 only
+      allow update: if isBoardCollection(board) && isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+
+      allow delete: if isBoardCollection(board) && (isOwner(resource.data.userId) || isAdmin());
+
+      // Retired: reactions live on the parent doc's reactedBy array.
+      // Legacy subcollection kept readable during transition.
       match /reactions/{reactionId} {
-        allow read: if isSignedIn();
-
-        allow create: if isSignedIn()
-          && reactionId == request.auth.uid
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-          && validString(request.resource.data.username, 1, 50);
-
-        allow delete: if isSignedIn() && reactionId == request.auth.uid;
-        allow update: if false;
+        allow read: if isBoardCollection(board) && isSignedIn();
+        allow create, update, delete: if false;
       }
 
       match /replies/{replyId} {
-        allow read: if isSignedIn();
+        allow read: if isBoardCollection(board) && isSignedIn();
 
-        allow create: if isSignedIn()
+        allow create: if isBoardCollection(board) && isSignedIn()
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 10000
           && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId'])
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount'])
+          && hasNoPriorReactions(request.resource.data)
           && request.resource.data.timestamp == request.time
           && validString(request.resource.data.username, 1, 50)
+          && usernameMatchesProfile(request.resource.data.username)
           && validString(request.resource.data.avatar, 0, 200)
           && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
 
-        allow update: if isOwner(resource.data.userId)
+        allow update: if isBoardCollection(board) && isOwner(resource.data.userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
           && isValidMessage(request.resource.data.text)
           && request.resource.data.editedAt == request.time;
 
-        allow update: if isSignedIn()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCount']);
+        // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+        allow update: if isBoardCollection(board) && isSignedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+          && isValidReactionToggle(
+            resource.data.get('reactedBy', []).toSet(),
+            request.resource.data.reactedBy.toSet(),
+            resource.data.get('reactionCount', 0),
+            request.resource.data.reactionCount
+          );
 
-        allow delete: if isOwner(resource.data.userId) || isAdmin();
+        allow delete: if isBoardCollection(board) && (isOwner(resource.data.userId) || isAdmin());
 
+        // Retired: reactions live on the parent reply's reactedBy array.
         match /reactions/{reactionId} {
-          allow read: if isSignedIn();
-
-          allow create: if isSignedIn()
-            && reactionId == request.auth.uid
-            && request.resource.data.userId == request.auth.uid
-            && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-            && validString(request.resource.data.username, 1, 50);
-
-          allow delete: if isSignedIn() && reactionId == request.auth.uid;
-          allow update: if false;
+          allow read: if isBoardCollection(board) && isSignedIn();
+          allow create, update, delete: if false;
         }
       }
     }
@@ -188,10 +320,13 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
-        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl'])
+        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
+        && hasNoPriorReactions(request.resource.data)
+        && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
+        && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
         && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
         && (!('posterUrl' in request.resource.data) || validString(request.resource.data.posterUrl, 0, 500));
@@ -201,23 +336,43 @@ service cloud.firestore {
         && isValidMessage(request.resource.data.text)
         && request.resource.data.editedAt == request.time;
 
+      // Reaction toggle: own uid in/out of reactedBy, count kept in sync
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'reactionCount', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+        && isValidReactionToggle(
+          resource.data.get('reactedBy', []).toSet(),
+          request.resource.data.reactedBy.toSet(),
+          resource.data.get('reactionCount', 0),
+          request.resource.data.reactionCount
+        );
+
+      // Poll vote toggle: caller may only replace their own entry in pollVotes.
+      allow update: if isSignedIn()
+        && 'pollOptions' in resource.data
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pollVotes'])
+        && request.resource.data.pollVotes.diff(resource.data.get('pollVotes', {})).affectedKeys().hasOnly([request.auth.uid])
+        && isValidPollVote(
+          resource.data.get('pollVotes', {}).get(request.auth.uid, []),
+          request.resource.data.pollVotes.get(request.auth.uid, []),
+          resource.data.pollOptions.size(),
+          resource.data.pollMultiple
+        );
+
+      // Reply-count bump on reply create/delete: ±1 only
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
 
       allow delete: if isOwner(resource.data.userId) || isAdmin();
 
+      // Retired: reactions live on the parent doc's reactedBy array.
+      // Legacy subcollection kept readable during transition.
       match /reactions/{reactionId} {
         allow read: if isSignedIn();
-
-        allow create: if isSignedIn()
-          && reactionId == request.auth.uid
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-          && validString(request.resource.data.username, 1, 50);
-
-        allow delete: if isSignedIn() && reactionId == request.auth.uid;
-        allow update: if false;
+        allow create, update, delete: if false;
       }
 
       match /replies/{replyId} {
@@ -228,9 +383,11 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 10000
           && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
-          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId'])
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount'])
+          && hasNoPriorReactions(request.resource.data)
           && request.resource.data.timestamp == request.time
           && validString(request.resource.data.username, 1, 50)
+          && usernameMatchesProfile(request.resource.data.username)
           && validString(request.resource.data.avatar, 0, 200)
           && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
 
@@ -239,63 +396,157 @@ service cloud.firestore {
           && isValidMessage(request.resource.data.text)
           && request.resource.data.editedAt == request.time;
 
+        // Reaction toggle: own uid in/out of reactedBy, count kept in sync
         allow update: if isSignedIn()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCount']);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+          && isValidReactionToggle(
+            resource.data.get('reactedBy', []).toSet(),
+            request.resource.data.reactedBy.toSet(),
+            resource.data.get('reactionCount', 0),
+            request.resource.data.reactionCount
+          );
 
         allow delete: if isOwner(resource.data.userId) || isAdmin();
 
+        // Retired: reactions live on the parent reply's reactedBy array.
         match /reactions/{reactionId} {
           allow read: if isSignedIn();
-
-          allow create: if isSignedIn()
-            && reactionId == request.auth.uid
-            && request.resource.data.userId == request.auth.uid
-            && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-            && validString(request.resource.data.username, 1, 50);
-
-          allow delete: if isSignedIn() && reactionId == request.auth.uid;
-          allow update: if false;
+          allow create, update, delete: if false;
         }
       }
     }
 
-    // Lists - user-created music lists
-    match /lists/{listId} {
+    // Issues - bug/problem reports. Mirrors messages rules minus polls and
+    // posterUrl; adds a status field toggled by admins only.
+    match /issues/{issueId} {
       allow read: if isSignedIn();
 
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
-        && validString(request.resource.data.title, 1, 200)
-        && request.resource.data.timestamp == request.time;
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 10000
+        && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount', 'status'])
+        && request.resource.data.status == 'inprogress'
+        && hasNoPriorReactions(request.resource.data)
+        && request.resource.data.timestamp == request.time
+        && validString(request.resource.data.username, 1, 50)
+        && usernameMatchesProfile(request.resource.data.username)
+        && validString(request.resource.data.avatar, 0, 200)
+        && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
 
       allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+        && isValidMessage(request.resource.data.text)
+        && request.resource.data.editedAt == request.time;
+
+      // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+        && isValidReactionToggle(
+          resource.data.get('reactedBy', []).toSet(),
+          request.resource.data.reactedBy.toSet(),
+          resource.data.get('reactionCount', 0),
+          request.resource.data.reactionCount
+        );
+
+      // Reply-count bump on reply create/delete: ±1 only
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+
+      // Status toggle: admin only
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['inprogress', 'complete'];
+
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+
+      match /replies/{replyId} {
+        allow read: if isSignedIn();
+
+        allow create: if isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000
+          && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount'])
+          && hasNoPriorReactions(request.resource.data)
+          && request.resource.data.timestamp == request.time
+          && validString(request.resource.data.username, 1, 50)
+          && usernameMatchesProfile(request.resource.data.username)
+          && validString(request.resource.data.avatar, 0, 200)
+          && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
+
+        allow update: if isOwner(resource.data.userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+          && isValidMessage(request.resource.data.text)
+          && request.resource.data.editedAt == request.time;
+
+        // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+        allow update: if isSignedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+          && isValidReactionToggle(
+            resource.data.get('reactedBy', []).toSet(),
+            request.resource.data.reactedBy.toSet(),
+            resource.data.get('reactionCount', 0),
+            request.resource.data.reactionCount
+          );
+
+        allow delete: if isOwner(resource.data.userId) || isAdmin();
+      }
+    }
+
+    // Lists - user-created music lists, plus the /test sandbox twin.
+    // Private lists are readable only by their owner. Queries must constrain
+    // to isPublic == true or userId == auth.uid (rules are not filters).
+    match /{listCollection}/{listId} {
+      allow get: if isListCollection(listCollection) && isSignedIn()
+        && (resource.data.isPublic != false || resource.data.userId == request.auth.uid);
+
+      allow list: if isListCollection(listCollection) && isSignedIn()
+        && (resource.data.isPublic == true || resource.data.userId == request.auth.uid);
+
+      allow create: if isListCollection(listCollection) && isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
+        && validString(request.resource.data.title, 1, 200)
+        && usernameMatchesProfile(request.resource.data.username)
+        && request.resource.data.timestamp == request.time;
+
+      allow update: if isListCollection(listCollection) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200);
 
-      allow update: if isSignedIn()
+      allow update: if isListCollection(listCollection) && isSignedIn()
         && resource.data.isCollaborative == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200);
 
-      allow delete: if isOwner(resource.data.userId);
+      allow delete: if isListCollection(listCollection) && isOwner(resource.data.userId);
 
       match /items/{itemId} {
-        allow read: if isSignedIn();
+        // Items inherit the parent list's visibility (one billed read per request)
+        allow read: if isListCollection(listCollection) && isSignedIn()
+          && (get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isPublic != false
+            || get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.userId == request.auth.uid);
 
-        allow create, update: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid
-          && request.resource.data.type in ['album', 'custom'];
+        allow create, update: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.userId == request.auth.uid
+          && isValidListItem(request.resource.data);
 
-        allow delete: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.userId == request.auth.uid;
+        allow delete: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.userId == request.auth.uid;
 
-        allow create, update: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true
-          && request.resource.data.type in ['album', 'custom'];
+        allow create, update: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isCollaborative == true
+          && isValidListItem(request.resource.data);
 
-        allow delete: if isSignedIn()
-          && get(/databases/$(database)/documents/lists/$(listId)).data.isCollaborative == true;
+        allow delete: if isListCollection(listCollection) && isSignedIn()
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isCollaborative == true;
       }
     }
 
@@ -332,21 +583,30 @@ service cloud.firestore {
       }
     }
 
-    // Stickers
-    match /stickers/{stickerId} {
-      allow read: if isSignedIn();
+    // Stickers, plus the /test sandbox twin
+    match /{stickerCollection}/{stickerId} {
+      allow read: if isStickerCollection(stickerCollection) && isSignedIn();
 
-      allow create: if isSignedIn()
+      allow create: if isStickerCollection(stickerCollection) && isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['userId', 'albumId', 'text', 'position', 'sticker', 'timestamp', 'favoriteTrackId', 'favoriteTrackTitle'])
+        && request.resource.data.keys().hasOnly(['userId', 'albumId', 'text', 'position', 'sticker', 'timestamp', 'favoriteTrackId', 'favoriteTrackTitle', 'albumName', 'albumArtist'])
         && isValidMessage(request.resource.data.text)
+        && validString(request.resource.data.albumId, 1, 100)
+        && validString(request.resource.data.sticker, 1, 200)
+        && request.resource.data.position is map
+        && request.resource.data.position.x is number
+        && request.resource.data.position.y is number
+        && (!('favoriteTrackId' in request.resource.data) || validString(request.resource.data.favoriteTrackId, 0, 100))
+        && (!('favoriteTrackTitle' in request.resource.data) || validString(request.resource.data.favoriteTrackTitle, 0, 300))
+        && (!('albumName' in request.resource.data) || validString(request.resource.data.albumName, 0, 300))
+        && (!('albumArtist' in request.resource.data) || validString(request.resource.data.albumArtist, 0, 300))
         && request.resource.data.timestamp == request.time;
 
-      allow update: if isOwner(resource.data.userId)
+      allow update: if isStickerCollection(stickerCollection) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
         && isValidMessage(request.resource.data.text);
 
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isStickerCollection(stickerCollection) && (isOwner(resource.data.userId) || isAdmin());
     }
 
     // Film Club collection
@@ -438,6 +698,17 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 100000
         && request.resource.data.updatedBy == request.auth.uid;
+    }
+    
+    // Cinema state — admin-set next showing time, read by all signed-in users.
+    match /cinema/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['nextShowingAt'])
+        && request.resource.data.nextShowingAt is string;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextShowingAt']);
+      allow delete: if isAdmin();
     }
 
     // Deny all other access by default
