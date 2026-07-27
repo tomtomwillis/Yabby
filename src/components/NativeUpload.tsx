@@ -54,6 +54,10 @@ const ALLOWED_EXTENSIONS = new Set([
   '.mp3', '.flac', '.wav', '.ogg', '.opus', '.m4a', '.aac', '.wv', '.ape', '.aiff',
   '.jpg', '.jpeg', '.png',
 ]);
+// Without this the OS picker greys out audio files it doesn't consider
+// "documents"; listing the extensions explicitly makes every accepted type
+// selectable.
+const ACCEPT_ATTRIBUTE = [...ALLOWED_EXTENSIONS].join(',');
 const CHUNK_SIZE = 64 * 1024;
 const MAX_CONCURRENT = 3;
 
@@ -109,13 +113,40 @@ async function computeSha256Chunked(file: File): Promise<string> {
     .join('');
 }
 
-function fileRelativePath(file: File, isDirectory: boolean): string {
+interface PickedFile {
+  file: File;
+  relativePath: string;
+}
+
+function fileRelativePath(file: File): string {
   const webkit = (file as unknown as { webkitRelativePath?: string }).webkitRelativePath;
-  if (webkit) return webkit;
-  if (isDirectory && file.name) {
-    return file.name;
+  return webkit || file.name;
+}
+
+// A dropped folder shows up in dataTransfer.files as a single entry with no
+// contents, so the FileSystemEntry tree has to be walked to reach the tracks
+// inside it and to keep each file's path relative to its album folder.
+async function collectEntry(entry: FileSystemEntry, prefix: string, out: PickedFile[]): Promise<void> {
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve, reject) =>
+      (entry as FileSystemFileEntry).file(resolve, reject)
+    );
+    out.push({ file, relativePath: prefix ? `${prefix}/${file.name}` : file.name });
+    return;
   }
-  return file.name;
+  if (!entry.isDirectory) return;
+
+  const dirPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+  const reader = (entry as FileSystemDirectoryEntry).createReader();
+  // readEntries hands back at most 100 children per call and signals the end
+  // of the directory with an empty batch.
+  for (;;) {
+    const batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+      reader.readEntries(resolve, reject)
+    );
+    if (batch.length === 0) break;
+    for (const child of batch) await collectEntry(child, dirPath, out);
+  }
 }
 
 function statusBadge(status: FileStatus): string {
@@ -256,6 +287,7 @@ const Fireworks: React.FC<{ active: boolean }> = ({ active }) => {
 const NativeUpload: React.FC = () => {
   const [session, setSession] = useState<UploadSession>(() => ({ sessionId: crypto.randomUUID(), files: [], status: 'idle' }));
   const [dragOver, setDragOver] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [overallProgress, setOverallProgress] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [eta, setEta] = useState(0);
@@ -287,6 +319,15 @@ const NativeUpload: React.FC = () => {
     }, 0),
     [session.files]
   );
+
+  const folderCount = useMemo(() => {
+    const groups = new Set<string>();
+    for (const f of session.files) {
+      const slash = f.relativePath.indexOf('/');
+      groups.add(slash === -1 ? '.' : f.relativePath.slice(0, slash));
+    }
+    return groups.size;
+  }, [session.files]);
 
   const counts = useMemo(() => {
     let queued = 0;
@@ -380,15 +421,14 @@ const NativeUpload: React.FC = () => {
   }, [log]);
 
   useEffect(() => {
+    if (session.status !== 'uploading' && session.status !== 'finalizing') return undefined;
     const handler = (e: BeforeUnloadEvent) => {
-      if (session.files.some(f => f.status === 'uploading' || f.status === 'queued')) {
-        e.preventDefault();
-        e.returnValue = 'Uploads are in progress, are you sure you want to leave?';
-      }
+      e.preventDefault();
+      e.returnValue = 'Uploads are in progress, are you sure you want to leave?';
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [session.files]);
+  }, [session.status]);
 
   const updateFile = useCallback((id: string, patch: Partial<UploadFile>) => {
     filesRef.current = filesRef.current.map(f => (f.id === id ? { ...f, ...patch } : f));
@@ -602,6 +642,7 @@ const NativeUpload: React.FC = () => {
   processQueueRef.current = processQueue;
 
   const startUpload = useCallback(() => {
+    setNotice(null);
     statusRef.current = 'uploading';
     setSession(prev => ({ ...prev, status: 'uploading' }));
   }, []);
@@ -633,6 +674,7 @@ const NativeUpload: React.FC = () => {
     setSpeed(0);
     setEta(0);
     setLog([]);
+    setNotice(null);
   }, [getAuthToken, session.sessionId]);
 
   const retryFile = useCallback(async (id: string) => {
@@ -643,18 +685,23 @@ const NativeUpload: React.FC = () => {
     setSession(prev => ({ ...prev, status: 'uploading' }));
   }, [pushLog, updateFile]);
 
-  const addFiles = useCallback((incoming: FileList | null, isDirectory: boolean) => {
-    if (!incoming) return;
-
+  const addPicked = useCallback((picked: PickedFile[]) => {
+    const seen = new Set(filesRef.current.map(f => f.relativePath));
     const newFiles: UploadFile[] = [];
     let skipped = 0;
-    for (const file of Array.from(incoming)) {
-      const relativePath = fileRelativePath(file, isDirectory);
+    let duplicates = 0;
+
+    for (const { file, relativePath } of picked) {
       const ext = relativePath.slice(relativePath.lastIndexOf('.')).toLowerCase();
       if (!ALLOWED_EXTENSIONS.has(ext)) {
         skipped += 1;
         continue;
       }
+      if (seen.has(relativePath)) {
+        duplicates += 1;
+        continue;
+      }
+      seen.add(relativePath);
       newFiles.push({
         id: crypto.randomUUID(),
         file,
@@ -665,21 +712,25 @@ const NativeUpload: React.FC = () => {
       });
     }
 
+    const parts: string[] = [];
     if (newFiles.length > 0) {
-      pushLog(`queued ${newFiles.length} file(s) · ${formatBytes(newFiles.reduce((s, f) => s + f.size, 0))}`);
+      parts.push(`added ${newFiles.length} file(s) · ${formatBytes(newFiles.reduce((s, f) => s + f.size, 0))}`);
     }
-    if (skipped > 0) {
-      pushLog(`skipped ${skipped} file(s) — unsupported type`);
-    }
+    if (skipped > 0) parts.push(`skipped ${skipped} unsupported`);
+    if (duplicates > 0) parts.push(`skipped ${duplicates} already queued`);
+    if (picked.length === 0) parts.push('nothing to add — no readable files in that drop');
+    const summary = parts.join(' · ');
+    setNotice(summary || null);
+    if (summary) pushLog(summary);
 
     if (newFiles.length === 0) return;
 
+    // Pickers hand files back in filesystem order, which scatters tracks across
+    // the manifest grid; sorting each batch keeps albums and track numbers together.
+    newFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { numeric: true }));
+
     filesRef.current = [...filesRef.current, ...newFiles];
-    setSession(prev => {
-      const status = prev.status === 'idle' ? 'uploading' : prev.status;
-      statusRef.current = status;
-      return { ...prev, status, files: [...prev.files, ...newFiles] };
-    });
+    setSession(prev => ({ ...prev, files: [...prev.files, ...newFiles] }));
   }, [pushLog]);
 
   useEffect(() => {
@@ -688,37 +739,46 @@ const NativeUpload: React.FC = () => {
     }
   }, [session.status, session.files.length]);
 
-  const handleDirectorySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(e.target.files, true);
+  const handleInputSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addPicked(Array.from(e.target.files || []).map(file => ({ file, relativePath: fileRelativePath(file) })));
     e.target.value = '';
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(e.target.files, false);
-    e.target.value = '';
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      const hasDirectory = Array.from(e.dataTransfer.items).some(item => item.webkitGetAsEntry()?.isDirectory);
-      addFiles(e.dataTransfer.files, hasDirectory);
-    } else {
-      addFiles(e.dataTransfer.files, false);
+
+    // webkitGetAsEntry has to be called before the handler yields — the item
+    // list is emptied as soon as the drop event finishes dispatching.
+    const entries = Array.from(e.dataTransfer.items || [])
+      .filter(item => item.kind === 'file')
+      .map(item => item.webkitGetAsEntry())
+      .filter((entry): entry is FileSystemEntry => Boolean(entry));
+
+    if (entries.length === 0) {
+      addPicked(Array.from(e.dataTransfer.files).map(file => ({ file, relativePath: file.name })));
+      return;
     }
+
+    const picked: PickedFile[] = [];
+    for (const entry of entries) {
+      await collectEntry(entry, '', picked);
+    }
+    addPicked(picked);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
     setDragOver(true);
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     setDragOver(false);
   };
 
-  const anyUploading = session.files.some(f => f.status === 'uploading' || f.status === 'queued');
+  const reviewing = session.status === 'idle';
   const overallMeter = asciiMeter(overallProgress, 28);
   const spinnerChar = ['|', '/', '-', '\\'][spinnerFrame];
 
@@ -774,39 +834,135 @@ const NativeUpload: React.FC = () => {
         </div>
       ) : (
         <>
-          <div
-            className={`native-upload-dropzone term-panel ${dragOver ? 'dragover' : ''}`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            <span className="term-panel-label">drop_zone</span>
-            <div className="native-upload-dropzone-text">
-              &gt; drag folders or files here<span className="native-upload-cursor">_</span>
-            </div>
-            <div className="native-upload-dropzone-or">— or —</div>
-            <div className="native-upload-dropzone-buttons">
-              <label className="native-upload-file-button">
-                [ SELECT FOLDER ]
-                <input
-                  type="file"
-                  {...{ webkitdirectory: 'true', directory: '' }}
-                  onChange={handleDirectorySelect}
-                  disabled={anyUploading || session.status === 'finalizing'}
-                />
-              </label>
-              <label className="native-upload-file-button">
-                [ SELECT FILES ]
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileSelect}
-                  disabled={anyUploading || session.status === 'finalizing'}
-                />
-              </label>
-            </div>
-          </div>
+          {session.files.length > 0 && (
+            <div className="native-upload-manifest term-panel">
+              <span className="term-panel-label">
+                {reviewing ? `manifest — review before upload` : `transfer (${counts.done}/${session.files.length})`}
+              </span>
 
+              {reviewing ? (
+                <div className="native-upload-manifest-head">
+                  <div className="native-upload-manifest-summary">
+                    <span><strong>{session.files.length}</strong> files</span>
+                    <span><strong>{folderCount}</strong> folder(s)</span>
+                    <span><strong>{formatBytes(totalBytes)}</strong> total</span>
+                  </div>
+                  <div className="native-upload-manifest-actions">
+                    <Button label="[ CONFIRM &amp; UPLOAD ]" onClick={startUpload} type="basic" className="native-upload-terminal-button" />
+                    <Button label="[ CLEAR ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
+                  </div>
+                </div>
+              ) : (
+                <div className="native-upload-manifest-head">
+                  <div className="native-upload-overall-meter">
+                    [<span className="ascii-bar-filled">{overallMeter.filled}</span><span className="ascii-bar-empty">{overallMeter.empty}</span>] {overallProgress}%
+                  </div>
+                  <div className="native-upload-stats-inline">
+                    <span>xfer <strong>{formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}</strong></span>
+                    <span>rate <strong>{formatBytes(speed)}/s</strong></span>
+                    <span>eta <strong>{formatDuration(eta)}</strong></span>
+                    <span>
+                      files <strong>{counts.done} done · {activeCount} active · {counts.queued} queued
+                      {counts.failed > 0 && ` · ${counts.failed} failed`}</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="native-upload-grid">
+                {session.files.map(item => {
+                  const slash = item.relativePath.lastIndexOf('/');
+                  const dir = slash === -1 ? '' : item.relativePath.slice(0, slash + 1);
+                  const base = slash === -1 ? item.relativePath : item.relativePath.slice(slash + 1);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`native-upload-cell ${item.status}`}
+                      title={`${item.relativePath} — ${statusLabel(item)}`}
+                    >
+                      <span className="native-upload-cell-badge">{statusBadge(item.status)}</span>
+                      <span className="native-upload-cell-name">
+                        {dir && <span className="native-upload-cell-dir">{dir}</span>}
+                        <span className="native-upload-cell-base">{base}</span>
+                      </span>
+                      <span className="native-upload-cell-size">{formatBytes(item.size)}</span>
+                      {item.status === 'error' && (
+                        <button className="native-upload-cell-retry" onClick={() => retryFile(item.id)} title={item.error}>
+                          ↻
+                        </button>
+                      )}
+                      <span className="native-upload-cell-fill" style={{ width: `${item.progress}%` }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {session.status === 'finalizing' && (
+                <div className="native-upload-finalizing">
+                  <div className="native-upload-finalizing-title">
+                    <span className="native-upload-spinner">{spinnerChar}</span> FINALIZING — elapsed {formatDuration(finalizeElapsed)}
+                  </div>
+                  <div className="native-upload-finalizing-hint">
+                    Organizing albums &amp; running the metadata tagger (beets import) server-side —
+                    large batches can take several minutes. Please keep this tab open.
+                  </div>
+                </div>
+              )}
+
+              {(session.status === 'uploading' || session.status === 'finalizing' || session.status === 'error') && (
+                <div className="native-upload-actions">
+                  {session.status === 'error' ? (
+                    <Button label="[ START OVER ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button" />
+                  ) : (
+                    <Button label="[ CANCEL ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
+                  )}
+                </div>
+              )}
+
+              {session.error && <div className="native-upload-error">!! {session.error}</div>}
+            </div>
+          )}
+
+          {reviewing && (
+            <div
+              className={`native-upload-dropzone term-panel ${dragOver ? 'dragover' : ''}`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              <span className="term-panel-label">drop_zone</span>
+              <div className="native-upload-dropzone-text">
+                &gt; drag {session.files.length > 0 ? 'more ' : ''}folders or files here<span className="native-upload-cursor">_</span>
+              </div>
+              <div className="native-upload-dropzone-or">— or —</div>
+              <div className="native-upload-dropzone-buttons">
+                <label className="native-upload-file-button">
+                  [ SELECT FOLDERS ]
+                  <input
+                    type="file"
+                    multiple
+                    {...{ webkitdirectory: 'true', directory: '' }}
+                    onChange={handleInputSelect}
+                  />
+                </label>
+                <label className="native-upload-file-button">
+                  [ SELECT FILES ]
+                  <input
+                    type="file"
+                    multiple
+                    accept={ACCEPT_ATTRIBUTE}
+                    onChange={handleInputSelect}
+                  />
+                </label>
+              </div>
+              <div className="native-upload-dropzone-hint">
+                folder picker greys out individual files — use [ SELECT FILES ] for loose tracks
+              </div>
+              {notice && <div className="native-upload-notice">&gt; {notice}</div>}
+            </div>
+          )}
+
+          {reviewing && (
           <div className="native-upload-limits term-panel">
             <span className="term-panel-label">limits.cfg</span>
             <div className="native-upload-limits-grid">
@@ -824,98 +980,18 @@ const NativeUpload: React.FC = () => {
               <span>{LIMITS.sessionMaxAgeMinutes} min</span>
             </div>
           </div>
+          )}
 
-          {session.files.length > 0 && (
-            <div className="native-upload-file-section">
-              <div className="native-upload-overall term-panel">
-                <span className="term-panel-label">status.sys</span>
-                <div className="native-upload-overall-meter">
-                  [<span className="ascii-bar-filled">{overallMeter.filled}</span><span className="ascii-bar-empty">{overallMeter.empty}</span>] {overallProgress}%
-                </div>
-                <div className="native-upload-stats-grid">
-                  <span>xfer</span>
-                  <span>{formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}</span>
-                  <span>rate</span>
-                  <span>{formatBytes(speed)}/s</span>
-                  <span>eta</span>
-                  <span>{formatDuration(eta)}</span>
-                  <span>files</span>
-                  <span>
-                    {counts.done} done · {activeCount} active · {counts.queued} queued
-                    {counts.failed > 0 && ` · ${counts.failed} failed`}
-                  </span>
-                </div>
-
-                {session.status === 'finalizing' && (
-                  <div className="native-upload-finalizing">
-                    <div className="native-upload-finalizing-title">
-                      <span className="native-upload-spinner">{spinnerChar}</span> FINALIZING — elapsed {formatDuration(finalizeElapsed)}
-                    </div>
-                    <div className="native-upload-finalizing-hint">
-                      Organizing albums &amp; running the metadata tagger (beets import) server-side —
-                      large batches can take several minutes. Please keep this tab open.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="native-upload-log term-panel" ref={logRef}>
-                <span className="term-panel-label">console</span>
-                {log.length === 0 ? (
-                  <div className="native-upload-log-line native-upload-log-empty">&gt; waiting for activity_</div>
-                ) : (
-                  log.map((line, i) => (
-                    <div key={i} className="native-upload-log-line">&gt; {line}</div>
-                  ))
-                )}
-              </div>
-
-              <div className="native-upload-file-list term-panel">
-                <span className="term-panel-label">queue ({session.files.length})</span>
-                {session.files.map(uploadFileItem => {
-                  const meter = asciiMeter(uploadFileItem.progress, 14);
-                  return (
-                    <div key={uploadFileItem.id} className={`native-upload-file ${uploadFileItem.status}`}>
-                      <div className="native-upload-file-status">{statusBadge(uploadFileItem.status)}</div>
-                      <div className="native-upload-file-info">
-                        <div className="native-upload-file-name" title={uploadFileItem.relativePath}>
-                          {uploadFileItem.relativePath}
-                        </div>
-                        <div className="native-upload-file-meta">
-                          {formatBytes(uploadFileItem.size)} · {statusLabel(uploadFileItem)}
-                        </div>
-                        <div className="native-upload-file-bar">
-                          [<span className="ascii-bar-filled">{meter.filled}</span><span className="ascii-bar-empty">{meter.empty}</span>]
-                        </div>
-                      </div>
-                      {uploadFileItem.status === 'error' && (
-                        <button
-                          className="native-upload-retry-button"
-                          onClick={() => retryFile(uploadFileItem.id)}
-                        >
-                          [ retry ]
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="native-upload-actions">
-                {session.status === 'idle' || (session.status === 'uploading' && session.files.every(f => f.status === 'queued')) ? (
-                  <Button label="[ START UPLOAD ]" onClick={startUpload} type="basic" className="native-upload-terminal-button" />
-                ) : null}
-
-                {(session.status === 'uploading' || session.status === 'finalizing') && (
-                  <Button label="[ CANCEL ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
-                )}
-
-                {session.status === 'error' && (
-                  <Button label="[ START OVER ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button" />
-                )}
-              </div>
-
-              {session.error && <div className="native-upload-error">!! {session.error}</div>}
+          {!reviewing && (
+            <div className="native-upload-log term-panel" ref={logRef}>
+              <span className="term-panel-label">console</span>
+              {log.length === 0 ? (
+                <div className="native-upload-log-line native-upload-log-empty">&gt; waiting for activity_</div>
+              ) : (
+                log.map((line, i) => (
+                  <div key={i} className="native-upload-log-line">&gt; {line}</div>
+                ))
+              )}
             </div>
           )}
         </>
