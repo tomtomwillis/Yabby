@@ -3,6 +3,7 @@ import Carousel from "./basic/Carousel";
 import "./basic/Carousel.css";
 import "./CarouselAlbums.css";
 import { fetchSubsonicXml, coverArtUrl, NAVIDROME_SERVER_URL } from "../utils/navidrome";
+import { useNavidromeCard } from "../utils/useNavidromeCard";
 
 interface Album {
   id: string;
@@ -19,6 +20,7 @@ let cachedAlbums: Album[] | null = null;
 let cacheTimestamp = 0;
 
 const CarouselAlbums: React.FC = () => {
+  const { open } = useNavidromeCard();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +101,16 @@ const CarouselAlbums: React.FC = () => {
         href={`${NAVIDROME_SERVER_URL}/app/#/album/${album.id}/show`}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          e.preventDefault();
+          open({
+            target: { type: "album", id: album.id },
+            at: { x: e.clientX, y: e.clientY },
+            pinned: true,
+            follow: false,
+          });
+        }}
       >
         <img
           src={coverArtUrl(album.coverArt)}

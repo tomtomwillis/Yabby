@@ -198,6 +198,9 @@ const AlbumCardBody: React.FC<AlbumBodyProps> = ({ albumId, onLightbox, onTrackP
           <span className="nc-artist">{album.artist}</span>
         )}
         <AlbumMeta album={album} />
+        <a className="nc-open-link" href={albumLink(album.id)} target="_blank" rel="noopener noreferrer">
+          [View in Navidrome]
+        </a>
       </div>
 
       <div className="nc-pane" ref={paneRef}>
