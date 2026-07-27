@@ -34,6 +34,10 @@ const AsciiTitle: React.FC<AsciiTitleProps> = ({ src = '/asciititle.txt' }) => {
       const available = wrapper.clientWidth;
       if (naturalWidth > 0 && available > 0) {
         const s = Math.min(1, available / naturalWidth);
+        // Write the result straight to the node as well as to state: a repeat
+        // measurement that lands on the same scale is a no-op for React, which
+        // would otherwise leave the scale(1) written above in place.
+        pre.style.transform = `scale(${s})`;
         setScale(s);
         setScaledHeight(Math.ceil(naturalHeight * s));
       }
@@ -43,8 +47,12 @@ const AsciiTitle: React.FC<AsciiTitleProps> = ({ src = '/asciititle.txt' }) => {
     if (fontsReady) fontsReady.then(recompute);
     else recompute();
 
+    // Observe the <pre> as well as the wrapper: the pixel font swaps in after
+    // fonts.ready resolves, which changes the natural width without changing
+    // the wrapper's. Transforms don't affect layout, so this cannot loop.
     const ro = new ResizeObserver(recompute);
     ro.observe(wrapperRef.current);
+    ro.observe(preRef.current);
     window.addEventListener('orientationchange', recompute);
     return () => {
       ro.disconnect();

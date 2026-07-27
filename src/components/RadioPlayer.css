@@ -172,6 +172,12 @@
   width: 100%;
 }
 
+/* Hidden until the SHOW VIZ button asks for it. The node stays mounted so the
+   canvas keeps its WebGL context across toggles; sizeViz re-measures on open. */
+.rp-viz--closed {
+  display: none;
+}
+
 .rp-viz-dock {
   width: 100%;
   height: 150px;

@@ -1,594 +1,614 @@
 /*
- * Home page — two-column layout.
+ * Home — fixed rail, scrolling body.
  *
- * Left column stacks Stickers + Weather. Right column has Recently Added
- * spanning a top row, then a 2-sub-column grid: Lists|Radio with News|Stats
- * stacked below them respectively.
+ * A left rail carries the site index and the small persistent readouts (radio,
+ * stats, weather); the body beside it scrolls on its own. The ASCII wordmark is
+ * pinned to the bottom-left above both, with the ASCII man opposite it. Sections
+ * are separated by hairline rules and a numbered heading rather than boxes, so
+ * the page reads as one document. Nothing is rounded, nothing is shadowed, and
+ * the rotating star still shows through.
  */
 
 .home-page {
+  --hp-rule: #c9cee4;
+  --hp-ink: var(--colour5);
+  --hp-accent: var(--colour2);
+  --hp-dim: #5566c9;
+
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  min-height: 0;
+  height: 100dvh;
+  overflow: hidden;
+  text-align: left;
 }
 
-/* The outer App-level .app-container also enforces 100vh — override it on home
-   so the page can be its natural height without trailing whitespace. */
+/* The app shell centres a padded, max-width column; a full-bleed rail cannot
+   live inside it, so home strips the shell back to a plain block. */
+body:has(.home-page) #root,
+#root:has(.home-page) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .app-container:has(.home-page) {
+  display: block;
   min-height: 0;
+  padding-top: 0;
 }
 
-/* ─── Compact header on home only ─────────────────────── */
+/* The star is a sibling of the page, so reach it from the body. Home is the
+   only text-dense page that sits directly on top of it — dial it back here
+   rather than everywhere. */
+body:has(.home-page) .star-path {
+  opacity: 0.4;
+}
 
+/* The sidebar carries the index and the wordmark is pinned bottom-left, so the
+   masthead has nothing left to show. The burger button and mobile drawer are
+   siblings of <header>, so they survive this. */
 .home-page header.header {
-  margin-bottom: 0;
-  padding: 0 0 0.25rem;
-}
-
-.home-page header.header h1 {
-  font-size: 1.3rem;
-  margin: 0;
-  line-height: 1.05;
-}
-
-.home-page .ascii-title {
-  margin: 0;
-}
-
-.home-page .ascii-title-pre {
-  transform-origin: top center;
-}
-
-.home-page header.header .small-text {
-  font-size: 1.17rem;
-  margin: 0.15rem 0 0.1rem;
-}
-
-.home-page header.header .desktop-nav {
-  margin: 0.25rem 0 0;
-}
-
-.home-page header.header .nav-links {
-  margin: 0;
-  gap: 0.25rem 1.25rem;
-}
-
-.home-page header.header .nav-links a,
-.home-page header.header .more-button {
-  font-size: 1.15rem;
-}
-
-.home-page header.header .primary-links { margin: 0; }
-.home-page header.header .more-links { margin-top: 0.25rem; }
-
-.home-page header.header hr {
   display: none;
 }
 
-body:has(.home-page) #root,
-#root:has(.home-page) {
-  padding: 0.5rem 1.5rem;
-  max-width: min(90vw, 2000px);
-}
+/* ─── Shell ───────────────────────────────────────────── */
 
-/* At normal desktop widths, keep things from sprawling. */
-@media (max-width: 1999px) {
-  body:has(.home-page) #root,
-  #root:has(.home-page) {
-    max-width: 1600px;
-  }
-}
-
-/* ─── The 2-column outer flexbox ──────────────────────── */
-
-.home-grid {
-  width: 100%;
+.home-shell {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: stretch;
-  margin-top: 0.25rem;
-}
-
-.home-col {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.home-col--left  { flex: 1 1 calc(50% - 6px); }
-.home-col--right { flex: 1 1 calc(50% - 6px); }
-
-/* Inside the right column: a 2-sub-column flex row beneath Recently Added.
-   Stretches to fill remaining column height so subcols can align bottoms. */
-.home-right-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: stretch;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.home-subcol {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  flex: 1 1 calc(50% - 4px);
-}
-
-@media (max-width: 1100px) {
-  .home-col--left,
-  .home-col--right { flex: 1 1 100%; }
-}
-
-@media (max-width: 700px) {
-  .home-subcol { flex: 1 1 100%; }
-}
-
-/* ─── The fieldset frame (panel) ──────────────────────── */
-
-.panel {
-  border: 2px solid var(--colour2);
-  border-radius: 0;
-  padding: 0.35rem 0.6rem 0.5rem;
-  margin: 0;
-  background: transparent;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+/* No global border-box in App.css, so the padded columns need it themselves —
+   otherwise the stacked mobile rail is viewport width plus its padding. */
+.home-side,
+.home-main {
   box-sizing: border-box;
 }
 
-.panel > legend {
-  font-family: var(--font2);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--colour2);
-  padding: 0 0.45rem;
-  margin-left: 0.4rem;
-  letter-spacing: 0.02em;
+/* Sized to fit a ~900px viewport without scrolling; overflow is the fallback
+   for shorter windows rather than clipping the index. */
+/* Both columns reserve the bottom bar's height as padding, otherwise their last
+   rows scroll to a stop underneath it. --hp-bar-h is measured and published by
+   Home; the fallback covers the first paint. */
+.home-page {
+  --hp-title-clear: calc(var(--hp-bar-h, 9rem) + 0.25rem);
 }
 
-.panel > legend a {
-  color: var(--colour2);
+.home-side {
+  display: flex;
+  flex: 0 0 clamp(210px, 17vw, 290px);
+  flex-direction: column;
+  gap: clamp(0.7rem, 1.7vh, 1.6rem);
+  padding: 0.9rem clamp(0.8rem, 0.9vw, 1.2rem) var(--hp-title-clear);
+  overflow-y: auto;
+  border-right: 1px solid var(--hp-rule);
+  scrollbar-width: thin;
+}
+
+.home-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: clamp(1.2rem, 2.4vh, 2rem);
+  min-width: 0;
+  /* Extra beyond the bar's height so the last section comes to rest clear of
+     the wordmark rather than flush against it. */
+  padding: 1.4rem clamp(1.2rem, 2.2vw, 2.6rem) calc(var(--hp-title-clear) + 3rem);
+  overflow-y: auto;
+}
+
+/* Lists beside travel, replacing the mock's calendar column. */
+.home-row2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(1.2rem, 2vw, 2rem);
+}
+
+/* ─── Numbered section headings ───────────────────────── */
+
+.hp-sec {
+  min-width: 0;
+}
+
+.hp-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.95rem);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--hp-accent);
+}
+
+.hp-h-n {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--hp-dim);
+  opacity: 0.65;
+}
+
+.hp-h-t {
+  flex: 0 0 auto;
+}
+
+/* Fills whatever width the label and link leave behind. */
+.hp-h-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--hp-rule);
+  transform: translateY(-0.25em);
+}
+
+.hp-h-link {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.hp-h-link a {
+  color: var(--hp-dim);
   text-decoration: none;
 }
 
-.panel > legend a:hover {
+.hp-h-link a:hover {
   color: var(--colour3);
   text-decoration: underline;
 }
 
-.panel .title1 {
-  font-size: 1rem;
-  margin: 0 0 0.25rem;
-  padding-left: 0;
-}
-
-/* ─── Per-panel tweaks ────────────────────────────────── */
-
-/* Stickers panel — post-form sits right below the wall. */
-.panel--stickers .panel-cta {
-  margin-top: 0.5rem;
-}
-
-.panel--stickers .place-sticker-container {
-  max-width: 100%;
-  padding: 0.5rem;
-  box-shadow: none;
-  background: transparent;
-}
-
-/* Radio panel.
-   Webamp appends #webamp to <body> with position:absolute. Its own centering
-   logic mis-computes the bounding box when milkdrop has a custom extraHeight,
-   so WebampRadio.tsx pins the windows to the container's top-left after the
-   initial render. Container therefore matches the actual stack: main player
-   (116) + milkdrop (174) = 290px tall, 275 wide. */
-
-.panel--radio {
-  align-items: center;
-}
-
-/* Lists panel — narrow column, cards stack vertically. */
-.panel--lists .recent-lists-container {
-  flex-direction: column;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 0;
-}
-
-.panel--lists .recent-list-card {
-  flex: 0 0 auto;
-  max-width: 100%;
-  width: 100%;
-}
-
-.panel--lists .recent-list-image-wrapper {
-  height: auto;
-  aspect-ratio: 16 / 7;
-  width: 100%;
-}
-
-.panel--lists .recent-list-image-wrapper img {
-  max-height: none;
-  width: auto;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Recently added — marquee fills its frame. */
-.panel--recent .albums-marquee-frame {
-  margin: 0;
-}
-
-/* Shrink marquee tiles on home for vertical compactness. */
-.home-page .panel--recent .albums-marquee__tile,
-.home-page .panel--recent .albums-marquee__img,
-.home-page .panel--recent .albums-marquee__caption {
-  width: 72px;
-}
-
-.home-page .panel--recent .albums-marquee__img {
-  height: 72px;
-}
-
-/* Stats panel — tighter spacing. */
-.panel--stats .stats-container {
-  font-size: 0.9rem;
-}
-
-.panel--stats .normal-text {
-  margin-bottom: 0.3rem;
-  font-size: 0.88rem;
-  line-height: 1.3;
-}
-
-.panel--stats .github-stats {
-  margin-top: 0.6rem;
-  padding-top: 0.5rem;
-}
-
-.panel--stats .github-stats-title {
-  font-size: 1.05rem;
-  margin-bottom: 0.2rem;
-}
-
-/* ─── Combined Weather panel ──────────────────────────── */
-
-/* Temperature text runs along the top of the ASCII animation. The ASCII
-   engine sets its own dimensions; we just kill its padding and let the
-   weather-strip line ride above it. */
-
-.panel--weather .weather-strip .weather-card {
-  width: 100%;
-  text-align: left;
-  padding: 0;
-}
-
-.panel--weather .weather-strip .normal-text {
-  margin: 0 0 0.25rem;
-  font-size: 0.85rem;
+.hp-note {
+  margin: 0 0 0.4rem;
   font-family: var(--font2);
-  color: var(--colour2);
-  line-height: 1.2;
+  font-size: 0.75rem;
+  color: var(--hp-dim);
 }
 
-.panel--weather .weathr-frame {
-  padding-left: 0;
+/* ─── Sidebar ─────────────────────────────────────────── */
+
+.hp-side-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0 0 0.45rem;
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.72vw, 0.9rem);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--hp-accent);
 }
 
-/* The weathr engine renders a wide ASCII pre; in a narrow column we want
-   it to scale down rather than overflow the panel. */
-.panel--weather .weathr-pre {
-  display: block;
-  width: 100%;
-  white-space: pre;
-  overflow: hidden;
-  transform-origin: top left;
+.hp-side-branch {
+  flex: 0 0 auto;
+  color: var(--hp-rule);
 }
 
-/* News panel — release the 600px max-width on its inner wrapper.
-   Also override .news-inverted's width:100% which, combined with the
-   fieldset's content-box default, would burst the panel past its column. */
-.panel--news.news-inverted {
-  width: auto;
-  padding: 0.35rem 0.6rem 0.5rem;
+.hp-side-t {
+  flex: 0 0 auto;
 }
 
-.panel--news > div {
-  max-width: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
+/* Deliberately not pushed to the bottom of the rail — that would park it under
+   the fixed wordmark. */
+.home-side-sub {
+  margin: 0;
+  font-family: var(--font3);
+  font-size: clamp(0.75rem, 0.7vw, 0.9rem);
+  line-height: 1.45;
+  color: var(--hp-dim);
 }
 
-/* News + stats grow so their bottoms align with the column. */
-.home-page .panel--news,
-.home-page .panel--stats {
-  flex: 1 1 auto;
-  min-height: 0;
+.home-side .stats-list {
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
 }
 
-/* ─── Home-page squish — keep page within one viewport on 1440×900 ─── */
+.home-side .stats-row {
+  padding: 0.3rem 0;
+}
 
-/* Sticker wall: 6 cols × 2 rows in the wide left column on home. */
+.home-side .weather-card {
+  padding: 0;
+}
+
+.home-side .weather-card .normal-text {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
+  line-height: 1.5;
+  color: var(--hp-ink);
+}
+
+/* The engine's <pre> is absolutely positioned, so the frame has no intrinsic
+   height — it has to be given one for the scale-to-fit to have a target. */
+/* Matched to the 100x12 grid's own aspect, so the scale-to-fit lands on both
+   axes at once — the scene fills the rail with no letterboxing either way. */
+.home-side .weathr-frame {
+  height: auto;
+  aspect-ratio: 25 / 6;
+  margin-top: 0.35rem;
+}
+
+/* ─── [001] · Sticker wall ────────────────────────────── */
+
+.home-page .sticker-album-carousel {
+  padding-bottom: 0;
+}
+
 .home-page .sticker-wall {
   grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+  gap: 4px;
 }
 
-/* ─── Scale up at QHD+ ─────────────────────────────────────
-   Bigger screens get bigger marquee tiles, larger nav font, and the
-   panels naturally widen via the #root max-width bump above. */
-@media (min-width: 2000px) {
-  .home-page .panel--recent .albums-marquee__tile,
-  .home-page .panel--recent .albums-marquee__caption {
-    width: 96px;
-  }
-  .home-page .panel--recent .albums-marquee__img {
-    width: 96px;
-    height: 96px;
-  }
-
-  .home-page header.header h1 {
-    font-size: 1.7rem;
-  }
-
-  .home-page header.header .nav-links a,
-  .home-page header.header .more-button {
-    font-size: 1.35rem;
-  }
-
-  .home-page .panel > legend {
-    font-size: 1.05rem;
-  }
-
-  .home-page .panel--stats,
-  .home-page .panel--news,
-  .home-page .panel--stats .normal-text,
-  .home-page .panel--stats .github-stats-title,
-  .home-page .panel--stats .github-show-more,
-  .home-page .panel--news .user-message-username,
-  .home-page .panel--news .user-message-timestamp,
-  .home-page .panel--news .user-message-text {
-    font-size: 0.95rem;
-  }
+.hp-h-break {
+  flex: 0 0 auto;
+  color: var(--hp-dim);
+  opacity: 0.7;
 }
 
-@media (min-width: 2200px) {
-  .home-page .sticker-wall {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 10px;
-  }
-
-  .home-page .panel--recent .albums-marquee__tile,
-  .home-page .panel--recent .albums-marquee__caption {
-    width: 120px;
-  }
-  .home-page .panel--recent .albums-marquee__img {
-    width: 120px;
-    height: 120px;
-  }
-
-  .home-page .panel--stats,
-  .home-page .panel--news,
-  .home-page .panel--stats .normal-text,
-  .home-page .panel--news .user-message-text {
-    font-size: 1.05rem;
-  }
-}
-
-/* Lists: shorter card thumbs and hide the 3rd card to keep the panel tight. */
-.home-page .panel--lists .recent-list-image-wrapper {
-  aspect-ratio: 16 / 3;
-}
-
-.home-page .panel--lists .recent-list-card:nth-child(n+3) {
-  display: none;
-}
-
-/* Weather panel: grow to align with the tallest right-column subcol so the
-   full ASCII animation has room to breathe. */
-.home-page .panel--weather {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.home-page .panel--weather .weathr-frame {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-/* Stats + News share font/size on home for a consistent pair. */
-.home-page .panel--stats,
-.home-page .panel--news {
-  font-family: var(--font2);
-  font-size: 0.85rem;
-  line-height: 1.35;
-  color: var(--colour2);
-}
-
-.home-page .panel--stats .normal-text,
-.home-page .panel--stats .github-stats-title,
-.home-page .panel--stats .github-show-more,
-.home-page .panel--news .user-message-username,
-.home-page .panel--news .user-message-timestamp,
-.home-page .panel--news .user-message-text,
-.home-page .panel--news .user-message-username-link {
-  font-family: var(--font2);
-  font-size: 0.85rem;
-  line-height: 1.35;
-}
-
-.home-page .panel--stats .normal-text {
-  margin-bottom: 0.15rem;
-}
-
-.home-page .panel--stats .github-stats {
-  margin-top: 0.25rem;
-  padding-top: 0.25rem;
-}
-
-.home-page .panel--stats .github-stats-title {
-  font-weight: 600;
-  margin-bottom: 0.1rem;
-}
-
-.home-page .panel--stats .github-latest-heading,
-.home-page .panel--stats .github-show-more {
-  display: none;
-}
-
-/* Trim song-of-day on home — keeps stats compact enough to fit FHD. */
-.home-page .panel--stats .stats-container > .normal-text:nth-of-type(3) {
-  display: none;
-}
-
-/* News post body fills the available panel space, then clamps with ellipsis.
-   Show More opens a modal (RecentNews handles the trigger). */
-.home-page .panel--news .user-message {
-  height: 100%;
-}
-
-.home-page .panel--news .user-message-content {
+/* "+ add your own +" — a heading control, so it inherits the heading's type
+   rather than looking like a button dropped into the rule. */
+.hp-af {
   display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.home-page .panel--news .user-message-text {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: clamp(90px, 11vh, 220px);
-  overflow: hidden;
-  position: relative;
-}
-
-/* Fade-out at the bottom hints there's more text. */
-.home-page .panel--news .user-message-text::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 2.4rem;
-  background: linear-gradient(to bottom, transparent, var(--colour4));
-  pointer-events: none;
-}
-
-/* Show More sits inside the text box, anchored bottom-right above the fade. */
-.home-page .recent-news-show-more {
-  position: absolute;
-  right: 0.5rem;
-  bottom: 0.35rem;
-  z-index: 1;
-  padding: 0.1rem 0.35rem;
-  background: var(--colour4);
-  border: 1px solid var(--colour2);
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--hp-dim);
   cursor: pointer;
-  color: var(--colour2);
-  font-family: var(--font2);
-  font-size: 0.78rem;
-  text-decoration: none;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
 }
 
-.home-page .recent-news-show-more:hover {
+.hp-af:hover,
+.hp-af:focus-visible {
+  color: var(--colour3);
+}
+
+/* A + is unchanged by a quarter turn, so the closed state reads as a plain +
+   and opening looks like the arrow itself swinging down into place. */
+.hp-af-mark {
+  display: inline-block;
+  transform: rotate(-90deg);
+  transition: transform 0.28s ease;
+}
+
+.hp-af.is-open .hp-af-mark {
+  transform: rotate(0deg);
+}
+
+/* grid-template-rows 0fr → 1fr animates to the content's natural height without
+   having to measure it. */
+.hp-sticker-form {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-bottom: 0;
+  transition: grid-template-rows 0.28s ease, margin-bottom 0.28s ease;
+}
+
+.hp-sticker-form.is-open {
+  grid-template-rows: 1fr;
+  margin-bottom: 0.9rem;
+}
+
+.hp-sticker-form-inner {
+  overflow: hidden;
+}
+
+.hp-sticker-form-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.hp-sticker-form-row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hp-sticker-close {
+  flex: 0 0 auto;
+  padding: 0 0.7rem;
+  background: transparent;
+  color: var(--hp-dim);
+  border: 1px solid var(--hp-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.hp-sticker-close:hover,
+.hp-sticker-close:focus-visible {
   color: var(--colour3);
   border-color: var(--colour3);
 }
 
-/* The wrapper around the post needs to position the show-more relative to it. */
-.home-page .panel--news .user-message-content {
-  position: relative;
+/* The search box centres itself and rounds its corners by default; on home it
+   sits flush above the wall as a plain field. */
+.home-page .album-search-container {
+  max-width: none;
+  margin: 0;
 }
 
-/* Modal — centred dialog, click backdrop to close. */
-.recent-news-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9998;
-  padding: 1.5rem;
-}
-
-.recent-news-modal {
-  background: var(--colour4);
-  color: var(--colour2);
-  border: 2px solid var(--colour2);
+.home-page .album-search-input-area {
+  padding: 0.5rem 0.65rem;
   border-radius: 0;
-  max-width: min(640px, 92vw);
-  width: 100%;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 1.25rem 1.5rem;
-  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.15);
-  position: relative;
-  font-family: var(--font2);
 }
 
-.recent-news-modal-close {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.6rem;
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  color: var(--colour2);
-  padding: 0.15rem 0.4rem;
-  line-height: 1;
-}
-
-.recent-news-modal-close:hover {
-  color: var(--colour3);
-}
-
-/* Place sticker form: tighter. */
-.home-page .panel--stickers .place-sticker-container {
-  padding: 0.25rem;
-}
-
-.home-page .panel--stickers .panel-cta {
-  margin-top: 0.25rem;
-}
-
-/* Footer ascii — sized 1.25× via font-size so it claims real layout space. */
-.home-page .ascii-art {
-  margin: 0.25rem auto 0.25rem;
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-/* ─── Design-mode toy (react-moveable) ─────────────────── */
-
-.design-toggle {
-  position: fixed;
-  top: 0.75rem;
-  right: 0.75rem;
-  z-index: 9999;
-  padding: 0.35rem 0.75rem;
-  font: inherit;
+.home-page .album-search-input {
   font-size: 0.85rem;
-  background: #fff;
-  border: 1px solid #2b2b2b;
-  cursor: pointer;
-  opacity: 0.7;
 }
 
-.design-toggle:hover {
+.home-page .album-result-button {
+  border-radius: 0;
+}
+
+/* ─── [002] · Recently added ──────────────────────────── */
+
+.home-page .albums-marquee__tile,
+.home-page .albums-marquee__caption {
+  width: clamp(72px, 6vw, 110px);
+}
+
+.home-page .albums-marquee__img {
+  width: clamp(72px, 6vw, 110px);
+  height: clamp(72px, 6vw, 110px);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.home-page .albums-marquee__caption {
+  font-family: var(--font2);
+  font-size: 0.65rem;
+}
+
+/* ─── [003] · Recent lists ────────────────────────────── */
+
+/* In a half-width column the cards read better as an index: small thumb, title
+   beside it, hairline between rows. */
+.home-page .recent-lists-container {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 0;
+}
+
+.home-page .recent-list-card {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--hp-rule);
+}
+
+.home-page .recent-list-card:last-child {
+  border-bottom: none;
+}
+
+.home-page .recent-list-image-wrapper {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 0;
+}
+
+.home-page .recent-list-image-wrapper:hover {
+  transform: none;
+}
+
+.home-page .recent-list-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  object-fit: cover;
+}
+
+.home-page .recent-list-title-bar {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  color: var(--hp-accent);
+  font-size: 0.8rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.home-page .recent-list-title-bar:hover {
   opacity: 1;
+  text-decoration: underline;
 }
 
-body.design-mode .design-toggle {
-  background: #ffeb3b;
-  opacity: 1;
+.home-page .recent-lists-loading {
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--hp-dim);
 }
 
-body.design-mode .panel {
-  cursor: move;
-  user-select: none;
+/* ─── Fixed bottom bar: wordmark + radio ──────────────── */
+
+/* Above Leaflet's controls (800) so the travel map cannot paint over the bar,
+   but below the sticker dock (1002), the burger (1000) and the mobile drawer
+   (999/1001). Opaque, so whatever scrolls underneath is hidden rather than
+   showing through the wordmark. */
+.home-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(1rem, 2vw, 2.5rem);
+  width: 100%;
+  padding: 0.4rem clamp(1rem, 2vw, 2rem) 0.5rem 1.2rem;
+  box-sizing: border-box;
+  background: var(--colour4);
+  border-top: 1px solid var(--hp-rule);
+}
+
+/* Clears .sp-dock in stickerPlayer.css, which measures ~61px — revisit if its
+   padding or type sizes change. */
+.home-bottom.is-docked {
+  bottom: calc(4.25rem + env(safe-area-inset-bottom));
+}
+
+.home-bottom-title {
+  flex: 0 0 50%;
+  min-width: 0;
+  color: var(--hp-accent);
+}
+
+.home-bottom-radio {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Straddles the player's top wave border on an opaque background, so he reads
+   as a break in the rule rather than a sprite on top of it. */
+/* Lands on the wave row inside .rp-frame's 0.15rem padding. */
+.home-bottom-man {
+  position: absolute;
+  top: 0.55rem;
+  right: 1.5rem;
+  z-index: 1;
+  padding: 0 0.4rem;
+  background: var(--colour4);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.home-fixed-welcome {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-family: var(--font2);
+  font-size: clamp(0.62rem, 0.6vw, 0.8rem);
+  letter-spacing: 0.14em;
+  color: var(--hp-dim);
+}
+
+.home-page .ascii-title {
+  justify-content: flex-start;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.home-page .ascii-title-pre {
+  transform-origin: top left;
+}
+
+.home-page .ascii-art {
+  margin: 0;
+  font-size: 0.5rem;
+  line-height: 1;
+  color: var(--hp-dim);
+}
+
+/* In the bar the player is framed by its own wave rows alone — the box would
+   read as a second border against the bar's top rule. */
+.home-bottom-radio .rp-frame {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.home-bottom-radio .rp {
+  gap: 0.35rem;
+}
+
+.home-bottom-radio .rp-viz-dock {
+  height: clamp(70px, 9vh, 110px);
+}
+
+/* ─── Responsive ──────────────────────────────────────── */
+
+/* Short windows are where the rail runs out of room — the wrapped weather
+   sentence and index labels cost the same lines regardless of width. Pull the
+   spacing back just enough to keep the whole rail on screen without a
+   scrollbar; taller windows keep the roomier setting. */
+@media (max-height: 900px) {
+  .home-side {
+    gap: clamp(0.5rem, 1.1vh, 1rem);
+  }
+
+  .home-side .home-index {
+    line-height: 1.35;
+  }
+
+  .hp-side-h {
+    margin-bottom: 0.3rem;
+  }
+
+  .home-side .stats-row {
+    padding: 0.22rem 0;
+  }
+}
+
+/* Rough stack: the rail becomes a band across the top and the page scrolls as
+   one again. Mobile gets a proper pass later. */
+@media (max-width: 900px) {
+  .home-page {
+    height: auto;
+    overflow: visible;
+  }
+
+  .home-shell {
+    flex-direction: column;
+  }
+
+  .home-side {
+    flex: 0 0 auto;
+    width: 100%;
+    padding-bottom: 1.4rem;
+    overflow: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--hp-rule);
+  }
+
+  .home-main {
+    overflow: visible;
+  }
+
+  .home-row2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-page .sticker-wall {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Side by side the two halves are unusably narrow here; the wordmark sits
+     above the player instead. */
+  .home-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
+    padding-right: 1.2rem;
+  }
+
+  .home-bottom-title {
+    flex: 0 0 auto;
+    width: 70%;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-page .sticker-wall {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .home-bottom-man {
+    display: none;
+  }
 }

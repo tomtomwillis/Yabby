@@ -1,23 +1,28 @@
 import { Link } from 'react-router-dom';
-import { lazy, Suspense, useState, useEffect, useRef } from 'react';
-import Moveable from 'react-moveable';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Header from '../components/basic/Header';
-import '../App.css';
-import './Home.css';
-import '../components/basic/TextAnimations.css';
+import AsciiTitle from '../components/basic/AsciiTitle';
+import AsciiMan from '../components/AsciiMan';
 import CarouselAlbums from '../components/CarouselAlbums';
 import CarouselStickers, { type CarouselStickersHandle } from '../components/CarouselStickers';
+import HomeIndex from '../components/HomeIndex';
 import PlaceSticker from '../components/PlaceSticker';
 import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import RadioPlayer from '../components/RadioPlayer';
 import RecentLists from '../components/RecentLists';
-import RecentNews from '../components/RecentNews';
-import AsciiMan from '../components/AsciiMan';
-import AsciiTitle from '../components/basic/AsciiTitle';
 import Weather from '../components/weather-app';
+import { useStickerPlayer } from '../utils/useStickerPlayer';
+import '../App.css';
+import '../components/basic/TextAnimations.css';
+import './Home.css';
 
 const Stats = lazy(() => import('../components/Stats'));
 const WeathrAnimation = lazy(() => import('../components/weathr/WeathrAnimation'));
+// Keeps leaflet out of the eagerly loaded home chunk.
+const HomeTravel = lazy(() => import('../components/travel/HomeTravel'));
+
+const RECENTLY_ADDED_URL =
+  'https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}';
 
 const SUBTITLES = [
   "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Yes Sir, I Can Boogie 🏴󠁧󠁢󠁳󠁣󠁴󠁿",
@@ -70,153 +75,210 @@ const SUBTITLES = [
   "peer to peer, dust to dust",
 ];
 
-function App() {
+interface SectionProps {
+  n: string;
+  title: string;
+  /** Optional control sitting in the heading itself, before the rule. */
+  extra?: React.ReactNode;
+  /** Optional link rendered at the far right of the section rule. */
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+/** A numbered heading whose rule runs out to fill the remaining width. */
+const Section: React.FC<SectionProps> = ({ n, title, extra, action, children }) => (
+  <section className="hp-sec">
+    <h2 className="hp-h">
+      <span className="hp-h-n">{n}</span>
+      <span className="hp-h-t">{title}</span>
+      {extra}
+      <span className="hp-h-rule" aria-hidden="true" />
+      {action && <span className="hp-h-link">{action}</span>}
+    </h2>
+    {children}
+  </section>
+);
+
+interface SideSectionProps {
+  /** Box character joining this block to the index tree above it. */
+  branch: string;
+  title: string;
+  children: React.ReactNode;
+}
+
+/** Sidebar equivalent of Section: a box-drawing branch, a label, then a rule
+ *  that fills the rest of the rail. */
+const SideSection: React.FC<SideSectionProps> = ({ branch, title, children }) => (
+  <section className="hp-side-sec">
+    <h2 className="hp-side-h">
+      <span className="hp-side-branch" aria-hidden="true">{branch}</span>
+      <span className="hp-side-t">{title}</span>
+      <span className="hp-h-rule" aria-hidden="true" />
+    </h2>
+    {children}
+  </section>
+);
+
+function Home() {
   const [subtitle, setSubtitle] = useState('');
+  const [radioPlaying, setRadioPlaying] = useState(false);
+  const [stickerFormOpen, setStickerFormOpen] = useState(false);
   const stickersRef = useRef<CarouselStickersHandle>(null);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<HTMLElement | null>(null);
+  const { album } = useStickerPlayer();
+  // StickerMiniBar renders nothing until an album is docked, so this tracks
+  // exactly when the bottom bar needs to lift clear of it.
+  const docked = album ? ' is-docked' : '';
+
+  const pageRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // Stable identity — RadioPlayer calls this from an effect keyed on the prop.
+  const handleRadioPlaying = useCallback((playing: boolean) => setRadioPlaying(playing), []);
 
   useEffect(() => {
-    if (editMode) {
-      document.body.classList.add('design-mode');
-    } else {
-      document.body.classList.remove('design-mode');
-      setSelectedTarget(null);
-    }
-    return () => {
-      document.body.classList.remove('design-mode');
-    };
-  }, [editMode]);
+    setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
+  }, []);
 
-  const onPanelClick = (e: React.MouseEvent<HTMLFieldSetElement>) => {
-    if (!editMode) return;
-    e.stopPropagation();
-    setSelectedTarget(e.currentTarget);
-  };
-
-  const onCanvasClick = () => {
-    if (editMode) setSelectedTarget(null);
-  };
+  // How much of the viewport bottom the bar occupies — its own height plus any
+  // lift over the sticker dock. Depends on the wordmark's scale and whether the
+  // visualiser is open, so both columns reserve it from a measurement rather
+  // than a formula. The var only drives their padding, so this cannot feed back.
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    const page = pageRef.current;
+    if (!bar || !page) return;
+    const publish = () =>
+      page.style.setProperty(
+        '--hp-bar-h',
+        `${Math.round(window.innerHeight - bar.getBoundingClientRect().top)}px`,
+      );
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [docked]);
 
   const handleStickerPlaced = (payload: PlacedStickerPayload) => {
     stickersRef.current?.injectSticker(payload);
     stickersRef.current?.refetch();
   };
 
-  useEffect(() => {
-    setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
-  }, []);
-
-  const handleLatestNewsTimestamp = (timestampMs: number | null) => {
-    if (timestampMs && Date.now() - timestampMs < 48 * 60 * 60 * 1000) {
-      setSubtitle('Fresh News!');
-    }
-  };
-
   return (
-    <div className="app-container home-page" onClick={onCanvasClick}>
-      <Header
-        title="Welcome to"
-        subtitle={subtitle}
-        belowTitle={<AsciiTitle />}
-      />
+    <div className="home-page" ref={pageRef}>
+      {/* The <header> itself is hidden on home — the sidebar carries the index
+          and the title is pinned bottom-left. Header is still mounted for the
+          burger button and mobile drawer, which are siblings of <header>. */}
+      <Header title="Welcome to" subtitle={subtitle} />
 
-      <button
-        type="button"
-        className="design-toggle"
-        onClick={(e) => { e.stopPropagation(); setEditMode((v) => !v); }}
-      >
-        {editMode ? 'done' : '🎨 design mode'}
-      </button>
+      <div className="home-shell">
+        <aside className="home-side">
+          <HomeIndex />
 
-      <div className="home-grid">
-        {/* ── LEFT ── Stickers + Weather stacked */}
-        <div className="home-col home-col--left">
-          <fieldset className="panel panel--stickers" onClick={onPanelClick}>
-            <legend>
-              <Link to="/stickers">[ stickers → ]</Link>
-            </legend>
-            <CarouselStickers ref={stickersRef} />
-            <div className="panel-cta">
-              <PlaceSticker onSuccess={handleStickerPlaced} />
-            </div>
-          </fieldset>
-
-          <fieldset className="panel panel--weather" onClick={onPanelClick}>
-            <legend>[ weather ]</legend>
-            <div className="weather-strip">
-              <Weather />
-            </div>
-            <Suspense fallback={<p className="normal-text">…</p>}>
-              <WeathrAnimation />
+          <SideSection branch="├" title="stats">
+            <Suspense fallback={<p className="hp-note">counting…</p>}>
+              <Stats />
             </Suspense>
-          </fieldset>
+          </SideSection>
+
+          <SideSection branch="└" title="weather · gla">
+            <Weather />
+            <Suspense fallback={null}>
+              {/* The engine fits both axes, so the grid has to be wider than
+                  the frame ever is for the scale to land on the rail's width
+                  rather than letterboxing inside it. */}
+              <WeathrAnimation cols={100} rows={12} fontSizePx={10} />
+            </Suspense>
+          </SideSection>
+
+          <p className="home-side-sub">{subtitle}</p>
+        </aside>
+
+        <main className="home-main">
+          <Section
+            n="[001]"
+            title="✦ stickers"
+            extra={
+              <>
+                <span className="hp-h-break" aria-hidden="true">❖</span>
+                <button
+                  type="button"
+                  className={`hp-af${stickerFormOpen ? ' is-open' : ''}`}
+                  onClick={() => setStickerFormOpen((open) => !open)}
+                  aria-expanded={stickerFormOpen}
+                  aria-controls="hp-sticker-form"
+                >
+                  <span className="hp-af-mark" aria-hidden="true">{stickerFormOpen ? '▾' : '+'}</span>
+                  add your own
+                  <span className="hp-af-mark" aria-hidden="true">{stickerFormOpen ? '▾' : '+'}</span>
+                </button>
+              </>
+            }
+            action={<Link to="/stickers">every sticker →</Link>}
+          >
+            <div
+              id="hp-sticker-form"
+              className={`hp-sticker-form${stickerFormOpen ? ' is-open' : ''}`}
+            >
+              <div className="hp-sticker-form-inner">
+                <div className="hp-sticker-form-row">
+                  <PlaceSticker mode="inline-url" onSuccess={handleStickerPlaced} />
+                  <button
+                    type="button"
+                    className="hp-sticker-close"
+                    onClick={() => setStickerFormOpen(false)}
+                    aria-label="Close the sticker form"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+            <CarouselStickers ref={stickersRef} />
+          </Section>
+
+          <Section
+            n="[002]"
+            title="♫ recently added"
+            action={
+              <a href={RECENTLY_ADDED_URL} target="_blank" rel="noopener noreferrer">
+                the whole shelf →
+              </a>
+            }
+          >
+            <CarouselAlbums />
+          </Section>
+
+          <div className="home-row2">
+            <Section n="[003]" title="≡ recent lists" action={<Link to="/lists">all lists →</Link>}>
+              <RecentLists />
+            </Section>
+
+            <Section n="[004]" title="⚑ travel" action={<Link to="/travel">the whole map →</Link>}>
+              <Suspense fallback={<p className="hp-note">loading map…</p>}>
+                <HomeTravel />
+              </Suspense>
+            </Section>
+          </div>
+        </main>
+      </div>
+
+      <div className={`home-bottom${docked}`} ref={barRef}>
+        <div className="home-bottom-title">
+          <span className="home-fixed-welcome">welcome to</span>
+          <AsciiTitle />
         </div>
 
-        {/* ── RIGHT ── Recently Added (full row), then Lists|Radio, then News|Stats */}
-        <div className="home-col home-col--right">
-          <fieldset className="panel panel--recent" onClick={onPanelClick}>
-            <legend>
-              <a href="https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}">
-                [ recently added → ]
-              </a>
-            </legend>
-            <CarouselAlbums />
-          </fieldset>
-
-          <div className="home-right-grid">
-            <div className="home-subcol home-subcol--inner">
-              <fieldset className="panel panel--lists" onClick={onPanelClick}>
-                <legend>
-                  <Link to="/lists">[ lists → ]</Link>
-                </legend>
-                <RecentLists />
-              </fieldset>
-
-              <fieldset className="panel panel--news news-inverted" onClick={onPanelClick}>
-                <legend>
-                  <Link to="/news">[ news → ]</Link>
-                </legend>
-                <RecentNews onLatestTimestamp={handleLatestNewsTimestamp} />
-              </fieldset>
-            </div>
-
-            <div className="home-subcol home-subcol--outer">
-              <fieldset className="panel panel--radio" onClick={onPanelClick}>
-                <legend>[ on the radio ]</legend>
-                <RadioPlayer />
-              </fieldset>
-
-              <fieldset className="panel panel--stats" onClick={onPanelClick}>
-                <legend>[ stats ]</legend>
-                <Suspense fallback={<p className="normal-text">Loading stats...</p>}>
-                  <Stats />
-                </Suspense>
-              </fieldset>
-            </div>
+        <div className="home-bottom-radio">
+          <RadioPlayer onPlayingChange={handleRadioPlaying} />
+          {/* Sits on the player's top wave border, masking the glyphs behind
+              him — he only moves while the stream does. */}
+          <div className="home-bottom-man">
+            <AsciiMan frozen={!radioPlaying} />
           </div>
         </div>
       </div>
-
-      <AsciiMan />
-
-      {editMode && selectedTarget && (
-        <Moveable
-          target={selectedTarget}
-          draggable
-          scalable
-          origin={false}
-          throttleScale={0}
-          onDrag={({ target, transform }) => {
-            (target as HTMLElement).style.transform = transform;
-          }}
-          onScale={({ target, drag }) => {
-            (target as HTMLElement).style.transform = drag.transform;
-          }}
-        />
-      )}
     </div>
   );
 }
 
-export default App;
+export default Home;

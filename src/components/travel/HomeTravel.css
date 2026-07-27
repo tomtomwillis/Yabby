@@ -1,0 +1,103 @@
+/* The five-most-recent travel widget on the home page. Deliberately unrelated
+   to .travel-map-container, which is sized by an absolutely positioned parent
+   on /travel; here the map gets its height directly. */
+
+.home-travel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* position + z-index traps leaflet's own layers (panes 400, controls 1000)
+   inside one stacking context, so the map cannot paint over page chrome. */
+.ht-map {
+  position: relative;
+  z-index: 0;
+  height: clamp(140px, 20vh, 260px);
+  overflow: hidden;
+  border: 1px solid var(--hp-rule);
+}
+
+.ht-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: var(--colour4);
+  font-family: var(--font2);
+}
+
+.ht-list {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.6vw, 0.8rem);
+  line-height: 1.6;
+  color: var(--hp-dim);
+}
+
+.ht-link {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--hp-accent);
+  cursor: pointer;
+}
+
+.ht-link:hover,
+.ht-link:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+/* ── Popup ─────────────────────────────────────────────── */
+
+/* The /travel bubble's skin lives in TravelPlaceBubble.css, which this widget
+   does not load — so the popup is styled from scratch here. */
+.home-travel-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+  background: var(--colour4);
+  border: 1px solid var(--hp-accent);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.home-travel-popup .leaflet-popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: auto !important;
+  margin: 0.55rem 0.7rem;
+  font-family: var(--font2);
+  line-height: 1.4;
+}
+
+.home-travel-popup .leaflet-popup-tip {
+  background: var(--colour4);
+  border: 1px solid var(--hp-accent);
+  box-shadow: none;
+}
+
+.home-travel-popup .leaflet-popup-close-button {
+  color: var(--hp-dim);
+}
+
+.ht-pop-name {
+  font-size: 0.8rem;
+  color: var(--hp-accent);
+}
+
+.ht-pop-meta {
+  font-size: 0.68rem;
+  color: var(--hp-dim);
+}
+
+.ht-pop-link {
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: var(--hp-dim);
+  text-decoration: none;
+}
+
+.ht-pop-link:hover {
+  color: var(--colour3);
+  text-decoration: underline;
+}

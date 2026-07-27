@@ -1,58 +1,155 @@
-.stats-container {
-    text-align: left;
-    margin: 0 auto;
-    padding: 0rem;
-    width: 100%;
-  }
+/* Stats — a definition list of library and repo numbers. Short rows put the
+   value hard right against a dotted rule; long rows stack label over value. */
 
-.github-stats {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px dashed var(--colour2);
-}
-
-@font-face {
-  font-family: 'DTNouveau';
-  src: url('../assets/fonts/DTNouveau-Regular.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-.github-stats-title {
-  font-family: 'DTNouveau', sans-serif;
-  font-weight: normal;
-  font-size: 1.4rem;
-  color: var(--colour6);
-  margin-bottom: 0.5rem;
-}
-
-.github-latest-heading {
-  font-family: var(--font1);
-  font-size: 0.85rem;
+.stats-list {
+  width: 100%;
+  margin: 0;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  line-height: 1.4;
   color: var(--colour5);
-  margin-bottom: 0.25rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-align: left;
 }
 
-.github-commit-message {
-  font-family: var(--font2);
-  font-style: italic;
-  font-size: 0.95rem;
+.stats-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.32rem 0;
+  border-bottom: 1px dotted var(--colour2);
 }
 
-.github-show-more {
-  display: inline-block;
-  margin-top: 0.5rem;
-  font-family: var(--font2);
-  font-size: 0.9rem;
-  color: var(--colour1);
+.stats-row:last-child {
+  border-bottom: none;
+}
+
+.stats-row dt {
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+.stats-row dd {
+  flex: 0 1 auto;
+  margin: 0 0 0 auto;
+  color: var(--colour2);
+  text-align: right;
+}
+
+/* Song of the day and the last commit run long — give them their own line. */
+.stats-row--stacked {
+  display: block;
+}
+
+.stats-row--stacked dd {
+  margin: 0.2rem 0 0;
+  text-align: left;
+}
+
+.stats-row a {
+  color: var(--colour2);
   text-decoration: none;
-  transition: color 0.2s ease;
 }
 
-.github-show-more:hover {
+.stats-row a:hover {
   color: var(--colour3);
+  text-decoration: underline;
+}
+
+.stats-meta {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.stats-song {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+/* The commits row doubles as the disclosure for the latest commit. */
+.stats-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.stats-toggle:hover,
+.stats-toggle:focus-visible {
+  color: var(--colour3);
+}
+
+.stats-caret {
+  display: inline-block;
+  transition: transform 0.28s ease;
+}
+
+.stats-toggle.is-open .stats-caret {
+  transform: rotate(90deg);
+}
+
+/* 0fr → 1fr animates to the content's own height without measuring it. */
+.stats-commit {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+
+.stats-commit.is-open {
+  grid-template-rows: 1fr;
+}
+
+.stats-commit-inner {
+  overflow: hidden;
+  padding-left: 0.9rem;
+}
+
+.stats-commit.is-open .stats-commit-inner {
+  padding-bottom: 0.35rem;
+}
+
+.stats-play {
+  flex: 0 0 auto;
+  padding: 0 0.25rem;
+  background: transparent;
+  color: var(--colour2);
+  border: 1px solid var(--colour2);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.62rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.stats-play:hover,
+.stats-play:focus-visible {
+  background: var(--colour2);
+  color: var(--colour4);
+}
+
+.stats-message {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: 0.78rem;
+  color: var(--colour5);
+  text-align: left;
+}
+
+.stats-message button {
+  padding: 0 0.3rem;
+  background: transparent;
+  border: 1px solid var(--colour2);
+  border-radius: 0;
+  color: var(--colour2);
+  font: inherit;
+  cursor: pointer;
 }
 
 .ascii-art {

@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from "react";
+import { useStickerPlayer } from "../utils/useStickerPlayer";
 import "./Stats.css";
+
+interface SongOfTheDay {
+  title: string;
+  artist: string;
+  album: string;
+  url: string;
+  /** Needed to hand the track to the docked player; absent in caches written
+   *  before the play button existed. */
+  albumId?: string;
+  trackId?: string;
+}
 
 interface GitHubStats {
   totalCommits: number;
@@ -15,12 +27,9 @@ const GITHUB_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const Stats: React.FC = () => {
   const [totalAlbums, setTotalAlbums] = useState(0);
   const [totalSongs, setTotalSongs] = useState(0);
-  const [songOfTheDay, setSongOfTheDay] = useState<{
-    title: string;
-    artist: string;
-    album: string;
-    url: string;
-  } | null>(null);
+  const [songOfTheDay, setSongOfTheDay] = useState<SongOfTheDay | null>(null);
+  const [commitsOpen, setCommitsOpen] = useState(false);
+  const { playAlbum } = useStickerPlayer();
   const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -197,12 +206,7 @@ const Stats: React.FC = () => {
     username: string,
     password: string,
     appName: string
-  ): Promise<{
-    title: string;
-    artist: string;
-    album: string;
-    url: string;
-  }> => {
+  ): Promise<SongOfTheDay> => {
     // Get current date as string (YYYY-MM-DD)
     const today = new Date().toISOString().split("T")[0];
 
@@ -279,7 +283,22 @@ const Stats: React.FC = () => {
       artist: selectedSong.artist,
       album: album.name,
       url: `${serverUrl}/app/#/album/${album.id}/show`,
+      albumId: album.id,
+      trackId: selectedSong.id,
     };
+  };
+
+  /** Hands the day's track to the docked album player, cued to that track. */
+  const playSongOfTheDay = () => {
+    if (!songOfTheDay?.albumId) return;
+    playAlbum(
+      {
+        id: songOfTheDay.albumId,
+        title: songOfTheDay.album,
+        artist: songOfTheDay.artist,
+      },
+      songOfTheDay.trackId
+    );
   };
 
   const fetchSongOfTheDay = async () => {
@@ -290,8 +309,13 @@ const Stats: React.FC = () => {
     const today = new Date().toISOString().split("T")[0];
 
     if (storedSong && storedDate === today) {
-      setSongOfTheDay(JSON.parse(storedSong));
-      return;
+      const cached: SongOfTheDay = JSON.parse(storedSong);
+      // Entries cached before the play button existed carry no ids; refetch
+      // rather than serving a day with no way to play it.
+      if (cached.albumId && cached.trackId) {
+        setSongOfTheDay(cached);
+        return;
+      }
     }
 
     try {
@@ -342,11 +366,13 @@ const Stats: React.FC = () => {
             throw new Error("Album ID is missing in the API response.");
           }
 
-          const songData = {
+          const songData: SongOfTheDay = {
             title: song.title,
             artist: song.artist,
             album: song.album,
             url: `${serverUrl}/app/#/album/${albumId}/show`,
+            albumId,
+            trackId: song.id,
           };
 
           setSongOfTheDay(songData);
@@ -436,55 +462,89 @@ const Stats: React.FC = () => {
 
   if (error) {
     return (
-      <div>
-        <p>Error loading stats: {error}</p>
-        <button onClick={() => window.location.reload()}>Retry</button>
-      </div>
+      <p className="stats-message">
+        stats unavailable — {error}{" "}
+        <button onClick={() => window.location.reload()}>retry</button>
+      </p>
     );
   }
 
   if (isLoading) {
-    return (
-      <div className="stats-container">
-        <p className="normal-text">Loading stats...</p>
-      </div>
-    );
+    return <p className="stats-message">counting…</p>;
   }
 
   return (
-    <div className="stats-container">
-      <p className="normal-text">💿 Total Albums: {totalAlbums}</p>
-      <p className="normal-text">🎶 Total Songs: {totalSongs}</p>
-      {songOfTheDay && (
-        <p className="normal-text">
-          🎵 Song of the Day:{" "}
-          <a href={songOfTheDay.url} target="_blank" rel="noopener noreferrer">
-            {songOfTheDay.title} - {songOfTheDay.artist} - {songOfTheDay.album}
-          </a>
-        </p>
+    <dl className="stats-list">
+      <div className="stats-row">
+        <dt>albums</dt>
+        <dd>{totalAlbums.toLocaleString()}</dd>
+      </div>
+      <div className="stats-row">
+        <dt>songs</dt>
+        <dd>{totalSongs.toLocaleString()}</dd>
+      </div>
+      {githubStats && githubStats.totalCommits > 0 && (
+        <div className="stats-row">
+          <dt>
+            <button
+              type="button"
+              className={`stats-toggle${commitsOpen ? " is-open" : ""}`}
+              onClick={() => setCommitsOpen((open) => !open)}
+              aria-expanded={commitsOpen}
+              aria-controls="stats-last-commit"
+            >
+              <span className="stats-caret" aria-hidden="true">›</span>
+              commits
+            </button>
+          </dt>
+          <dd>{githubStats.totalCommits.toLocaleString()}</dd>
+        </div>
       )}
 
       {githubStats && (
-        <div className="github-stats">
-          <p className="github-stats-title">From the Workshop</p>
-          <p className="github-latest-heading">Latest Commit</p>
-          <p className="normal-text">
-            📝 <span className="github-commit-message">"{githubStats.lastCommitMessage}"</span> — by ⭐{githubStats.lastCommitAuthor}⭐, {formatCommitDate(githubStats.lastCommitDate)}
-          </p>
-          {githubStats.totalCommits > 0 && (
-            <p className="normal-text">🔧 Total Commits: {githubStats.totalCommits}</p>
-          )}
-          <a
-            className="github-show-more"
-            href="https://github.com/tomtomwillis/Yabby/commits/main"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Show more →
-          </a>
+        <div
+          id="stats-last-commit"
+          className={`stats-commit${commitsOpen ? " is-open" : ""}`}
+        >
+          <div className="stats-commit-inner">
+            <a
+              href="https://github.com/tomtomwillis/Yabby/commits/main"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {githubStats.lastCommitMessage.split("\n")[0]}
+            </a>
+            <span className="stats-meta">
+              {githubStats.lastCommitAuthor}, {formatCommitDate(githubStats.lastCommitDate)}
+            </span>
+          </div>
         </div>
       )}
-    </div>
+
+      {songOfTheDay && (
+        <div className="stats-row stats-row--stacked">
+          <dt>song of the day</dt>
+          <dd>
+            <span className="stats-song">
+              {songOfTheDay.albumId && songOfTheDay.trackId && (
+                <button
+                  className="stats-play"
+                  onClick={playSongOfTheDay}
+                  aria-label={`Play ${songOfTheDay.title}`}
+                >
+                  ▶
+                </button>
+              )}
+              <a href={songOfTheDay.url} target="_blank" rel="noopener noreferrer">
+                {songOfTheDay.title} — {songOfTheDay.artist}
+              </a>
+            </span>
+            <span className="stats-meta">{songOfTheDay.album}</span>
+          </dd>
+        </div>
+      )}
+
+    </dl>
   );
 };
 

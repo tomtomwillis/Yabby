@@ -6,9 +6,13 @@ import "./RadioPlayer.css";
 
 const STREAM_URL = "https://radio.yabbyville.xyz/live";
 
+// The visualiser is off until asked for; the choice sticks between visits.
+const VIZ_KEY = "yabby:radio-viz";
+
 // Border glyph count. Fixed rather than width-derived — the row is decorative
-// and clips under overflow: hidden on narrow panels.
-const BORDER_CHARS = 64;
+// and clips under overflow: hidden, so this only has to exceed the widest panel
+// the player is ever laid out in (the full-width home bar).
+const BORDER_CHARS = 240;
 const VOL_BLOCKS = 8;
 
 /** The animated ASCII border. Each char is phase-shifted via --i so the row
@@ -59,13 +63,19 @@ const VolumeBlocks: React.FC<VolumeBlocksProps> = ({ value, onChange }) => {
   );
 };
 
-const RadioPlayer: React.FC = () => {
+interface RadioPlayerProps {
+  /** Notified whenever the stream starts or stops, for chrome outside the player. */
+  onPlayingChange?: (playing: boolean) => void;
+}
+
+const RadioPlayer: React.FC<RadioPlayerProps> = ({ onPlayingChange }) => {
   const { artist, title } = useRadioMetadata();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [isMuted, setIsMuted] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [vizOpen, setVizOpen] = useState(() => localStorage.getItem(VIZ_KEY) === "1");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -79,6 +89,7 @@ const RadioPlayer: React.FC = () => {
   // Mirror state into refs the rAF closure can read without re-subscribing.
   const playingRef = useRef(false);
   const fullscreenRef = useRef(false);
+  const vizOpenRef = useRef(vizOpen);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = isMuted ? 0 : volume;
@@ -86,7 +97,8 @@ const RadioPlayer: React.FC = () => {
 
   useEffect(() => {
     playingRef.current = isPlaying;
-  }, [isPlaying]);
+    onPlayingChange?.(isPlaying);
+  }, [isPlaying, onPlayingChange]);
 
   // Match butterchurn's render buffer to whichever container now holds the
   // canvas (docked box or fullscreen layer). setRendererSize alone does not
@@ -111,8 +123,11 @@ const RadioPlayer: React.FC = () => {
     if (rafRef.current != null) return;
     const frame = () => {
       const viz = visualizerRef.current;
-      // Skip rendering while paused and docked — spares the GPU when idle.
-      if (viz && (playingRef.current || fullscreenRef.current)) viz.render();
+      // Skip rendering while paused, or while the docked box is closed —
+      // spares the GPU when nothing is on screen.
+      if (viz && (fullscreenRef.current || (playingRef.current && vizOpenRef.current))) {
+        viz.render();
+      }
       rafRef.current = requestAnimationFrame(frame);
     };
     rafRef.current = requestAnimationFrame(frame);
@@ -176,7 +191,8 @@ const RadioPlayer: React.FC = () => {
     const ctx = ensureAudioGraph();
     // Kick off the visualiser first so its init never waits on (or is skipped
     // by) a stalled resume()/play() — the stream may fail to load entirely.
-    initVisualizer(ctx);
+    // Closed visualiser means butterchurn is never even imported.
+    if (vizOpenRef.current) initVisualizer(ctx);
     try {
       if (ctx.state === "suspended") await ctx.resume();
       await audio.play();
@@ -197,6 +213,21 @@ const RadioPlayer: React.FC = () => {
     if (fullscreen) startLoop();
     requestAnimationFrame(sizeViz);
   }, [fullscreen]);
+
+  // Opening the box is what triggers the butterchurn import, so init here too
+  // for the case where the stream was already playing.
+  useEffect(() => {
+    vizOpenRef.current = vizOpen;
+    localStorage.setItem(VIZ_KEY, vizOpen ? "1" : "0");
+    if (!vizOpen) {
+      setFullscreen(false);
+      return;
+    }
+    if (audioCtxRef.current) initVisualizer(audioCtxRef.current);
+    requestAnimationFrame(sizeViz);
+    // initVisualizer reads refs rather than state, so it needs no dep entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vizOpen]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -265,6 +296,16 @@ const RadioPlayer: React.FC = () => {
           >
             {isMuted ? "UNMUTE" : "MUTE"}
           </button>
+          <button
+            className="rp-btn rp-viz-toggle"
+            onClick={() => {
+              if (!vizOpen) window.umami?.track("radio_viz_open");
+              setVizOpen((v) => !v);
+            }}
+            aria-expanded={vizOpen}
+          >
+            {vizOpen ? "HIDE VIZ" : "SHOW VIZ"}
+          </button>
         </div>
 
         <div className="rp-nowplaying">{nowPlaying}</div>
@@ -272,7 +313,9 @@ const RadioPlayer: React.FC = () => {
         <WaveBorder />
       </div>
 
-      <div className={`rp-viz ${fullscreen ? "rp-viz--fs" : ""}`}>
+      <div
+        className={`rp-viz ${fullscreen ? "rp-viz--fs" : ""} ${vizOpen ? "" : "rp-viz--closed"}`}
+      >
         <div ref={dockRef} className="rp-viz-dock" />
         <button
           className="rp-viz-fs"
