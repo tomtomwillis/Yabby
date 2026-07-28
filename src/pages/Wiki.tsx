@@ -400,10 +400,11 @@ const Wiki: React.FC = () => {
                         }
                       }}
                     >
-                      <span className="wiki-section-title">{section.title}</span>
-                      <span className="wiki-section-arrow">
-                        {openSections.has(section.id) ? '▼' : '▶'}
+                      <span className="wiki-section-marker" aria-hidden="true">
+                        {openSections.has(section.id) ? '▾' : '▸'}
                       </span>
+                      <span className="wiki-section-title">{section.title}</span>
+                      <span className="wiki-section-rule" aria-hidden="true" />
                     </h1>
                     <div className={`wiki-section-content ${openSections.has(section.id) ? 'open' : 'collapsed'}`}>
                       {renderBody(section.body)}
