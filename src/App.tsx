@@ -3,14 +3,14 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Star from './components/basic/Star';
 import Oneko from './components/Oneko';
 import Home from './pages/Home';
+import HomeDashboard from './pages/HomeDashboard';
 import Login from './pages/Login';
 import './App.css';
 import './components/basic/TextAnimations.css';
 import PrivateRoute from './components/PrivateRoute';
 import DesignTool from './components/DesignTool';
 import PullToRefresh from './components/PullToRefresh';
-import StickerMiniBar from './components/StickerMiniBar';
-import { StickerPlayerProvider } from './utils/useStickerPlayer';
+import { PlayerProvider } from './utils/usePlayer';
 import { NavidromeCardProvider } from './utils/useNavidromeCard';
 
 // Route-level code splitting: heavy dependencies (leaflet, hls.js, xterm,
@@ -36,7 +36,7 @@ const IssuesPage = lazy(() => import('./pages/IssuesPage'));
 
 function App() {
   return (
-    <StickerPlayerProvider>
+    <PlayerProvider>
       <NavidromeCardProvider>
         <Router>
           <div className="app-container">
@@ -49,33 +49,38 @@ function App() {
                 {/* Public route */}
                 <Route path="/login" element={<Login />} />
 
-                {/* Private routes */}
-                <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
-                <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-                <Route path="/wiki" element={<PrivateRoute><Wiki /></PrivateRoute>} />
-                <Route path="/messageboard" element={<PrivateRoute><MessageBoard /></PrivateRoute>} />
-                <Route path="/upload" element={<PrivateRoute><Upload /></PrivateRoute>} />
-                <Route path="/stickers" element={<PrivateRoute><Stickers /></PrivateRoute>} />
-                <Route path="/lists" element={<PrivateRoute><ListsPage /></PrivateRoute>} />
-                <Route path="/lists/:listId" element={<PrivateRoute><ListDetailPage /></PrivateRoute>} />
-                <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
-                <Route path="/news" element={<PrivateRoute><NewsPage /></PrivateRoute>} />
-                <Route path="/film-club" element={<PrivateRoute><FilmClub /></PrivateRoute>} />
-                <Route path="/film-club-submit" element={<PrivateRoute><FilmClubSubmit /></PrivateRoute>} />
-                <Route path="/film-club-vote" element={<PrivateRoute><FilmClubVote /></PrivateRoute>} />
-                <Route path="/filmclubmessage" element={<PrivateRoute><FilmClubMessagePage /></PrivateRoute>} />
-                <Route path="/test" element={<PrivateRoute><Test /></PrivateRoute>} />
-                <Route path="/media" element={<PrivateRoute><MediaManager /></PrivateRoute>} />
-                <Route path="/travel" element={<PrivateRoute><TravelPage /></PrivateRoute>} />
+                {/* Cinema takes over the whole viewport — its blackout layer is
+                    fixed to the viewport, so it cannot live inside the shell. */}
                 <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
-                <Route path="/issues" element={<PrivateRoute><IssuesPage /></PrivateRoute>} />
+
+                {/* Every other private route renders into the home shell's body
+                    column, so the rail, wordmark and player never unmount. */}
+                <Route element={<PrivateRoute><Home /></PrivateRoute>}>
+                  <Route path="/" element={<HomeDashboard />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/wiki" element={<Wiki />} />
+                  <Route path="/messageboard" element={<MessageBoard />} />
+                  <Route path="/upload" element={<Upload />} />
+                  <Route path="/stickers" element={<Stickers />} />
+                  <Route path="/lists" element={<ListsPage />} />
+                  <Route path="/lists/:listId" element={<ListDetailPage />} />
+                  <Route path="/user/:userId" element={<UserProfile />} />
+                  <Route path="/news" element={<NewsPage />} />
+                  <Route path="/film-club" element={<FilmClub />} />
+                  <Route path="/film-club-submit" element={<FilmClubSubmit />} />
+                  <Route path="/film-club-vote" element={<FilmClubVote />} />
+                  <Route path="/filmclubmessage" element={<FilmClubMessagePage />} />
+                  <Route path="/test" element={<Test />} />
+                  <Route path="/media" element={<MediaManager />} />
+                  <Route path="/travel" element={<TravelPage />} />
+                  <Route path="/issues" element={<IssuesPage />} />
+                </Route>
               </Routes>
             </Suspense>
-            <StickerMiniBar />
           </div>
         </Router>
       </NavidromeCardProvider>
-    </StickerPlayerProvider>
+    </PlayerProvider>
   );
 }
 

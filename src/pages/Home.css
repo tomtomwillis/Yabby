@@ -4,9 +4,9 @@
  * A left rail carries the site index and the small persistent readouts (radio,
  * stats, weather); the body beside it scrolls on its own. The ASCII wordmark is
  * pinned to the bottom-left above both, with the ASCII man opposite it. Sections
- * are separated by hairline rules and a numbered heading rather than boxes, so
- * the page reads as one document. Nothing is rounded, nothing is shadowed, and
- * the rotating star still shows through.
+ * are separated by hairline rules and a heading rather than boxes, so the page
+ * reads as one document. Nothing is rounded, nothing is shadowed, and the
+ * rotating star still shows through.
  */
 
 .home-page {
@@ -46,9 +46,11 @@ body:has(.home-page) .star-path {
 }
 
 /* The sidebar carries the index and the wordmark is pinned bottom-left, so the
-   masthead has nothing left to show. The burger button and mobile drawer are
-   siblings of <header>, so they survive this. */
-.home-page header.header {
+   shell's own masthead has nothing left to show. The burger button and mobile
+   drawer are siblings of <header>, so they survive this. Child selector, not
+   descendant — routed pages render their own Header inside .home-main and that
+   one keeps its title. */
+.home-page > header.header {
   display: none;
 }
 
@@ -106,7 +108,90 @@ body:has(.home-page) .star-path {
   gap: clamp(1.2rem, 2vw, 2rem);
 }
 
-/* ─── Numbered section headings ───────────────────────── */
+/* ─── Routed pages inside the shell ───────────────────── */
+
+/* Every page was written to own the whole viewport: its own .app-container, its
+   own masthead, and in several cases viewport units. Inside the body column all
+   of that has to give way to the container. Each page keeps its title so you
+   still know where you are; the nav and burger are the shell's job. */
+
+.home-main > * {
+  width: 100%;
+}
+
+.home-main .app-container {
+  display: block;
+  min-height: 0;
+  padding-top: 0;
+}
+
+.home-main header.header {
+  margin: 0 0 1.2rem;
+  padding: 0;
+}
+
+.home-main .header h1 {
+  font-size: clamp(1.3rem, 2.2vw, 2rem);
+  text-align: left;
+}
+
+.home-main .header .small-text {
+  display: block;
+  text-align: left;
+}
+
+.home-main .desktop-nav,
+.home-main .header hr,
+.home-main .burger-menu,
+.home-main .mobile-nav,
+.home-main .mobile-nav-overlay {
+  display: none;
+}
+
+/* MessageBoard.css sizes itself against the viewport; the column is the frame
+   now. Covers /messageboard, /news, /issues and /filmclubmessage. */
+.home-main .message-board-container {
+  min-height: 0;
+}
+
+/* Wiki forces viewport widths with !important under its own breakpoints, which
+   would blow straight out of the column. */
+.home-main .wiki-container,
+.home-main .wiki-content,
+.home-main .wiki-collapsible,
+.home-main .wiki-section {
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+/* The uploader is an iframe that needs a real height from a real box. */
+.home-main .upload-page-container {
+  width: auto;
+  max-width: none;
+  height: calc(100dvh - var(--hp-title-clear) - 8rem);
+  min-height: 420px;
+}
+
+/* The map deliberately breaks out of #root to 80vw; in the column it just
+   fills the column. */
+.home-main .travel-page__map-area {
+  width: 100%;
+  left: auto;
+  transform: none;
+}
+
+/* Fixed to the viewport, so left: 2vw would park it on top of the rail. Pushed
+   clear of it instead; dragging the box still wins, since that writes inline. */
+.home-main .travel-page__sidebar {
+  left: calc(clamp(210px, 17vw, 290px) + 1rem);
+  z-index: 899;
+}
+
+.home-main .travel-page__scroll-btn {
+  bottom: calc(var(--hp-title-clear) + 1rem);
+}
+
+/* ─── Section headings ────────────────────────────────── */
 
 .hp-sec {
   min-width: 0;
@@ -124,15 +209,17 @@ body:has(.home-page) .star-path {
   color: var(--hp-accent);
 }
 
-.hp-h-n {
-  flex: 0 0 auto;
-  font-size: 0.85em;
-  color: var(--hp-dim);
-  opacity: 0.65;
-}
-
+/* The title is the section's only way through to its full page. */
 .hp-h-t {
   flex: 0 0 auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+.hp-h-t:hover,
+.hp-h-t:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
 }
 
 /* Fills whatever width the label and link leave behind. */
@@ -141,23 +228,6 @@ body:has(.home-page) .star-path {
   height: 0;
   border-bottom: 1px solid var(--hp-rule);
   transform: translateY(-0.25em);
-}
-
-.hp-h-link {
-  flex: 0 0 auto;
-  font-size: 0.85em;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.hp-h-link a {
-  color: var(--hp-dim);
-  text-decoration: none;
-}
-
-.hp-h-link a:hover {
-  color: var(--colour3);
-  text-decoration: underline;
 }
 
 .hp-note {
@@ -230,14 +300,32 @@ body:has(.home-page) .star-path {
   margin-top: 0.35rem;
 }
 
-/* ─── [001] · Sticker wall ────────────────────────────── */
+/* ─── Sticker wall ────────────────────────────────────── */
 
 .home-page .sticker-album-carousel {
   padding-bottom: 0;
 }
 
+/* ┌─── STICKER SIZE ──────────────────────────────────────┐
+   │ Tile width = (main column − gaps) ÷ columns, so MORE  │
+   │ COLUMNS = SMALLER STICKERS. Change these numbers and  │
+   │ nothing else. 6 → 9 makes each sticker 33% narrower.  │
+   └───────────────────────────────────────────────────────┘ */
+.home-page {
+  --hp-sticker-cols: 9;
+}
+
+@media (max-width: 900px) {
+  .home-page { --hp-sticker-cols: 6; }
+}
+
+@media (max-width: 600px) {
+  .home-page { --hp-sticker-cols: 4; }
+}
+/* ─────────────────────────────────────────────────────── */
+
 .home-page .sticker-wall {
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(var(--hp-sticker-cols), 1fr);
   gap: 4px;
 }
 
@@ -347,7 +435,7 @@ body:has(.home-page) .star-path {
   border-radius: 0;
 }
 
-/* ─── [002] · Recently added ──────────────────────────── */
+/* ─── Recently added ──────────────────────────────────── */
 
 .home-page .albums-marquee__tile,
 .home-page .albums-marquee__caption {
@@ -366,7 +454,7 @@ body:has(.home-page) .star-path {
   font-size: 0.65rem;
 }
 
-/* ─── [003] · Recent lists ────────────────────────────── */
+/* ─── Recent lists ────────────────────────────────────── */
 
 /* In a half-width column the cards read better as an index: small thumb, title
    beside it, hairline between rows. */
@@ -437,17 +525,20 @@ body:has(.home-page) .star-path {
 
 /* ─── Fixed bottom bar: wordmark + radio ──────────────── */
 
-/* Above Leaflet's controls (800) so the travel map cannot paint over the bar,
-   but below the sticker dock (1002), the burger (1000) and the mobile drawer
-   (999/1001). Opaque, so whatever scrolls underneath is hidden rather than
-   showing through the wordmark. */
+/* The transport lives here, so it inherits the docked player's old 1002 — above
+   the sticker popup overlay (1000), the burger (1000) and the mobile drawer
+   (999/1001), which would otherwise bury the controls with no way to reach
+   them. Opaque, so whatever scrolls underneath is hidden rather than showing
+   through the wordmark. */
 .home-bottom {
   position: fixed;
   bottom: 0;
   left: 0;
-  z-index: 900;
+  z-index: 1002;
   display: flex;
-  align-items: flex-end;
+  /* Stretch, not flex-end: the player fills the bar's height so its two wave
+     rows land on the top and bottom edges. */
+  align-items: stretch;
   gap: clamp(1rem, 2vw, 2.5rem);
   width: 100%;
   padding: 0.4rem clamp(1rem, 2vw, 2rem) 0.5rem 1.2rem;
@@ -456,14 +547,10 @@ body:has(.home-page) .star-path {
   border-top: 1px solid var(--hp-rule);
 }
 
-/* Clears .sp-dock in stickerPlayer.css, which measures ~61px — revisit if its
-   padding or type sizes change. */
-.home-bottom.is-docked {
-  bottom: calc(4.25rem + env(safe-area-inset-bottom));
-}
-
 .home-bottom-title {
   flex: 0 0 50%;
+  /* The wordmark stays pinned to the bottom while the player stretches. */
+  align-self: flex-end;
   min-width: 0;
   color: var(--hp-accent);
 }
@@ -476,10 +563,9 @@ body:has(.home-page) .star-path {
 
 /* Straddles the player's top wave border on an opaque background, so he reads
    as a break in the rule rather than a sprite on top of it. */
-/* Lands on the wave row inside .rp-frame's 0.15rem padding. */
 .home-bottom-man {
   position: absolute;
-  top: 0.55rem;
+  top: 0.4rem;
   right: 1.5rem;
   z-index: 1;
   padding: 0 0.4rem;
@@ -515,16 +601,11 @@ body:has(.home-page) .star-path {
   color: var(--hp-dim);
 }
 
-/* In the bar the player is framed by its own wave rows alone — the box would
-   read as a second border against the bar's top rule. */
-.home-bottom-radio .rp-frame {
-  padding: 0;
-  background: transparent;
-  border: none;
-}
-
-.home-bottom-radio .rp {
-  gap: 0.35rem;
+/* The effect gets whatever height the rail has left over rather than a fixed
+   slice of it, so it never pushes the rail into scrolling on its own. */
+.home-side .vz {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .home-bottom-radio .rp-viz-dock {
@@ -584,10 +665,6 @@ body:has(.home-page) .star-path {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .home-page .sticker-wall {
-    grid-template-columns: repeat(4, 1fr);
-  }
-
   /* Side by side the two halves are unusably narrow here; the wordmark sits
      above the player instead. */
   .home-bottom {
@@ -604,10 +681,6 @@ body:has(.home-page) .star-path {
 }
 
 @media (max-width: 600px) {
-  .home-page .sticker-wall {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .home-bottom-man {
     display: none;
   }

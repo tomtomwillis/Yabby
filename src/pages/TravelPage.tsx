@@ -13,6 +13,7 @@ import TravelFilters, {
 import TravelPlaceBubble from '../components/travel/TravelPlaceBubble';
 import TravelRecommendationList from '../components/travel/TravelRecommendationList';
 import { getUserData } from '../utils/userCache';
+import { onPageScroll, scrollPageTo } from '../utils/pageScroll';
 import { trackedGetDocs } from '../utils/firestoreMetrics';
 import {
   categoryFromOsm,
@@ -319,7 +320,7 @@ export default function TravelPage() {
 
   const handleScrollBtn = useCallback(() => {
     if (scrolledToList) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollPageTo({ top: 0, behavior: 'smooth' });
     } else if (recSectionRef.current) {
       recSectionRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -331,8 +332,7 @@ export default function TravelPage() {
       const rect = recSectionRef.current.getBoundingClientRect();
       setScrolledToList(rect.top < window.innerHeight * 0.5);
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return onPageScroll(handleScroll);
   }, []);
 
   const handleAddOwn = useCallback((p: Place) => {

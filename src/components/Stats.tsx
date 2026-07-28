@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useStickerPlayer } from "../utils/useStickerPlayer";
+import { usePlayerActions } from "../utils/usePlayer";
 import "./Stats.css";
 
 interface SongOfTheDay {
@@ -29,7 +29,7 @@ const Stats: React.FC = () => {
   const [totalSongs, setTotalSongs] = useState(0);
   const [songOfTheDay, setSongOfTheDay] = useState<SongOfTheDay | null>(null);
   const [commitsOpen, setCommitsOpen] = useState(false);
-  const { playAlbum } = useStickerPlayer();
+  const { playAlbum } = usePlayerActions();
   const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
