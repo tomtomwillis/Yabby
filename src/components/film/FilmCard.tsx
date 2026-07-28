@@ -63,6 +63,7 @@ const FilmCard: React.FC<FilmCardProps> = ({
             src={`${TMDB_IMAGE_BASE}${posterPath}`}
             alt={title}
             className="film-card-poster"
+            loading="lazy"
           />
         ) : (
           <div className="film-card-poster-placeholder" />

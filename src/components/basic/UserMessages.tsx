@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
-import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaPlus, FaMinus, FaReply, FaEdit, FaTrash, FaCheck, FaUndo } from 'react-icons/fa';
 import ForumBox from './ForumMessageBox';
 import { sanitizeHtml, parseMarkdownLinks, linkifyText } from '../../utils/sanitise';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
+import { formatTimestamp } from '../../utils/formatTimestamp';
 import Lightbox from './Lightbox';
 import PollBlock from './PollBlock';
 import NavidromeTagLink from './NavidromeTagLink';
@@ -64,6 +65,15 @@ interface UserMessageProps {
   edited?: boolean;
   imageId?: string;
   posterUrl?: string;
+  pollQuestion?: string;
+  pollOptions?: string[];
+  pollMultiple?: boolean;
+  pollVotes?: Record<string, number[]>;
+  pollVoterNames?: Record<number, string[]>;
+  onTogglePollVote?: (optionIndex: number) => void;
+  onPollVoterHover?: (optionIndex: number) => void;
+  status?: 'inprogress' | 'complete';
+  onToggleStatus?: () => void;
 }
 
 // Utility function to validate and sanitize URLs
@@ -176,6 +186,15 @@ const UserMessage: React.FC<UserMessageProps> = ({
   edited,
   imageId,
   posterUrl,
+  pollQuestion,
+  pollOptions,
+  pollMultiple,
+  pollVotes,
+  pollVoterNames,
+  onTogglePollVote,
+  onPollVoterHover,
+  status,
+  onToggleStatus,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -208,15 +227,6 @@ const UserMessage: React.FC<UserMessageProps> = ({
       longPressTimer.current = null;
     }
     setIsLongPress(false);
-  };
-
-  const formatTimestamp = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-      return new Date(timestamp.seconds * 1000).toLocaleString();
-    } catch (error) {
-      return '';
-    }
   };
 
   const handleStartEdit = () => {
@@ -261,6 +271,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
           src={normalizedStickerPath}
           alt={`${username}'s avatar`}
           className="user-message-sticker"
+          loading="lazy"
           onError={handleImageError}
         />
       );
@@ -369,6 +380,19 @@ const UserMessage: React.FC<UserMessageProps> = ({
               aria-label="View image"
             />
           </div>
+        )}
+
+        {!isReply && pollQuestion && pollOptions && (
+          <PollBlock
+            question={pollQuestion}
+            options={pollOptions}
+            multiple={!!pollMultiple}
+            votes={pollVotes ?? {}}
+            currentUserId={currentUserId}
+            voterNames={pollVoterNames}
+            onToggleVote={onTogglePollVote}
+            onVoterHover={onPollVoterHover}
+          />
         )}
 
         {/* Reply count indicator - only show for non-reply messages with replies */}
@@ -482,6 +506,26 @@ const UserMessage: React.FC<UserMessageProps> = ({
             }}
           >
             <FaTrash />
+          </div>
+        )}
+
+        {/* Status toggle - admin only, issues board */}
+        {onToggleStatus && !isReply && !isEditing && (
+          <div
+            className="user-message-status-button"
+            onClick={onToggleStatus}
+            role="button"
+            tabIndex={0}
+            aria-label={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+            title={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onToggleStatus();
+              }
+            }}
+          >
+            {status === 'complete' ? <FaUndo /> : <FaCheck />}
           </div>
         )}
 

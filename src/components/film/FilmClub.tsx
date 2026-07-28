@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  doc, onSnapshot, collection, getDocs,
+  doc, getDoc, collection, getDocs,
   setDoc, runTransaction, deleteDoc, deleteField, updateDoc,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
@@ -62,13 +62,14 @@ interface MonthDoc {
   downloadLinks?: { label: string; url: string }[];
   directDownloadLinks?: { label: string; url: string }[];
   currentFilmDescription?: string;
+  nextFilmDescription?: string;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
 
 function FilmClub() {
   const {
-    monthId, nextMonthId, isRevealPhase,
+    monthId, prevMonthId, nextMonthId, isRevealPhase,
     leavingDate, votingDeadline, nextMonthName, monthAfterNextName,
     userSubmissions, submissionsCount,
   } = useFilmClub();
@@ -92,10 +93,19 @@ function FilmClub() {
   const [directDownloadSaveStatus, setDirectDownloadSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [adminDescription, setAdminDescription] = useState('');
   const [descriptionSaveStatus, setDescriptionSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [adminNextDescription, setAdminNextDescription] = useState('');
+  const [nextDescriptionSaveStatus, setNextDescriptionSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [clearFilmStatus, setClearFilmStatus] = useState<'idle' | 'clearing' | 'error'>('idle');
   const [irvStatus, setIrvStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
 
+  const [nextShowingAt, setNextShowingAt] = useState<string>('');
+  const [nextShowingInput, setNextShowingInput] = useState<string>('');
+  const [nextShowingStatus, setNextShowingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  const [prevMonthData, setPrevMonthData] = useState<MonthDoc | null>(null);
+
   const irvTriggeredRef = useRef(false);
+  const autoPromotedRef = useRef(false);
 
   // ── Pre-populate download links from Firestore ───────────────────────────
   useEffect(() => {
@@ -118,9 +128,13 @@ function FilmClub() {
     setAdminDescription(monthData?.currentFilmDescription ?? '');
   }, [monthData?.currentFilmDescription]);
 
+  useEffect(() => {
+    setAdminNextDescription(monthData?.nextFilmDescription ?? '');
+  }, [monthData?.nextFilmDescription]);
+
   // ── Fetch trailer for current film ──────────────────────────────────────
   useEffect(() => {
-    const tmdbId = monthData?.currentFilm?.tmdbId;
+    const tmdbId = monthData?.currentFilm?.tmdbId ?? prevMonthData?.nextFilm?.tmdbId;
     if (!tmdbId) return;
     fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/videos?api_key=${import.meta.env.VITE_TMDB_API_KEY}`)
       .then((r) => r.json())
@@ -131,7 +145,7 @@ function FilmClub() {
         setCurrentFilmTrailerUrl(trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null);
       })
       .catch(() => setCurrentFilmTrailerUrl(null));
-  }, [monthData?.currentFilm?.tmdbId]);
+  }, [monthData?.currentFilm?.tmdbId, prevMonthData?.nextFilm?.tmdbId]);
 
   // ── Fetch trailer for next film ──────────────────────────────────────────
   useEffect(() => {
@@ -148,33 +162,72 @@ function FilmClub() {
       .catch(() => setNextFilmTrailerUrl(null));
   }, [monthData?.nextFilm?.tmdbId]);
 
-  // ── Firestore: real-time month doc ──────────────────────────────────────
+  // ── Firestore: cinema state (next showing time) ─────────────────────────
+  const loadCinemaState = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, 'cinema', 'state'));
+      const value = snap.exists() ? ((snap.data() as { nextShowingAt?: string }).nextShowingAt ?? '') : '';
+      setNextShowingAt(value);
+      setNextShowingInput(value);
+    } catch (err) {
+      console.error('Cinema state load error:', err);
+    }
+  }, []);
+
   useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, 'filmClub', monthId),
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() as MonthDoc & { downloadLinks?: unknown };
-          // Migrate old { small, medium, large } shape to array
-          if (data.downloadLinks && !Array.isArray(data.downloadLinks)) {
-            const old = data.downloadLinks as Record<string, string>;
-            data.downloadLinks = (['small', 'medium', 'large'] as const)
-              .filter((k) => old[k])
-              .map((k) => ({ label: k.charAt(0).toUpperCase() + k.slice(1), url: old[k] }));
-          }
-          setMonthData(data as MonthDoc);
-        } else {
-          setMonthData(null);
+    loadCinemaState();
+  }, [loadCinemaState]);
+
+  // ── Firestore: month doc (loaded once; refreshed after admin writes) ────
+  const loadMonthData = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, 'filmClub', monthId));
+      if (snap.exists()) {
+        const data = snap.data() as MonthDoc & { downloadLinks?: unknown };
+        // Migrate old { small, medium, large } shape to array
+        if (data.downloadLinks && !Array.isArray(data.downloadLinks)) {
+          const old = data.downloadLinks as Record<string, string>;
+          data.downloadLinks = (['small', 'medium', 'large'] as const)
+            .filter((k) => old[k])
+            .map((k) => ({ label: k.charAt(0).toUpperCase() + k.slice(1), url: old[k] }));
         }
-        setLoading(false);
-      },
-      (err) => {
-        console.error('FilmClub snapshot error:', err);
-        setLoading(false);
+        setMonthData(data as MonthDoc);
+      } else {
+        setMonthData(null);
       }
-    );
-    return unsub;
+    } catch (err) {
+      console.error('FilmClub month load error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [monthId]);
+
+  useEffect(() => {
+    loadMonthData();
+  }, [loadMonthData]);
+
+  // ── Firestore: previous month doc (for nextFilm promotion) ─────────────
+  useEffect(() => {
+    getDoc(doc(db, 'filmClub', prevMonthId))
+      .then((snap) => { setPrevMonthData(snap.exists() ? (snap.data() as MonthDoc) : null); })
+      .catch(console.error);
+  }, [prevMonthId]);
+
+  // ── Auto-promote prevMonth.nextFilm → currentMonth.currentFilm ──────────
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (loading) return;
+    if (monthData?.currentFilm) return;
+    if (!prevMonthData?.nextFilm) return;
+    if (autoPromotedRef.current) return;
+    autoPromotedRef.current = true;
+
+    const promotion: Partial<MonthDoc> = { currentFilm: prevMonthData.nextFilm };
+    if (prevMonthData.nextFilmDescription) promotion.currentFilmDescription = prevMonthData.nextFilmDescription;
+    setDoc(doc(db, 'filmClub', monthId), promotion, { merge: true })
+      .then(() => loadMonthData())
+      .catch(console.error);
+  }, [isAdmin, loading, monthData, prevMonthData, monthId, loadMonthData]);
 
   // ── Load admin submissions (next month during reveal phase) ──────────────
   const adminMonthId = isRevealPhase ? nextMonthId : monthId;
@@ -230,10 +283,11 @@ function FilmClub() {
         if (snap.data()?.winnerCalculated) return;
         tx.set(monthRef, { nextFilm, winnerCalculated: true }, { merge: true });
       });
+      await loadMonthData();
     };
 
     runIRV().catch(console.error);
-  }, [isRevealPhase, monthData, monthId]);
+  }, [isRevealPhase, monthData, monthId, loadMonthData]);
 
   // ── Admin: set current film ──────────────────────────────────────────────
   const handleAdminSetCurrentFilm = (film: FilmResult) => {
@@ -256,6 +310,7 @@ function FilmClub() {
         submittedByUsername: username,
       };
       await setDoc(doc(db, 'filmClub', monthId), { currentFilm }, { merge: true });
+      await loadMonthData();
       setAdminSaveStatus('saved');
       setAdminFilmSelection(null);
     } catch (err) {
@@ -270,6 +325,7 @@ function FilmClub() {
     try {
       const links = adminDownloadLinks.filter((l) => l.url.trim());
       await setDoc(doc(db, 'filmClub', monthId), { downloadLinks: links }, { merge: true });
+      await loadMonthData();
       setDownloadSaveStatus('saved');
     } catch (err) {
       console.error('Download links save error:', err);
@@ -283,6 +339,7 @@ function FilmClub() {
     try {
       const links = adminDirectDownloadLinks.filter((l) => l.url.trim());
       await setDoc(doc(db, 'filmClub', monthId), { directDownloadLinks: links }, { merge: true });
+      await loadMonthData();
       setDirectDownloadSaveStatus('saved');
     } catch (err) {
       console.error('Direct download links save error:', err);
@@ -295,10 +352,51 @@ function FilmClub() {
     setDescriptionSaveStatus('saving');
     try {
       await setDoc(doc(db, 'filmClub', monthId), { currentFilmDescription: adminDescription }, { merge: true });
+      await loadMonthData();
       setDescriptionSaveStatus('saved');
     } catch (err) {
       console.error('Description save error:', err);
       setDescriptionSaveStatus('error');
+    }
+  };
+
+  // ── Admin: save next film description ───────────────────────────────────
+  const handleAdminSaveNextDescription = async () => {
+    setNextDescriptionSaveStatus('saving');
+    try {
+      await setDoc(doc(db, 'filmClub', monthId), { nextFilmDescription: adminNextDescription }, { merge: true });
+      await loadMonthData();
+      setNextDescriptionSaveStatus('saved');
+    } catch (err) {
+      console.error('Next film description save error:', err);
+      setNextDescriptionSaveStatus('error');
+    }
+  };
+
+  // ── Admin: save / clear next cinema showing ──────────────────────────────
+  const handleSaveNextShowing = async () => {
+    if (!nextShowingInput) return;
+    setNextShowingStatus('saving');
+    try {
+      await setDoc(doc(db, 'cinema', 'state'), { nextShowingAt: nextShowingInput }, { merge: true });
+      setNextShowingAt(nextShowingInput);
+      setNextShowingStatus('saved');
+    } catch (err) {
+      console.error('Next showing save error:', err);
+      setNextShowingStatus('error');
+    }
+  };
+
+  const handleClearNextShowing = async () => {
+    setNextShowingStatus('saving');
+    try {
+      await updateDoc(doc(db, 'cinema', 'state'), { nextShowingAt: deleteField() });
+      setNextShowingAt('');
+      setNextShowingInput('');
+      setNextShowingStatus('saved');
+    } catch (err) {
+      console.error('Next showing clear error:', err);
+      setNextShowingStatus('error');
     }
   };
 
@@ -310,6 +408,7 @@ function FilmClub() {
         currentFilm: deleteField(),
         currentFilmDescription: deleteField(),
       });
+      await loadMonthData();
       setClearFilmStatus('idle');
     } catch (err) {
       console.error('Clear film error:', err);
@@ -355,6 +454,7 @@ function FilmClub() {
       };
 
       await setDoc(doc(db, 'filmClub', adminMonthId), { nextFilm, winnerCalculated: true }, { merge: true });
+      if (adminMonthId === monthId) await loadMonthData();
       setIrvStatus('done');
     } catch (err) {
       console.error('Admin IRV error:', err);
@@ -374,27 +474,29 @@ function FilmClub() {
 
   const voteLink = isRevealPhase ? `/film-club-vote?month=${nextMonthId}` : '/film-club-vote';
 
+  const effectiveCurrentFilm = monthData?.currentFilm ?? prevMonthData?.nextFilm ?? null;
+
   if (loading) return null;
 
   return (
     <div className="film-club-container">
 
       {/* Current film */}
-      {monthData?.currentFilm ? (
+      {effectiveCurrentFilm ? (
         <div className="film-club-section">
           <FilmCard
             label="Now watching"
-            posterPath={monthData.currentFilm.posterPath}
-            title={monthData.currentFilm.title}
-            releaseYear={monthData.currentFilm.releaseYear}
-            overview={monthData.currentFilm.overview || undefined}
-            pitch={monthData.currentFilm.pitch || undefined}
-            submittedByUsername={monthData.currentFilm.submittedByUsername || undefined}
+            posterPath={effectiveCurrentFilm.posterPath}
+            title={effectiveCurrentFilm.title}
+            releaseYear={effectiveCurrentFilm.releaseYear}
+            overview={effectiveCurrentFilm.overview || undefined}
+            pitch={effectiveCurrentFilm.pitch || undefined}
+            submittedByUsername={effectiveCurrentFilm.submittedByUsername || undefined}
             leaveDate={leavingDate}
             trailerUrl={currentFilmTrailerUrl ?? undefined}
-            downloadLinks={monthData.downloadLinks}
-            directDownloadLinks={monthData.directDownloadLinks}
-            description={monthData.currentFilmDescription || undefined}
+            downloadLinks={monthData?.downloadLinks}
+            directDownloadLinks={monthData?.directDownloadLinks}
+            description={monthData?.currentFilmDescription || undefined}
           />
         </div>
       ) : (
@@ -432,6 +534,9 @@ function FilmClub() {
         <a href="/filmclubmessage" className="film-club-btn film-club-btn-primary film-club-btn-wide" style={{ marginBottom: '1rem' }}>
           Film Club Message Board
         </a>
+        {/* <a href="/cinema" className="film-club-btn film-club-btn-primary film-club-btn-wide" style={{ marginBottom: '1rem' }}>
+          Cinema
+        </a> */}
         {isRevealPhase ? (
           <>
             <p className="normal-text">
@@ -495,6 +600,46 @@ function FilmClub() {
             </button>
             {irvStatus === 'done' && <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Done — winner updated.</p>}
             {irvStatus === 'error' && <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Failed — no submissions, or IRV returned no result.</p>}
+          </div>
+
+          <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem', textAlign: 'center' }}>Next cinema showing</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <input
+                type="datetime-local"
+                value={nextShowingInput}
+                onChange={(e) => { setNextShowingInput(e.target.value); setNextShowingStatus('idle'); }}
+                style={{ padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+              />
+              <button
+                onClick={handleSaveNextShowing}
+                disabled={nextShowingStatus === 'saving' || !nextShowingInput || nextShowingInput === nextShowingAt}
+                className="film-club-btn film-club-btn-primary"
+              >
+                {nextShowingStatus === 'saving' ? 'Saving…' : 'Save'}
+              </button>
+              {nextShowingAt && (
+                <button
+                  onClick={handleClearNextShowing}
+                  disabled={nextShowingStatus === 'saving'}
+                  className="film-club-btn"
+                  style={{ backgroundColor: 'var(--colour3)', color: 'var(--colour4)', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {nextShowingAt && (
+              <p className="normal-text" style={{ marginTop: '0.5rem', fontSize: '0.85rem', textAlign: 'center' }}>
+                Currently set to: <strong>{new Date(nextShowingAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</strong>
+              </p>
+            )}
+            {nextShowingStatus === 'saved' && (
+              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem', textAlign: 'center' }}>Saved.</p>
+            )}
+            {nextShowingStatus === 'error' && (
+              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem', textAlign: 'center' }}>Error saving.</p>
+            )}
           </div>
 
           {allSubmissions.length > 0 && (
@@ -632,6 +777,33 @@ function FilmClub() {
               <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
             )}
           </div>
+
+          {isRevealPhase && monthData?.nextFilm && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Description for next month's film ({nextMonthName})</p>
+              <textarea
+                value={adminNextDescription}
+                onChange={(e) => { setAdminNextDescription(e.target.value); setNextDescriptionSaveStatus('idle'); }}
+                placeholder={`Add context or notes about ${nextMonthName}'s film…`}
+                rows={4}
+                style={{ width: '100%', padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px', resize: 'vertical', boxSizing: 'border-box' }}
+              />
+              <button
+                onClick={handleAdminSaveNextDescription}
+                disabled={nextDescriptionSaveStatus === 'saving'}
+                className="film-club-btn film-club-btn-primary"
+                style={{ marginTop: '0.5rem' }}
+              >
+                {nextDescriptionSaveStatus === 'saving' ? 'Saving…' : 'Save description'}
+              </button>
+              {nextDescriptionSaveStatus === 'saved' && (
+                <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+              )}
+              {nextDescriptionSaveStatus === 'error' && (
+                <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+              )}
+            </div>
+          )}
 
           {monthData?.currentFilm && (
             <div style={{ marginBottom: '1.5rem' }}>

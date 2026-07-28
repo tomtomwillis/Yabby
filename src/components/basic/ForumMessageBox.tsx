@@ -1,34 +1,42 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ForumMessageBox.css';
 import Button from './Button';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
+import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
+import PollComposeModal, { type PollDraft } from './PollComposeModal';
 
 interface Result {
   id: string;
   name: string;
-  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action';
+  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll' | 'issue';
 }
 
-type SearchCommand = 'list' | 'playlist' | 'travel' | 'city';
+type SearchCommand = 'list' | 'playlist' | 'travel' | 'city' | 'issueresolved';
 type SlashMode = 'command' | SearchCommand | null;
+
+// Inserted links are stored in messages, so they must not depend on the
+// current origin (e.g. localhost during development).
+const SITE_ORIGIN = 'https://yabbyville.xyz';
 
 const INSTANT_COMMANDS: Record<string, { label: string; path: string }> = {
   filmclub: { label: 'Film Club', path: '/film-club' },
-  radio:    { label: 'Radio',     path: '/' },
+  radio:    { label: 'Radio',     path: '/radio' },
   news:     { label: 'News',      path: '/news' },
   stickers: { label: 'Stickers',  path: '/stickers' },
   wiki:     { label: 'Wiki',      path: '/wiki' },
+  issues:   { label: 'Issues',    path: '/issues' },
 };
 
-const SEARCH_COMMANDS: readonly SearchCommand[] = ['list', 'playlist', 'travel', 'city'];
+const SEARCH_COMMANDS: readonly SearchCommand[] = ['list', 'playlist', 'travel', 'city', 'issueresolved'];
 
 const SEARCH_COMMAND_LABELS: Record<SearchCommand, string> = {
   list:     'search lists',
   playlist: 'search public playlists',
   travel:   'search a travel rec',
   city:     'search a list of filtered recs for a city',
+  issueresolved: 'link to a specific issue',
 };
 
 const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
@@ -36,6 +44,7 @@ const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
   playlist: 'Playlists',
   travel:   'Places',
   city:     'Cities',
+  issueresolved: 'Issues',
 };
 
 interface ForumMessageBoxProps {
@@ -48,7 +57,8 @@ interface ForumMessageBoxProps {
   showSendButton?: boolean;
   initialValue?: string;
   onImageAttach?: (file: File | null) => void;
-  onFilmAnnounce?: () => Promise<void>;
+  onFilmAnnounce?: (variant: 1 | 2 | 3) => Promise<void>;
+  onPollAttach?: (poll: PollDraft | null) => void;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -62,6 +72,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   initialValue = '',
   onImageAttach,
   onFilmAnnounce,
+  onPollAttach,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
@@ -70,6 +81,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState(initialValue);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [pendingPoll, setPendingPoll] = useState<PollDraft | null>(null);
+  const [pollComposeOpen, setPollComposeOpen] = useState(false);
 
   // Slash command state
   const [slashMode, setSlashMode] = useState<SlashMode>(null);
@@ -80,17 +93,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [allLists, setAllLists] = useState<Result[]>([]);
   const [allPlaces, setAllPlaces] = useState<{ id: string; displayName: string; city: string; cityKey: string }[]>([]);
   const [allPlaylists, setAllPlaylists] = useState<Result[]>([]);
+  const [allIssues, setAllIssues] = useState<Result[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const triggerPositionRef = useRef<number>(-1);
   const listsFetchPromiseRef = useRef<Promise<void> | null>(null);
   const placesFetchPromiseRef = useRef<Promise<void> | null>(null);
   const playlistsFetchPromiseRef = useRef<Promise<void> | null>(null);
-
-  const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-  const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-  const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-  const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
+  const issuesFetchPromiseRef = useRef<Promise<void> | null>(null);
 
   const ensureListsLoaded = (): Promise<void> => {
     if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
@@ -98,7 +108,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       try {
         const listsQuery = query(
           collection(db, 'lists'),
-          where('isPublic', '!=', false),
+          where('isPublic', '==', true),
         );
         const snapshot = await getDocs(listsQuery);
         const lists: Result[] = [];
@@ -150,14 +160,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (playlistsFetchPromiseRef.current) return playlistsFetchPromiseRef.current;
     const p = (async () => {
       try {
-        const response = await fetch(
-          `${SERVER_URL}/rest/getPlaylists?u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-          { headers: { Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`) } },
-        );
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const text = await response.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, 'application/xml');
+        const xmlDoc = await fetchSubsonicXml('getPlaylists');
         const playlists: Result[] = Array.from(xmlDoc.getElementsByTagName('playlist')).map((el) => ({
           id: el.getAttribute('id') || '',
           name: el.getAttribute('name') || 'Unknown Playlist',
@@ -173,35 +176,41 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     return p;
   };
 
+  const ensureIssuesLoaded = (): Promise<void> => {
+    if (issuesFetchPromiseRef.current) return issuesFetchPromiseRef.current;
+    const p = (async () => {
+      try {
+        const issuesQuery = query(
+          collection(db, 'issues'),
+          orderBy('lastActivityAt', 'desc'),
+          limit(50),
+        );
+        const snapshot = await getDocs(issuesQuery);
+        const issues: Result[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          // Issues have no title — derive a snippet from the message text.
+          const plain = String(data.text || '')
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const name = plain ? (plain.length > 60 ? `${plain.slice(0, 60)}…` : plain) : '(image post)';
+          issues.push({ id: docSnap.id, name, type: 'issue' as const });
+        });
+        setAllIssues(issues);
+      } catch (error) {
+        console.error('Error fetching issues:', error);
+        issuesFetchPromiseRef.current = null;
+      }
+    })();
+    issuesFetchPromiseRef.current = p;
+    return p;
+  };
+
   const fetchResults = async (queryStr: string): Promise<Result[][]> => {
     setSearchStatus("Searching...");
-    const response = await fetch(
-      `${SERVER_URL}/rest/search3?query=${queryStr}&artistCount=5&albumCount=5&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-      {
-        headers: {
-          Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-        },
-      }
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const text = await response.text();
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(text, 'application/xml');
-
-    const parserError = xmlDoc.querySelector('parsererror');
-    if (parserError) {
-      throw new Error('XML parsing error: ' + parserError.textContent);
-    }
-
-    const subsonicResponse = xmlDoc.querySelector('subsonic-response');
-    if (subsonicResponse?.getAttribute('status') === 'failed') {
-      const errorElement = xmlDoc.querySelector('error');
-      const errorMessage = errorElement?.getAttribute('message') || 'Unknown API error';
-      throw new Error(`API Error: ${errorMessage}`);
-    }
+    const xmlDoc = await fetchSubsonicXml('search3', { query: queryStr, artistCount: 5, albumCount: 5 });
 
     const artistEls = Array.from(xmlDoc.getElementsByTagName('artist'));
     const albumEls = Array.from(xmlDoc.getElementsByTagName('album'));
@@ -279,11 +288,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         .filter((p) => p.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
         .slice(0, 5);
       setSlashResults(filtered);
+    } else if (slashMode === 'issueresolved') {
+      // Empty term shows the most recent issues (kept in lastActivityAt order).
+      const filtered = allIssues
+        .filter((i) => !slashSearchTerm.trim() || i.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
+        .slice(0, 5);
+      setSlashResults(filtered);
     }
-  }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists]);
+  }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists, allIssues]);
 
   const handleSend = () => {
-    if ((newMessage.trim() || imagePreviewUrl) && onSend && !disabled) {
+    if ((newMessage.trim() || imagePreviewUrl || pendingPoll) && onSend && !disabled) {
       onSend(newMessage.trim());
       setNewMessage('');
       if (imagePreviewUrl) {
@@ -291,8 +306,23 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         setImagePreviewUrl(null);
         onImageAttach?.(null);
       }
+      if (pendingPoll) {
+        setPendingPoll(null);
+        onPollAttach?.(null);
+      }
       clearSearch();
     }
+  };
+
+  const savePollDraft = (draft: PollDraft) => {
+    setPendingPoll(draft);
+    onPollAttach?.(draft);
+    setPollComposeOpen(false);
+  };
+
+  const removePollDraft = () => {
+    setPendingPoll(null);
+    onPollAttach?.(null);
   };
 
   const clearSearch = () => {
@@ -359,8 +389,20 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
             .filter((k) => k.startsWith(command))
             .map((k) => ({ id: k, name: `/${k} — ${SEARCH_COMMAND_LABELS[k]}`, type: k as Result['type'] }));
           const actionMatches: Result[] = [];
-          if (onFilmAnnounce && 'filmannounce'.startsWith(command)) {
-            actionMatches.push({ id: 'filmannounce', name: '/filmannounce — post film club announcement', type: 'action' });
+          if (onFilmAnnounce) {
+            const ANNOUNCE_LABELS: Record<string, string> = {
+              filmannounce1: 'announce current film',
+              filmannounce2: 'remind voting deadline',
+              filmannounce3: 'announce next month\'s film',
+            };
+            Object.keys(ANNOUNCE_LABELS).forEach((cmd) => {
+              if (cmd.startsWith(command)) {
+                actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
+              }
+            });
+          }
+          if (onPollAttach && 'poll'.startsWith(command)) {
+            actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
           }
           setSlashResults([...searchMatches, ...instantMatches, ...actionMatches]);
           setSlashMode('command');
@@ -370,14 +412,27 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           if (command === 'list') ensureListsLoaded();
           if (command === 'travel' || command === 'city') ensurePlacesLoaded();
           if (command === 'playlist') ensurePlaylistsLoaded();
-        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && 'filmannounce'.startsWith(command))) {
+          if (command === 'issueresolved') ensureIssuesLoaded();
+        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command))) || (onPollAttach && 'poll'.startsWith(command))) {
           // Instant or action command typed with a trailing space
           const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
             .filter(([k]) => k.startsWith(command))
             .map(([k, v]) => ({ id: k, name: `/${k} — ${v.label}`, type: 'instant' as const }));
           const actionMatches: Result[] = [];
-          if (onFilmAnnounce && 'filmannounce'.startsWith(command)) {
-            actionMatches.push({ id: 'filmannounce', name: '/filmannounce — post film club announcement', type: 'action' });
+          if (onFilmAnnounce) {
+            const ANNOUNCE_LABELS: Record<string, string> = {
+              filmannounce1: 'announce current film',
+              filmannounce2: 'remind voting deadline',
+              filmannounce3: 'announce next month\'s film',
+            };
+            Object.keys(ANNOUNCE_LABELS).forEach((cmd) => {
+              if (cmd.startsWith(command)) {
+                actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
+              }
+            });
+          }
+          if (onPollAttach && 'poll'.startsWith(command)) {
+            actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
           }
           setSlashResults([...instantMatches, ...actionMatches]);
           setSlashMode('command');
@@ -393,14 +448,26 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   };
 
   const selectResult = (result: Result) => {
-    if (result.type === 'action' && result.id === 'filmannounce') {
+    if (result.type === 'action' && result.id.startsWith('filmannounce')) {
       const triggerPos = triggerPositionRef.current;
       if (triggerPos !== -1) {
         const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
         setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
       }
       clearSearch();
-      onFilmAnnounce?.();
+      const variant = parseInt(result.id.slice(-1)) as 1 | 2 | 3;
+      onFilmAnnounce?.(variant);
+      return;
+    }
+
+    if (result.type === 'poll') {
+      const triggerPos = triggerPositionRef.current;
+      if (triggerPos !== -1) {
+        const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
+        setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
+      }
+      clearSearch();
+      setPollComposeOpen(true);
       return;
     }
 
@@ -408,17 +475,19 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     const linkText = result.type === 'instant' ? INSTANT_COMMANDS[result.id].label : result.name;
 
     if (result.type === 'instant') {
-      link = `${window.location.origin}${INSTANT_COMMANDS[result.id].path}`;
+      link = `${SITE_ORIGIN}${INSTANT_COMMANDS[result.id].path}`;
     } else if (result.type === 'playlist') {
-      link = `${SERVER_URL}/app/#/playlist/${result.id}/show`;
+      link = `${NAVIDROME_SERVER_URL}/app/#/playlist/${result.id}/show`;
     } else if (result.type === 'place') {
-      link = `${window.location.origin}/travel?place=${result.id}`;
+      link = `${SITE_ORIGIN}/travel?place=${result.id}`;
     } else if (result.type === 'city') {
-      link = `${window.location.origin}/travel?city=${result.id}`;
+      link = `${SITE_ORIGIN}/travel?city=${result.id}`;
     } else if (result.type === 'list') {
-      link = `${window.location.origin}/lists/${result.id}`;
+      link = `${SITE_ORIGIN}/lists/${result.id}`;
+    } else if (result.type === 'issue') {
+      link = `${SITE_ORIGIN}/issues?issue=${result.id}`;
     } else {
-      link = `${SERVER_URL}/app/#/${result.type}/${result.id}/show`;
+      link = `${NAVIDROME_SERVER_URL}/app/#/${result.type}/${result.id}/show`;
     }
 
     const triggerPos = triggerPositionRef.current;
@@ -460,6 +529,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (cmd === 'list') ensureListsLoaded();
     if (cmd === 'travel' || cmd === 'city') ensurePlacesLoaded();
     if (cmd === 'playlist') ensurePlaylistsLoaded();
+    if (cmd === 'issueresolved') ensureIssuesLoaded();
 
     setTimeout(() => {
       if (textareaRef.current) {
@@ -511,7 +581,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
   const wordCount = newMessage.trim() ? newMessage.trim().split(/\s+/).length : 0;
   const charCount = newMessage.length;
-  const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl) && wordCount <= maxWords && charCount <= maxChars && !disabled;
+  const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl || !!pendingPoll) && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
   const isSlashSearchMode = slashMode !== null && slashMode !== 'command';
   const slashModeLabel = isSlashSearchMode ? SLASH_MODE_LABELS[slashMode as SearchCommand] : '';
@@ -521,6 +591,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (slashMode === 'playlist') return 'Type to search playlists…';
     if (slashMode === 'travel') return allPlaces.length === 0 ? 'Loading places…' : 'Type to search places…';
     if (slashMode === 'city') return allPlaces.length === 0 ? 'Loading cities…' : 'No cities found';
+    if (slashMode === 'issueresolved') return allIssues.length === 0 ? 'Loading issues…' : 'No matching issues';
     return '';
   })();
 
@@ -567,6 +638,32 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         </div>
       )}
 
+      {pendingPoll && (
+        <div className="poll-draft-chip" onClick={() => setPollComposeOpen(true)} role="button" tabIndex={0}>
+          <span className="poll-draft-chip__label">📊 {pendingPoll.question}</span>
+          <span className="poll-draft-chip__meta">{pendingPoll.options.length} options</span>
+          <button
+            type="button"
+            className="poll-draft-chip__remove"
+            onClick={(e) => {
+              e.stopPropagation();
+              removePollDraft();
+            }}
+            aria-label="Remove poll"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {pollComposeOpen && (
+        <PollComposeModal
+          initialValue={pendingPoll}
+          onSave={savePollDraft}
+          onCancel={() => setPollComposeOpen(false)}
+        />
+      )}
+
       {isSearching && <p>{searchStatus}</p>}
 
       {artistResults.length > 0 && (
@@ -602,7 +699,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
               <li key={r.id}>
                 <button
                   onClick={() =>
-                    r.type === 'instant' || r.type === 'action' ? selectResult(r) : activateSearchCommand(r.id)
+                    r.type === 'instant' || r.type === 'action' || r.type === 'poll' ? selectResult(r) : activateSearchCommand(r.id)
                   }
                 >
                   {r.name}

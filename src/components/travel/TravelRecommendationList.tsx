@@ -85,6 +85,7 @@ export default function TravelRecommendationList({
                     className="travel-rec-list__avatar"
                     src={normalizeAvatarPath(place.firstContributorAvatar)}
                     alt={place.firstContributorUsername}
+                    loading="lazy"
                   />
                 ) : (
                   <div className="travel-rec-list__avatar travel-rec-list__avatar--fallback" />
