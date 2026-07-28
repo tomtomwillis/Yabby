@@ -1,4 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import AnchoredBubble from "./basic/AnchoredBubble";
+import { NAVIDROME_SERVER_URL } from "../utils/navidrome";
+import {
+  formatTime,
+  loadAlbumTracks,
+  usePlayerActions,
+  usePlayerState,
+  type PlayerTrack,
+} from "../utils/usePlayer";
+// The bubble's track list reuses the sticker player's sp- rows.
+import "./stickerPlayer.css";
 import "./CarouselAlbums.css";
 
 const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
@@ -15,10 +26,88 @@ interface Album {
   genre?: string;
 }
 
+/** What the open bubble is showing. Keyed by tile rather than album id — the
+ *  list repeats for the marquee loop, so the same album appears more than once. */
+interface OpenTile {
+  key: string;
+  album: Album;
+  anchor: HTMLElement;
+}
+
+/** The bubble's contents. Separate from the ticker so the player subscription —
+ *  which updates several times a second while a track runs — cannot re-render
+ *  the marquee underneath it. */
+const AlbumBubbleBody: React.FC<{ album: Album }> = ({ album }) => {
+  const [tracks, setTracks] = useState<PlayerTrack[]>([]);
+  const [failed, setFailed] = useState(false);
+  const { album: playingAlbum, index: playingIndex } = usePlayerState();
+  const { playAlbum } = usePlayerActions();
+
+  // Re-requesting hits navidromeCards' promise cache, so an album already
+  // opened once costs nothing.
+  useEffect(() => {
+    let cancelled = false;
+    setTracks([]);
+    setFailed(false);
+    loadAlbumTracks(album.id)
+      .then((loaded) => { if (!cancelled) setTracks(loaded); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [album.id]);
+
+  const playingHere = playingAlbum?.id === album.id;
+
+  return (
+    <>
+      <h3 className="am-bubble__title">{album.name}</h3>
+      <p className="am-bubble__artist">{album.artist}</p>
+
+      {failed && <p className="sp-status">Could not load tracks</p>}
+      {!failed && tracks.length === 0 && <p className="sp-status">loading tracks…</p>}
+
+      <ol className="sp-tracks">
+        {tracks.map((track, i) => {
+          const isCurrent = playingHere && playingIndex === i;
+          return (
+            <li key={track.id}>
+              <button
+                className={isCurrent ? 'sp-track is-current' : 'sp-track'}
+                aria-current={isCurrent || undefined}
+                onClick={() =>
+                  playAlbum({ id: album.id, title: album.name, artist: album.artist }, track.id)
+                }
+              >
+                <span className="sp-track-cue" aria-hidden="true">{isCurrent ? '▶' : ' '}</span>
+                <span className="sp-track-num">{String(i + 1).padStart(2, '0')}</span>
+                <span className="sp-track-title">{track.title}</span>
+                <span className="sp-track-dur">{formatTime(track.duration ?? 0)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
+      <a
+        className="am-bubble__link"
+        href={`${NAVIDROME_SERVER_URL}/app/#/album/${album.id}/show`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        [ Open in Navidrome ]
+      </a>
+    </>
+  );
+};
+
 const CarouselAlbums: React.FC = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState<OpenTile | null>(null);
+
+  const closeBubble = useCallback(() => setOpen(null), []);
 
   useEffect(() => {
     const fetchAlbums = async () => {
@@ -27,7 +116,7 @@ const CarouselAlbums: React.FC = () => {
         setError(null);
 
         const response = await fetch(
-          `${SERVER_URL}/rest/getAlbumList?type=newest&size=10&format=xml&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`, 
+          `${SERVER_URL}/rest/getAlbumList?type=newest&size=20&format=xml&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
           {
             headers: {
               Authorization: "Basic " + btoa(`${API_USERNAME}:${API_PASSWORD}`),
@@ -110,16 +199,17 @@ const CarouselAlbums: React.FC = () => {
     );
   }
 
-  // Duplicate the list so the CSS keyframe loop joins seamlessly.
-  const ticker = [...albums, ...albums];
+  // Three copies, not two. The keyframe scrolls exactly one copy's width, so a
+  // copy narrower than the frame runs off the end and leaves a gap — with three
+  // there are always two copies' worth of tiles to the right of the start.
+  const ticker = [...albums, ...albums, ...albums];
 
   const renderTile = (album: Album, i: number) => (
-    <a
+    <button
       key={`${album.id}-${i}`}
+      type="button"
       className="albums-marquee__tile"
-      href={`${SERVER_URL}/app/#/album/${album.id}/show`}
-      target="_blank"
-      rel="noopener noreferrer"
+      onClick={(e) => setOpen({ key: `${album.id}-${i}`, album, anchor: e.currentTarget })}
       title={`${album.name} — ${album.artist}${album.year ? ` (${album.year})` : ''}`}
     >
       <img
@@ -137,16 +227,29 @@ const CarouselAlbums: React.FC = () => {
         <strong>{album.name}</strong>
         <em>{album.artist}</em>
       </span>
-    </a>
+    </button>
   );
 
   return (
-    <div className="albums-marquee-frame">
-      <div className="albums-marquee">
+    <div className="albums-marquee-frame" ref={frameRef}>
+      {/* Frozen while a bubble is open, otherwise the tile it points at slides
+          out from under it. */}
+      <div className={`albums-marquee${open ? ' is-frozen' : ''}`}>
         <div className="albums-marquee__track">
           {ticker.map((album, i) => renderTile(album, i))}
         </div>
       </div>
+
+      {open && (
+        <AnchoredBubble
+          anchor={open.anchor}
+          container={frameRef.current}
+          placement="above"
+          onClose={closeBubble}
+        >
+          <AlbumBubbleBody album={open.album} />
+        </AnchoredBubble>
+      )}
     </div>
   );
 };

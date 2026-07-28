@@ -1,5 +1,4 @@
-/* The one player: library transport with the radio as a mode. Merges the old
-   RadioPlayer's wave frame with the sticker dock's transport. Classes are pb-
+/* The one player: library transport with the radio as a mode. Classes are pb-
    prefixed; the block sliders and the track list keep their sp- names, which
    live in BlockRange.css and stickerPlayer.css. */
 
@@ -16,59 +15,63 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  /* Fills the bar's right-hand region, so the two wave rows pin to its top and
-     bottom edges with the controls carrying the space between. */
-  justify-content: space-between;
-  height: 100%;
-  width: 100%;
+  /* Fills the bar's height and runs to its right edge; every row is the same
+     width, so the seek bar spans exactly what the controls under it do and the
+     metadata gets the whole width rather than a truncated corner. */
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
   color: var(--pb-accent);
   font-family: var(--font2);
 }
 
+/* Spread rather than stacked: the three rows share the bar's height instead of
+   bunching at the bottom under a band of white. No bottom padding — the
+   controls row has to finish flush with the player's own bottom edge, which is
+   what AsciiMan beside it aligns himself against. */
 .pb-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.3rem;
+  align-items: stretch;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0.22rem;
   min-width: 0;
-  padding: 0.35rem 0;
+  padding: 0.2rem 0 0;
 }
 
-/* ── Wave borders ──────────────────────────────────────── */
+/* ── Seek ──────────────────────────────────────────────── */
 
-.pb-wave {
+.pb-seek {
   display: flex;
-  flex: 0 0 auto;
-  overflow: hidden;
-  height: 1em;
-  color: var(--pb-accent-dim);
-  font-size: 0.7rem;
-  line-height: 1;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
-.pb-wave-ch {
-  flex: 0 0 auto;
-}
-
-/* Each char is phase-shifted by its index, so the row reads as a travelling
-   wave. Only runs while something is actually playing. */
-.pb-is-playing .pb-wave-ch {
-  animation: pb-wave 1.4s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -0.06s);
-}
-
-@keyframes pb-wave {
-  0%, 100% { transform: translateY(-1.5px); }
-  50%      { transform: translateY(1.5px); }
+/* The set stands in for the seek bar in radio mode, so it keeps the row's
+   height without pretending to be a scrubber. */
+.pb-seek--radio {
+  justify-content: flex-end;
 }
 
 /* ── Now playing ───────────────────────────────────────── */
 
-.pb-meta {
+.pb-mid {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.9rem;
   min-width: 0;
-  font-size: 0.75rem;
+}
+
+.pb-meta {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.74rem;
   line-height: 1.3;
+  text-align: left;
 }
 
 .pb-meta-title,
@@ -84,17 +87,8 @@
   font-size: 0.7rem;
 }
 
-.pb-meta--radio {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.pb-meta-lines {
-  min-width: 0;
-}
-
-/* The radio set. Sized to the two text lines beside it. */
+/* The radio set. Sized to sit in the seek row without making it taller than the
+   seek bar does. */
 .pb-set {
   flex: 0 0 auto;
   margin: 0;
@@ -120,19 +114,27 @@
 
 /* ── Controls ──────────────────────────────────────────── */
 
+/* Right-aligned and content-sized. Nothing in it grows, so dropping to radio's
+   two controls leaves the gap where the transport was as white space instead of
+   stretching the volume across it. */
 .pb-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.4rem;
   min-width: 0;
 }
 
+.pb-row .sp-vol {
+  flex: 0 0 5.5rem;
+}
+
 .pb-btn {
   flex: 0 0 auto;
-  min-width: 34px;
-  min-height: 30px;
-  padding: 0 0.45rem;
+  min-width: 30px;
+  min-height: 24px;
+  padding: 0 0.4rem;
   background: var(--pb-bg-alt);
   color: var(--pb-accent);
   border: 1px solid var(--pb-accent-dim);
@@ -172,10 +174,17 @@
   white-space: nowrap;
 }
 
-/* Reads as a label rather than a button — it is the one way across to the
-   other source, so it sits apart from the transport. */
+.pb-links {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  white-space: nowrap;
+}
+
+/* Reads as a label rather than a button — these are the ways out of the
+   transport, so they sit apart from it. */
 .pb-mode {
-  align-self: flex-start;
   padding: 0;
   background: none;
   border: none;

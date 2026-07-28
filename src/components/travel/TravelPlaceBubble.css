@@ -1,30 +1,37 @@
-/* Leaflet popup overrides — make it match our blue cards */
+/* The place bubble, skinned to match the home widget's map popup
+   (HomeTravel.css): light card, hairline border, square corners, no shadow.
+   The --hp-* variables are declared on .home-page, which currently wraps every
+   route — the fallbacks keep these components standing on their own if that
+   ever stops being true. */
+
 .travel-bubble-popup .leaflet-popup-content-wrapper {
-  background: var(--colour2);
-  border: none;
-  border-radius: 12px;
+  background: var(--colour4);
+  border: 1px solid var(--hp-accent, var(--colour2));
+  border-radius: 0;
   padding: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
 
 .travel-bubble-popup .leaflet-popup-tip {
-  background: var(--colour2);
+  background: var(--colour4);
+  border: 1px solid var(--hp-accent, var(--colour2));
+  box-shadow: none;
 }
 
 .travel-bubble-popup .leaflet-popup-close-button {
-  color: rgba(255, 255, 255, 0.7);
-  top: 8px;
-  right: 10px;
-  font-size: 18px;
+  color: var(--hp-dim, #5566c9);
+  top: 6px;
+  right: 8px;
+  font-size: 16px;
 }
 
 .travel-bubble-popup .leaflet-popup-close-button:hover {
-  color: #fff;
+  color: var(--colour3);
 }
 
 .travel-bubble-popup .leaflet-popup-content {
   margin: 0;
-  min-width: 50px;
+  min-width: 17rem;
   max-width: 560px;
 }
 
@@ -43,25 +50,25 @@
 }
 
 .travel-bubble {
-  background: var(--colour2);
-  color: var(--colour4);
+  background: var(--colour4);
+  color: var(--colour5);
   font-family: var(--font2);
-  border-radius: 12px;
-  padding: 14px 16px;
+  border-radius: 0;
+  padding: 12px 14px;
 }
 
 .travel-bubble__title {
   font-family: var(--font2);
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--colour4);
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--hp-accent, var(--colour2));
   margin: 0 0 2px;
 }
 
 .travel-bubble__subtitle {
   font-family: var(--font2);
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.72rem;
+  color: var(--hp-dim, #5566c9);
   margin: 0 0 10px;
 }
 
@@ -72,30 +79,31 @@
   margin: 4px 0 6px;
 }
 
+/* The one place colour survives the port — the chips carry the category's own
+   hue, which still reads as white-on-colour against the light card. */
 .travel-bubble__category-chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
+  padding: 1px 7px;
+  border-radius: 0;
   font-family: var(--font2);
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.66rem;
+  font-weight: 400;
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
 }
 
 .travel-bubble__separator {
   border: none;
-  border-bottom: 4px dashed rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid var(--hp-rule, #c9cee4);
   margin: 0 0 10px;
 }
 
 .travel-bubble__loading,
 .travel-bubble__empty {
   font-family: var(--font2);
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.78rem;
+  color: var(--hp-dim, #5566c9);
   margin: 0;
 }
 
@@ -122,21 +130,20 @@
   align-items: center;
   gap: 6px;
   margin-top: 10px;
-  padding: 4px 10px;
+  padding: 3px 9px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
-  border: 1px dashed rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
+  color: var(--hp-dim, #5566c9);
+  border: 1px dashed var(--hp-rule, #c9cee4);
+  border-radius: 0;
   cursor: pointer;
   font-family: var(--font2);
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  transition: color 120ms ease, border-color 120ms ease;
 }
 
 .travel-bubble__add-tile:hover,
 .travel-bubble__add-tile:focus-visible {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--colour3);
+  border-color: var(--colour3);
   outline: none;
 }
 

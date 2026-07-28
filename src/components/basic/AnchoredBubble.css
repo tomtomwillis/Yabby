@@ -1,0 +1,90 @@
+/* Floating box under whatever was clicked. Deliberately the same skin as the
+   home travel widget's map popup (HomeTravel.css) — square, hairline border,
+   no shadow — so the page has one kind of bubble rather than three. */
+
+.ab {
+  position: absolute;
+  /* Above the page's own content, below the fixed bottom bar (1002). */
+  z-index: 20;
+  box-sizing: border-box;
+  width: min(24rem, 100%);
+  padding: 0.7rem 0.85rem;
+  background: var(--colour4);
+  border: 1px solid var(--hp-accent, var(--colour2));
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--font2);
+}
+
+/* The tip, pointing back up at the anchor. Two squares rather than a border
+   triangle: the outer draws the hairline, the inner covers the border beneath
+   it so the box and its tip read as one outline. */
+.ab::before,
+.ab::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--ab-tip, 50%) - 5px);
+  width: 9px;
+  height: 9px;
+  background: var(--colour4);
+  transform: rotate(45deg);
+}
+
+.ab::before {
+  top: -5px;
+  border-top: 1px solid var(--hp-accent, var(--colour2));
+  border-left: 1px solid var(--hp-accent, var(--colour2));
+}
+
+.ab::after {
+  top: -3px;
+}
+
+/* Opened upward the tip belongs on the other edge, pointing back down. */
+.ab--above::before,
+.ab--above::after {
+  top: auto;
+}
+
+.ab--above::before {
+  bottom: -5px;
+  border-top: none;
+  border-left: none;
+  border-bottom: 1px solid var(--hp-accent, var(--colour2));
+  border-right: 1px solid var(--hp-accent, var(--colour2));
+}
+
+.ab--above::after {
+  bottom: -3px;
+}
+
+.ab-body {
+  /* Published by the component from the room left between the anchor and the
+     viewport edge, so the bubble uses the page rather than a fixed slice. */
+  max-height: var(--ab-max-h, min(60vh, 420px));
+  overflow-y: auto;
+  /* Keeps the first line clear of the close button pinned in the corner. */
+  padding-right: 1rem;
+  scrollbar-width: thin;
+}
+
+.ab-close {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.4rem;
+  z-index: 1;
+  padding: 0.15rem 0.2rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--hp-dim, #5566c9);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ab-close:hover,
+.ab-close:focus-visible {
+  color: var(--colour3);
+}

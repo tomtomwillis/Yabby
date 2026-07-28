@@ -30,6 +30,34 @@ function categoryLabel(place: Place): string {
   return PLACE_CATEGORIES.find((c) => c.value === place.category)?.label ?? 'Other';
 }
 
+/** Slides the map so the opened bubble sits in the middle of it, which puts the
+ *  pin at or just below the bottom edge. The frame is only a couple of hundred
+ *  pixels tall, so the bubble is measured where it actually landed rather than
+ *  derived from the pin's anchor — leaflet adds its own offset and tip height
+ *  on top of popupAnchor, and a bubble half off the top is unreadable. */
+function centrePopup(map: L.Map, popup: L.Popup) {
+  // Two frames, not none: at popupopen leaflet has inserted the element but not
+  // finished sizing and placing it, and measuring it then lands the pan tens of
+  // pixels short.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const el = popup.getElement();
+      if (!el) return;
+      const frame = map.getContainer().getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      // panBy shifts the view, so the bubble moves the opposite way by this
+      // much — straight from where it is to the middle.
+      map.panBy(
+        [
+          box.left + box.width / 2 - (frame.left + frame.width / 2),
+          box.top + box.height / 2 - (frame.top + frame.height / 2),
+        ],
+        { animate: true, duration: 0.35 },
+      );
+    }),
+  );
+}
+
 /** Frames all pins. Unlike the full map's one-shot fit, this re-runs whenever
     the set of places changes, since the widget only ever shows five. */
 function FitPlaces({ places }: { places: Place[] }) {
@@ -72,6 +100,7 @@ const HomeTravel: React.FC = () => {
   const [failed, setFailed] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   const markers = useRef<Record<string, L.Marker | null>>({});
+  const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,8 +131,19 @@ const HomeTravel: React.FC = () => {
           ref={(marker) => {
             markers.current[place.id] = marker;
           }}
+          eventHandlers={{
+            popupopen: (e) => {
+              if (mapRef.current) centrePopup(mapRef.current, e.popup);
+            },
+          }}
         >
-          <Popup className="home-travel-popup" maxWidth={230} autoPan={false} keepInView={false}>
+          <Popup
+            className="home-travel-popup"
+            maxWidth={300}
+            minWidth={240}
+            autoPan={false}
+            keepInView={false}
+          >
             <span className="ht-pop-name">{shortName(place)}</span>
             <span className="ht-pop-meta">
               {categoryLabel(place)} · {place.city || place.country}
@@ -128,7 +168,7 @@ const HomeTravel: React.FC = () => {
   return (
     <div className="home-travel">
       <div className="ht-map">
-        <MapContainer center={[20, 0]} zoom={2} scrollWheelZoom={false} worldCopyJump>
+        <MapContainer ref={mapRef} center={[20, 0]} zoom={2} scrollWheelZoom={false} worldCopyJump>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

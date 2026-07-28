@@ -10,24 +10,6 @@
   font-family: var(--font2);
 }
 
-.vz-toggle {
-  align-self: flex-start;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 0;
-  color: var(--hp-dim, #5566c9);
-  font: inherit;
-  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
-  letter-spacing: 0.06em;
-  cursor: pointer;
-}
-
-.vz-toggle:hover,
-.vz-toggle:focus-visible {
-  color: var(--colour3);
-}
-
 /* Takes whatever height the rail has left. min-height keeps it from collapsing
    to nothing once the index, stats and weather have had their share. */
 .vz-box {
@@ -37,8 +19,8 @@
   min-height: 90px;
 }
 
-/* Closed hides the box but keeps the toggle, so the effect can be asked for
-   again. The canvas is parked off-DOM meanwhile and keeps its WebGL context. */
+/* Closed hides the box; the player's switch is what asks for it again. The
+   canvas is parked off-DOM meanwhile and keeps its WebGL context. */
 .vz--closed .vz-box {
   display: none;
 }
