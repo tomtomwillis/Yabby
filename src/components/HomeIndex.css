@@ -8,26 +8,6 @@
   line-height: 1.55;
 }
 
-.hi-head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  margin-bottom: 0.1rem;
-  color: var(--hp-accent);
-}
-
-.hi-title {
-  flex: 0 0 auto;
-  letter-spacing: 0.08em;
-}
-
-.hi-rule {
-  flex: 1 1 auto;
-  height: 0;
-  border-bottom: 1px solid var(--hp-rule);
-  transform: translateY(-0.25em);
-}
-
 .hi-row {
   display: flex;
   align-items: baseline;

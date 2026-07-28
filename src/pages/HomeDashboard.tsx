@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { lazy, Suspense, useRef, useState } from 'react';
 import CarouselAlbums from '../components/CarouselAlbums';
-import CarouselStickers, { type CarouselStickersHandle } from '../components/CarouselStickers';
+import CarouselStickers, {
+  type CarouselStickersHandle,
+  type StickerOrder,
+} from '../components/CarouselStickers';
 import PlaceSticker from '../components/PlaceSticker';
 import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import RecentLists from '../components/RecentLists';
@@ -44,6 +47,7 @@ const Section: React.FC<SectionProps> = ({ title, to, external, extra, children 
  *  the shell, so this is only the body content. */
 function HomeDashboard() {
   const [stickerFormOpen, setStickerFormOpen] = useState(false);
+  const [stickerOrder, setStickerOrder] = useState<StickerOrder>('recent');
   const stickersRef = useRef<CarouselStickersHandle>(null);
 
   const handleStickerPlaced = (payload: PlacedStickerPayload) => {
@@ -70,6 +74,16 @@ function HomeDashboard() {
               add your own
               <span className="hp-af-mark" aria-hidden="true">{stickerFormOpen ? '▾' : '+'}</span>
             </button>
+            <span className="hp-h-break" aria-hidden="true">❖</span>
+            <button
+              type="button"
+              className="hp-af"
+              onClick={() =>
+                setStickerOrder((order) => (order === 'recent' ? 'random' : 'recent'))
+              }
+            >
+              {stickerOrder === 'recent' ? 'show random' : 'show recent'}
+            </button>
           </>
         }
       >
@@ -91,7 +105,7 @@ function HomeDashboard() {
             </div>
           </div>
         </div>
-        <CarouselStickers ref={stickersRef} />
+        <CarouselStickers ref={stickersRef} order={stickerOrder} />
       </Section>
 
       <Section title="♫ recently added" to={RECENTLY_ADDED_URL} external>

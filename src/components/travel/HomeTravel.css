@@ -60,11 +60,16 @@
   box-shadow: none;
 }
 
+/* width: auto beats leaflet's inline sizing, so its minWidth option has no
+   effect — the floor has to be set here instead. Without it the box shrinks to
+   the longest word and the text stacks one word per line. */
 .home-travel-popup .leaflet-popup-content {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   width: auto !important;
+  min-width: 15rem;
+  max-width: 19rem;
   margin: 0.55rem 0.7rem;
   font-family: var(--font2);
   line-height: 1.4;
@@ -83,6 +88,7 @@
 .ht-pop-name {
   font-size: 0.8rem;
   color: var(--hp-accent);
+  white-space: normal;
 }
 
 .ht-pop-meta {

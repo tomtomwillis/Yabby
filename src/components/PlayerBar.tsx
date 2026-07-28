@@ -8,23 +8,6 @@ import BlockRange, {
 import { formatTime, usePlayerActions, usePlayerState } from '../utils/usePlayer';
 import './PlayerBar.css';
 
-// Border glyph count. Fixed rather than width-derived — the row is decorative
-// and clips under overflow: hidden, so this only has to exceed the widest panel
-// the player is ever laid out in.
-const BORDER_CHARS = 240;
-
-/** The animated ASCII border. Each char is phase-shifted via --i so the row
- *  reads as a travelling wave; the keyframes only run under .pb-is-playing. */
-const WaveBorder: React.FC = () => (
-  <div className="pb-wave" aria-hidden="true">
-    {Array.from({ length: BORDER_CHARS }, (_, i) => (
-      <span key={i} className="pb-wave-ch" style={{ ['--i']: i } as React.CSSProperties}>
-        =
-      </span>
-    ))}
-  </div>
-);
-
 /** Marks radio mode at a glance. The two arcs are the broadcast, and they only
  *  pulse while the stream is actually running. */
 const RadioSet: React.FC = () => (
@@ -35,6 +18,34 @@ const RadioSet: React.FC = () => (
  '----'`}
   </pre>
 );
+
+/** The two ways out of the transport. Its own component so it can sit in the
+ *  middle row of either mode without either having to thread the contexts. */
+const PlayerLinks: React.FC = () => {
+  const { mode, vizOpen } = usePlayerState();
+  const { enterRadio, enterLibrary, setVizOpen } = usePlayerActions();
+
+  return (
+    <div className="pb-links">
+      {/* The visualiser's box lives in the bottom bar; only its switch is here,
+          beside the other thing the player can be put into. */}
+      <button
+        className="pb-mode"
+        onClick={() => {
+          if (!vizOpen) window.umami?.track('viz_open');
+          setVizOpen(!vizOpen);
+        }}
+        aria-expanded={vizOpen}
+      >
+        [ viz ]
+      </button>
+
+      <button className="pb-mode" onClick={mode === 'radio' ? enterLibrary : enterRadio}>
+        {mode === 'radio' ? '[ switch to player ]' : '[ switch to radio ]'}
+      </button>
+    </div>
+  );
+};
 
 const VolumeControl: React.FC = () => {
   const { volume, muted } = usePlayerState();
@@ -64,8 +75,12 @@ const VolumeControl: React.FC = () => {
 };
 
 /** Full transport: prev/play/next, seek and time. Library mode only. */
-const LibraryControls: React.FC<{ onQueueToggle: () => void; queueOpen: boolean }> = ({
-  onQueueToggle, queueOpen,
+const LibraryControls: React.FC<{
+  onQueueToggle: () => void;
+  queueOpen: boolean;
+  trailing?: React.ReactNode;
+}> = ({
+  onQueueToggle, queueOpen, trailing,
 }) => {
   const { tracks, index, isPlaying, currentTime, duration, album } = usePlayerState();
   const { toggle, next, prev, seek } = usePlayerActions();
@@ -73,11 +88,30 @@ const LibraryControls: React.FC<{ onQueueToggle: () => void; queueOpen: boolean 
 
   return (
     <>
-      <div className="pb-meta">
-        <span className="pb-meta-title">{tracks[index]?.title ?? '—'}</span>
-        <span className="pb-meta-sub">
-          {album ? `${album.title} — ${album.artist}` : 'nothing queued'}
+      <div className="pb-seek">
+        <BlockRange
+          label="Seek"
+          value={Math.min(currentTime, duration)}
+          max={duration}
+          step={1}
+          cellPx={SEEK_CELL_PX}
+          minBlocks={SEEK_MIN_BLOCKS}
+          disabled={idle || duration === 0}
+          onChange={seek}
+        />
+        <span className="pb-time">
+          {formatTime(currentTime)} / {formatTime(duration)}
         </span>
+      </div>
+
+      <div className="pb-mid">
+        <div className="pb-meta">
+          <span className="pb-meta-title">{tracks[index]?.title ?? '—'}</span>
+          <span className="pb-meta-sub">
+            {album ? `${album.title} — ${album.artist}` : 'nothing queued'}
+          </span>
+        </div>
+        <PlayerLinks />
       </div>
 
       <div className="pb-row">
@@ -96,23 +130,6 @@ const LibraryControls: React.FC<{ onQueueToggle: () => void; queueOpen: boolean 
           ▶|
         </button>
 
-        <BlockRange
-          label="Seek"
-          value={Math.min(currentTime, duration)}
-          max={duration}
-          step={1}
-          cellPx={SEEK_CELL_PX}
-          minBlocks={SEEK_MIN_BLOCKS}
-          disabled={idle || duration === 0}
-          onChange={seek}
-        />
-
-        <span className="pb-time">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
-
-        <VolumeControl />
-
         <button
           className="pb-btn pb-queue-toggle"
           onClick={onQueueToggle}
@@ -122,6 +139,9 @@ const LibraryControls: React.FC<{ onQueueToggle: () => void; queueOpen: boolean 
         >
           ☰
         </button>
+
+        <VolumeControl />
+        {trailing}
       </div>
     </>
   );
@@ -129,7 +149,7 @@ const LibraryControls: React.FC<{ onQueueToggle: () => void; queueOpen: boolean 
 
 /** A live stream has nowhere to seek to and nothing to skip, so it keeps only
  *  play and volume. */
-const RadioControls: React.FC = () => {
+const RadioControls: React.FC<{ trailing?: React.ReactNode }> = ({ trailing }) => {
   const { radio, isPlaying } = usePlayerState();
   const { toggle } = usePlayerActions();
 
@@ -139,14 +159,20 @@ const RadioControls: React.FC = () => {
       ? radio.artist ? `${radio.artist} · ${radio.title}` : radio.title
       : 'tuning in…';
 
+  // Same three rows as the library so switching mode does not rearrange the
+  // bar; the set stands in for the seek bar, which a live stream has no use for.
   return (
     <>
-      <div className="pb-meta pb-meta--radio">
+      <div className="pb-seek pb-seek--radio">
         <RadioSet />
-        <div className="pb-meta-lines">
-          <span className="pb-meta-title">[ YABBYVILLE RADIO ]</span>
+      </div>
+
+      <div className="pb-mid">
+        <div className="pb-meta">
+          <span className="pb-meta-title">[ YABBY FM ]</span>
           <span className="pb-meta-sub">{nowPlaying}</span>
         </div>
+        <PlayerLinks />
       </div>
 
       <div className="pb-row">
@@ -154,6 +180,7 @@ const RadioControls: React.FC = () => {
           {isPlaying ? '❚❚' : '▶'}
         </button>
         <VolumeControl />
+        {trailing}
       </div>
     </>
   );
@@ -203,9 +230,13 @@ const QueuePopup: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
 /** The one player. Library transport by default; the radio is a mode it can be
  *  switched into, and starting either source stops the other. */
-const PlayerBar: React.FC = () => {
+interface PlayerBarProps {
+  /** Dropped in at the end of the transport row, whichever mode is showing. */
+  trailing?: React.ReactNode;
+}
+
+const PlayerBar: React.FC<PlayerBarProps> = ({ trailing }) => {
   const { mode, isPlaying } = usePlayerState();
-  const { enterRadio, enterLibrary } = usePlayerActions();
   const [queueOpen, setQueueOpen] = useState(false);
 
   useEffect(() => {
@@ -222,27 +253,17 @@ const PlayerBar: React.FC = () => {
     <div className={`pb${isPlaying ? ' pb-is-playing' : ''}${mode === 'radio' ? ' pb-radio' : ''}`}>
       {showQueue && <QueuePopup onClose={() => setQueueOpen(false)} />}
 
-      <WaveBorder />
-
       <div className="pb-body">
         {mode === 'radio' ? (
-          <RadioControls />
+          <RadioControls trailing={trailing} />
         ) : (
           <LibraryControls
             queueOpen={showQueue}
             onQueueToggle={() => setQueueOpen((v) => !v)}
+            trailing={trailing}
           />
         )}
-
-        <button
-          className="pb-mode"
-          onClick={mode === 'radio' ? enterLibrary : enterRadio}
-        >
-          {mode === 'radio' ? '[ ← library ]' : '[ yabbyville radio ]'}
-        </button>
       </div>
-
-      <WaveBorder />
     </div>
   );
 };

@@ -1,4 +1,6 @@
+/* Relative: the album bubble is placed against this box. */
 .sticker-album-carousel {
+    position: relative;
     margin: 0 auto;
     padding-bottom: 0.5rem;
     width: 100%;
@@ -67,6 +69,80 @@
     border-radius: 50%; /* Make the sticker circular */
     z-index: 3; /* Ensure stickers appear above the album image */
     pointer-events: none; /* Prevent stickers from interfering with clicks */
+}
+
+/* ── The album bubble ──────────────────────────────────── */
+
+.sb-title {
+    margin: 0;
+    font-family: var(--font2);
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--colour2);
+}
+
+.sb-artist {
+    margin: 0 0 0.6rem;
+    font-family: var(--font2);
+    font-size: 0.72rem;
+    color: var(--colour5);
+}
+
+.sb-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.7rem;
+}
+
+/* The shared Button and UserMessage are filled blue cards, which is right on
+   /stickers but shouts inside a hairline bubble. Scoped to .ab so only the home
+   bubble is flattened. */
+.ab .basic-button,
+.ab .sp-toggle {
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    background: transparent;
+    border: 1px solid var(--hp-rule, #c9cee4);
+    border-radius: 0;
+    color: var(--colour2);
+    font-family: var(--font2);
+    font-size: 0.72rem;
+    font-weight: 400;
+    text-transform: none;
+    box-shadow: none;
+}
+
+.ab .basic-button:hover,
+.ab .sp-toggle:hover {
+    background: transparent;
+    border-color: var(--colour2);
+    color: var(--colour3);
+    transform: none;
+}
+
+.ab .user-message {
+    padding: 0.4rem 0;
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--hp-rule, #c9cee4);
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--colour5);
+    font-size: 0.75rem;
+}
+
+.ab .favorite-track-display {
+    padding-left: 0;
+    font-family: var(--font2);
+    font-size: 0.7rem;
+    font-style: normal;
+}
+
+.sticker-messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
 .sticker-message-item {

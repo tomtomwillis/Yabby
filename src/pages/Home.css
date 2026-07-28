@@ -322,7 +322,7 @@ body:has(.home-page) .star-path {
    │ nothing else. 6 → 9 makes each sticker 33% narrower.  │
    └───────────────────────────────────────────────────────┘ */
 .home-page {
-  --hp-sticker-cols: 9;
+  --hp-sticker-cols: 8;
 }
 
 @media (max-width: 900px) {
@@ -548,29 +548,33 @@ body:has(.home-page) .star-path {
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding: 0.4rem clamp(1rem, 2vw, 2rem) 0.5rem 1.2rem;
+  /* No top padding: the decorative rule is the bar's top edge, and the wordmark
+     block below it sets the height the player is sized to fit inside. */
+  padding: 0 clamp(1rem, 2vw, 2rem) 0.5rem 1.2rem;
   box-sizing: border-box;
   background: var(--colour4);
-  border-top: 1px solid var(--hp-rule);
 }
 
-/* The title + player row beneath the toggle strip. Stretch, not flex-end: the
-   player fills the row's height so its two wave rows land on the top and bottom
-   edges. */
-.home-bottom-inner {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: stretch;
-  gap: clamp(1rem, 2vw, 2.5rem);
-  min-height: 0;
+/* The fullscreen visualiser paints at z-index -2, behind everything; the bar is
+   the one opaque thing left over it, so it steps out of the way. Only the fill
+   goes — the wordmark, rule and controls stay put and readable on top. */
+.home-bottom.is-viz-fs {
+  background: transparent;
 }
 
-.home-bottom-title {
-  flex: 0 0 50%;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  color: var(--hp-accent);
+/* Decoration in place of a border. The motif is repeated well past any viewport
+   and clipped, so it reaches both edges at every width. */
+.home-bottom-rule {
+  overflow: hidden;
+  margin-bottom: 0.15rem;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  color: var(--hp-dim);
+  opacity: 0.75;
+  white-space: nowrap;
+  user-select: none;
 }
 
 /* Control across the top of the bar with an arrow at each end and a rule
@@ -580,7 +584,7 @@ body:has(.home-page) .star-path {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  width: 50%;
+  width: 34%;
   padding: 0.1rem 0 0.3rem;
   background: none;
   border: none;
@@ -605,29 +609,47 @@ body:has(.home-page) .star-path {
   color: var(--colour3);
 }
 
-/* The wordmark stays pinned to the bottom of the column while the player
-   stretches; the toggle sits above it. */
-.home-bottom-wordmark {
-  margin-top: auto;
+/* Stretch, not flex-end: the wordmark sets the bar's height and the visualiser
+   and player fill it rather than floating at the bottom of it. */
+.home-bottom-inner {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(1rem, 2vw, 2.5rem);
   min-width: 0;
 }
 
+/* The wordmark scales to whatever it is given, so its share is really a budget
+   split with the player — enough of the bar for the track title to be readable
+   rather than an ellipsis. */
+.home-bottom-title {
+  flex: 0 0 34%;
+  align-self: flex-end;
+  min-width: 0;
+  color: var(--hp-accent);
+}
+
+/* Sits between the wordmark and the player, taking the width neither needs. */
+.home-bottom-viz {
+  display: flex;
+  flex: 0 1 clamp(7rem, 12vw, 15rem);
+  min-width: 0;
+}
+
+/* Still position: relative — .pb-queue anchors to it. */
 .home-bottom-radio {
   position: relative;
+  display: flex;
   flex: 1 1 auto;
+  align-items: stretch;
   min-width: 0;
 }
 
-/* Straddles the player's top wave border on an opaque background, so he reads
-   as a break in the rule rather than a sprite on top of it. */
+/* Last item in the transport row, bottom-aligned so his feet land on the same
+   line as the buttons rather than centring against them. */
 .home-bottom-man {
-  position: absolute;
-  top: 0.4rem;
-  right: 1.5rem;
-  z-index: 1;
-  padding: 0 0.4rem;
-  background: var(--colour4);
-  transform: translateY(-50%);
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-left: 0.3rem;
   pointer-events: none;
 }
 
@@ -653,22 +675,19 @@ body:has(.home-page) .star-path {
 
 .home-page .ascii-art {
   margin: 0;
-  font-size: 0.5rem;
+  font-size: 0.65rem;
   line-height: 1;
   color: var(--hp-dim);
 }
 
-/* Grows into the rail's leftover height, but is pinned against shrinking: the
-   inner viz box carries a min-height, so a shrinkable item would let it spill
-   past the reserved bottom padding and hide behind the bar. On a tight rail it
-   holds its size and the rail scrolls instead. */
-.home-side .vz {
-  flex: 1 0 auto;
+/* Fills the bar's height rather than a fixed slice of it. */
+.home-bottom-viz .vz {
+  gap: 0;
   min-height: 0;
 }
 
-.home-bottom-radio .rp-viz-dock {
-  height: clamp(70px, 9vh, 110px);
+.home-bottom-viz .vz-box {
+  min-height: 0;
 }
 
 /* ─── Minimised bar ───────────────────────────────────── */
@@ -695,7 +714,8 @@ body:has(.home-page) .star-path {
 
 .home-bottom--min .home-fixed-welcome,
 .home-bottom--min .home-bottom-man,
-.home-bottom--min .pb-wave {
+.home-bottom--min .home-bottom-viz,
+.home-bottom--min .pb-seek {
   display: none;
 }
 
@@ -710,7 +730,7 @@ body:has(.home-page) .star-path {
 
 /* Order: now-playing name, then the transport, then volume (the last two share
    .pb-row). */
-.home-bottom--min .pb-meta {
+.home-bottom--min .pb-mid {
   order: 1;
   flex: 0 1 auto;
   min-width: 0;
@@ -729,11 +749,8 @@ body:has(.home-page) .star-path {
 
 /* Everything but play, skip, volume and the track name. */
 .home-bottom--min .pb-meta-sub,
-.home-bottom--min .pb-set,
-.home-bottom--min .pb-time,
 .home-bottom--min .pb-mode,
-.home-bottom--min .pb-queue-toggle,
-.home-bottom--min .pb-row .sp-blocks:not(.sp-vol) {
+.home-bottom--min .pb-queue-toggle {
   display: none;
 }
 
@@ -790,20 +807,30 @@ body:has(.home-page) .star-path {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Side by side the two halves are unusably narrow here; the wordmark sits
-     above the player instead. */
-  .home-bottom-inner {
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
+  /* Side by side the columns are unusably narrow here; the wordmark sits above
+     the player instead, and the visualiser drops out of the bar entirely. */
   .home-bottom {
     padding-right: 1.2rem;
+  }
+
+  .home-bottom-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
   }
 
   .home-bottom-title {
     flex: 0 0 auto;
     width: 70%;
+  }
+
+  .home-bottom-viz {
+    display: none;
+  }
+
+  .home-bottom-radio {
+    flex: 0 0 auto;
+    justify-content: flex-end;
   }
 }
 

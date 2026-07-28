@@ -1,12 +1,16 @@
 /* Recently Added — a horizontal ticker of small album covers.
-   Pure CSS @keyframes loop; the album list is duplicated in markup so the
-   translateX(-50%) cycle joins seamlessly. */
+   Pure CSS @keyframes loop; the album list is repeated three times in markup so
+   the one-copy cycle joins seamlessly however wide the frame is. */
 
+/* Relative, and outside .albums-marquee, so the album bubble is placed against
+   the frame rather than clipped by the ticker's overflow and mask. */
 .albums-marquee-frame {
+    position: relative;
     width: 100%;
 }
 
-.albums-marquee-frame p {
+/* Direct child only — the status lines, not the bubble's own paragraphs. */
+.albums-marquee-frame > p {
     text-align: center;
     padding: 1rem;
     color: var(--colour5);
@@ -40,23 +44,29 @@
     display: flex;
     gap: 10px;
     width: max-content;
-    animation: albums-marquee-scroll 60s linear infinite;
+    animation: albums-marquee-scroll 120s linear infinite;
     padding: 6px 0;
 }
 
-.albums-marquee:hover .albums-marquee__track {
+.albums-marquee:hover .albums-marquee__track,
+.albums-marquee.is-frozen .albums-marquee__track {
     animation-play-state: paused;
 }
 
 .albums-marquee__tile {
     flex: 0 0 auto;
     width: 96px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
     text-decoration: none;
     color: inherit;
     font-family: var(--font2);
     display: flex;
     flex-direction: column;
     align-items: center;
+    cursor: pointer;
     transition: transform 0.15s ease;
 }
 
@@ -103,9 +113,43 @@
     width: 100%;
 }
 
+/* ── The album bubble ──────────────────────────────────── */
+
+.am-bubble__title {
+    margin: 0;
+    font-family: var(--font2);
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--colour2);
+}
+
+.am-bubble__artist {
+    margin: 0 0 0.6rem;
+    font-family: var(--font2);
+    font-size: 0.72rem;
+    color: var(--colour5);
+}
+
+.am-bubble__link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-family: var(--font2);
+    font-size: 0.7rem;
+    color: var(--hp-dim, #5566c9);
+    text-decoration: none;
+}
+
+.am-bubble__link:hover,
+.am-bubble__link:focus-visible {
+    color: var(--colour3);
+    text-decoration: underline;
+}
+
+/* One third — the track holds three copies of the list, so a third of it is
+   exactly one copy and the jump back to 0 is invisible. */
 @keyframes albums-marquee-scroll {
     from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
+    to   { transform: translateX(-33.3333%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -117,5 +161,5 @@
     .albums-marquee__img,
     .albums-marquee__caption { width: 80px; }
     .albums-marquee__img { height: 80px; }
-    .albums-marquee__track { animation-duration: 40s; }
+    .albums-marquee__track { animation-duration: 80s; }
 }

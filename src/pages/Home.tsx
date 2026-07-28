@@ -66,6 +66,12 @@ const SUBTITLES = [
   "peer to peer, dust to dust",
 ];
 
+/* Repeated to fill the bar's width and clipped by overflow. The wave comes from
+   the glyphs' own heights rather than per-character transforms, so it costs one
+   text node instead of a few hundred spans. */
+const RULE_MOTIF = '·˚⋆~✦~⋆˚·☆';
+const RULE_REPEATS = 60;
+
 interface SideSectionProps {
   /** Box character joining this block to the index tree above it. */
   branch: string;
@@ -91,7 +97,7 @@ const SideSection: React.FC<SideSectionProps> = ({ branch, title, children }) =>
 function Home() {
   const [subtitle, setSubtitle] = useState('');
   const [minimised, setMinimised] = useState(false);
-  const { isPlaying } = usePlayerState();
+  const { isPlaying, vizOpen, vizFullscreen } = usePlayerState();
   const { pathname } = useLocation();
 
   const mainRef = useRef<HTMLElement>(null);
@@ -172,10 +178,6 @@ function Home() {
           </SideSection>
 
           <p className="home-side-sub">{subtitle}</p>
-
-          {/* Last in the rail, filling what is left between the subtitle and
-              the wordmark pinned below it. */}
-          <VisualiserDock />
         </aside>
 
         <main className="home-main" ref={mainRef}>
@@ -183,7 +185,14 @@ function Home() {
         </main>
       </div>
 
-      <div className={`home-bottom${minimised ? ' home-bottom--min' : ''}`} ref={barRef}>
+      <div
+        className={`home-bottom${vizFullscreen ? ' is-viz-fs' : ''}${minimised ? ' home-bottom--min' : ''}`}
+        ref={barRef}
+      >
+        <div className="home-bottom-rule" aria-hidden="true">
+          {RULE_MOTIF.repeat(RULE_REPEATS)}
+        </div>
+
         {/* Arrow at each end with a rule between. Spans the title column while
             open; stretches the full bar width once minimised. */}
         <button
@@ -202,19 +211,30 @@ function Home() {
 
         <div className="home-bottom-inner">
           <div className="home-bottom-title">
-            <div className="home-bottom-wordmark">
-              <span className="home-fixed-welcome">welcome to</span>
-              <AsciiTitle />
-            </div>
+            <span className="home-fixed-welcome">welcome to</span>
+            <AsciiTitle />
           </div>
 
-          <div className="home-bottom-radio">
-            <PlayerBar />
-            {/* Sits on the player's top wave border, masking the glyphs behind
-                him — he only moves while something is playing. */}
-            <div className="home-bottom-man">
-              <AsciiMan frozen={!isPlaying} />
+          {/* Only mounted while open: an empty flex box between the wordmark and
+              the player would still take its share of the bar's width. */}
+          {vizOpen && (
+            <div className="home-bottom-viz">
+              <VisualiserDock />
             </div>
+          )}
+
+          <div className="home-bottom-radio">
+            {/* Inside the transport row rather than beside the whole player, so
+                he sits at the end of the controls while the seek bar and the
+                metadata above still run to the bar's edge. He only moves while
+                something is playing. */}
+            <PlayerBar
+              trailing={
+                <div className="home-bottom-man">
+                  <AsciiMan frozen={!isPlaying} />
+                </div>
+              }
+            />
           </div>
         </div>
       </div>

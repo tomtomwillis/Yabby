@@ -1,11 +1,13 @@
-/* Card sits directly on the dark blue — no tint background */
+/* Card sits directly on the bubble's light card — no tint background. Colours
+   follow TravelPlaceBubble.css: accent for names, dim for secondary text,
+   hairline rules, square corners. */
 .travel-card {
   flex: 0 0 auto;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: var(--colour4);
+  color: var(--colour5);
   font-family: var(--font2);
   text-align: left;
 }
@@ -21,15 +23,15 @@
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--colour4);
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--hp-rule, #c9cee4);
 }
 
 .travel-card__username {
-  font-weight: bold;
-  font-size: 1rem;
-  color: var(--colour4);
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--hp-accent, var(--colour2));
 }
 
 .travel-card__username--link {
@@ -43,8 +45,8 @@
 }
 
 .travel-card__edit-indicator {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.7rem;
+  color: var(--hp-dim, #5566c9);
   font-style: italic;
 }
 
@@ -61,9 +63,9 @@
 
 .travel-card__comment {
   font-family: var(--font2);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   line-height: 1.45;
-  color: var(--colour4);
+  color: var(--colour5);
   word-wrap: break-word;
   margin: 0;
   white-space: pre-wrap;
@@ -82,10 +84,10 @@
 .travel-card__photo {
   width: 80px;
   height: 80px;
-  border-radius: 6px;
+  border-radius: 0;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--hp-rule, #c9cee4);
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
@@ -101,7 +103,7 @@
   display: block;
 }
 
-
+/* Sits on top of the photo, so it keeps a solid fill of its own. */
 .travel-card__photo-remove {
   position: absolute;
   top: 2px;
@@ -122,7 +124,7 @@
 }
 
 .travel-card__photo-remove:hover {
-  background: #ff4757;
+  background: #c0392b;
 }
 
 .travel-card__actions {
@@ -134,40 +136,37 @@
 
 .travel-card__btn {
   font-family: var(--font2);
-  font-size: 0.78rem;
-  padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 5px;
+  font-size: 0.74rem;
+  padding: 3px 9px;
+  border: 1px solid var(--hp-rule, #c9cee4);
+  border-radius: 0;
   background: transparent;
-  color: var(--colour4);
+  color: var(--hp-accent, var(--colour2));
   cursor: pointer;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
+  transition: color 0.12s ease, border-color 0.12s ease;
 }
 
 .travel-card__btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: var(--colour3);
+  color: var(--colour3);
 }
 
 .travel-card__btn--danger {
-  color: #ff8a8a;
-  border-color: rgba(255, 71, 87, 0.4);
+  color: #c0392b;
+  border-color: rgba(192, 57, 43, 0.4);
 }
 
 .travel-card__btn--danger:hover:not(:disabled) {
-  background: rgba(255, 71, 87, 0.2);
-  border-color: #ff4757;
-  color: #ff4757;
+  border-color: #c0392b;
+  color: #c0392b;
 }
 
 .travel-card__btn--primary {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
-  font-weight: 600;
+  border-color: var(--hp-accent, var(--colour2));
 }
 
 .travel-card__btn--primary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.35);
+  border-color: var(--colour3);
 }
 
 .travel-card__btn:disabled {
@@ -185,19 +184,19 @@
 .travel-card__category-hint {
   font-family: var(--font2);
   font-size: 0.62rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--hp-dim, #5566c9);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .travel-card__category-select {
   font-family: var(--font2);
-  font-size: 0.82rem;
-  padding: 4px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--colour4);
+  font-size: 0.78rem;
+  padding: 3px 7px;
+  border: 1px solid var(--hp-rule, #c9cee4);
+  border-radius: 0;
+  background: var(--colour4);
+  color: var(--colour5);
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
@@ -205,24 +204,24 @@
 
 .travel-card__category-select:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: var(--hp-accent, var(--colour2));
 }
 
 .travel-card__category-select option {
-  background: var(--colour2);
-  color: var(--colour4);
+  background: var(--colour4);
+  color: var(--colour5);
 }
 
 .travel-card__edit-area {
   width: 100%;
   min-height: 70px;
   padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--colour4);
+  border: 1px solid var(--hp-rule, #c9cee4);
+  border-radius: 0;
+  background: var(--colour4);
+  color: var(--colour5);
   font-family: var(--font2);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   line-height: 1.45;
   box-sizing: border-box;
   resize: vertical;
@@ -231,17 +230,18 @@
 
 .travel-card__edit-area:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.55);
+  border-color: var(--hp-accent, var(--colour2));
 }
 
 .travel-card__edit-area::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--hp-dim, #5566c9);
+  opacity: 0.7;
 }
 
 .travel-card__error {
   font-family: var(--font2);
-  color: #ff8a8a;
-  font-size: 0.8rem;
+  color: #c0392b;
+  font-size: 0.78rem;
   margin: 0;
 }
 

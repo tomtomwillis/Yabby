@@ -485,19 +485,20 @@ const Stats: React.FC = () => {
       </div>
       {githubStats && githubStats.totalCommits > 0 && (
         <div className="stats-row">
-          <dt>
+          <dt>commits</dt>
+          <dd>
             <button
               type="button"
               className={`stats-toggle${commitsOpen ? " is-open" : ""}`}
               onClick={() => setCommitsOpen((open) => !open)}
               aria-expanded={commitsOpen}
               aria-controls="stats-last-commit"
+              aria-label="Show the latest commit"
             >
+              {githubStats.totalCommits.toLocaleString()}
               <span className="stats-caret" aria-hidden="true">›</span>
-              commits
             </button>
-          </dt>
-          <dd>{githubStats.totalCommits.toLocaleString()}</dd>
+          </dd>
         </div>
       )}
 

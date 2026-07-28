@@ -2,6 +2,13 @@ import { Link } from 'react-router-dom';
 import { useNavGroups, type NavLink } from './basic/navGroups';
 import './HomeIndex.css';
 
+/** Dropped from the rail: radio is the bottom bar's player, and stickers is the
+ *  wall filling the top of the dashboard — a rail row for either is a second
+ *  way to something already on screen. The rail is the only desktop nav, so
+ *  nothing else comes out. navGroups is shared, and the mobile drawer built
+ *  from it still lists everything. */
+const HIDDEN_ON_HOME = new Set(['radio', 'stickers']);
+
 /** The home sidebar's site index: nav groups as branches, their links one
  *  level deeper, drawn with box characters. */
 const HomeIndex: React.FC = () => {
@@ -31,17 +38,14 @@ const HomeIndex: React.FC = () => {
 
   return (
     <nav className="home-index" aria-label="Site index">
-      <div className="hi-head">
-        <span className="hi-branch" aria-hidden="true">┌</span>
-        <span className="hi-title">index</span>
-        <span className="hi-rule" aria-hidden="true" />
-      </div>
-
-      {row('├─', 'home', { label: '🏠 home', href: '/' })}
+      {/* Home is the tree's root, so it carries the corner the heading used to. */}
+      {row('┌─', 'home', { label: '🏠 home', href: '/' })}
 
       {groups.map((group, gi) => {
         const isLastGroup = gi === groups.length - 1;
-        const links = group.links.filter((l) => l.condition !== false);
+        const links = group.links.filter(
+          (l) => l.condition !== false && !HIDDEN_ON_HOME.has(l.label),
+        );
         return (
           <div className="hi-group" key={group.name}>
             <div className="hi-row hi-row--group">
