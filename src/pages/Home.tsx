@@ -90,6 +90,7 @@ const SideSection: React.FC<SideSectionProps> = ({ branch, title, children }) =>
  *  through <Outlet /> in the body column. */
 function Home() {
   const [subtitle, setSubtitle] = useState('');
+  const [minimised, setMinimised] = useState(false);
   const { isPlaying } = usePlayerState();
   const { pathname } = useLocation();
 
@@ -170,18 +171,38 @@ function Home() {
         </main>
       </div>
 
-      <div className="home-bottom" ref={barRef}>
-        <div className="home-bottom-title">
-          <span className="home-fixed-welcome">welcome to</span>
-          <AsciiTitle />
-        </div>
+      <div className={`home-bottom${minimised ? ' home-bottom--min' : ''}`} ref={barRef}>
+        {/* Arrow at each end with a rule between. Spans the title column while
+            open; stretches the full bar width once minimised. */}
+        <button
+          className="home-bottom-toggle"
+          onClick={() => {
+            setMinimised((v) => !v);
+            window.umami?.track('home_bar_minimise', { minimised: !minimised });
+          }}
+          aria-expanded={!minimised}
+          aria-label={minimised ? 'Expand player bar' : 'Minimise player bar'}
+        >
+          <span className="home-bottom-toggle-mark" aria-hidden="true">{minimised ? '▲' : '▼'}</span>
+          <span className="home-bottom-toggle-rule" aria-hidden="true" />
+          <span className="home-bottom-toggle-mark" aria-hidden="true">{minimised ? '▲' : '▼'}</span>
+        </button>
 
-        <div className="home-bottom-radio">
-          <PlayerBar />
-          {/* Sits on the player's top wave border, masking the glyphs behind
-              him — he only moves while something is playing. */}
-          <div className="home-bottom-man">
-            <AsciiMan frozen={!isPlaying} />
+        <div className="home-bottom-inner">
+          <div className="home-bottom-title">
+            <div className="home-bottom-wordmark">
+              <span className="home-fixed-welcome">welcome to</span>
+              <AsciiTitle />
+            </div>
+          </div>
+
+          <div className="home-bottom-radio">
+            <PlayerBar />
+            {/* Sits on the player's top wave border, masking the glyphs behind
+                him — he only moves while something is playing. */}
+            <div className="home-bottom-man">
+              <AsciiMan frozen={!isPlaying} />
+            </div>
           </div>
         </div>
       </div>

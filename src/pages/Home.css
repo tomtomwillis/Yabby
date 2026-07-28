@@ -536,10 +536,7 @@ body:has(.home-page) .star-path {
   left: 0;
   z-index: 1002;
   display: flex;
-  /* Stretch, not flex-end: the player fills the bar's height so its two wave
-     rows land on the top and bottom edges. */
-  align-items: stretch;
-  gap: clamp(1rem, 2vw, 2.5rem);
+  flex-direction: column;
   width: 100%;
   padding: 0.4rem clamp(1rem, 2vw, 2rem) 0.5rem 1.2rem;
   box-sizing: border-box;
@@ -547,12 +544,62 @@ body:has(.home-page) .star-path {
   border-top: 1px solid var(--hp-rule);
 }
 
+/* The title + player row beneath the toggle strip. Stretch, not flex-end: the
+   player fills the row's height so its two wave rows land on the top and bottom
+   edges. */
+.home-bottom-inner {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: clamp(1rem, 2vw, 2.5rem);
+  min-height: 0;
+}
+
 .home-bottom-title {
   flex: 0 0 50%;
-  /* The wordmark stays pinned to the bottom while the player stretches. */
-  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   color: var(--hp-accent);
+}
+
+/* Control across the top of the bar with an arrow at each end and a rule
+   between, echoing the sidebar headings. Spans the title column while open and
+   the whole bar once minimised. */
+.home-bottom-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 50%;
+  padding: 0.1rem 0 0.3rem;
+  background: none;
+  border: none;
+  color: var(--hp-dim);
+  cursor: pointer;
+}
+
+.home-bottom-toggle-mark {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.home-bottom-toggle-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--hp-rule);
+}
+
+.home-bottom-toggle:hover .home-bottom-toggle-mark,
+.home-bottom-toggle:focus-visible .home-bottom-toggle-mark {
+  color: var(--colour3);
+}
+
+/* The wordmark stays pinned to the bottom of the column while the player
+   stretches; the toggle sits above it. */
+.home-bottom-wordmark {
+  margin-top: auto;
+  min-width: 0;
 }
 
 .home-bottom-radio {
@@ -612,6 +659,72 @@ body:has(.home-page) .star-path {
   height: clamp(70px, 9vh, 110px);
 }
 
+/* ─── Minimised bar ───────────────────────────────────── */
+
+/* Collapsed to a slim transport: the wordmark shrinks with its narrowed column,
+   the man steps aside, the wave borders drop, and the player folds onto one
+   line — play, skip, volume and the current track's name. --hp-bar-h is
+   remeasured off the shorter bar, so the columns reclaim the freed space. */
+.home-bottom--min {
+  padding-top: 0.15rem;
+  padding-bottom: 0.4rem;
+}
+
+/* The ascii wordmark fits itself to its wrapper's width, so narrowing the
+   column shrinks it — height and all — with no fixed scale to maintain. */
+.home-bottom--min .home-bottom-title {
+  flex-basis: 15%;
+}
+
+.home-bottom--min .home-bottom-toggle {
+  width: 100%;
+  padding-bottom: 0.2rem;
+}
+
+.home-bottom--min .home-fixed-welcome,
+.home-bottom--min .home-bottom-man,
+.home-bottom--min .pb-wave {
+  display: none;
+}
+
+/* The whole transport folds onto a single row, hugging the right edge. */
+.home-bottom--min .pb-body {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0;
+}
+
+/* Order: now-playing name, then the transport, then volume (the last two share
+   .pb-row). */
+.home-bottom--min .pb-meta {
+  order: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.home-bottom--min .pb-row {
+  order: 2;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.home-bottom--min .pb:not(.pb-radio) .pb-meta-title::before {
+  content: 'Now Playing: ';
+  color: var(--pb-accent-dim);
+}
+
+/* Everything but play, skip, volume and the track name. */
+.home-bottom--min .pb-meta-sub,
+.home-bottom--min .pb-set,
+.home-bottom--min .pb-time,
+.home-bottom--min .pb-mode,
+.home-bottom--min .pb-queue-toggle,
+.home-bottom--min .pb-row .sp-blocks:not(.sp-vol) {
+  display: none;
+}
+
 /* ─── Responsive ──────────────────────────────────────── */
 
 /* Short windows are where the rail runs out of room — the wrapped weather
@@ -667,10 +780,12 @@ body:has(.home-page) .star-path {
 
   /* Side by side the two halves are unusably narrow here; the wordmark sits
      above the player instead. */
-  .home-bottom {
+  .home-bottom-inner {
     flex-direction: column;
-    align-items: stretch;
     gap: 0.3rem;
+  }
+
+  .home-bottom {
     padding-right: 1.2rem;
   }
 
