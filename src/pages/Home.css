@@ -125,6 +125,16 @@ body:has(.home-page) .star-path {
   padding-top: 0;
 }
 
+/* A document page is a single tall flex child of the scrolling column. Left
+   shrinkable, it collapses to the column's height and its content spills past
+   the reserved bottom padding, so the end of the page hides behind the fixed
+   bar. Pinning the shrink keeps the reserve in the scroll extent. The media
+   manager is exempt — it is a fixed-height tool shell that must shrink so its
+   tools scroll internally, and it is the only app-container page that does. */
+.home-main .app-container:not(:has(.media-tabs)) {
+  flex-shrink: 0;
+}
+
 .home-main header.header {
   margin: 0 0 1.2rem;
   padding: 0;
@@ -648,10 +658,12 @@ body:has(.home-page) .star-path {
   color: var(--hp-dim);
 }
 
-/* The effect gets whatever height the rail has left over rather than a fixed
-   slice of it, so it never pushes the rail into scrolling on its own. */
+/* Grows into the rail's leftover height, but is pinned against shrinking: the
+   inner viz box carries a min-height, so a shrinkable item would let it spill
+   past the reserved bottom padding and hide behind the bar. On a tight rail it
+   holds its size and the rail scrolls instead. */
 .home-side .vz {
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   min-height: 0;
 }
 

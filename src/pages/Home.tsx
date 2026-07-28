@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Header from '../components/basic/Header';
 import AsciiTitle from '../components/basic/AsciiTitle';
 import AsciiMan from '../components/AsciiMan';
@@ -112,23 +112,35 @@ function Home() {
   // it reserves it from a measurement rather than a formula. Published on the
   // root so portalled chrome can read it too; it only drives padding, so this
   // cannot feed back.
+  const publishBarHeight = useCallback(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    document.documentElement.style.setProperty(
+      '--hp-bar-h',
+      `${Math.round(window.innerHeight - bar.getBoundingClientRect().top)}px`,
+    );
+  }, []);
+
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
-    const root = document.documentElement;
-    const publish = () =>
-      root.style.setProperty(
-        '--hp-bar-h',
-        `${Math.round(window.innerHeight - bar.getBoundingClientRect().top)}px`,
-      );
-    publish();
-    const ro = new ResizeObserver(publish);
+    publishBarHeight();
+    const ro = new ResizeObserver(publishBarHeight);
     ro.observe(bar);
     return () => {
       ro.disconnect();
-      root.style.removeProperty('--hp-bar-h');
+      document.documentElement.style.removeProperty('--hp-bar-h');
     };
-  }, []);
+  }, [publishBarHeight]);
+
+  // Minimising or expanding reflows the bar synchronously; the ResizeObserver
+  // only reacts a frame later, so on the short→tall (expand) transition the
+  // reserved padding would trail the grown bar and the last content would slip
+  // behind it. Republish in the same layout pass as the toggle to close that
+  // gap; the observer still handles the async wordmark refit that follows.
+  useLayoutEffect(() => {
+    publishBarHeight();
+  }, [minimised, publishBarHeight]);
 
   return (
     <div className="home-page">
