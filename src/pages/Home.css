@@ -567,6 +567,38 @@ body:has(.home-page) .star-path {
   user-select: none;
 }
 
+/* Control across the top of the bar with an arrow at each end and a rule
+   between, echoing the sidebar headings. Spans the title column while open and
+   the whole bar once minimised. */
+.home-bottom-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 34%;
+  padding: 0.1rem 0 0.3rem;
+  background: none;
+  border: none;
+  color: var(--hp-dim);
+  cursor: pointer;
+}
+
+.home-bottom-toggle-mark {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.home-bottom-toggle-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--hp-rule);
+}
+
+.home-bottom-toggle:hover .home-bottom-toggle-mark,
+.home-bottom-toggle:focus-visible .home-bottom-toggle-mark {
+  color: var(--colour3);
+}
+
 /* Stretch, not flex-end: the wordmark sets the bar's height and the visualiser
    and player fill it rather than floating at the bottom of it. */
 .home-bottom-inner {
@@ -646,6 +678,70 @@ body:has(.home-page) .star-path {
 
 .home-bottom-viz .vz-box {
   min-height: 0;
+}
+
+/* ─── Minimised bar ───────────────────────────────────── */
+
+/* Collapsed to a slim transport: the wordmark shrinks with its narrowed column,
+   the man steps aside, the wave borders drop, and the player folds onto one
+   line — play, skip, volume and the current track's name. --hp-bar-h is
+   remeasured off the shorter bar, so the columns reclaim the freed space. */
+.home-bottom--min {
+  padding-top: 0.15rem;
+  padding-bottom: 0.4rem;
+}
+
+/* The ascii wordmark fits itself to its wrapper's width, so narrowing the
+   column shrinks it — height and all — with no fixed scale to maintain. */
+.home-bottom--min .home-bottom-title {
+  flex-basis: 15%;
+}
+
+.home-bottom--min .home-bottom-toggle {
+  width: 100%;
+  padding-bottom: 0.2rem;
+}
+
+.home-bottom--min .home-fixed-welcome,
+.home-bottom--min .home-bottom-man,
+.home-bottom--min .home-bottom-viz,
+.home-bottom--min .pb-seek {
+  display: none;
+}
+
+/* The whole transport folds onto a single row, hugging the right edge. */
+.home-bottom--min .pb-body {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0;
+}
+
+/* Order: now-playing name, then the transport, then volume (the last two share
+   .pb-row). */
+.home-bottom--min .pb-mid {
+  order: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.home-bottom--min .pb-row {
+  order: 2;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.home-bottom--min .pb:not(.pb-radio) .pb-meta-title::before {
+  content: 'Now Playing: ';
+  color: var(--pb-accent-dim);
+}
+
+/* Everything but play, skip, volume and the track name. */
+.home-bottom--min .pb-meta-sub,
+.home-bottom--min .pb-mode,
+.home-bottom--min .pb-queue-toggle {
+  display: none;
 }
 
 /* ─── Responsive ──────────────────────────────────────── */

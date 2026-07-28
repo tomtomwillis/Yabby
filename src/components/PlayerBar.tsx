@@ -131,7 +131,7 @@ const LibraryControls: React.FC<{
         </button>
 
         <button
-          className="pb-btn"
+          className="pb-btn pb-queue-toggle"
           onClick={onQueueToggle}
           disabled={idle}
           aria-expanded={queueOpen}

@@ -96,6 +96,7 @@ const SideSection: React.FC<SideSectionProps> = ({ branch, title, children }) =>
  *  through <Outlet /> in the body column. */
 function Home() {
   const [subtitle, setSubtitle] = useState('');
+  const [minimised, setMinimised] = useState(false);
   const { isPlaying, vizOpen, vizFullscreen } = usePlayerState();
   const { pathname } = useLocation();
 
@@ -172,10 +173,29 @@ function Home() {
         </main>
       </div>
 
-      <div className={`home-bottom${vizFullscreen ? ' is-viz-fs' : ''}`} ref={barRef}>
+      <div
+        className={`home-bottom${vizFullscreen ? ' is-viz-fs' : ''}${minimised ? ' home-bottom--min' : ''}`}
+        ref={barRef}
+      >
         <div className="home-bottom-rule" aria-hidden="true">
           {RULE_MOTIF.repeat(RULE_REPEATS)}
         </div>
+
+        {/* Arrow at each end with a rule between. Spans the title column while
+            open; stretches the full bar width once minimised. */}
+        <button
+          className="home-bottom-toggle"
+          onClick={() => {
+            setMinimised((v) => !v);
+            window.umami?.track('home_bar_minimise', { minimised: !minimised });
+          }}
+          aria-expanded={!minimised}
+          aria-label={minimised ? 'Expand player bar' : 'Minimise player bar'}
+        >
+          <span className="home-bottom-toggle-mark" aria-hidden="true">{minimised ? '▲' : '▼'}</span>
+          <span className="home-bottom-toggle-rule" aria-hidden="true" />
+          <span className="home-bottom-toggle-mark" aria-hidden="true">{minimised ? '▲' : '▼'}</span>
+        </button>
 
         <div className="home-bottom-inner">
           <div className="home-bottom-title">
