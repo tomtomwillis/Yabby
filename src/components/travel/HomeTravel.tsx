@@ -101,6 +101,7 @@ const HomeTravel: React.FC = () => {
   const [focus, setFocus] = useState<Focus | null>(null);
   const markers = useRef<Record<string, L.Marker | null>>({});
   const mapRef = useRef<L.Map | null>(null);
+  const [draggable] = useState(() => !window.matchMedia('(max-width: 900px)').matches);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +169,19 @@ const HomeTravel: React.FC = () => {
   return (
     <div className="home-travel">
       <div className="ht-map">
-        <MapContainer ref={mapRef} center={[20, 0]} zoom={2} scrollWheelZoom={false} worldCopyJump>
+        <MapContainer
+          ref={mapRef}
+          center={[20, 0]}
+          zoom={2}
+          scrollWheelZoom={false}
+          /* Mid-page on a phone, a pannable map swallows the swipe that was
+             meant to scroll past it. The place buttons below still fly the map
+             to each pin, so it stays usable without the drag. Read once —
+             leaflet takes its handlers at init and would ignore a later
+             change anyway. */
+          dragging={draggable}
+          worldCopyJump
+        >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

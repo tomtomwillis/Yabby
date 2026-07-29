@@ -149,13 +149,22 @@ function Home() {
   }, [minimised, publishBarHeight]);
 
   return (
-    <div className="home-page">
+    <div className={`home-page${pathname === '/' ? ' is-home' : ''}`}>
       {/* This masthead is hidden — the sidebar carries the index and the title is
           pinned bottom-left. Header is still mounted for the burger button and
           mobile drawer, which are siblings of <header>. Routed pages render their
           own Header; Home.css keeps only their title and hides the duplicate
           nav and burger. */}
       <Header title="Welcome to" subtitle={subtitle} />
+
+      {/* Mobile's masthead. The wordmark fits itself to whichever wrapper is
+          showing, so the two copies are a display swap rather than a move — only
+          one is ever visible, and neither has to be told what size to be. */}
+      <div className="home-top-title">
+        <span className="home-fixed-welcome">welcome to</span>
+        <AsciiTitle />
+        <p className="home-top-sub">{subtitle}</p>
+      </div>
 
       <div className="home-shell">
         <aside className="home-side">
@@ -189,12 +198,8 @@ function Home() {
         className={`home-bottom${vizFullscreen ? ' is-viz-fs' : ''}${minimised ? ' home-bottom--min' : ''}`}
         ref={barRef}
       >
-        <div className="home-bottom-rule" aria-hidden="true">
-          {RULE_MOTIF.repeat(RULE_REPEATS)}
-        </div>
-
-        {/* Arrow at each end with a rule between. Spans the title column while
-            open; stretches the full bar width once minimised. */}
+        {/* Arrow at each end of the star rule itself, so the toggle sits on
+            the ascii border rather than a line of its own. */}
         <button
           className="home-bottom-toggle"
           onClick={() => {
@@ -205,7 +210,7 @@ function Home() {
           aria-label={minimised ? 'Expand player bar' : 'Minimise player bar'}
         >
           <span className="home-bottom-toggle-mark" aria-hidden="true">{minimised ? '▲' : '▼'}</span>
-          <span className="home-bottom-toggle-rule" aria-hidden="true" />
+          <span className="home-bottom-rule" aria-hidden="true">{RULE_MOTIF.repeat(RULE_REPEATS)}</span>
           <span className="home-bottom-toggle-mark" aria-hidden="true">{minimised ? '▲' : '▼'}</span>
         </button>
 

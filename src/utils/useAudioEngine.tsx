@@ -68,6 +68,11 @@ export function useAudioEngine(
   const roRef = useRef<ResizeObserver | null>(null);
   const sizePendingRef = useRef(false);
   const vizInitRef = useRef<Promise<void> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const presetsRef = useRef<Record<string, any>>({});
+  const presetKeysRef = useRef<string[]>([]);
+  const currentPresetKeyRef = useRef<string | null>(null);
+  const presetCycleRef = useRef<number | null>(null);
 
   // Mirrors the rAF closure and the imperative helpers read without resubscribing.
   const vizOpenRef = useRef(vizOpen);
@@ -197,6 +202,29 @@ export function useAudioEngine(
     rafRef.current = requestAnimationFrame(frame);
   };
 
+  const PRESET_CYCLE_MS = 15_000;
+
+  const cyclePreset = () => {
+    const viz = vizRef.current;
+    const keys = presetKeysRef.current;
+    // Skip a tick rather than pause the interval — nothing is visible to
+    // recompile a shader for while closed or paused.
+    if (!viz || keys.length < 2 || !(fullscreenRef.current || (vizOpenRef.current && anyPlayingRef.current))) {
+      return;
+    }
+    let next: string;
+    do {
+      next = keys[Math.floor(Math.random() * keys.length)];
+    } while (next === currentPresetKeyRef.current);
+    currentPresetKeyRef.current = next;
+    viz.loadPreset(presetsRef.current[next], 2.7);
+  };
+
+  const startPresetCycle = () => {
+    if (presetCycleRef.current != null) return;
+    presetCycleRef.current = window.setInterval(cyclePreset, PRESET_CYCLE_MS);
+  };
+
   const initVisualizer = async () => {
     if (canvasRef.current) return;
     if (!vizOpenRef.current && !fullscreenRef.current) return;
@@ -243,12 +271,17 @@ export function useAudioEngine(
     viz.connectAudio(graph.mix);
     const all = presets.getPresets();
     const keys = Object.keys(all);
-    viz.loadPreset(all[keys[Math.floor(Math.random() * keys.length)]], 0);
+    presetsRef.current = all;
+    presetKeysRef.current = keys;
+    const startKey = keys[Math.floor(Math.random() * keys.length)];
+    currentPresetKeyRef.current = startKey;
+    viz.loadPreset(all[startKey], 0);
     vizRef.current = viz;
     setVizReady(true);
     observeHost(host);
     sizeViz();
     startLoop();
+    startPresetCycle();
   };
 
   // Five things can ask for the visualiser (either source starting, the toggle,
@@ -351,6 +384,8 @@ export function useAudioEngine(
     // context throws from inside a rAF callback, which no boundary catches.
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
+    if (presetCycleRef.current != null) window.clearInterval(presetCycleRef.current);
+    presetCycleRef.current = null;
     roRef.current?.disconnect();
     roRef.current = null;
     const canvas = canvasRef.current;

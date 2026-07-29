@@ -563,10 +563,12 @@ body:has(.home-page) .star-path {
 }
 
 /* Decoration in place of a border. The motif is repeated well past any viewport
-   and clipped, so it reaches both edges at every width. */
+   and clipped, so it reaches both edges at every width. Lives inside the
+   toggle button now, flexed between the two arrows. */
 .home-bottom-rule {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-  margin-bottom: 0.15rem;
   font-family: var(--font2);
   font-size: 0.85rem;
   line-height: 1.3;
@@ -577,14 +579,14 @@ body:has(.home-page) .star-path {
   user-select: none;
 }
 
-/* Control across the top of the bar with an arrow at each end and a rule
-   between, echoing the sidebar headings. Spans the title column while open and
-   the whole bar once minimised. */
+/* Control across the top of the bar: an arrow at each end, the star rule
+   filling the space between, echoing the sidebar headings. Full bar width in
+   both states so the arrows sit at its edges. */
 .home-bottom-toggle {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  width: 34%;
+  width: 100%;
   padding: 0.1rem 0 0.3rem;
   background: none;
   border: none;
@@ -596,12 +598,6 @@ body:has(.home-page) .star-path {
   flex: 0 0 auto;
   font-size: 0.7rem;
   line-height: 1;
-}
-
-.home-bottom-toggle-rule {
-  flex: 1 1 auto;
-  height: 0;
-  border-bottom: 1px solid var(--hp-rule);
 }
 
 .home-bottom-toggle:hover .home-bottom-toggle-mark,
@@ -641,6 +637,7 @@ body:has(.home-page) .star-path {
   display: flex;
   flex: 1 1 auto;
   align-items: stretch;
+  justify-content: flex-end;
   min-width: 0;
 }
 
@@ -651,6 +648,14 @@ body:has(.home-page) .star-path {
   align-self: flex-end;
   margin-left: 0.3rem;
   pointer-events: none;
+}
+
+/* ─── Mobile masthead ─────────────────────────────────── */
+
+/* Desktop's title is the one in the bottom bar; this is its counterpart for
+   widths where the bar is the player alone. */
+.home-top-title {
+  display: none;
 }
 
 .home-fixed-welcome {
@@ -675,7 +680,7 @@ body:has(.home-page) .star-path {
 
 .home-page .ascii-art {
   margin: 0;
-  font-size: 0.65rem;
+  font-size: 0.78rem;
   line-height: 1;
   color: var(--hp-dim);
 }
@@ -708,7 +713,6 @@ body:has(.home-page) .star-path {
 }
 
 .home-bottom--min .home-bottom-toggle {
-  width: 100%;
   padding-bottom: 0.2rem;
 }
 
@@ -754,6 +758,71 @@ body:has(.home-page) .star-path {
   display: none;
 }
 
+/* ─── Burger ──────────────────────────────────────────── */
+
+/* Button's default is a filled, rounded pill in the body face — the one piece
+   of the old chrome still showing on this page. Restyled to the same hairline
+   square control as the sticker form's close button, so the drawer's handle
+   reads as part of the rail's vocabulary rather than a leftover. Opaque, since
+   it floats over whatever is scrolling beneath it. */
+.home-page > .burger-menu {
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+  background: var(--colour4);
+  color: var(--hp-dim);
+  border: 1px solid var(--hp-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.home-page > .burger-menu:hover,
+.home-page > .burger-menu:focus-visible {
+  background: var(--colour4);
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+/* The drawer it opens, brought to the same vocabulary: hairline rules in place
+   of the black and near-black borders, the rail's type scale, and no shadow.
+   Scoped to the shell's own copy — Login and Cinema are outside it and keep the
+   drawer they have. */
+.home-page > .mobile-nav {
+  /* The bar is fixed above this at z-index 1002, so the last group would sit
+     under it with no way to bring it out. */
+  padding-bottom: calc(var(--hp-bar-h, 9rem) + 1rem + env(safe-area-inset-bottom));
+  border-right: 1px solid var(--hp-rule);
+  box-shadow: none;
+}
+
+.home-page > .mobile-nav a {
+  padding: 0.7rem 0;
+  font-size: 0.95rem;
+  color: var(--hp-accent);
+  border-bottom: 1px solid var(--hp-rule);
+}
+
+.home-page > .mobile-nav a:hover,
+.home-page > .mobile-nav a:focus-visible {
+  color: var(--colour3);
+}
+
+.home-page > .mobile-nav .mobile-nav-group-header {
+  padding: 1.1rem 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--hp-dim);
+  text-transform: lowercase;
+  border-bottom: 1px solid var(--hp-rule);
+}
+
 /* ─── Responsive ──────────────────────────────────────── */
 
 /* Short windows are where the rail runs out of room — the wrapped weather
@@ -778,8 +847,12 @@ body:has(.home-page) .star-path {
   }
 }
 
-/* Rough stack: the rail becomes a band across the top and the page scrolls as
-   one again. Mobile gets a proper pass later. */
+/* Mobile. The rail's two columns cannot both hold their content much below
+   this, so this is where the page stops being a rail-and-body and becomes one
+   scrolling document: title → dashboard → readouts, and off `/` the routed page
+   alone. The drawer becomes the navigation here, which is earlier than
+   Header.css switches over on its own — the burger is pulled up to match just
+   below, since the rail's index goes with the rail. */
 @media (max-width: 900px) {
   .home-page {
     height: auto;
@@ -790,47 +863,98 @@ body:has(.home-page) .star-path {
     flex-direction: column;
   }
 
-  .home-side {
-    flex: 0 0 auto;
-    width: 100%;
-    padding-bottom: 1.4rem;
+  /* Stickers, recently added, lists and travel come first; stats and weather
+     are the tail of the page rather than a band above it. Source order is the
+     desktop rail's, so the two columns swap here instead. */
+  .home-main {
+    order: 1;
+    padding: 0 1rem 1.5rem;
     overflow: visible;
-    border-right: none;
-    border-bottom: 1px solid var(--hp-rule);
   }
 
-  .home-main {
+  .home-side {
+    order: 2;
+    flex: 0 0 auto;
+    gap: 1.2rem;
+    width: 100%;
+    padding: 1.2rem 1rem var(--hp-title-clear);
     overflow: visible;
+    border-right: none;
+    border-top: 1px solid var(--hp-rule);
   }
 
   .home-row2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Side by side the columns are unusably narrow here; the wordmark sits above
-     the player instead, and the visualiser drops out of the bar entirely. */
+  .home-top-title {
+    display: block;
+    /* The right inset is the burger's footprint — it is fixed at z-index 1001
+       and would otherwise sit on top of the wordmark's first line. */
+    padding: 0.9rem 4.5rem 1rem 1rem;
+    color: var(--hp-accent);
+  }
+
+  .home-top-sub {
+    margin: 0.5rem 0 0;
+    font-family: var(--font3);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--hp-dim);
+  }
+
+  /* The bar is the player alone down here — the wordmark is at the top of the
+     page, and the rail's index and strapline are the drawer's and the
+     masthead's respectively. */
+  .home-bottom-title,
+  .home-side .home-index,
+  .home-side-sub {
+    display: none;
+  }
+
+  /* Off home the shell keeps nothing but the player: the routed page renders
+     its own title, and the rail's readouts belong to the dashboard. Hidden
+     rather than unmounted, so returning to `/` costs no fresh reads. */
+  .home-page:not(.is-home) .home-top-title,
+  .home-page:not(.is-home) .home-side {
+    display: none;
+  }
+
+  /* On `/` the masthead above supplies the top margin and the rail below takes
+     the bar's clearance; with both gone the column owns each end itself. */
+  .home-page:not(.is-home) .home-main {
+    padding-top: 1rem;
+    padding-bottom: var(--hp-title-clear);
+  }
+
+  /* Full width now, so the rail's offset would push it off the screen. */
+  .home-main .travel-page__sidebar {
+    left: 1rem;
+    right: 1rem;
+  }
+
+  /* With the wordmark gone the bar is the transport and nothing else, so it
+     matches the columns' inset and drops the dock — a visualiser in the width
+     left over on a phone is a few pixels of nothing. */
   .home-bottom {
     padding-right: 1.2rem;
-  }
-
-  .home-bottom-inner {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.3rem;
-  }
-
-  .home-bottom-title {
-    flex: 0 0 auto;
-    width: 70%;
   }
 
   .home-bottom-viz {
     display: none;
   }
 
-  .home-bottom-radio {
-    flex: 0 0 auto;
-    justify-content: flex-end;
+  /* The drawer is the navigation from here down, but Header.css only reveals
+     its button at 768. Restated rather than reached for, because between the
+     two widths none of its own rules are in play. Direct child: routed pages
+     render a Header of their own inside .home-main, and that burger stays
+     hidden. */
+  .home-page > .burger-menu {
+    display: flex;
+    position: fixed;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 1001;
   }
 }
 

@@ -15,26 +15,33 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  /* Fills the bar's height and runs to its right edge; every row is the same
-     width, so the seek bar spans exactly what the controls under it do and the
-     metadata gets the whole width rather than a truncated corner. */
-  flex: 1 1 auto;
-  width: auto;
+  /* Sized to its own content (the metadata + control rows), not stretched
+     across the whole radio column — on a wide viewport that would let the
+     seek bar's dense glyph row fill far more width than the compact rows
+     under it, reading as more prominent than them despite sharing one width.
+     max-width is a backstop for a very long title/artist only — it sits well
+     above the control row's own natural width, so it never clips the
+     controls themselves; right-hugged by .home-bottom-radio's justify-content. */
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 36rem;
   min-width: 0;
   color: var(--pb-accent);
   font-family: var(--font2);
 }
 
-/* Spread rather than stacked: the three rows share the bar's height instead of
-   bunching at the bottom under a band of white. No bottom padding — the
-   controls row has to finish flush with the player's own bottom edge, which is
-   what AsciiMan beside it aligns himself against. */
+/* Bunched toward the bottom rather than spread: metadata, seek and controls
+   sit close together just above the player's own bottom edge, with any
+   leftover height falling as a gap above the metadata line instead of being
+   spread between all three rows. No bottom padding — the controls row still
+   finishes flush with the player's own bottom edge, which is what AsciiMan
+   beside it aligns himself against. */
 .pb-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   align-items: stretch;
-  justify-content: space-between;
+  justify-content: flex-end;
   flex-wrap: nowrap;
   gap: 0.22rem;
   min-width: 0;
@@ -50,6 +57,13 @@
   min-width: 0;
 }
 
+/* Taller than the shared BlockRange default (which the volume slider keeps
+   unchanged) — the glyph row's height tracks its own font-size, so scoping
+   the bump to .pb-seek grows only the scrubber, not the volume control. */
+.pb-seek .sp-blocks-glyphs {
+  font-size: 1rem;
+}
+
 /* The set stands in for the seek bar in radio mode, so it keeps the row's
    height without pretending to be a scrubber. */
 .pb-seek--radio {
@@ -60,23 +74,41 @@
 
 .pb-mid {
   display: flex;
-  align-items: baseline;
+  /* flex-end, not baseline: baseline pinned the viz/radio buttons to the
+     title line (the top of the two-line metadata block) — flex-end drops
+     them to the bottom, level with the artist/album line, which also puts
+     them right against the seek bar in the row below. */
+  align-items: flex-end;
   justify-content: space-between;
   gap: 0.9rem;
   min-width: 0;
 }
 
+/* flex-shrink only, no flex-grow: sized to its own text rather than force-
+   filling the row, so short metadata hugs the row's right edge (via the
+   row's existing space-between) instead of sitting flush left inside a box
+   that's wider than it needs. text-align stays left — right-aligning the
+   text itself broke text-overflow:ellipsis, which always truncates at the
+   line's visual end (the right side for LTR); on a right-aligned box that
+   end is the wrong one once the text is long enough to overflow. */
 .pb-meta {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   line-height: 1.3;
   text-align: left;
 }
 
+/* Each line hugs the right edge independently (width:fit-content + margin-
+   left:auto) rather than sharing one left-aligned block — otherwise the
+   shorter of the two lines sits flush with the longer one's left edge
+   instead of lining up with its right edge. */
 .pb-meta-title,
 .pb-meta-sub {
   display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -84,7 +116,18 @@
 
 .pb-meta-sub {
   color: var(--pb-accent-dim);
-  font-size: 0.7rem;
+  font-size: 0.78rem;
+}
+
+.pb-meta-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pb-meta-link:hover,
+.pb-meta-link:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
 }
 
 /* The radio set. Sized to sit in the seek row without making it taller than the
@@ -120,7 +163,10 @@
 .pb-row {
   display: flex;
   flex-wrap: nowrap;
-  align-items: center;
+  /* flex-end, not center: AsciiMan (trailing) is taller than the buttons, so
+     centring left the buttons floating above the row's true bottom while his
+     own align-self:flex-end put him at it — his feet hung below theirs. */
+  align-items: flex-end;
   justify-content: flex-end;
   gap: 0.4rem;
   min-width: 0;
@@ -128,19 +174,22 @@
 
 .pb-row .sp-vol {
   flex: 0 0 5.5rem;
+  /* Much shorter than the buttons; flex-end would glue it to the very
+     bottom of the row instead of sitting level with their middle. */
+  align-self: center;
 }
 
 .pb-btn {
   flex: 0 0 auto;
-  min-width: 30px;
-  min-height: 24px;
-  padding: 0 0.4rem;
+  min-width: 40px;
+  min-height: 34px;
+  padding: 0 0.55rem;
   background: var(--pb-bg-alt);
   color: var(--pb-accent);
   border: 1px solid var(--pb-accent-dim);
   border-radius: 0;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.86rem;
   cursor: pointer;
 }
 
@@ -155,21 +204,21 @@
 }
 
 .pb-play {
-  min-width: 40px;
+  min-width: 54px;
 }
 
 .pb-mute {
   min-width: 0;
-  padding: 0 0.35rem;
+  padding: 0 0.4rem;
   background: none;
   border-color: transparent;
   color: var(--pb-accent-dim);
-  font-size: 0.68rem;
+  font-size: 0.74rem;
 }
 
 .pb-time {
   flex: 0 0 auto;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -191,7 +240,7 @@
   border-radius: 0;
   color: var(--pb-accent-dim);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   letter-spacing: 0.08em;
   cursor: pointer;
 }

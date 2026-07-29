@@ -5,8 +5,13 @@ import BlockRange, {
   VOLUME_CELL_PX,
   VOLUME_MIN_BLOCKS,
 } from './basic/BlockRange';
+import { NAVIDROME_SERVER_URL } from '../utils/navidrome';
+import { loadAlbumCard } from '../utils/navidromeCards';
 import { formatTime, usePlayerActions, usePlayerState } from '../utils/usePlayer';
 import './PlayerBar.css';
+
+const albumLink = (id: string) => `${NAVIDROME_SERVER_URL}/app/#/album/${id}/show`;
+const artistLink = (id: string) => `${NAVIDROME_SERVER_URL}/app/#/artist/${id}/show`;
 
 /** Marks radio mode at a glance. The two arcs are the broadcast, and they only
  *  pulse while the stream is actually running. */
@@ -86,8 +91,58 @@ const LibraryControls: React.FC<{
   const { toggle, next, prev, seek } = usePlayerActions();
   const idle = index < 0;
 
+  // PlayerAlbum carries no artistId, so it's resolved here via the same
+  // cached lookup the hover cards and StickerAlbumPlayer use — usually
+  // already warm, since playAlbum's own track load hits the same cache.
+  // Keyed by the album it was resolved for, so a stale id never renders
+  // against the wrong album while a new lookup is in flight.
+  const [resolvedArtist, setResolvedArtist] = useState<{ albumId: string; artistId?: string }>();
+
+  useEffect(() => {
+    if (!album?.id) return;
+    let cancelled = false;
+    loadAlbumCard(album.id)
+      .then((detail) => { if (!cancelled) setResolvedArtist({ albumId: album.id, artistId: detail.artistId }); })
+      .catch(() => { if (!cancelled) setResolvedArtist({ albumId: album.id, artistId: undefined }); });
+    return () => { cancelled = true; };
+  }, [album?.id]);
+
+  const artistId = album && resolvedArtist?.albumId === album.id ? resolvedArtist.artistId : undefined;
+
   return (
     <>
+      <div className="pb-mid">
+        <PlayerLinks />
+        <div className="pb-meta">
+          <span className="pb-meta-title">{tracks[index]?.title ?? '—'}</span>
+          <span className="pb-meta-sub">
+            {album ? (
+              <>
+                <a
+                  className="pb-meta-link"
+                  href={albumLink(album.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {album.title}
+                </a>
+                {' — '}
+                {artistId ? (
+                  <a
+                    className="pb-meta-link"
+                    href={artistLink(artistId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {album.artist}
+                  </a>
+                ) : album.artist}
+              </>
+            ) : 'nothing queued'}
+          </span>
+        </div>
+      </div>
+
       <div className="pb-seek">
         <BlockRange
           label="Seek"
@@ -102,16 +157,6 @@ const LibraryControls: React.FC<{
         <span className="pb-time">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
-      </div>
-
-      <div className="pb-mid">
-        <div className="pb-meta">
-          <span className="pb-meta-title">{tracks[index]?.title ?? '—'}</span>
-          <span className="pb-meta-sub">
-            {album ? `${album.title} — ${album.artist}` : 'nothing queued'}
-          </span>
-        </div>
-        <PlayerLinks />
       </div>
 
       <div className="pb-row">
@@ -163,16 +208,16 @@ const RadioControls: React.FC<{ trailing?: React.ReactNode }> = ({ trailing }) =
   // bar; the set stands in for the seek bar, which a live stream has no use for.
   return (
     <>
-      <div className="pb-seek pb-seek--radio">
-        <RadioSet />
-      </div>
-
       <div className="pb-mid">
+        <PlayerLinks />
         <div className="pb-meta">
           <span className="pb-meta-title">[ YABBY FM ]</span>
           <span className="pb-meta-sub">{nowPlaying}</span>
         </div>
-        <PlayerLinks />
+      </div>
+
+      <div className="pb-seek pb-seek--radio">
+        <RadioSet />
       </div>
 
       <div className="pb-row">
