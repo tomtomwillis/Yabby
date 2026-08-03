@@ -5,6 +5,7 @@ export type PlaceCategory =
   | 'club'
   | 'cafe'
   | 'restaurant'
+  | 'takeaway'
   | 'poi'
   | 'gallery_museum'
   | 'shop'
@@ -15,6 +16,7 @@ export const PLACE_CATEGORIES: { value: PlaceCategory; label: string }[] = [
   { value: 'club', label: 'Club' },
   { value: 'cafe', label: 'Café' },
   { value: 'restaurant', label: 'Restaurant' },
+  { value: 'takeaway', label: 'Takeaway' },
   { value: 'poi', label: 'Point of Interest' },
   { value: 'gallery_museum', label: 'Gallery / Museum' },
   { value: 'shop', label: 'Shop' },
@@ -27,6 +29,7 @@ export const CATEGORY_COLOURS: Record<PlaceCategory, string> = {
   club: '#C44DFF',          // purple
   cafe: '#f94144',          // red
   restaurant: '#277da1',    // blue
+  takeaway: '#3DFF5C',      // lime
   poi: '#43aa8b',           // mint
   gallery_museum: '#f9c74f', // yellow
   shop: '#FF4DDA',          // hot pink
@@ -34,7 +37,7 @@ export const CATEGORY_COLOURS: Record<PlaceCategory, string> = {
 };
 
 // Remaining palette slots (unused, reserved for future categories):
-// '#3DFF5C' (lime), '#FF9A3D' (amber)
+// '#FF9A3D' (amber)
 
 export interface TravelPhoto {
   imageId: string;

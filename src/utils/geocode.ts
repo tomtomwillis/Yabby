@@ -103,13 +103,8 @@ export function categoryFromOsm(result: PlaceSearchResult): PlaceCategory {
     if (type === 'pub' || type === 'bar' || type === 'biergarten') return 'pub_bar';
     if (type === 'nightclub') return 'club';
     if (type === 'cafe') return 'cafe';
-    if (
-      type === 'restaurant' ||
-      type === 'fast_food' ||
-      type === 'food_court' ||
-      type === 'canteen'
-    )
-      return 'restaurant';
+    if (type === 'fast_food') return 'takeaway';
+    if (type === 'restaurant' || type === 'food_court' || type === 'canteen') return 'restaurant';
     if (type === 'arts_centre' || type === 'theatre' || type === 'cinema') return 'poi';
   }
 
