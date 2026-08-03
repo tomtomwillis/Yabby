@@ -33,7 +33,6 @@ export interface AudioEngine {
 
   vizOpen: boolean;
   vizFullscreen: boolean;
-  vizReady: boolean;
   setVizOpen: (open: boolean) => void;
   setVizFullscreen: (fullscreen: boolean) => void;
   registerVizHost: (el: HTMLDivElement | null) => void;
@@ -50,11 +49,10 @@ export interface AudioEngine {
 export function useAudioEngine(
   libAudioRef: React.RefObject<HTMLAudioElement | null>,
   radAudioRef: React.RefObject<HTMLAudioElement | null>,
-  anyPlayingRef: React.RefObject<boolean>,
+  anyPlaying: boolean,
 ): AudioEngine {
   const [vizOpen, setVizOpenState] = useState(readVizPref);
   const [vizFullscreen, setVizFullscreenState] = useState(false);
-  const [vizReady, setVizReady] = useState(false);
 
   const graphRef = useRef<AudioGraph | null>(null);
   const graphTriedRef = useRef(false);
@@ -77,6 +75,10 @@ export function useAudioEngine(
   // Mirrors the rAF closure and the imperative helpers read without resubscribing.
   const vizOpenRef = useRef(vizOpen);
   const fullscreenRef = useRef(vizFullscreen);
+  // Taken as a value as well as a ref: the closure needs the ref, but only a
+  // value can wake the render loop back up from an effect.
+  const anyPlayingRef = useRef(anyPlaying);
+  anyPlayingRef.current = anyPlaying;
 
   // ── Audio graph ──────────────────────────────────────────
 
@@ -184,18 +186,22 @@ export function useAudioEngine(
     const frame = () => {
       const viz = vizRef.current;
       const canvas = canvasRef.current;
-      // Nothing to draw while paused, closed, or parked off-DOM.
+      // Nothing to draw while paused, closed, or parked off-DOM. Stop rather
+      // than spin on an empty frame — every route back to a drawable state
+      // calls startLoop again, so an idle page costs nothing.
       if (
-        viz && canvas?.isConnected &&
-        (fullscreenRef.current || (vizOpenRef.current && anyPlayingRef.current))
+        !viz || !canvas?.isConnected ||
+        !(fullscreenRef.current || (vizOpenRef.current && anyPlayingRef.current))
       ) {
-        try {
-          viz.render();
-        } catch (err) {
-          console.error('Visualiser render failed, stopping:', err);
-          rafRef.current = null;
-          return;
-        }
+        rafRef.current = null;
+        return;
+      }
+      try {
+        viz.render();
+      } catch (err) {
+        console.error('Visualiser render failed, stopping:', err);
+        rafRef.current = null;
+        return;
       }
       rafRef.current = requestAnimationFrame(frame);
     };
@@ -249,7 +255,6 @@ export function useAudioEngine(
       // Without preventDefault the restore event never fires.
       e.preventDefault();
       vizRef.current = null;
-      setVizReady(false);
     });
     canvas.addEventListener('webglcontextrestored', () => {
       // butterchurn 2.6 has no re-init hook, so the canvas is rebuilt instead.
@@ -277,7 +282,6 @@ export function useAudioEngine(
     currentPresetKeyRef.current = startKey;
     viz.loadPreset(all[startKey], 0);
     vizRef.current = viz;
-    setVizReady(true);
     observeHost(host);
     sizeViz();
     startLoop();
@@ -307,6 +311,8 @@ export function useAudioEngine(
       } else if (!fullscreenRef.current) {
         el.appendChild(canvas);
         observeHost(el);
+        // Back on screen: the loop stopped when the canvas was parked.
+        startLoop();
       }
     } else if (canvas && !fullscreenRef.current) {
       // Dock unmounted: park the canvas. Its WebGL context and loaded preset
@@ -360,6 +366,14 @@ export function useAudioEngine(
     scheduleSize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vizOpen]);
+
+  // The loop stops itself the moment it has nothing to draw, so every route
+  // back into a drawable state has to wake it — starting playback is the one
+  // the engine cannot see for itself, which is why it takes anyPlaying as a
+  // value rather than only as a ref.
+  useEffect(() => {
+    if (vizFullscreen || (vizOpen && anyPlaying)) startLoop();
+  }, [anyPlaying, vizOpen, vizFullscreen]);
 
   useEffect(() => {
     if (!vizFullscreen) return;
@@ -416,7 +430,6 @@ export function useAudioEngine(
     ensureVisualizer,
     vizOpen,
     vizFullscreen,
-    vizReady,
     setVizOpen,
     setVizFullscreen,
     registerVizHost,

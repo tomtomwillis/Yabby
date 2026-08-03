@@ -72,6 +72,11 @@ const SUBTITLES = [
 const RULE_MOTIF = '·˚⋆~✦~⋆˚·☆';
 const RULE_REPEATS = 60;
 
+/* Below this the bar is the transport and nothing else — the width left over
+   for a visualiser is a few pixels of nothing. Mirrored by .pb-mode--viz in
+   PlayerBar.css, which hides the switch at the same point. */
+const VIZ_QUERY = '(min-width: 901px)';
+
 interface SideSectionProps {
   /** Box character joining this block to the index tree above it. */
   branch: string;
@@ -102,6 +107,20 @@ function Home() {
 
   const mainRef = useRef<HTMLElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+
+  // Gated in JS rather than hidden in CSS: a display:none dock still mounts,
+  // and mounting it is what pulls in butterchurn and starts a WebGL loop the
+  // phone would never show. The switch in the player bar hides at the same width.
+  const [wideEnoughForViz, setWideEnoughForViz] = useState(
+    () => window.matchMedia(VIZ_QUERY).matches,
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia(VIZ_QUERY);
+    const onChange = (e: MediaQueryListEvent) => setWideEnoughForViz(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
 
   useEffect(() => {
     setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
@@ -222,7 +241,7 @@ function Home() {
 
           {/* Only mounted while open: an empty flex box between the wordmark and
               the player would still take its share of the bar's width. */}
-          {vizOpen && (
+          {vizOpen && wideEnoughForViz && (
             <div className="home-bottom-viz">
               <VisualiserDock />
             </div>

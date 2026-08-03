@@ -934,14 +934,10 @@ body:has(.home-page) .star-path {
   }
 
   /* With the wordmark gone the bar is the transport and nothing else, so it
-     matches the columns' inset and drops the dock — a visualiser in the width
-     left over on a phone is a few pixels of nothing. */
+     matches the columns' inset. The dock is dropped at this width too, but by
+     Home's VIZ_QUERY rather than here — hiding it in CSS would still mount it. */
   .home-bottom {
     padding-right: 1.2rem;
-  }
-
-  .home-bottom-viz {
-    display: none;
   }
 
   /* The drawer is the navigation from here down, but Header.css only reveals

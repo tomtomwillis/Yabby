@@ -172,6 +172,15 @@
   min-width: 0;
 }
 
+/* The transport hugs the row's left edge, so the first button lines up with the
+   start of the seek bar above instead of floating in from it — the row's free
+   space falls here, between the transport and the volume, rather than all of it
+   landing to the left of the buttons. Library only: radio has a single button
+   and no seek bar for it to line up with, so it stays packed right. */
+.pb:not(.pb-radio) .pb-mute {
+  margin-left: auto;
+}
+
 .pb-row .sp-vol {
   flex: 0 0 5.5rem;
   /* Much shorter than the buttons; flex-end would glue it to the very
@@ -307,6 +316,12 @@
     display: none;
   }
 
+  /* Home stops mounting the dock at this width, so the switch would toggle
+     nothing. Kept in step with VIZ_QUERY there. */
+  .pb-mode--viz {
+    display: none;
+  }
+
   .pb-btn {
     min-width: 30px;
     padding: 0 0.3rem;
@@ -324,5 +339,12 @@
   .pb-mute,
   .pb-row .sp-vol {
     display: none;
+  }
+
+  /* With the volume group and AsciiMan both gone the row is only the transport,
+     and the auto margin that squares it up with the seek bar went with them —
+     so it left-aligns outright instead. */
+  .pb-row {
+    justify-content: flex-start;
   }
 }

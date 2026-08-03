@@ -16,6 +16,10 @@ export interface PlayerAlbum {
   id: string;
   title: string;
   artist: string;
+  /** Optional at the call sites, which only have what the sticker or card
+   *  already showed — playAlbum fills it in from the album lookup it has to do
+   *  anyway, so the bar can link the artist without a second request. */
+  artistId?: string;
 }
 
 /** Which source the transport is pointed at. Never both at once. */
@@ -52,10 +56,8 @@ export interface PlayerState {
   index: number;
   currentTime: number;
   duration: number;
-  libraryPlaying: boolean;
 
   radio: RadioNowPlaying;
-  radioPlaying: boolean;
 
   /** The current mode's source. Since only one ever runs, this is also
    *  "anything is playing" — it drives the wave animation and the ASCII man. */
@@ -66,7 +68,6 @@ export interface PlayerState {
 
   vizOpen: boolean;
   vizFullscreen: boolean;
-  vizReady: boolean;
 }
 
 export interface PlayerActions {
@@ -120,7 +121,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const tracksRef = useRef(tracks);
   const volumeRef = useRef(volume);
   const mutedRef = useRef(muted);
-  const anyPlayingRef = useRef(false);
   /** Was an album playing when the radio took over? */
   const resumeOnReturnRef = useRef(false);
 
@@ -129,9 +129,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   tracksRef.current = tracks;
   volumeRef.current = volume;
   mutedRef.current = muted;
-  anyPlayingRef.current = libraryPlaying || radioPlaying;
 
-  const engine = useAudioEngine(libAudioRef, radAudioRef, anyPlayingRef);
+  const engine = useAudioEngine(libAudioRef, radAudioRef, libraryPlaying || radioPlaying);
   const {
     ensureGraph, resumeGraph, applyVolume, ensureVisualizer,
     setVizOpen, setVizFullscreen, registerVizHost,
@@ -213,10 +212,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ensureVisualizer();
     window.umami?.track('sticker_player_play', { albumId: nextAlbum.id });
     try {
-      const queue = await loadAlbumTracks(nextAlbum.id);
+      const detail = await loadAlbumCard(nextAlbum.id);
+      const queue = detail.tracks;
       if (queue.length === 0) return;
       const startIndex = startTrackId ? queue.findIndex((t) => t.id === startTrackId) : 0;
-      setAlbum(nextAlbum);
+      setAlbum({ ...nextAlbum, artistId: detail.artistId });
       setTracks(queue);
       start(queue, startIndex === -1 ? 0 : startIndex);
     } catch (err) {
@@ -313,15 +313,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     index,
     currentTime,
     duration,
-    libraryPlaying,
     radio: { artist, title, error: radioError },
-    radioPlaying,
     isPlaying: mode === 'radio' ? radioPlaying : libraryPlaying,
     volume,
     muted,
     vizOpen: engine.vizOpen,
     vizFullscreen: engine.vizFullscreen,
-    vizReady: engine.vizReady,
   };
 
   // Every action reads refs, so this object is built once and never changes.

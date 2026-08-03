@@ -6,7 +6,6 @@ import BlockRange, {
   VOLUME_MIN_BLOCKS,
 } from './basic/BlockRange';
 import { NAVIDROME_SERVER_URL } from '../utils/navidrome';
-import { loadAlbumCard } from '../utils/navidromeCards';
 import { formatTime, usePlayerActions, usePlayerState } from '../utils/usePlayer';
 import './PlayerBar.css';
 
@@ -35,7 +34,7 @@ const PlayerLinks: React.FC = () => {
       {/* The visualiser's box lives in the bottom bar; only its switch is here,
           beside the other thing the player can be put into. */}
       <button
-        className="pb-mode"
+        className="pb-mode pb-mode--viz"
         onClick={() => {
           if (!vizOpen) window.umami?.track('viz_open');
           setVizOpen(!vizOpen);
@@ -51,6 +50,18 @@ const PlayerLinks: React.FC = () => {
     </div>
   );
 };
+
+/** The metadata line and the mode links. Shared by both modes so switching one
+ *  for the other cannot rearrange the top of the bar. */
+const MetaRow: React.FC<{ title: React.ReactNode; sub: React.ReactNode }> = ({ title, sub }) => (
+  <div className="pb-mid">
+    <PlayerLinks />
+    <div className="pb-meta">
+      <span className="pb-meta-title">{title}</span>
+      <span className="pb-meta-sub">{sub}</span>
+    </div>
+  </div>
+);
 
 const VolumeControl: React.FC = () => {
   const { volume, muted } = usePlayerState();
@@ -91,57 +102,34 @@ const LibraryControls: React.FC<{
   const { toggle, next, prev, seek } = usePlayerActions();
   const idle = index < 0;
 
-  // PlayerAlbum carries no artistId, so it's resolved here via the same
-  // cached lookup the hover cards and StickerAlbumPlayer use — usually
-  // already warm, since playAlbum's own track load hits the same cache.
-  // Keyed by the album it was resolved for, so a stale id never renders
-  // against the wrong album while a new lookup is in flight.
-  const [resolvedArtist, setResolvedArtist] = useState<{ albumId: string; artistId?: string }>();
-
-  useEffect(() => {
-    if (!album?.id) return;
-    let cancelled = false;
-    loadAlbumCard(album.id)
-      .then((detail) => { if (!cancelled) setResolvedArtist({ albumId: album.id, artistId: detail.artistId }); })
-      .catch(() => { if (!cancelled) setResolvedArtist({ albumId: album.id, artistId: undefined }); });
-    return () => { cancelled = true; };
-  }, [album?.id]);
-
-  const artistId = album && resolvedArtist?.albumId === album.id ? resolvedArtist.artistId : undefined;
-
   return (
     <>
-      <div className="pb-mid">
-        <PlayerLinks />
-        <div className="pb-meta">
-          <span className="pb-meta-title">{tracks[index]?.title ?? '—'}</span>
-          <span className="pb-meta-sub">
-            {album ? (
-              <>
-                <a
-                  className="pb-meta-link"
-                  href={albumLink(album.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {album.title}
-                </a>
-                {' — '}
-                {artistId ? (
-                  <a
-                    className="pb-meta-link"
-                    href={artistLink(artistId)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {album.artist}
-                  </a>
-                ) : album.artist}
-              </>
-            ) : 'nothing queued'}
-          </span>
-        </div>
-      </div>
+      <MetaRow
+        title={tracks[index]?.title ?? '—'}
+        sub={album ? (
+          <>
+            <a
+              className="pb-meta-link"
+              href={albumLink(album.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {album.title}
+            </a>
+            {' — '}
+            {album.artistId ? (
+              <a
+                className="pb-meta-link"
+                href={artistLink(album.artistId)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {album.artist}
+              </a>
+            ) : album.artist}
+          </>
+        ) : 'nothing queued'}
+      />
 
       <div className="pb-seek">
         <BlockRange
@@ -204,17 +192,11 @@ const RadioControls: React.FC<{ trailing?: React.ReactNode }> = ({ trailing }) =
       ? radio.artist ? `${radio.artist} · ${radio.title}` : radio.title
       : 'tuning in…';
 
-  // Same three rows as the library so switching mode does not rearrange the
+  // Same three rows as the library, so switching mode does not rearrange the
   // bar; the set stands in for the seek bar, which a live stream has no use for.
   return (
     <>
-      <div className="pb-mid">
-        <PlayerLinks />
-        <div className="pb-meta">
-          <span className="pb-meta-title">[ YABBY FM ]</span>
-          <span className="pb-meta-sub">{nowPlaying}</span>
-        </div>
-      </div>
+      <MetaRow title="[ YABBY FM ]" sub={nowPlaying} />
 
       <div className="pb-seek pb-seek--radio">
         <RadioSet />
