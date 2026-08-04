@@ -289,7 +289,7 @@ body:has(.home-page) .star-path {
 .home-side-sub {
   margin: 0;
   font-family: var(--font3);
-  font-size: clamp(0.85rem, 0.85vw, 1.05rem);
+  font-size: clamp(1rem, 1vw, 1.3rem);
   line-height: 1.45;
   color: var(--hp-dim);
 }
@@ -916,7 +916,7 @@ body:has(.home-page) .star-path {
   .home-top-sub {
     margin: 0.5rem 0 0;
     font-family: var(--font3);
-    font-size: 0.9rem;
+    font-size: 1.1rem;
     line-height: 1.45;
     color: var(--hp-dim);
   }
