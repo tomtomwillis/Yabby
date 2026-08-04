@@ -735,4 +735,87 @@ const travelSuite: TestSuite = {
   ],
 };
 
-export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite];
+// ---------------------------------------------------------------------------
+// Profile stats
+// ---------------------------------------------------------------------------
+
+const profileSuite: TestSuite = {
+  id: 'profile',
+  name: 'Profile stats',
+  description:
+    'The join date and post count behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one.',
+  tests: [
+    {
+      name: 'reads your own profile',
+      run: async (ctx) => {
+        const snap = await getDoc(doc(db, 'users', ctx.uid));
+        assert(snap.exists(), 'You have no users document, so nothing can be stamped on it.');
+        const data = snap.data();
+        assert(typeof data.username === 'string', 'Your profile has no username field.');
+        const joined = data.joinedAt ? 'joined set' : 'no join date yet';
+        return `${joined}, postCount ${data.postCount ?? 'unset'}`;
+      },
+    },
+    {
+      name: 'stamps a join date, then refuses to move it',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const before = await getDoc(ref);
+
+        // First login behaviour: a profile without a join date gets one.
+        if (!before.data()?.joinedAt) {
+          await updateDoc(ref, { joinedAt: serverTimestamp() });
+          const after = await getDoc(ref);
+          assert(after.data()?.joinedAt, 'The join date did not stick.');
+        }
+
+        // Once set it is immutable, which is the only thing that makes it a
+        // join date rather than a last-seen date.
+        return expectDenied('moving a join date that is already set', () =>
+          updateDoc(ref, { joinedAt: serverTimestamp() }),
+        );
+      },
+    },
+    {
+      name: 'rules stop backdating a join date',
+      run: async (ctx) =>
+        expectDenied('writing a join date the server did not set', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { joinedAt: new Date('2000-01-01T00:00:00Z') }),
+        ),
+    },
+    {
+      name: 'counts a post',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const before = (await getDoc(ref)).data()?.postCount ?? 0;
+        await updateDoc(ref, { postCount: increment(1) });
+        const after = (await getDoc(ref)).data()?.postCount;
+        assert(after === before + 1, `postCount went from ${before} to ${after}, expected ${before + 1}.`);
+        return `${before} → ${after}`;
+      },
+    },
+    {
+      name: 'rules stop inflating the post count',
+      run: async (ctx) =>
+        expectDenied('advancing the post count by more than one', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { postCount: increment(5) }),
+        ),
+    },
+    {
+      name: 'rules stop a negative post count',
+      run: async (ctx) =>
+        expectDenied('setting a negative post count', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { postCount: -1 }),
+        ),
+    },
+    {
+      name: 'rules still reject unknown profile fields',
+      run: async (ctx) =>
+        expectDenied('adding a field the profile schema does not allow', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { isAdmin: true }),
+        ),
+    },
+  ],
+};
+
+export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite];

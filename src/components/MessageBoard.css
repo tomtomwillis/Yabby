@@ -32,6 +32,19 @@
   margin: 0 !important;
 }
 
+.messages-more {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.messages-end {
+  padding: 20px;
+  color: var(--colour2);
+  font-style: italic;
+  text-align: center;
+}
+
 /* Add responsiveness */
 @media (max-width: 768px) {
   .message-board-container {

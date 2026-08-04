@@ -4,22 +4,25 @@ import { getAuth } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAdmin } from '../utils/useAdmin';
+import { AUTO_FONTS } from '../utils/autoFonts';
 import './DesignTool.css';
 
 const MIXED = '<mixed>';
 
 const FONT_SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72, 96];
 
-const FONTS: { label: string; value: string }[] = [
+const CURATED_FONTS: { label: string; value: string }[] = [
   { label: 'Arial', value: 'AsciiArial' },
   { label: 'Avara Bold Italic', value: 'AvaraItalic' },
+  { label: 'Commit Mono', value: 'CommitMono' },
   { label: 'DT Nouveau', value: 'DTNouveau' },
   { label: 'JGS 5', value: 'jgs5' },
   { label: 'JGS 7', value: 'jgs7' },
   { label: 'JGS 9', value: 'jgs9' },
-  { label: 'Necto Mono', value: 'NectoMono' },
   { label: 'Work Sans', value: 'WorkSans' },
 ];
+
+const FONTS = [...CURATED_FONTS, ...AUTO_FONTS];
 
 const PALETTE = [
   { label: 'green',  value: '#4CAF50' },

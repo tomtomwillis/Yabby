@@ -1,16 +1,24 @@
 import React, { useEffect, useState } from "react";
+import { NAVIDROME_SERVER_URL } from "../utils/navidrome";
 import { usePlayerActions } from "../utils/usePlayer";
 import "./Stats.css";
+
+const albumLink = (id: string) => `${NAVIDROME_SERVER_URL}/app/#/album/${id}/show`;
+const artistLink = (id: string) => `${NAVIDROME_SERVER_URL}/app/#/artist/${id}/show`;
 
 interface SongOfTheDay {
   title: string;
   artist: string;
   album: string;
-  url: string;
   /** Needed to hand the track to the docked player; absent in caches written
    *  before the play button existed. */
   albumId?: string;
   trackId?: string;
+  artistId?: string;
+  /** Which build's selection this was. Bump when a change alters what the day's
+   *  song should be, so stale picks are replaced rather than held until the
+   *  date rolls over. */
+  pick?: number;
 }
 
 interface GitHubStats {
@@ -23,6 +31,24 @@ interface GitHubStats {
 const GITHUB_CACHE_KEY = "githubStats";
 const GITHUB_CACHE_TS_KEY = "githubStatsTimestamp";
 const GITHUB_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+const LIBRARY_CACHE_KEY = "libraryStats";
+const LIBRARY_CACHE_TS_KEY = "libraryStatsTimestamp";
+const LIBRARY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+/** Navidrome treats size=0 as "no limit" and caps any explicit size at this,
+ *  so a response landing exactly on it is indistinguishable from a truncated
+ *  one and has to be re-counted a page at a time. */
+const PAGE_SIZE = 500;
+
+interface LibraryStats {
+  albumCount: number;
+  songCount: number;
+}
+
+/** Bumped when the day's song would be chosen differently than by the build
+ *  that wrote the cache. */
+const PICK_VERSION = 2;
 
 const Stats: React.FC = () => {
   const [totalAlbums, setTotalAlbums] = useState(0);
@@ -44,37 +70,56 @@ const Stats: React.FC = () => {
     };
   };
 
-  const fetchLibraryStats = async () => {
+  /** Returns the counts as well as storing them — song of the day needs the
+   *  album total, and reading it back off state would only ever see the value
+   *  captured when this effect was created. */
+  const fetchLibraryStats = async (): Promise<LibraryStats | null> => {
     const { serverUrl, username, password, appName } = getApiConfig();
 
-    try {
-      let albumCount = await getAlbumCountEfficient(serverUrl, username, password, appName);
-      let songCount = 0;
+    const cached = localStorage.getItem(LIBRARY_CACHE_KEY);
+    const cachedTimestamp = localStorage.getItem(LIBRARY_CACHE_TS_KEY);
+    if (cached && cachedTimestamp) {
+      const age = Date.now() - parseInt(cachedTimestamp, 10);
+      if (age < LIBRARY_CACHE_TTL) {
+        const stats: LibraryStats = JSON.parse(cached);
+        setTotalAlbums(stats.albumCount);
+        setTotalSongs(stats.songCount);
+        return stats;
+      }
+    }
 
-      if (albumCount === -1) {
-        const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
-        albumCount = stats.albumCount;
-        songCount = stats.songCount;
-      } else {
-        songCount = await getSongCountFromAlbums(serverUrl, username, password, appName);
+    try {
+      let stats = await getCountsInOneRequest(serverUrl, username, password, appName);
+
+      // Either the server capped the response or it genuinely holds exactly a
+      // page's worth; only walking it settles which.
+      if (!stats || stats.albumCount === PAGE_SIZE) {
+        stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
       }
 
-      setTotalAlbums(albumCount);
-      setTotalSongs(songCount);
+      setTotalAlbums(stats.albumCount);
+      setTotalSongs(stats.songCount);
+      localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify(stats));
+      localStorage.setItem(LIBRARY_CACHE_TS_KEY, Date.now().toString());
+      return stats;
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
       console.error("Error fetching stats:", errorMessage);
       setError(errorMessage);
+      return null;
     }
   };
 
-  const getAlbumCountEfficient = async (
+  /** size=0 is Navidrome's "no limit", and every album in the response already
+   *  carries its own songCount — so both totals come out of a single call
+   *  rather than a full second walk of the library. */
+  const getCountsInOneRequest = async (
     serverUrl: string,
     username: string,
     password: string,
     appName: string
-  ): Promise<number> => {
+  ): Promise<LibraryStats | null> => {
     try {
       const response = await fetch(
         `${serverUrl}/rest/getAlbumList2?u=${username}&p=${password}&v=1.16.1&c=${appName}&f=json&type=alphabeticalByName&size=0`,
@@ -90,23 +135,21 @@ const Stats: React.FC = () => {
       }
 
       const data = await response.json();
+      if (data["subsonic-response"].status !== "ok") return null;
 
-      if (data["subsonic-response"].status === "ok") {
-        const albumList = data["subsonic-response"].albumList2;
+      const albums = data["subsonic-response"].albumList2?.album;
+      if (!Array.isArray(albums)) return null;
 
-        if (albumList.totalCount !== undefined) {
-          return albumList.totalCount;
-        }
-
-        if (albumList.album && Array.isArray(albumList.album)) {
-          return albumList.album.length;
-        }
-      }
-
-      return -1;
+      return {
+        albumCount: albums.length,
+        songCount: albums.reduce(
+          (sum: number, album: any) => sum + (album.songCount || 0),
+          0
+        ),
+      };
     } catch (error) {
-      console.log("Efficient method failed, falling back to paginated approach");
-      return -1;
+      console.log("Single-request count failed, falling back to paginated approach");
+      return null;
     }
   };
 
@@ -119,7 +162,7 @@ const Stats: React.FC = () => {
     let totalAlbums = 0;
     let totalSongs = 0;
     let offset = 0;
-    const pageSize = 500;
+    const pageSize = PAGE_SIZE;
     let hasMore = true;
 
     while (hasMore) {
@@ -168,16 +211,6 @@ const Stats: React.FC = () => {
     return { albumCount: totalAlbums, songCount: totalSongs };
   };
 
-  const getSongCountFromAlbums = async (
-    serverUrl: string,
-    username: string,
-    password: string,
-    appName: string
-  ): Promise<number> => {
-    const stats = await getAlbumCountPaginated(serverUrl, username, password, appName);
-    return stats.songCount;
-  };
-
   const formatCommitDate = (isoDate: string): string => {
     const date = new Date(isoDate);
     return date.toLocaleDateString("en-AU", {
@@ -201,21 +234,27 @@ const Stats: React.FC = () => {
     return Math.abs(hash);
   };
 
+  /** Takes the library size as an argument rather than reading `totalAlbums`:
+   *  this runs from the mount effect, whose closure holds the initial 0, and
+   *  `% 0` is NaN — which the range guard below lets through. */
   const getDeterministicSongOfTheDay = async (
     serverUrl: string,
     username: string,
     password: string,
-    appName: string
+    appName: string,
+    albumCount: number
   ): Promise<SongOfTheDay> => {
+    if (!albumCount) throw new Error("Library size unknown");
+
     // Get current date as string (YYYY-MM-DD)
     const today = new Date().toISOString().split("T")[0];
 
     // Generate deterministic indices from date
     const dateHash = hashString(today);
-    const albumIndex = dateHash % totalAlbums;
+    const albumIndex = dateHash % albumCount;
 
     // Fetch the album at the calculated index using pagination
-    const pageSize = 500;
+    const pageSize = PAGE_SIZE;
     const targetPage = Math.floor(albumIndex / pageSize);
     const indexInPage = albumIndex % pageSize;
 
@@ -282,9 +321,10 @@ const Stats: React.FC = () => {
       title: selectedSong.title,
       artist: selectedSong.artist,
       album: album.name,
-      url: `${serverUrl}/app/#/album/${album.id}/show`,
       albumId: album.id,
       trackId: selectedSong.id,
+      artistId: selectedSong.artistId || album.artistId,
+      pick: PICK_VERSION,
     };
   };
 
@@ -301,7 +341,7 @@ const Stats: React.FC = () => {
     );
   };
 
-  const fetchSongOfTheDay = async () => {
+  const fetchSongOfTheDay = async (albumCount: number) => {
     const { serverUrl, username, password, appName } = getApiConfig();
 
     const storedSong = localStorage.getItem("songOfTheDay");
@@ -311,8 +351,11 @@ const Stats: React.FC = () => {
     if (storedSong && storedDate === today) {
       const cached: SongOfTheDay = JSON.parse(storedSong);
       // Entries cached before the play button existed carry no ids; refetch
-      // rather than serving a day with no way to play it.
-      if (cached.albumId && cached.trackId) {
+      // rather than serving a day with no way to play it. Entries below the
+      // current pick version were chosen at random by a build where the
+      // deterministic path could not run, so they are not the day's song
+      // everyone else is seeing.
+      if (cached.albumId && cached.trackId && cached.pick === PICK_VERSION) {
         setSongOfTheDay(cached);
         return;
       }
@@ -325,7 +368,8 @@ const Stats: React.FC = () => {
         serverUrl,
         username,
         password,
-        appName
+        appName,
+        albumCount
       );
 
       console.log("Deterministic song selected:", songData);
@@ -370,9 +414,10 @@ const Stats: React.FC = () => {
             title: song.title,
             artist: song.artist,
             album: song.album,
-            url: `${serverUrl}/app/#/album/${albumId}/show`,
             albumId,
             trackId: song.id,
+            artistId: song.artistId,
+            pick: PICK_VERSION,
           };
 
           setSongOfTheDay(songData);
@@ -449,7 +494,12 @@ const Stats: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        await Promise.all([fetchLibraryStats(), fetchSongOfTheDay(), fetchGitHubStats()]);
+        // The song is picked by indexing into the library, so the count has to
+        // land first; GitHub is unrelated and runs alongside both.
+        await Promise.all([
+          fetchLibraryStats().then((stats) => fetchSongOfTheDay(stats?.albumCount ?? 0)),
+          fetchGitHubStats(),
+        ]);
       } finally {
         setIsLoading(false);
       }
@@ -536,11 +586,21 @@ const Stats: React.FC = () => {
                   ▶
                 </button>
               )}
-              <a href={songOfTheDay.url} target="_blank" rel="noopener noreferrer">
-                {songOfTheDay.title} — {songOfTheDay.artist}
-              </a>
+              {songOfTheDay.title}
             </span>
-            <span className="stats-meta">{songOfTheDay.album}</span>
+            <span className="stats-meta">
+              {songOfTheDay.albumId ? (
+                <a href={albumLink(songOfTheDay.albumId)} target="_blank" rel="noopener noreferrer">
+                  {songOfTheDay.album}
+                </a>
+              ) : songOfTheDay.album}
+              {' — '}
+              {songOfTheDay.artistId ? (
+                <a href={artistLink(songOfTheDay.artistId)} target="_blank" rel="noopener noreferrer">
+                  {songOfTheDay.artist}
+                </a>
+              ) : songOfTheDay.artist}
+            </span>
           </dd>
         </div>
       )}

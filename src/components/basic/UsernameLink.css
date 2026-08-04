@@ -1,0 +1,122 @@
+/* Profile bubble shown when hovering a username. Borrows the ASCII frame from
+   navidromeCard.css — clipped edge strips with opaque corner glyphs over them —
+   so hover surfaces read the same wherever they appear. */
+
+.ul-card {
+  --ul-accent: var(--colour2);
+  --ul-dim: #5566c9;
+
+  position: fixed;
+  /* Above the sticker popup overlay (1000) and the bottom bar (1002), below the
+     navidrome cards (1500) that can be pinned over the same page. */
+  z-index: 1400;
+  box-sizing: border-box;
+  padding: 0.7rem 0.75rem 0.85rem;
+  background: var(--colour4);
+  border-left: 1px solid var(--ul-dim);
+  border-right: 1px solid var(--ul-dim);
+  color: var(--ul-accent);
+  font-family: var(--font2);
+  /* Never take the pointer: the username underneath is a live link, and the
+     bubble opens directly over it. */
+  pointer-events: none;
+}
+
+.ul-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  color: var(--ul-dim);
+  font-size: 0.8rem;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ul-edge-top { top: 0; }
+.ul-edge-bottom { bottom: 0; }
+
+/* Opaque, so each corner covers the edge strip running under it. */
+.ul-corner {
+  position: absolute;
+  padding: 0 0.1rem;
+  background: var(--colour4);
+  color: var(--ul-dim);
+  font-size: 0.8rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.ul-corner-tl { top: 0; left: 0; }
+.ul-corner-tr { top: 0; right: 0; }
+.ul-corner-bl { bottom: 0; left: 0; }
+.ul-corner-br { bottom: 0; right: 0; }
+
+.ul-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px dashed var(--ul-dim);
+}
+
+/* The picture is the point of the bubble as much as the bio is — sized to be
+   read as a portrait rather than a favicon beside the name. */
+.ul-avatar {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--ul-dim);
+  object-fit: cover;
+}
+
+.ul-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.ul-name {
+  overflow: hidden;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ul-loc {
+  color: var(--ul-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+/* Set in the body serif, like the posts the bubble opens over. */
+.ul-bio {
+  /* Four lines then ellipsis — the bubble is a preview, the profile is the page. */
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0 0 0.55rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  font-family: var(--font4);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--colour5);
+  overflow-wrap: break-word;
+}
+
+.ul-bio.is-empty {
+  color: var(--ul-dim);
+  font-style: italic;
+}
+
+.ul-hint {
+  display: block;
+  color: var(--ul-dim);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}

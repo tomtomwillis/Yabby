@@ -1,8 +1,15 @@
 /* Inside the home shell the body column scrolls, not the window, so anything
    that drives or watches page scroll has to ask which it is. */
 
+/* Below the shell's mobile breakpoint the column is `overflow: visible` and the
+   window scrolls instead, so the element existing is not enough — scrolling the
+   column there is a silent no-op. Asking for the computed overflow tracks the
+   breakpoint without restating its width. */
 function scrollRoot(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('.home-main');
+  const el = document.querySelector<HTMLElement>('.home-main');
+  if (!el) return null;
+  const { overflowY } = getComputedStyle(el);
+  return overflowY === 'auto' || overflowY === 'scroll' ? el : null;
 }
 
 /** Scroll the page, whichever element that turns out to be. */

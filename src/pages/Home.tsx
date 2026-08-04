@@ -8,6 +8,7 @@ import PlayerBar from '../components/PlayerBar';
 import VisualiserDock from '../components/VisualiserDock';
 import Weather from '../components/weather-app';
 import { usePlayerState } from '../utils/usePlayer';
+import { scrollPageTo } from '../utils/pageScroll';
 import '../App.css';
 import '../components/basic/TextAnimations.css';
 import './Home.css';
@@ -105,7 +106,8 @@ function Home() {
   const { isPlaying, vizOpen, vizFullscreen } = usePlayerState();
   const { pathname } = useLocation();
 
-  const mainRef = useRef<HTMLElement>(null);
+  const isHome = pathname === '/';
+
   const barRef = useRef<HTMLDivElement>(null);
 
   // Gated in JS rather than hidden in CSS: a display:none dock still mounts,
@@ -126,10 +128,11 @@ function Home() {
     setSubtitle(SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
   }, []);
 
-  // The body column scrolls, not the window, so a route change would otherwise
-  // land halfway down the new page.
+  // A route change would otherwise land halfway down the new page. Which
+  // element actually scrolls depends on the width — the body column on desktop,
+  // the window once the shell stacks — so this asks rather than assuming.
   useEffect(() => {
-    mainRef.current?.scrollTo(0, 0);
+    scrollPageTo({ top: 0 });
   }, [pathname]);
 
   // How much of the viewport bottom the bar occupies. Depends on the wordmark's
@@ -168,7 +171,13 @@ function Home() {
   }, [minimised, publishBarHeight]);
 
   return (
-    <div className={`home-page${pathname === '/' ? ' is-home' : ''}`}>
+    <div className={`home-page${isHome ? ' is-home' : ''}`}>
+      {/* The wordmark is ascii in an aria-hidden <pre> and the shell's own
+          masthead is display:none, so `/` would otherwise reach a screen reader
+          with no heading at all. Off `/` the routed page renders its own visible
+          h1, which is the better description of where you are. */}
+      {isHome && <h1 className="hp-sr">Yabbyville</h1>}
+
       {/* This masthead is hidden — the sidebar carries the index and the title is
           pinned bottom-left. Header is still mounted for the burger button and
           mobile drawer, which are siblings of <header>. Routed pages render their
@@ -195,7 +204,7 @@ function Home() {
             </Suspense>
           </SideSection>
 
-          <SideSection branch="└" title="weather · gla">
+          <SideSection branch="└" title="weather">
             <Weather />
             <Suspense fallback={null}>
               {/* The engine fits both axes, so the grid has to be wider than
@@ -208,7 +217,7 @@ function Home() {
           <p className="home-side-sub">{subtitle}</p>
         </aside>
 
-        <main className="home-main" ref={mainRef}>
+        <main className="home-main">
           <Outlet />
         </main>
       </div>
@@ -239,15 +248,18 @@ function Home() {
             <AsciiTitle />
           </div>
 
-          {/* Only mounted while open: an empty flex box between the wordmark and
-              the player would still take its share of the bar's width. */}
-          {vizOpen && wideEnoughForViz && (
-            <div className="home-bottom-viz">
-              <VisualiserDock />
-            </div>
-          )}
-
           <div className="home-bottom-radio">
+            {/* Only mounted while open: an empty flex box would still take its
+                share of the row's width. Sits ahead of the player here so
+                justify-content: flex-end on this row packs the two of them
+                together at the bar's right edge, rather than leaving the
+                visualiser stranded out by the wordmark. */}
+            {vizOpen && wideEnoughForViz && (
+              <div className="home-bottom-viz">
+                <VisualiserDock />
+              </div>
+            )}
+
             {/* Inside the transport row rather than beside the whole player, so
                 he sits at the end of the controls while the seek bar and the
                 metadata above still run to the bar's edge. He only moves while

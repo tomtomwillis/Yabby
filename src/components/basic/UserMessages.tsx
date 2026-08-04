@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
@@ -11,6 +10,8 @@ import { formatTimestamp } from '../../utils/formatTimestamp';
 import Lightbox from './Lightbox';
 import PollBlock from './PollBlock';
 import NavidromeTagLink from './NavidromeTagLink';
+import UsernameLink from './UsernameLink';
+import PosterStats from './PosterStats';
 import { parseNavidromeLink } from '../../utils/navidrome';
 
 interface Reaction {
@@ -74,6 +75,10 @@ interface UserMessageProps {
   onPollVoterHover?: (optionIndex: number) => void;
   status?: 'inprogress' | 'complete';
   onToggleStatus?: () => void;
+  /** Show the forum identity block (joined, post count, location) under the
+      poster's name. Off by default: it costs a users read per distinct author
+      on screen, which only the message board wants to spend. */
+  showPosterStats?: boolean;
 }
 
 // Utility function to validate and sanitize URLs
@@ -195,6 +200,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   onPollVoterHover,
   status,
   onToggleStatus,
+  showPosterStats,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -305,18 +311,13 @@ const UserMessage: React.FC<UserMessageProps> = ({
       </div>
       <div className="user-message-content">
         <div className="user-message-username">
-          {userId ? (
-            <Link to={`/user/${userId}`} className="user-message-username-link">
-              {username}
-            </Link>
-          ) : (
-            username
-          )}
+          <UsernameLink userId={userId} username={username} className="user-message-username-link" />
         </div>
         <div className="user-message-timestamp">
           {timestamp}
           {edited && <span className="user-message-edited-indicator"> (edited)</span>}
         </div>
+        {showPosterStats && <PosterStats userId={userId} />}
         <div className="user-message-separator"></div>
 
         {isEditing ? (
@@ -395,6 +396,141 @@ const UserMessage: React.FC<UserMessageProps> = ({
           />
         )}
 
+        {/* Action buttons (reactions, reply, edit, delete). Inside the content
+            column, before the replies branch, so a board that puts these in
+            flow gets them at the foot of the post it acts on rather than after
+            its replies. Absolutely positioned by default, and .user-message-content
+            is never a containing block, so this still anchors to .user-message. */}
+        <div className="user-message-actions-container">
+          {/* Edit button - owner only */}
+          {canEdit && !isEditing && (
+            <div
+              className="user-message-edit-button"
+              onClick={handleStartEdit}
+              role="button"
+              tabIndex={0}
+              aria-label="Edit message"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleStartEdit();
+                }
+              }}
+            >
+              <FaEdit />
+            </div>
+          )}
+
+          {/* Delete button - owner or admin */}
+          {canDelete && !isEditing && (
+            <div
+              className="user-message-delete-button"
+              onClick={handleDelete}
+              role="button"
+              tabIndex={0}
+              aria-label="Delete message"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleDelete();
+                }
+              }}
+            >
+              <FaTrash />
+            </div>
+          )}
+
+          {/* Status toggle - admin only, issues board */}
+          {onToggleStatus && !isReply && !isEditing && (
+            <div
+              className="user-message-status-button"
+              onClick={onToggleStatus}
+              role="button"
+              tabIndex={0}
+              aria-label={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+              title={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onToggleStatus();
+                }
+              }}
+            >
+              {status === 'complete' ? <FaUndo /> : <FaCheck />}
+            </div>
+          )}
+
+          {onToggleReaction && (
+            <div
+              className="user-message-reaction-container"
+              onMouseEnter={() => {
+                onReactionHover?.();
+                setShowTooltip(true);
+              }}
+              onMouseLeave={() => setShowTooltip(false)}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={() => {
+                handleTouchEnd();
+                // Hide tooltip after a short delay on touch end
+                setTimeout(() => setShowTooltip(false), 2000);
+              }}
+              onTouchCancel={handleTouchEnd}
+            >
+              <div
+                className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
+                onClick={(e) => {
+                  // Prevent reaction toggle only during active long press on mobile
+                  if (isLongPress && showTooltip) {
+                    e.preventDefault();
+                    return;
+                  }
+                  onToggleReaction();
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="React to message"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onToggleReaction();
+                  }
+                }}
+              >
+                {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
+                {reactionCount !== undefined && reactionCount > 0 && (
+                  <span className="user-message-reaction-count">{reactionCount}</span>
+                )}
+              </div>
+              {showTooltip && reactions && reactions.length > 0 && (
+                <div className="user-message-reaction-tooltip">
+                  {reactions.map((reaction, index) => (
+                    <div key={index}>{reaction.username}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reply icon button - only show for non-reply messages */}
+          {!isReply && enableReplies && onReply && (
+            <div
+              className="user-message-reply-icon-button"
+              onClick={() => setShowReplyInput(!showReplyInput)}
+              role="button"
+              tabIndex={0}
+              aria-label="Reply to message"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setShowReplyInput(!showReplyInput);
+                }
+              }}
+            >
+              <FaReply />
+            </div>
+          )}
+        </div>
+
         {/* Reply count indicator - only show for non-reply messages with replies */}
         {!isReply && enableReplies && replyCount !== undefined && replyCount > 0 && (
           <div
@@ -455,6 +591,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
                 onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
                 onClose={() => {}}
                 hideCloseButton={true}
+                showPosterStats={showPosterStats}
                 reactions={reply.reactions}
                 reactionCount={reply.reactionCount}
                 currentUserReacted={reply.currentUserReacted}
@@ -465,137 +602,6 @@ const UserMessage: React.FC<UserMessageProps> = ({
                 imageId={reply.imageId}
               />
             ))}
-          </div>
-        )}
-      </div>
-
-      {/* Action buttons container (reactions, reply, edit, delete) */}
-      <div className="user-message-actions-container">
-        {/* Edit button - owner only */}
-        {canEdit && !isEditing && (
-          <div
-            className="user-message-edit-button"
-            onClick={handleStartEdit}
-            role="button"
-            tabIndex={0}
-            aria-label="Edit message"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleStartEdit();
-              }
-            }}
-          >
-            <FaEdit />
-          </div>
-        )}
-
-        {/* Delete button - owner or admin */}
-        {canDelete && !isEditing && (
-          <div
-            className="user-message-delete-button"
-            onClick={handleDelete}
-            role="button"
-            tabIndex={0}
-            aria-label="Delete message"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleDelete();
-              }
-            }}
-          >
-            <FaTrash />
-          </div>
-        )}
-
-        {/* Status toggle - admin only, issues board */}
-        {onToggleStatus && !isReply && !isEditing && (
-          <div
-            className="user-message-status-button"
-            onClick={onToggleStatus}
-            role="button"
-            tabIndex={0}
-            aria-label={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
-            title={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onToggleStatus();
-              }
-            }}
-          >
-            {status === 'complete' ? <FaUndo /> : <FaCheck />}
-          </div>
-        )}
-
-        {onToggleReaction && (
-          <div
-            className="user-message-reaction-container"
-            onMouseEnter={() => {
-              onReactionHover?.();
-              setShowTooltip(true);
-            }}
-            onMouseLeave={() => setShowTooltip(false)}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={() => {
-              handleTouchEnd();
-              // Hide tooltip after a short delay on touch end
-              setTimeout(() => setShowTooltip(false), 2000);
-            }}
-            onTouchCancel={handleTouchEnd}
-          >
-            <div
-              className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
-              onClick={(e) => {
-                // Prevent reaction toggle only during active long press on mobile
-                if (isLongPress && showTooltip) {
-                  e.preventDefault();
-                  return;
-                }
-                onToggleReaction();
-              }}
-              role="button"
-              tabIndex={0}
-              aria-label="React to message"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onToggleReaction();
-                }
-              }}
-            >
-              {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
-              {reactionCount !== undefined && reactionCount > 0 && (
-                <span className="user-message-reaction-count">{reactionCount}</span>
-              )}
-            </div>
-            {showTooltip && reactions && reactions.length > 0 && (
-              <div className="user-message-reaction-tooltip">
-                {reactions.map((reaction, index) => (
-                  <div key={index}>{reaction.username}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Reply icon button - only show for non-reply messages */}
-        {!isReply && enableReplies && onReply && (
-          <div
-            className="user-message-reply-icon-button"
-            onClick={() => setShowReplyInput(!showReplyInput)}
-            role="button"
-            tabIndex={0}
-            aria-label="Reply to message"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setShowReplyInput(!showReplyInput);
-              }
-            }}
-          >
-            <FaReply />
           </div>
         )}
       </div>

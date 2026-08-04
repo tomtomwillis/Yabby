@@ -62,8 +62,8 @@
 }
 
 .travel-card__comment {
-  font-family: var(--font2);
-  font-size: 0.82rem;
+  font-family: var(--font4);
+  font-size: 0.92rem;
   line-height: 1.45;
   color: var(--colour5);
   word-wrap: break-word;

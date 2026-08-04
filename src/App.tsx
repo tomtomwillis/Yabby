@@ -5,6 +5,7 @@ import Oneko from './components/Oneko';
 import Home from './pages/Home';
 import HomeDashboard from './pages/HomeDashboard';
 import Login from './pages/Login';
+import NotFound from './pages/NotFound';
 import './App.css';
 import './components/basic/TextAnimations.css';
 import PrivateRoute from './components/PrivateRoute';
@@ -12,6 +13,7 @@ import DesignTool from './components/DesignTool';
 import PullToRefresh from './components/PullToRefresh';
 import { PlayerProvider } from './utils/usePlayer';
 import { NavidromeCardProvider } from './utils/useNavidromeCard';
+import { useJoinDate } from './utils/useJoinDate';
 
 // Route-level code splitting: heavy dependencies (leaflet, hls.js, xterm,
 // marked) stay out of the initial bundle. Home and Login load eagerly.
@@ -35,6 +37,8 @@ const CinemaPage = lazy(() => import('./pages/CinemaPage'));
 const IssuesPage = lazy(() => import('./pages/IssuesPage'));
 
 function App() {
+  useJoinDate();
+
   return (
     <PlayerProvider>
       <NavidromeCardProvider>
@@ -74,6 +78,10 @@ function App() {
                   <Route path="/media" element={<MediaManager />} />
                   <Route path="/travel" element={<TravelPage />} />
                   <Route path="/issues" element={<IssuesPage />} />
+
+                  {/* Inside the shell rather than beside it: an unknown URL
+                      still gets the rail and the player to leave by. */}
+                  <Route path="*" element={<NotFound />} />
                 </Route>
               </Routes>
             </Suspense>

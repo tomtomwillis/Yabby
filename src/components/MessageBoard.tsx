@@ -30,7 +30,7 @@ import type { PollDraft } from './basic/PollComposeModal';
 import Button from './basic/Button';
 import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
-import { getUserData } from '../utils/userCache';
+import { getUserData, bumpPostCount } from '../utils/userCache';
 import { getCurrentMonthId, getPrevMonthId } from '../utils/useFilmClub';
 
 interface Reaction {
@@ -91,6 +91,9 @@ interface MessageBoardProps {
   enableFilmAnnounce?: boolean;
   showComposer?: boolean;
   highlightMessageId?: string;
+  // Forum identity block under each poster's name. Costs a users read per
+  // distinct author on screen, so only the message board turns it on.
+  showPosterStats?: boolean;
 }
 
 const MESSAGES_PER_PAGE = 20;
@@ -182,6 +185,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   enableFilmAnnounce = true,
   showComposer = true,
   highlightMessageId,
+  showPosterStats = false,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [, setNewMessage] = useState('');
@@ -429,6 +433,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       if (statusFilter) messageData.status = 'inprogress';
 
       const newDoc = await addDoc(collection(db, collectionName), messageData);
+      void bumpPostCount(auth.currentUser.uid);
       // Optimistically prepend so the new post appears without a reload.
       setMessages((prev) => [
         {
@@ -714,6 +719,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       if (imageId) replyData.imageId = imageId;
 
       const newReplyRef = await addDoc(collection(db, collectionName, messageId, 'replies'), replyData);
+      void bumpPostCount(auth.currentUser.uid);
       await updateDoc(doc(db, collectionName, messageId), {
         lastActivityAt: serverTimestamp(),
         replyCount: increment(1),
@@ -918,6 +924,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
             userId={message.userId}
             currentUserId={auth.currentUser?.uid}
             isAdmin={isAdmin}
+            showPosterStats={showPosterStats}
             onEdit={(newText: string) => handleEditMessage(message.id, newText)}
             onDelete={() => handleDeleteMessage(message.id)}
             onEditReply={(replyId: string, newText: string) => handleEditReply(message.id, replyId, newText)}
@@ -956,7 +963,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       </div>
 
       {!loadingMessages && hasMore && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', marginBottom: '20px' }}>
+        <div className="messages-more">
           <Button
             type="basic"
             label={loadingMore ? 'Loading...' : 'Load More Messages'}
@@ -968,7 +975,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
 
 
       {!loadingMessages && !hasMore && messages.length > 0 && (
-        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--colour4)', fontStyle: 'italic' }}>
+        <div className="messages-end">
           No more messages to load
         </div>
       )}

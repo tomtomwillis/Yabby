@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Header from '../components/basic/Header';
 import MessageBoard from '../components/MessageBoard';
 import Tips from '../components/basic/Tips';
+import './MessageBoardPage.css';
 
 const tips: React.ComponentProps<typeof Tips>[] = [
   {
@@ -20,10 +21,17 @@ const MessageBoardPage: React.FC = () => {
   const [tip] = useState(() => tips[Math.floor(Math.random() * tips.length)]);
 
   return (
-    <div className="app-container">
+    <div className="app-container mb-board">
       <Header title="Message Board" subtitle="Get Chatty" />
+
+      <div className="mb-board-bar">
+        <span className="mb-board-bar-label">threads</span>
+        <span className="mb-board-bar-rule" aria-hidden="true"></span>
+        <span className="mb-board-bar-note">newest activity first</span>
+      </div>
+
       <Tips {...tip} />
-      <MessageBoard enableReactions={true} enableReplies={true} />
+      <MessageBoard enableReactions={true} enableReplies={true} showPosterStats={true} />
     </div>
   );
 };

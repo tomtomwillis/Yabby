@@ -63,12 +63,14 @@ const ListsPage: React.FC = () => {
 
       const queries = [getDocs(publicQuery)];
 
+      // No orderBy on this one: the merge below re-sorts everything anyway, so
+      // it would only buy a composite index — and ordering by a field excludes
+      // documents that lack it, which would silently drop your own older lists.
       const uid = auth.currentUser?.uid;
       if (uid) {
         queries.push(getDocs(query(
           collection(db, 'lists'),
-          where('userId', '==', uid),
-          orderBy('lastUpdated', 'desc')
+          where('userId', '==', uid)
         )));
       }
 
