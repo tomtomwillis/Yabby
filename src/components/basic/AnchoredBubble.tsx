@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './AnchoredBubble.css';
 
+type Placement = 'below' | 'above';
+
 interface AnchoredBubbleProps {
   /** The element the bubble hangs off. */
   anchor: HTMLElement | null;
   /** Positioned ancestor the bubble is absolutely placed inside. */
   container: HTMLElement | null;
-  /** Which side of the anchor the bubble opens on. */
-  placement?: 'below' | 'above';
+  /** Preferred side. Honoured where it fits, flipped where it does not. */
+  placement?: Placement;
   onClose: () => void;
   children: React.ReactNode;
 }
@@ -18,7 +20,7 @@ const OFFSET = 10;
 const EDGE = 16;
 /** Below this the bubble is too short to be worth opening scrolled. */
 const MIN_BODY = 120;
-/** Under this much room the anchor is scrolled up rather than opened beneath. */
+/** A side with this much room is roomy enough; no need to look at the other. */
 const PREFERRED_ROOM = 320;
 
 /** How much of the viewport bottom the home shell's fixed bar covers. Measured
@@ -33,13 +35,32 @@ const barHeight = () =>
 const roomBelow = (a: DOMRect) =>
   window.innerHeight - barHeight() - a.bottom - EDGE - OFFSET;
 
-/** A floating box under whatever was clicked, skinned like the travel map's
+/** Space over the anchor, stopping at the top of the viewport. */
+const roomAbove = (a: DOMRect) => a.top - EDGE - OFFSET;
+
+/** The side with the space, rather than the side the caller guessed. The
+ *  preference wins ties and anything already roomy, so it only gives way when
+ *  the other side is genuinely better — a tile in the last row opens upward
+ *  instead of off the bottom of the screen. Both measurements come from the
+ *  anchor and the viewport alone, never from the box being placed, so the
+ *  choice cannot feed back into itself and flap. */
+const sideFor = (a: DOMRect, preferred: Placement): Placement => {
+  const preferredRoom = preferred === 'above' ? roomAbove(a) : roomBelow(a);
+  if (preferredRoom >= PREFERRED_ROOM) return preferred;
+  const otherRoom = preferred === 'above' ? roomBelow(a) : roomAbove(a);
+  if (preferredRoom >= otherRoom) return preferred;
+  return preferred === 'above' ? 'below' : 'above';
+};
+
+/** A floating box beside whatever was clicked, skinned like the travel map's
  *  pin bubble. Nothing behind it is dimmed or blocked — clicking elsewhere is
  *  what closes it. */
 interface Position {
   left: number;
   tip: number;
-  /** Distance from the container's top or bottom, per placement. */
+  /** The side actually used, which may not be the one asked for. */
+  side: Placement;
+  /** Distance from the container's top or bottom, per side. */
   offset: number;
   /** Room the body may use before it has to scroll. */
   maxBody: number;
@@ -69,9 +90,8 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
       // usually far shorter than the space the bubble can use. Downward stops
       // at the fixed bar rather than the viewport edge — anything below that
       // line is painted over by chrome the bubble sits under.
-      const room = placement === 'above'
-        ? a.top - EDGE - OFFSET
-        : roomBelow(a);
+      const side = sideFor(a, placement);
+      const room = side === 'above' ? roomAbove(a) : roomBelow(a);
       // The cap lands on the scrolling body, but it is the whole box that has
       // to fit — so take off the padding and border around it. Chrome does not
       // depend on the body's height, so this settles in one pass.
@@ -80,9 +100,10 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
         : 0;
       setPos({
         left,
+        side,
         // Anchored by the edge it grows away from, so the box needs no height
         // measured before it can be placed.
-        offset: placement === 'above'
+        offset: side === 'above'
           ? c.height - (a.top - c.top) + OFFSET
           : a.bottom - c.top + OFFSET,
         // Tip tracks the anchor even once the box has been clamped sideways.
@@ -93,14 +114,15 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
 
     place();
 
-    // An anchor near the foot of the column leaves too little room to open
-    // under: the cap floors at MIN_BODY and the tail still lands behind the
-    // bar. Bring the anchor up instead — the scroll listener below re-places
-    // as it travels, so the body grows into the room that opens up. Once per
-    // anchor, so re-placing can never drive it again.
-    if (placement === 'below' && nudgedRef.current !== anchor) {
+    // Last resort, for a viewport too short to hold the bubble on either side
+    // of the anchor: flipping cannot help, so move the anchor instead. The
+    // scroll listener below re-places as it travels, so the body grows into
+    // the room that opens up. Once per anchor, so re-placing can never drive
+    // it again.
+    if (nudgedRef.current !== anchor) {
       nudgedRef.current = anchor;
-      if (roomBelow(anchor.getBoundingClientRect()) < PREFERRED_ROOM) {
+      const a = anchor.getBoundingClientRect();
+      if (Math.max(roomAbove(a), roomBelow(a)) < PREFERRED_ROOM) {
         anchor.scrollIntoView({ block: 'start', behavior: 'smooth' });
       }
     }
@@ -138,15 +160,19 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
     };
   }, [anchor, onClose]);
 
+  // Before the first measurement there is no chosen side, and the box is
+  // hidden anyway; the preference is the best guess until then.
+  const side = pos?.side ?? placement;
+
   return (
     <div
       ref={boxRef}
-      className={placement === 'above' ? 'ab ab--above' : 'ab'}
+      className={side === 'above' ? 'ab ab--above' : 'ab'}
       role="dialog"
       style={
         pos
           ? {
-              [placement === 'above' ? 'bottom' : 'top']: pos.offset,
+              [side === 'above' ? 'bottom' : 'top']: pos.offset,
               left: pos.left,
               ['--ab-tip' as string]: `${pos.tip}px`,
               ['--ab-max-h' as string]: `${pos.maxBody}px`,
