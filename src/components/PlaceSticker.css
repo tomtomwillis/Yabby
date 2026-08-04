@@ -55,3 +55,41 @@
     max-height: 90vh;
   }
 }
+
+/* ── Inside the home shell ─────────────────────────────────────────────────
+   Two things own the edges of the screen there: the rail on the left and the
+   fixed bar along the bottom (z-index 1002, above this overlay's 1000). A
+   viewport-sized overlay therefore covers the index and is itself covered by
+   the bar. Inset to the frame the two columns leave instead, so the window
+   sits in the workspace and the index and transport stay live. Declared
+   .home-page-scoped so it outranks both copies of the base rule — this one and
+   StickerGrid's — without either being touched. */
+
+.home-page .popup-overlay {
+  inset: 0 0 var(--hp-bar-h, 9rem) var(--hp-side-w, 0px);
+  width: auto;
+  height: auto;
+  padding: clamp(0.75rem, 2vh, 1.5rem);
+  box-sizing: border-box;
+}
+
+/* Square, hairline and unshadowed, like the rest of the redesign. */
+.home-page .popup-content {
+  width: auto;
+  max-width: min(34rem, 100%);
+  max-height: 100%;
+  padding: clamp(0.8rem, 1.6vw, 1.4rem);
+  background: var(--colour4);
+  border: 1px solid var(--hp-accent, var(--colour2));
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--font2);
+}
+
+@media (max-width: 768px) {
+  /* The overlay's own padding is the inset now. */
+  .home-page .popup-content {
+    margin: 0;
+    max-height: 100%;
+  }
+}

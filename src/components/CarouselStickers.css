@@ -76,7 +76,7 @@
 .sb-title {
     margin: 0;
     font-family: var(--font2);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 400;
     color: var(--colour2);
 }
@@ -84,7 +84,7 @@
 .sb-artist {
     margin: 0 0 0.6rem;
     font-family: var(--font2);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     color: var(--colour5);
 }
 
@@ -107,7 +107,7 @@
     border-radius: 0;
     color: var(--colour2);
     font-family: var(--font2);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 400;
     text-transform: none;
     box-shadow: none;
@@ -129,13 +129,42 @@
     border-radius: 0;
     box-shadow: none;
     color: var(--colour5);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+}
+
+/* The message body is set in the reading serif everywhere else. In a bubble
+   this narrow it wants the same mono as the chrome around it. */
+.ab .user-message-text {
+    font-family: var(--font2);
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+.ab .user-message-username {
+    font-size: 0.95em;
+}
+
+.ab .user-message-timestamp {
+    font-size: 0.7em;
+}
+
+/* 80px of avatar next to 0.7rem type is all avatar. */
+.ab .user-message-sticker,
+.ab .user-message-sticker-fallback {
+    width: 36px;
+    height: 36px;
+    min-width: 0;
+    min-height: 0;
+}
+
+.ab .user-message-sticker-container {
+    padding-right: 0.5rem;
 }
 
 .ab .favorite-track-display {
     padding-left: 0;
     font-family: var(--font2);
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-style: normal;
 }
 

@@ -18,6 +18,20 @@ const OFFSET = 10;
 const EDGE = 16;
 /** Below this the bubble is too short to be worth opening scrolled. */
 const MIN_BODY = 120;
+/** Under this much room the anchor is scrolled up rather than opened beneath. */
+const PREFERRED_ROOM = 320;
+
+/** How much of the viewport bottom the home shell's fixed bar covers. Measured
+ *  and published on the root by Home, so it tracks the bar being minimised; 0
+ *  on the pages that have no bar. */
+const barHeight = () =>
+  parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--hp-bar-h'),
+  ) || 0;
+
+/** Space under the anchor the bubble may occupy, stopping at the bar. */
+const roomBelow = (a: DOMRect) =>
+  window.innerHeight - barHeight() - a.bottom - EDGE - OFFSET;
 
 /** A floating box under whatever was clicked, skinned like the travel map's
  *  pin bubble. Nothing behind it is dimmed or blocked — clicking elsewhere is
@@ -36,6 +50,7 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const nudgedRef = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<Position | null>(null);
 
   // Layout effect, not effect: the box is measured to clamp it inside the
@@ -50,11 +65,13 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
       const width = box.offsetWidth;
       const anchorCentre = a.left + a.width / 2 - c.left;
       const left = Math.max(0, Math.min(anchorCentre - width / 2, c.width - width));
-      // Opening upward measures against the viewport, not the container: the
-      // container is usually far shorter than the space the bubble can use.
+      // Measured against the viewport, not the container: the container is
+      // usually far shorter than the space the bubble can use. Downward stops
+      // at the fixed bar rather than the viewport edge — anything below that
+      // line is painted over by chrome the bubble sits under.
       const room = placement === 'above'
         ? a.top - EDGE - OFFSET
-        : window.innerHeight - a.bottom - EDGE - OFFSET;
+        : roomBelow(a);
       // The cap lands on the scrolling body, but it is the whole box that has
       // to fit — so take off the padding and border around it. Chrome does not
       // depend on the body's height, so this settles in one pass.
@@ -75,6 +92,19 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
     };
 
     place();
+
+    // An anchor near the foot of the column leaves too little room to open
+    // under: the cap floors at MIN_BODY and the tail still lands behind the
+    // bar. Bring the anchor up instead — the scroll listener below re-places
+    // as it travels, so the body grows into the room that opens up. Once per
+    // anchor, so re-placing can never drive it again.
+    if (placement === 'below' && nudgedRef.current !== anchor) {
+      nudgedRef.current = anchor;
+      if (roomBelow(anchor.getBoundingClientRect()) < PREFERRED_ROOM) {
+        anchor.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+
     const ro = new ResizeObserver(place);
     ro.observe(box);
     ro.observe(container);

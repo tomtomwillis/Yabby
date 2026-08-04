@@ -88,13 +88,16 @@ body:has(.home-page) .star-path {
 /* Both columns reserve the bottom bar's height as padding, otherwise their last
    rows scroll to a stop underneath it. --hp-bar-h is measured and published by
    Home; the fallback covers the first paint. */
+/* The rail's width is a property rather than a literal because overlays inset
+   themselves by it to land in the frame the two columns leave. */
 .home-page {
   --hp-title-clear: calc(var(--hp-bar-h, 9rem) + 0.25rem);
+  --hp-side-w: clamp(210px, 17vw, 290px);
 }
 
 .home-side {
   display: flex;
-  flex: 0 0 clamp(210px, 17vw, 290px);
+  flex: 0 0 var(--hp-side-w);
   flex-direction: column;
   gap: clamp(0.7rem, 1.7vh, 1.6rem);
   padding: 0.9rem clamp(0.8rem, 0.9vw, 1.2rem) var(--hp-title-clear);
@@ -875,6 +878,8 @@ body:has(.home-page) .star-path {
   .home-page {
     height: auto;
     overflow: visible;
+    /* The rail is under the body now, not beside it — nothing to inset past. */
+    --hp-side-w: 0px;
   }
 
   .home-shell {
