@@ -1,11 +1,21 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Carousel } from './basic/Carousel';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './CarouselStickers.css';
-import { collection, query, orderBy, doc, limit, where } from 'firebase/firestore';
+import AnchoredBubble from './basic/AnchoredBubble';
+import {
+  collection,
+  query,
+  orderBy,
+  doc,
+  documentId,
+  endBefore,
+  limit,
+  startAt,
+  where,
+} from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import {
   trackedGetDocs as getDocs,
@@ -50,6 +60,8 @@ interface PopupData {
   albumTitle: string;
   albumArtist: string;
   albumCover: string;
+  /** The tile the bubble hangs beneath. */
+  anchor: HTMLElement | null;
 }
 
 export interface InjectStickerInput {
@@ -74,11 +86,30 @@ export interface CarouselStickersHandle {
 // Standard dimensions for consistent rendering
 const ALBUM_DISPLAY_SIZE = 300;
 const STICKER_SIZE = 100;
-// Scan recent stickers to identify which albums are most recently stickered.
+// Scan stickers to identify which albums to show. One window either way, so a
+// load costs the same whichever order is asked for.
 const RECENT_STICKERS_SCAN_LIMIT = 50;
-const ALBUMS_IN_CAROUSEL = 12;
+const ALBUMS_IN_CAROUSEL = 16;
 
-const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
+/** Firestore's auto-ID alphabet. A key drawn from it lands uniformly among the
+ *  existing document IDs, so a window starting there is a random slice of the
+ *  collection — no extra field, no extra reads, no index. */
+const AUTO_ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+function randomDocId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  return Array.from(bytes, (b) => AUTO_ID_CHARS[b % AUTO_ID_CHARS.length]).join('');
+}
+
+export type StickerOrder = 'recent' | 'random';
+
+interface CarouselStickersProps {
+  order?: StickerOrder;
+}
+
+const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProps>(({
+  order = 'recent',
+}, ref) => {
   const [albums, setAlbums] = useState<AlbumWithStickers[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,8 +120,11 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
     albumTitle: '',
     albumArtist: '',
     albumCover: '',
+    anchor: null,
   });
 
+  // The bubble is placed against the wall, so it needs the wall's box.
+  const wallRef = useRef<HTMLDivElement>(null);
   const [placeStickerVisible, setPlaceStickerVisible] = useState(false);
   const [selectedAlbumForSticker, setSelectedAlbumForSticker] = useState<{
     id: string;
@@ -101,7 +135,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
 
   const { isAdmin } = useAdmin();
 
-  const fetchStickers = async () => {
+  const fetchStickers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -111,18 +145,39 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
       const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
       const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
-      // Step 1: scan recent stickers to find which albums are most recently active.
-      // Map insertion order = album recency order (first appearance wins).
-      const recentQuery = query(
-        collection(db, 'stickers'),
-        orderBy('timestamp', 'desc'),
-        limit(RECENT_STICKERS_SCAN_LIMIT),
-      );
-      const recentSnapshot = await getDocs(recentQuery);
+      // Step 1: scan a window of stickers to pick the albums to show. Insertion
+      // order into the map is the order they end up on the wall.
+      const stickers = collection(db, 'stickers');
+      let scanned;
+      if (order === 'random') {
+        const from = randomDocId();
+        scanned = (
+          await getDocs(
+            query(stickers, orderBy(documentId()), startAt(from), limit(RECENT_STICKERS_SCAN_LIMIT)),
+          )
+        ).docs;
+        // The window runs off the end of the collection when the random key
+        // lands near it, so wrap back round to the start for the shortfall.
+        if (scanned.length < RECENT_STICKERS_SCAN_LIMIT) {
+          const wrapped = await getDocs(
+            query(
+              stickers,
+              orderBy(documentId()),
+              endBefore(from),
+              limit(RECENT_STICKERS_SCAN_LIMIT - scanned.length),
+            ),
+          );
+          scanned = [...scanned, ...wrapped.docs];
+        }
+      } else {
+        scanned = (
+          await getDocs(query(stickers, orderBy('timestamp', 'desc'), limit(RECENT_STICKERS_SCAN_LIMIT)))
+        ).docs;
+      }
 
       const albumOrder: string[] = [];
       const seenAlbums = new Set<string>();
-      for (const d of recentSnapshot.docs) {
+      for (const d of scanned) {
         const albumId = (d.data() as { albumId: string }).albumId;
         if (!seenAlbums.has(albumId)) {
           seenAlbums.add(albumId);
@@ -137,11 +192,8 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
       }
 
       // Step 2: fetch ALL stickers for the selected albums in one query.
-      // Firestore `in` supports up to 30 values — 12 is well within the limit.
-      const fullQuery = query(
-        collection(db, 'stickers'),
-        where('albumId', 'in', albumOrder),
-      );
+      // Firestore `in` supports up to 30 values — 16 is well within the limit.
+      const fullQuery = query(stickers, where('albumId', 'in', albumOrder));
       const fullSnapshot = await getDocs(fullQuery);
 
       const stickersByAlbum = new Map<string, Sticker[]>();
@@ -212,14 +264,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [order]);
 
   useEffect(() => {
     // PrivateRoute guarantees auth by the time this renders; fetch directly.
     fetchStickers();
-  }, []);
+  }, [fetchStickers]);
 
-  const injectStickerLocal = (input: InjectStickerInput) => {
+  const injectStickerLocal = useCallback((input: InjectStickerInput) => {
     const optimisticSticker: Sticker = {
       stickerId: input.stickerId || `optimistic-${Date.now()}`,
       userId: input.userId,
@@ -256,7 +308,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
         ...prev,
       ].slice(0, ALBUMS_IN_CAROUSEL);
     });
-  };
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -266,7 +318,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
         fetchStickers();
       },
     }),
-    [],
+    [injectStickerLocal, fetchStickers],
   );
 
   const handleInternalStickerSuccess = (payload: InjectStickerInput) => {
@@ -275,13 +327,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
     closePopup();
   };
 
-  const handleAlbumClick = async (album: AlbumWithStickers) => {
+  const handleAlbumClick = async (album: AlbumWithStickers, anchor: HTMLElement) => {
     const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
     const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
     const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
     const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
     setPopup({
+      anchor,
       stickers: await Promise.all(
         album.stickers.map(async (sticker) => {
           const userData = await getUserData(sticker.userId);
@@ -324,11 +377,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
     }
   };
 
-  const closePopup = () => {
-    setPopup({ stickers: [], visible: false, albumId: '', albumTitle: '', albumArtist: '', albumCover: '' });
+  // Stable identity — AnchoredBubble subscribes to it for outside clicks.
+  const closePopup = useCallback(() => {
+    setPopup({
+      stickers: [], visible: false, albumId: '', albumTitle: '', albumArtist: '', albumCover: '', anchor: null,
+    });
     setPlaceStickerVisible(false);
     setSelectedAlbumForSticker(null);
-  };
+  }, []);
 
   const handlePlaceStickerClick = () => {
     setSelectedAlbumForSticker({
@@ -378,12 +434,13 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
     };
   };
 
-  const carouselSlides = albums.map((album) => (
-    <div key={album.albumId} className="album-item">
+  const stickerTiles = albums.map((album) => (
+    <div key={album.albumId} className="sticker-tile">
       <div
         className="album-card"
-        onClick={() => handleAlbumClick(album)}
+        onClick={(e) => handleAlbumClick(album, e.currentTarget)}
         style={{ position: 'relative', cursor: 'pointer' }}
+        title={`${album.albumTitle} — ${album.albumArtist}`}
       >
         <img
           src={album.albumCover}
@@ -391,14 +448,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
           className="album-image"
           loading="lazy"
         />
-        {album.stickers.map((sticker) => {
+        {album.stickers.map((sticker, index) => {
           const stickerElement = document.querySelector(
             `[data-album-id="${album.albumId}"] .album-image`,
           ) as HTMLElement;
 
           return (
             <img
-              key={sticker.stickerId}
+              key={index}
               src={`/Stickers/${sticker.sticker.split('/').pop()}`}
               alt="Sticker"
               className="sticker-overlay"
@@ -447,79 +504,68 @@ const CarouselStickers = forwardRef<CarouselStickersHandle>((_props, ref) => {
   }
 
   return (
-    <div className="sticker-album-carousel">
-      <Carousel
-        slides={carouselSlides}
-        loop={albums.length > 4}
-        autoplay={true}
-        autoplayDelay={3000}
-      />
+    <div className="sticker-album-carousel" ref={wallRef}>
+      <div className="sticker-wall">
+        {stickerTiles}
+      </div>
 
       {popup.visible && (
-        <div className="popup-overlay" onClick={closePopup}>
-          <div className="popup-content" onClick={(e) => e.stopPropagation()}>
-            <h3 className="popup-album-title">{popup.albumTitle}</h3>
-            <p className="popup-album-artist">{popup.albumArtist}</p>
-            <div className="popup-buttons">
-              <Button
-                type="basic"
-                label="Place Sticker on Album"
-                onClick={handlePlaceStickerClick}
-                className="center-button"
-              />
-
-              <StickerAlbumPlayer
-                albumId={popup.albumId}
-                albumTitle={popup.albumTitle}
-                albumArtist={popup.albumArtist}
-                favoriteTrackIds={popup.stickers.flatMap(s => (s.favoriteTrackId ? [s.favoriteTrackId] : []))}
-              />
-            </div>
-
-            <div className="sticker-messages-list">
-              {popup.stickers.map((sticker, index) => (
-                <div key={index} className="sticker-message-item">
-                  <UserMessage
-                    username={sticker.username}
-                    message={sticker.text}
-                    timestamp={sticker.timestamp}
-                    userSticker={sticker.avatar}
-                    userId={sticker.userId}
-                    currentUserId={auth.currentUser?.uid}
-                    isAdmin={isAdmin}
-                    onDelete={
-                      (sticker.userId === auth.currentUser?.uid || isAdmin)
-                        ? () => handleDeleteSticker(sticker.stickerId)
-                        : undefined
-                    }
-                    onClose={() => {}}
-                    hideCloseButton={true}
-                  />
-                  {sticker.favoriteTrackTitle && (
-                    <p className="favorite-track-display">
-                      🎵 Favorite track: <span className="track-name">{sticker.favoriteTrackTitle}</span>
-                      {sticker.favoriteTrackId && (
-                        <StickerFavoritePlay
-                          albumId={popup.albumId}
-                          albumTitle={popup.albumTitle}
-                          albumArtist={popup.albumArtist}
-                          trackId={sticker.favoriteTrackId}
-                          trackTitle={sticker.favoriteTrackTitle}
-                        />
-                      )}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-
+        <AnchoredBubble anchor={popup.anchor} container={wallRef.current} onClose={closePopup}>
+          <h3 className="sb-title">{popup.albumTitle}</h3>
+          <p className="sb-artist">{popup.albumArtist}</p>
+          <div className="sb-buttons">
             <Button
-              type="close"
-              onClick={closePopup}
-              className="popup-close-button"
+              type="basic"
+              label="Place Sticker on Album"
+              onClick={handlePlaceStickerClick}
+              className="center-button"
+            />
+
+            <StickerAlbumPlayer
+              albumId={popup.albumId}
+              albumTitle={popup.albumTitle}
+              albumArtist={popup.albumArtist}
+              favoriteTrackIds={popup.stickers.flatMap(s => (s.favoriteTrackId ? [s.favoriteTrackId] : []))}
             />
           </div>
-        </div>
+
+          <div className="sticker-messages-list">
+            {popup.stickers.map((sticker, index) => (
+              <div key={index} className="sticker-message-item">
+                <UserMessage
+                  username={sticker.username}
+                  message={sticker.text}
+                  timestamp={sticker.timestamp}
+                  userSticker={sticker.avatar}
+                  userId={sticker.userId}
+                  currentUserId={auth.currentUser?.uid}
+                  isAdmin={isAdmin}
+                  onDelete={
+                    (sticker.userId === auth.currentUser?.uid || isAdmin)
+                      ? () => handleDeleteSticker(sticker.stickerId)
+                      : undefined
+                  }
+                  onClose={() => {}}
+                  hideCloseButton={true}
+                />
+                {sticker.favoriteTrackTitle && (
+                  <p className="favorite-track-display">
+                    🎵 Favorite track: <span className="track-name">{sticker.favoriteTrackTitle}</span>
+                    {sticker.favoriteTrackId && (
+                      <StickerFavoritePlay
+                        albumId={popup.albumId}
+                        albumTitle={popup.albumTitle}
+                        albumArtist={popup.albumArtist}
+                        trackId={sticker.favoriteTrackId}
+                        trackTitle={sticker.favoriteTrackTitle}
+                      />
+                    )}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </AnchoredBubble>
       )}
 
       <PlaceSticker

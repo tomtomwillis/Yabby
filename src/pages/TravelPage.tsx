@@ -13,6 +13,7 @@ import TravelFilters, {
 import TravelPlaceBubble from '../components/travel/TravelPlaceBubble';
 import TravelRecommendationList from '../components/travel/TravelRecommendationList';
 import { getUserData } from '../utils/userCache';
+import { onPageScroll, scrollPageTo } from '../utils/pageScroll';
 import { trackedGetDocs } from '../utils/firestoreMetrics';
 import {
   categoryFromOsm,
@@ -62,16 +63,21 @@ async function loadPlacesAndMemberships(): Promise<{ places: Place[]; membership
     };
   });
 
-  // Membership comes from the denormalised contributorIds array on each
-  // place doc (maintained by the travel API) — no subcollection reads.
+  const contribResults = await Promise.all(
+    snap.docs.map((placeDoc) =>
+      trackedGetDocs(collection(db, 'places', placeDoc.id, 'contributions')).then((cs) => ({
+        placeId: placeDoc.id,
+        docs: cs.docs,
+      })),
+    ),
+  );
+
   const memberships: UserPlaceMembership = {};
-  for (const placeDoc of snap.docs) {
-    const ids = placeDoc.data().contributorIds;
-    if (!Array.isArray(ids)) continue;
-    for (const uid of ids) {
-      if (typeof uid !== 'string' || !uid) continue;
+  for (const { placeId, docs } of contribResults) {
+    for (const c of docs) {
+      const uid = c.data().userId as string;
       if (!memberships[uid]) memberships[uid] = new Set();
-      memberships[uid].add(placeDoc.id);
+      memberships[uid].add(placeId);
     }
   }
 
@@ -314,7 +320,7 @@ export default function TravelPage() {
 
   const handleScrollBtn = useCallback(() => {
     if (scrolledToList) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollPageTo({ top: 0, behavior: 'smooth' });
     } else if (recSectionRef.current) {
       recSectionRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -326,8 +332,7 @@ export default function TravelPage() {
       const rect = recSectionRef.current.getBoundingClientRect();
       setScrolledToList(rect.top < window.innerHeight * 0.5);
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return onPageScroll(handleScroll);
   }, []);
 
   const handleAddOwn = useCallback((p: Place) => {

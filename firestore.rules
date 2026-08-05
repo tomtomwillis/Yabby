@@ -181,7 +181,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
@@ -190,10 +190,14 @@ service cloud.firestore {
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
-				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool);
+				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
+        // Both are server-set: joinedAt must be the moment of the write, so it
+        // cannot be backdated, and a new profile starts on zero posts.
+        && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt == request.time)
+        && (!('postCount' in request.resource.data) || request.resource.data.postCount == 0);
 
       allow update: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
@@ -202,7 +206,22 @@ service cloud.firestore {
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
-				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool);
+				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
+        // Join date is written once, on first login, and is never rewritten
+        // after that — otherwise it is not a join date. When it is written it
+        // has to be the moment of the write, so it cannot be backdated.
+        && (!('joinedAt' in resource.data)
+            ? (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt == request.time)
+            : request.resource.data.joinedAt == resource.data.joinedAt)
+        // Post count may hold or advance by one. A client could still hold it
+        // back by never posting through the app, but it cannot inflate itself.
+        && (!('postCount' in request.resource.data) || (
+              request.resource.data.postCount is int
+              && request.resource.data.postCount >= 0
+              && (!('postCount' in resource.data)
+                  || request.resource.data.postCount == resource.data.postCount
+                  || request.resource.data.postCount == resource.data.postCount + 1)
+            ));
 
       allow delete: if false;
     }

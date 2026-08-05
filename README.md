@@ -1,6 +1,6 @@
 # Yabbyville
 
-A private music community web app built with React, Firebase, and Navidrome. Members can browse albums, place stickers on album covers, post on a message board, report issues, create shareable lists, listen to community radio, and upload files.
+A private music community web app built with React, Firebase, and Navidrome. Members can browse albums, place stickers on album covers, post on a message board, create shareable lists, listen to community radio, and upload files.
 
 Built as a Progressive Web App (PWA) so it can be installed on phones and desktops.
 
@@ -42,9 +42,9 @@ Firebase provides **authentication** (email/password login) and **Firestore** (t
    VITE_FIREBASE_MESSAGING_SENDER_ID=
    VITE_FIREBASE_APP_ID=
    ```
-5. Deploy the Firestore security rules (`firestore.rules`) and composite indexes (`firestore.indexes.json`):
+5. Deploy the Firestore security rules from `firestore.rules`:
    ```bash
-   firebase deploy --only firestore
+   firebase deploy --only firestore:rules
    ```
 
 Create user accounts through the Firebase Console.
@@ -106,7 +106,6 @@ The app uses these Firestore collections. They are created automatically when us
 | `messages` | Message board posts (with `reactions` and `replies` subcollections) |
 | `filmClubMessages` | Film Club chat posts (same schema as `messages`, with `reactions` and `replies` subcollections) |
 | `filmClub` | Film Club state — one document per month (e.g. `2025-05`) storing `currentFilm`, `nextFilm`, `downloadLinks`, `currentFilmDescription`, `winnerCalculated`, with `submissions` and `votes` subcollections |
-| `issues` | Bug/problem reports (same schema as `messages` plus a `status` field toggled by admins; with a `replies` subcollection) |
 | `stickers` | Stickers placed on album covers |
 | `lists` | User-created album lists (with `items` subcollection) |
 | `news` | Admin-only news posts |
@@ -136,7 +135,6 @@ src/
   firebaseConfig.ts
 public/
   Stickers/        # Avatar images (webp), including avatar_filmbot.webp
-  skins/           # Webamp radio player skins
   icons/           # PWA icons
 ```
 
@@ -146,12 +144,13 @@ Global colours and fonts are CSS variables in `App.css`:
 
 ```css
 --colour1: #4CAF50;   /* green  */
---colour2: #0000FF;   /* blue   */
---colour3: #FF9F65;   /* orange */
+--colour2: #1a2ecc;   /* blue   */
+--colour3: #e87a3a;   /* orange */
 --colour4: #FFFFFF;   /* white  */
---colour5: #333333;   /* dark   */
+--colour5: #2b2b2b;   /* dark   */
 --font1: 'WorkSans', Arial, sans-serif;
---font2: 'NectoMono', monospace;
+--font2: 'CommitMono', monospace;
+--font3: 'AvaraItalic';
 ```
 
 Components have their own CSS files alongside their `.tsx` files. Some pages (such as MediaManager) also have co-located CSS files.
@@ -169,5 +168,6 @@ Detailed documentation for each page and component is in the [wiki/](wiki/) fold
 - **DOMPurify** for HTML sanitisation
 - **marked** for Markdown-to-HTML rendering (wiki content)
 - **Leaflet** for the travel map
-- **Webamp** for the radio player
+- **Web Audio API** for the player bar (library playback + live radio in one transport)
+- **butterchurn** for the milkdrop visualiser, dynamically imported on first open
 - **vite-plugin-pwa** for PWA support

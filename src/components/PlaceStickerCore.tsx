@@ -6,7 +6,6 @@ import { db, auth } from '../firebaseConfig';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
-import { fetchSubsonicJson } from '../utils/navidrome';
 
 interface AlbumInfo {
   id: string;
@@ -63,7 +62,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [userSticker, setUserSticker] = useState<string | null>(null);
   const [alreadyHasSticker, setAlreadyHasSticker] = useState(false);
-  const [existingStickers, setExistingStickers] = useState<Array<{ id: string; position: { x: number; y: number }; sticker: string }>>([]);
+  const [existingStickers, setExistingStickers] = useState<Array<{ position: { x: number; y: number }; sticker: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -97,8 +96,31 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
   const fetchAlbumTracks = async () => {
     setIsLoadingTracks(true);
     try {
-      const data = await fetchSubsonicJson('getAlbum', { id: albumInfo.id });
-      const songs = data.album?.song || [];
+      const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
+      const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
+      const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
+
+      if (!SERVER_URL || !API_USERNAME || !API_PASSWORD) {
+        console.error('Missing Navidrome credentials');
+        return;
+      }
+
+      const response = await fetch(
+        `${SERVER_URL}/rest/getAlbum?u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}&f=json&id=${albumInfo.id}`,
+        {
+          headers: {
+            Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
+          },
+        }
+      );
+
+      const data = await response.json();
+      console.log('Album API response:', data);
+      const album = data['subsonic-response']?.album;
+      const songs = album?.song || [];
+
+      console.log('Fetched tracks:', songs);
 
       const trackList: Track[] = songs.map((song: any) => ({
         id: song.id,
@@ -108,6 +130,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       }));
 
       setTracks(trackList);
+      console.log('Track list set:', trackList);
     } catch (error) {
       console.error('Error fetching album tracks:', error);
     } finally {
@@ -126,12 +149,11 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       );
       const snap = await getDocs(q);
       const stickers = snap.docs.map(d => ({
-        id: d.id,
         position: d.data().position as { x: number; y: number },
         sticker: d.data().sticker as string,
         userId: d.data().userId as string,
       }));
-      setExistingStickers(stickers.map(({ id, position, sticker }) => ({ id, position, sticker })));
+      setExistingStickers(stickers.map(({ position, sticker }) => ({ position, sticker })));
       setAlreadyHasSticker(stickers.some(s => s.userId === user.uid));
     } catch (error) {
       console.error('Error loading album stickers:', error);
@@ -376,11 +398,11 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
             className="album-cover"
             draggable={false}
           />
-          {existingStickers.map((s) => {
+          {existingStickers.map((s, i) => {
             const screenPos = albumToScreenCoords(s.position.x, s.position.y);
             return (
               <img
-                key={s.id}
+                key={i}
                 src={s.sticker}
                 alt="Existing sticker"
                 className="sticker"

@@ -5,7 +5,6 @@ import { useRateLimit } from '../../utils/useRateLimit';
 import { validateUrl } from '../../utils/sanitise';
 import { auth } from '../../firebaseConfig';
 import { useMediaTheme, MEDIA_THEMES } from '../../utils/useMediaTheme';
-import { fetchSubsonicXml, coverArtUrl } from '../../utils/navidrome';
 import './CoverArtTool.css';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +25,11 @@ type Stage = 'search' | 'preview' | 'processing' | 'success' | 'error';
 // ---------------------------------------------------------------------------
 
 const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
+
+const NAVIDROME_SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+const NAVIDROME_API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
+const NAVIDROME_API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
+const NAVIDROME_CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -54,7 +58,20 @@ const CoverArtTool: React.FC = () => {
 
   const fetchAlbumInfoById = async (albumId: string): Promise<AlbumInfo | null> => {
     try {
-      const xmlDoc = await fetchSubsonicXml('getAlbum', { id: albumId });
+      const response = await fetch(
+        `${NAVIDROME_SERVER_URL}/rest/getAlbum?id=${encodeURIComponent(albumId)}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
+        {
+          headers: {
+            Authorization: 'Basic ' + btoa(`${NAVIDROME_API_USERNAME}:${NAVIDROME_API_PASSWORD}`),
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const text = await response.text();
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(text, 'application/xml');
       const albumElement = xmlDoc.querySelector('album');
 
       if (!albumElement) throw new Error('Album not found');
@@ -63,7 +80,7 @@ const CoverArtTool: React.FC = () => {
         id: albumElement.getAttribute('id') || '',
         artist: albumElement.getAttribute('artist') || 'Unknown Artist',
         title: albumElement.getAttribute('name') || 'Unknown Album',
-        cover: coverArtUrl(albumElement.getAttribute('coverArt') ?? ''),
+        cover: `${NAVIDROME_SERVER_URL}/rest/getCoverArt?id=${encodeURIComponent(albumElement.getAttribute('coverArt') ?? '')}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
       };
     } catch (error) {
       console.error('Failed to fetch album info:', error);

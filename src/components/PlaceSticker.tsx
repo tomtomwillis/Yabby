@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import './PlaceSticker.css';
 import PlaceStickerCore, { type PlacedStickerPayload } from './PlaceStickerCore';
 import AlbumSearchBox from './basic/AlbumSearchBox';
-import { fetchSubsonicXml, coverArtUrl } from '../utils/navidrome';
 
 interface AlbumInfo {
   id: string;
@@ -36,6 +35,11 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
   const [internalAlbumInfo, setInternalAlbumInfo] = useState<AlbumInfo | null>(null);
   const [showPopup, setShowPopup] = useState(false);
 
+  const NAVIDROME_SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
+  const NAVIDROME_API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
+  const NAVIDROME_API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
+  const NAVIDROME_CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
+
   const extractAlbumId = (url: string): string | null => {
     const match = url.match(/album\/(.*?)\/show/);
     return match ? match[1] : null;
@@ -45,7 +49,22 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
     if (!albumId) return alert('Invalid album ID');
 
     try {
-      const xmlDoc = await fetchSubsonicXml('getAlbum', { id: albumId });
+      const response = await fetch(
+        `${NAVIDROME_SERVER_URL}/rest/getAlbum?id=${albumId}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
+        {
+          headers: {
+            Authorization: 'Basic ' + btoa(`${NAVIDROME_API_USERNAME}:${NAVIDROME_API_PASSWORD}`),
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const text = await response.text();
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(text, 'application/xml');
 
       const albumElement = xmlDoc.querySelector('album');
       if (!albumElement) {
@@ -56,7 +75,9 @@ const PlaceSticker: React.FC<PlaceStickerProps> = ({
         id: albumElement.getAttribute('id') || '',
         artist: albumElement.getAttribute('artist') || 'Unknown Artist',
         title: albumElement.getAttribute('name') || 'Unknown Album',
-        cover: coverArtUrl(albumElement.getAttribute('coverArt') || ''),
+        cover: `${NAVIDROME_SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
+          'coverArt'
+        )}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
       });
 
       setShowPopup(true);
