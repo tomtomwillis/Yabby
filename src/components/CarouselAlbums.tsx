@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import AnchoredBubble from "./basic/AnchoredBubble";
-import { NAVIDROME_SERVER_URL } from "../utils/navidrome";
+import { coverArtUrl, fetchSubsonicXml, NAVIDROME_SERVER_URL } from "../utils/navidrome";
 import {
   formatTime,
   loadAlbumTracks,
@@ -11,11 +11,6 @@ import {
 // The bubble's track list reuses the sticker player's sp- rows.
 import "./stickerPlayer.css";
 import "./CarouselAlbums.css";
-
-const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; 
 
 interface Album {
   id: string;
@@ -115,35 +110,7 @@ const CarouselAlbums: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(
-          `${SERVER_URL}/rest/getAlbumList?type=newest&size=20&format=xml&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-          {
-            headers: {
-              Authorization: "Basic " + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const text = await response.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, "application/xml");
-
-        const parserError = xmlDoc.querySelector("parsererror");
-        if (parserError) {
-          throw new Error("XML parsing error: " + parserError.textContent);
-        }
-
-        const subsonicResponse = xmlDoc.querySelector("subsonic-response");
-        if (subsonicResponse?.getAttribute("status") === "failed") {
-          const errorElement = xmlDoc.querySelector("error");
-          const errorMessage =
-            errorElement?.getAttribute("message") || "Unknown API error";
-          throw new Error(`API Error: ${errorMessage}`);
-        }
+        const xmlDoc = await fetchSubsonicXml("getAlbumList", { type: "newest", size: 20 });
 
         const albumElements = Array.from(xmlDoc.getElementsByTagName("album"));
 
@@ -213,7 +180,7 @@ const CarouselAlbums: React.FC = () => {
       title={`${album.name} — ${album.artist}${album.year ? ` (${album.year})` : ''}`}
     >
       <img
-        src={`${SERVER_URL}/rest/getCoverArt?id=${album.coverArt}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`}
+        src={coverArtUrl(album.coverArt)}
         alt={album.name}
         className="albums-marquee__img"
         loading="lazy"
