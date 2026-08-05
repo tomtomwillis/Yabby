@@ -47,4 +47,4 @@ Renders a single news post with the author's avatar, username, timestamp, and me
 
 ## Customising
 
-Used on [News page](Pages-News) and in `RecentNews` (homepage snippet). The `truncate` and `truncateWords` props are used by `RecentNews` to show a short preview with a "Show More" expand button.
+Used on the [News page](Pages-News). The `truncate` and `truncateWords` props render a short preview with a "Show More" expand button.

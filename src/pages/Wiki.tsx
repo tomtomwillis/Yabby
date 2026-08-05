@@ -370,19 +370,11 @@ const Wiki: React.FC = () => {
             <div className="wiki-collapsible">
               <div className="wiki-title-section">
                 <h1 className="wiki-main-title">Yabbyville Wiki</h1>
-                <div className="wiki-title-actions">
-                  {sections.length > 0 && (
-                    <>
-                      <button className="wiki-expand-btn" onClick={() => setOpenSections(new Set(sections.map((s) => s.id)))}>Expand all</button>
-                      <button className="wiki-expand-btn" onClick={() => setOpenSections(new Set())}>Collapse all</button>
-                    </>
-                  )}
-                  {isAdmin && (
-                    <button className="wiki-edit-open-btn" onClick={handleEditOpen}>
-                      Edit Wiki
-                    </button>
-                  )}
-                </div>
+                {isAdmin && (
+                  <button className="wiki-edit-open-btn" onClick={handleEditOpen}>
+                    Edit Wiki
+                  </button>
+                )}
               </div>
 
               {sections.length === 0 ? (
@@ -408,10 +400,11 @@ const Wiki: React.FC = () => {
                         }
                       }}
                     >
-                      <span className="wiki-section-title">{section.title}</span>
-                      <span className="wiki-section-arrow">
-                        {openSections.has(section.id) ? '▼' : '▶'}
+                      <span className="wiki-section-marker" aria-hidden="true">
+                        {openSections.has(section.id) ? '▾' : '▸'}
                       </span>
+                      <span className="wiki-section-title">{section.title}</span>
+                      <span className="wiki-section-rule" aria-hidden="true" />
                     </h1>
                     <div className={`wiki-section-content ${openSections.has(section.id) ? 'open' : 'collapsed'}`}>
                       {renderBody(section.body)}

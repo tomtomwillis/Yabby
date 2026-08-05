@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   server: {
     proxy: {
-      // WebSocket rules MUST come before the general /api/media rule
+      // WebSocket rule MUST come before the general /api/media rule
       '/api/media/beets/terminal': {
         target: 'wss://yabbyville.xyz',
         ws: true,
@@ -23,18 +23,13 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
-      '/api/cinema': {
-        target: 'https://yabbyville.xyz',
-        changeOrigin: true,
-        secure: true,
-      },
     },
   },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png'],
+      includeAssets: ['icons/*.png', 'Stickers/*.webp'],
       manifest: {
         name: 'Yabbyville',
         short_name: 'Yabbyville',
@@ -62,26 +57,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: 'index.html',
-        // Webamp + butterchurn (~2.3MB) only load when the player is opened —
-        // don't precache them at SW install
-        globIgnores: ['**/*butterchurn*'],
         runtimeCaching: [
-          {
-            // Stickers are immutable images; cache on first use instead of
-            // precaching all ~15MB of them at install time
-            urlPattern: /\/Stickers\/.*\.webp$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'sticker-images',
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',

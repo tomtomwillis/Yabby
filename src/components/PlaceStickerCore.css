@@ -264,3 +264,179 @@
     padding: 0 1rem;
   }
 }
+
+/* ── Inside the home shell ─────────────────────────────────────────────────
+   The window is framed by the rail and the fixed bar (see PlaceSticker.css),
+   so the form has to size itself to whatever that frame is rather than to the
+   400px square it was built around. Everything below is the redesign's
+   vocabulary: square, hairline var(--hp-rule), no shadow, mono, small type,
+   hover to var(--colour3). */
+
+/* Both axes: the frame is short as well as narrow, and 38vh keeps the cover
+   from pushing the track picker and message box out of the window. The stored
+   sticker coordinates are a 0-300 space, not pixels, and the drag maths reads
+   getBoundingClientRect, so no size here is load-bearing. */
+.home-page .album-display {
+  width: min(22rem, 100%, 38vh);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 0;
+}
+
+.home-page .sticker {
+  border-radius: 0;
+}
+
+.home-page .album-section {
+  margin: 0.8rem 0;
+}
+
+.home-page .track-selector-container {
+  margin: 0.9rem auto;
+}
+
+.home-page .popup-album-title {
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--hp-accent, var(--colour2));
+  text-align: left;
+}
+
+.home-page .popup-album-artist {
+  font-family: var(--font2);
+  font-size: 0.72rem;
+  color: var(--hp-dim, #5566c9);
+  text-align: left;
+}
+
+.home-page .instructions {
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  font-style: normal;
+  color: var(--hp-dim, #5566c9);
+}
+
+.home-page .album-info {
+  font-family: var(--font2);
+  font-size: 0.75rem;
+}
+
+.home-page .sticker-duplicate-notice,
+.home-page .sticker-error-notice {
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.72rem;
+}
+
+.home-page .track-selector-label {
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  color: var(--hp-dim, #5566c9);
+}
+
+.home-page .track-selector-button {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--hp-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.75rem;
+}
+
+.home-page .track-selector-button:hover:not(:disabled) {
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.home-page .track-dropdown {
+  max-height: 40vh;
+  border: 1px solid var(--hp-rule, #c9cee4);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.home-page .track-dropdown li {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--hp-rule, #c9cee4);
+}
+
+.home-page .track-number {
+  font-family: var(--font2);
+  font-size: 0.7rem;
+}
+
+.home-page .track-title {
+  font-family: var(--font2);
+  font-size: 0.75rem;
+}
+
+.home-page .sticker-controls .input-area {
+  border-radius: 0;
+  border-color: var(--hp-rule, #c9cee4);
+}
+
+.home-page .sticker-controls .text-input {
+  font-size: 0.8rem;
+}
+
+.home-page .sticker-controls .word-counter {
+  font-size: 0.7rem;
+  color: var(--hp-dim, #5566c9);
+}
+
+.home-page .sticker-controls .send-button-container button {
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  border: 1px solid var(--hp-rule, #c9cee4);
+  border-radius: 0;
+  color: var(--colour2);
+  font-size: 0.75rem;
+}
+
+.home-page .sticker-controls .send-button-container button:hover {
+  background: transparent;
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+/* The shared close and back are filled orange discs — the one loud thing left
+   in the panel. Same hairline square as the shell's own burger. */
+.home-page .popup-close-button,
+.home-page .back-button {
+  top: 0.5rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  background: transparent;
+  border: 1px solid var(--hp-rule, #c9cee4);
+  border-radius: 0;
+  color: var(--hp-dim, #5566c9);
+  font-family: var(--font2);
+}
+
+.home-page .popup-close-button:hover,
+.home-page .back-button:hover {
+  background: transparent;
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.home-page .popup-close-button {
+  right: 0.5rem;
+}
+
+.home-page .back-button {
+  left: 0.5rem;
+}
+
+/* Both corners are occupied, so the heading has to start inside them. The left
+   inset only applies when a back button is actually rendered. */
+.home-page .popup-album-title,
+.home-page .popup-album-artist {
+  padding-right: 2.2rem;
+}
+
+.home-page .popup-content:has(.back-button) .popup-album-title,
+.home-page .popup-content:has(.back-button) .popup-album-artist {
+  padding-left: 2.2rem;
+}

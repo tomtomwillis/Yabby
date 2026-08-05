@@ -1,0 +1,352 @@
+/* The one player: library transport with the radio as a mode. Classes are pb-
+   prefixed; the block sliders and the track list keep their sp- names, which
+   live in BlockRange.css and stickerPlayer.css. */
+
+.pb {
+  /* colour1 green fails AA on white; colour2 is the app accent and stands in
+     for terminal green, matching the sticker player's choice. */
+  --sp-accent: var(--colour2);
+  --sp-accent-dim: #5566c9;
+  --pb-accent: var(--sp-accent);
+  --pb-accent-dim: var(--sp-accent-dim);
+  --pb-bg: var(--colour4);
+  --pb-bg-alt: #eef1fb;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* Sized to its own content (the metadata + control rows), not stretched
+     across the whole radio column — on a wide viewport that would let the
+     seek bar's dense glyph row fill far more width than the compact rows
+     under it, reading as more prominent than them despite sharing one width.
+     max-width is a backstop for a very long title/artist only — it sits well
+     above the control row's own natural width, so it never clips the
+     controls themselves; right-hugged by .home-bottom-radio's justify-content. */
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 36rem;
+  min-width: 0;
+  color: var(--pb-accent);
+  font-family: var(--font2);
+}
+
+/* Bunched toward the bottom rather than spread: metadata, seek and controls
+   sit close together just above the player's own bottom edge, with any
+   leftover height falling as a gap above the metadata line instead of being
+   spread between all three rows. No bottom padding — the controls row still
+   finishes flush with the player's own bottom edge, which is what AsciiMan
+   beside it aligns himself against. */
+.pb-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 0.22rem;
+  min-width: 0;
+  padding: 0.2rem 0 0;
+}
+
+/* ── Seek ──────────────────────────────────────────────── */
+
+.pb-seek {
+  /* Completed progress reads distinct from the volume bar's accent colour. */
+  --sp-accent: var(--colour7);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Taller than the shared BlockRange default (which the volume slider keeps
+   unchanged) — the glyph row's height tracks its own font-size, so scoping
+   the bump to .pb-seek grows only the scrubber, not the volume control. */
+.pb-seek .sp-blocks-glyphs {
+  font-size: 1rem;
+}
+
+/* The set stands in for the seek bar in radio mode, so it keeps the row's
+   height without pretending to be a scrubber. */
+.pb-seek--radio {
+  justify-content: flex-end;
+}
+
+/* ── Now playing ───────────────────────────────────────── */
+
+.pb-mid {
+  display: flex;
+  /* flex-end, not baseline: baseline pinned the viz/radio buttons to the
+     title line (the top of the two-line metadata block) — flex-end drops
+     them to the bottom, level with the artist/album line, which also puts
+     them right against the seek bar in the row below. */
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+/* flex-shrink only, no flex-grow: sized to its own text rather than force-
+   filling the row, so short metadata hugs the row's right edge (via the
+   row's existing space-between) instead of sitting flush left inside a box
+   that's wider than it needs. text-align stays left — right-aligning the
+   text itself broke text-overflow:ellipsis, which always truncates at the
+   line's visual end (the right side for LTR); on a right-aligned box that
+   end is the wrong one once the text is long enough to overflow. */
+.pb-meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  text-align: left;
+}
+
+/* Each line hugs the right edge independently (width:fit-content + margin-
+   left:auto) rather than sharing one left-aligned block — otherwise the
+   shorter of the two lines sits flush with the longer one's left edge
+   instead of lining up with its right edge. */
+.pb-meta-title,
+.pb-meta-sub {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-meta-sub {
+  color: var(--pb-accent-dim);
+  font-size: 0.78rem;
+}
+
+.pb-meta-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pb-meta-link:hover,
+.pb-meta-link:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+/* The radio set. Sized to sit in the seek row without making it taller than the
+   seek bar does. */
+.pb-set {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--pb-accent-dim);
+  font-family: var(--font2), monospace;
+  font-size: 0.42rem;
+  line-height: 1.15;
+  white-space: pre;
+}
+
+.pb-radio.pb-is-playing .pb-set-wave {
+  animation: pb-broadcast 1s ease-in-out infinite;
+}
+
+.pb-radio.pb-is-playing .pb-set-wave--2 {
+  animation-delay: -0.5s;
+}
+
+@keyframes pb-broadcast {
+  0%, 100% { opacity: 0.15; }
+  50%      { opacity: 1; }
+}
+
+/* ── Controls ──────────────────────────────────────────── */
+
+/* Right-aligned and content-sized. Nothing in it grows, so dropping to radio's
+   two controls leaves the gap where the transport was as white space instead of
+   stretching the volume across it. */
+.pb-row {
+  display: flex;
+  flex-wrap: nowrap;
+  /* flex-end, not center: AsciiMan (trailing) is taller than the buttons, so
+     centring left the buttons floating above the row's true bottom while his
+     own align-self:flex-end put him at it — his feet hung below theirs. */
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+/* The transport hugs the row's left edge, so the first button lines up with the
+   start of the seek bar above instead of floating in from it — the row's free
+   space falls here, between the transport and the volume, rather than all of it
+   landing to the left of the buttons. Library only: radio has a single button
+   and no seek bar for it to line up with, so it stays packed right. */
+.pb:not(.pb-radio) .pb-mute {
+  margin-left: auto;
+}
+
+.pb-row .sp-vol {
+  flex: 0 0 5.5rem;
+  /* Much shorter than the buttons; flex-end would glue it to the very
+     bottom of the row instead of sitting level with their middle. */
+  align-self: center;
+}
+
+.pb-btn {
+  flex: 0 0 auto;
+  min-width: 40px;
+  min-height: 34px;
+  padding: 0 0.55rem;
+  background: var(--pb-bg-alt);
+  color: var(--pb-accent);
+  border: 1px solid var(--pb-accent-dim);
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.pb-btn:hover:not(:disabled),
+.pb-btn:focus-visible:not(:disabled) {
+  border-color: var(--pb-accent);
+}
+
+.pb-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pb-play {
+  min-width: 54px;
+}
+
+.pb-mute {
+  min-width: 0;
+  padding: 0 0.4rem;
+  background: none;
+  border-color: transparent;
+  color: var(--pb-accent-dim);
+  font-size: 0.74rem;
+}
+
+.pb-time {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pb-links {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  white-space: nowrap;
+}
+
+/* Reads as a label rather than a button — these are the ways out of the
+   transport, so they sit apart from it. */
+.pb-mode {
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--pb-accent-dim);
+  font: inherit;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.pb-mode:hover,
+.pb-mode:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+/* ── Queue popup ───────────────────────────────────────── */
+
+/* Anchored to .home-bottom-radio, which is position: relative — and kept out of
+   the wave rows, which clip under overflow: hidden. */
+.pb-queue {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  z-index: 1;
+  width: min(26rem, calc(100vw - 1.5rem));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.6rem 0.75rem;
+  background: var(--pb-bg);
+  border: 1px solid var(--pb-accent-dim);
+  box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.pb-queue-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--pb-accent-dim);
+}
+
+.pb-queue-album {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-queue .sp-tracks {
+  margin-bottom: 0;
+  max-height: none;
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+
+/* Stacked under the wordmark and short on width — the transport has to stay on
+   one row, so everything shrinks rather than wraps. */
+@media (max-width: 900px) {
+  .pb-row {
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+  }
+
+  .pb-time,
+  .pb-set {
+    display: none;
+  }
+
+  /* Home stops mounting the dock at this width, so the switch would toggle
+     nothing. Kept in step with VIZ_QUERY there. */
+  .pb-mode--viz {
+    display: none;
+  }
+
+  .pb-btn {
+    min-width: 30px;
+    padding: 0 0.3rem;
+  }
+
+  .pb-queue {
+    right: auto;
+    left: 0;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .pb-mute,
+  .pb-row .sp-vol {
+    display: none;
+  }
+
+  /* With the volume group and AsciiMan both gone the row is only the transport,
+     and the auto margin that squares it up with the seek bar went with them —
+     so it left-aligns outright instead. */
+  .pb-row {
+    justify-content: flex-start;
+  }
+}

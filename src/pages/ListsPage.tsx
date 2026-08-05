@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, getDocs, where, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
@@ -34,7 +34,7 @@ interface List {
   userId: string;
   username: string;
   timestamp: any;
-  lastUpdated?: { seconds: number };
+  lastUpdated?: any;
   itemCount: number;
   isPublic?: boolean;
   isCollaborative?: boolean;
@@ -51,35 +51,43 @@ const ListsPage: React.FC = () => {
   const fetchLists = useCallback(async () => {
     try {
       setLoading(true);
-      // Security rules only allow querying public lists or your own —
-      // fetch both and merge (own public lists appear in both results).
+
+      // The list rule only grants reads on isPublic == true (or your own lists),
+      // and Firestore rejects any query the rule cannot verify from the filters
+      // alone — so public and own lists must be fetched as separate queries.
       const publicQuery = query(
         collection(db, 'lists'),
         where('isPublic', '==', true),
-        orderBy('lastUpdated', 'desc'),
-        limit(100)
+        orderBy('lastUpdated', 'desc')
       );
+
+      const queries = [getDocs(publicQuery)];
+
+      // No orderBy on this one: the merge below re-sorts everything anyway, so
+      // it would only buy a composite index — and ordering by a field excludes
+      // documents that lack it, which would silently drop your own older lists.
       const uid = auth.currentUser?.uid;
-      const ownQuery = uid
-        ? query(collection(db, 'lists'), where('userId', '==', uid))
-        : null;
+      if (uid) {
+        queries.push(getDocs(query(
+          collection(db, 'lists'),
+          where('userId', '==', uid)
+        )));
+      }
 
-      const [publicSnap, ownSnap] = await Promise.all([
-        getDocs(publicQuery),
-        ownQuery ? getDocs(ownQuery) : Promise.resolve(null),
-      ]);
+      const snapshots = await Promise.all(queries);
+      const listsById = new Map<string, List>();
 
-      const byId = new Map<string, List>();
-      publicSnap.forEach((docSnap) => {
-        byId.set(docSnap.id, { ...docSnap.data(), id: docSnap.id } as List);
+      snapshots.forEach((snapshot) => {
+        snapshot.forEach((docSnap) => {
+          listsById.set(docSnap.id, { ...docSnap.data(), id: docSnap.id } as List);
+        });
       });
-      ownSnap?.forEach((docSnap) => {
-        byId.set(docSnap.id, { ...docSnap.data(), id: docSnap.id } as List);
-      });
 
-      const listsData = Array.from(byId.values()).sort(
-        (a, b) => ((b.lastUpdated?.seconds ?? 0) - (a.lastUpdated?.seconds ?? 0))
-      );
+      const listsData = Array.from(listsById.values()).sort((a, b) => {
+        const aTime = a.lastUpdated?.toMillis ? a.lastUpdated.toMillis() : 0;
+        const bTime = b.lastUpdated?.toMillis ? b.lastUpdated.toMillis() : 0;
+        return bTime - aTime;
+      });
 
       setLists(listsData);
     } catch (err) {

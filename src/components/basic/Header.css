@@ -168,7 +168,7 @@
 /* Mobile navigation links with responsive font size */
 .mobile-nav a {
     text-decoration: none;
-    padding: 0.5rem 0;
+    padding: 0.875rem 0;
     min-height: 44px;
     display: flex;
     align-items: center;
