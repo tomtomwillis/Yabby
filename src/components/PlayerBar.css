@@ -51,6 +51,8 @@
 /* ── Seek ──────────────────────────────────────────────── */
 
 .pb-seek {
+  /* Completed progress reads distinct from the volume bar's accent colour. */
+  --sp-accent: var(--colour7);
   display: flex;
   align-items: center;
   gap: 0.5rem;

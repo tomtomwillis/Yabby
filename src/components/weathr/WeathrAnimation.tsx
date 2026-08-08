@@ -51,7 +51,10 @@ interface WeathrAnimationProps {
   latitude?: number;
   longitude?: number;
   cols?: number;
-  rows?: number;
+  /** Floor for the derived row count — the real count comes from the frame's
+   *  height. The scene needs 13 (3 ground + 10 house) before the house starts
+   *  sinking into the ground; the default leaves a little sky above it. */
+  minRows?: number;
   fps?: number;
   fontSizePx?: number;
   paletteMode?: PaletteMode;
@@ -74,7 +77,7 @@ const WeathrAnimation: React.FC<WeathrAnimationProps> = ({
   latitude = 55.83,
   longitude = -4.27,
   cols = 150,
-  rows = 40,
+  minRows = 15,
   fps = 20,
   fontSizePx = 10,
   paletteMode = 'light',
@@ -87,6 +90,12 @@ const WeathrAnimation: React.FC<WeathrAnimationProps> = ({
   const engineRef = useRef<WeathrEngine | null>(null);
   const [weather, setWeather] = useState<WeatherInput>(DEFAULT_WEATHER);
   const [scale, setScale] = useState(1);
+  const [rows, setRows] = useState(minRows);
+  // Below minRows' worth of height there is no scene left to show, so it drops
+  // out rather than being served as a sliver. The ref is what the draw loop
+  // reads, so a hidden scene costs no frames.
+  const [visible, setVisible] = useState(true);
+  const visibleRef = useRef(true);
 
   // Apply palette mode before the engine renders any frame.
   useMemo(() => setPaletteMode(paletteMode), [paletteMode]);
@@ -142,7 +151,7 @@ const WeathrAnimation: React.FC<WeathrAnimationProps> = ({
     let rafId = 0;
     const tick = (now: number) => {
       if (!alive) return;
-      if (now - lastDraw >= interval) {
+      if (visibleRef.current && now - lastDraw >= interval) {
         lastDraw = now;
         pre.innerHTML = engine.step();
       }
@@ -169,23 +178,40 @@ const WeathrAnimation: React.FC<WeathrAnimationProps> = ({
 
   const family = useMemo(() => jgsFamilyForSize(fontSizePx), [fontSizePx]);
 
-  // Scale the pre to fit its frame on both axes. The engine draws a fixed
-  // cols × rows grid at fontSizePx — we just shrink/grow the rendered output
-  // to fill whatever container the panel gives us.
+  // Fit the scene to the frame on both axes. Width is fixed at cols glyphs, so
+  // it alone sets the scale; the row count is then whatever that scale lets the
+  // frame's height hold, which is what makes the scene grow taller when the
+  // container does rather than letterboxing inside it.
   useLayoutEffect(() => {
     const frame = frameRef.current;
     const pre = preRef.current;
     if (!frame || !pre) return;
 
     const recompute = () => {
-      pre.style.transform = 'scale(1)';
+      // scrollWidth is the untransformed layout width, so the current scale
+      // does not have to be unwound before measuring — and must not be, since
+      // writing the style here desyncs it from the one React renders.
       const natW = pre.scrollWidth;
-      const natH = pre.scrollHeight;
       const availW = frame.clientWidth;
       const availH = frame.clientHeight;
-      if (natW > 0 && natH > 0 && availW > 0 && availH > 0) {
-        setScale(Math.min(availW / natW, availH / natH));
-      }
+      if (natW <= 0 || availW <= 0) return;
+
+      const widthScale = availW / natW;
+      const nextRows = Math.max(minRows, Math.floor(availH / widthScale / fontSizePx));
+      // Under minRows the scene has to fit on height instead, drawing narrower
+      // than the frame to keep the house in shot. Squeezed past 60% of the
+      // frame's width it is a stamp in the corner, so it goes entirely.
+      const fitScale = Math.min(widthScale, availH / (nextRows * fontSizePx));
+
+      // Hidden rather than unmounted: a display: none frame has no width to
+      // measure, so it could never work out that the room had come back.
+      const enoughRoom = fitScale >= widthScale * 0.6;
+      visibleRef.current = enoughRoom;
+      setVisible(enoughRoom);
+      if (!enoughRoom) return;
+
+      setRows(nextRows);
+      setScale(fitScale);
     };
     recompute();
 
@@ -193,7 +219,7 @@ const WeathrAnimation: React.FC<WeathrAnimationProps> = ({
     ro.observe(frame);
     ro.observe(pre);
     return () => ro.disconnect();
-  }, [cols, rows, fontSizePx]);
+  }, [cols, minRows, fontSizePx]);
 
   return (
     <div className="weathr-frame" ref={frameRef}>
@@ -206,6 +232,7 @@ const WeathrAnimation: React.FC<WeathrAnimationProps> = ({
           fontSize: `${fontSizePx}px`,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
+          visibility: visible ? undefined : 'hidden',
         }}
       />
     </div>

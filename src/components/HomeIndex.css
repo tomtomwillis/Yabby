@@ -40,6 +40,16 @@
   text-decoration: underline;
 }
 
+.hi-link.is-active {
+  color: var(--colour7);
+  font-weight: 700;
+}
+
+.hi-link.is-active:hover,
+.hi-link.is-active:focus-visible {
+  color: var(--colour7);
+}
+
 .hi-link .nav-badge {
   margin-left: 0.3rem;
 }

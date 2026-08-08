@@ -68,7 +68,16 @@ export function resolveWorldStyle(isDay: boolean, palette: ScenePalette): WorldS
   };
 }
 
-const GROUND_HEIGHT = 7;
+/* The ground is a share of the scene rather than a fixed band, so the horizon
+ * sits in the same place whatever height the container gives us — a taller
+ * frame gets more of both instead of piling every spare row into the sky. The
+ * floor keeps a strip of grass under the house at the smallest sizes. */
+const GROUND_MIN_HEIGHT = 3;
+const GROUND_HEIGHT_RATIO = 0.15;
+
+function groundHeightFor(height: number): number {
+  return Math.max(GROUND_MIN_HEIGHT, Math.round(height * GROUND_HEIGHT_RATIO));
+}
 
 function pseudoRand(x: number, y: number): number {
   // Mirror Rust's pseudo_rand with u32 wrapping multiplication.
@@ -81,9 +90,10 @@ function renderGround(
   renderer: GridRenderer,
   width: number,
   yStart: number,
+  groundHeight: number,
   style: WorldStyle,
 ): void {
-  for (let y = 0; y < GROUND_HEIGHT; y++) {
+  for (let y = 0; y < groundHeight; y++) {
     for (let x = 0; x < width; x++) {
       let ch = ' ';
       let color: Color = style.soil;
@@ -167,7 +177,7 @@ export interface SceneLayout {
 }
 
 export function computeSceneLayout(width: number, height: number): SceneLayout {
-  const groundY = Math.max(0, height - GROUND_HEIGHT);
+  const groundY = Math.max(0, height - groundHeightFor(height));
   const houseX = Math.max(0, Math.floor(width / 2) - Math.floor(HOUSE_WIDTH / 2));
   const houseY = Math.max(0, groundY - HOUSE_HEIGHT);
   return {
@@ -189,7 +199,7 @@ export function renderWorldScene(
 ): void {
   const style = resolveWorldStyle(isDay, palette);
 
-  renderGround(renderer, layout.width, layout.groundY, style);
+  renderGround(renderer, layout.width, layout.groundY, layout.height - layout.groundY, style);
   renderHouse(renderer, layout.houseX, layout.houseY, style);
 
   // Decorations: tree, fence, mailbox, optional pine

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useNavGroups, type NavLink } from './basic/navGroups';
 import './HomeIndex.css';
 
@@ -13,9 +13,17 @@ const HIDDEN_ON_HOME = new Set(['radio', 'stickers']);
  *  level deeper, drawn with box characters. */
 const HomeIndex: React.FC = () => {
   const groups = useNavGroups();
+  const { pathname } = useLocation();
+
+  // Internal only — external links (Navidrome, Soulseek) never match a route
+  // here. '/' is exact-only or every path would read as "on home"; everything
+  // else also matches its own nested routes (e.g. /lists/:listId under /lists).
+  const isActive = (link: NavLink) => !link.external && (
+    link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(`${link.href}/`)
+  );
 
   const row = (branch: string, key: string, link: NavLink) => {
-    const className = `hi-link${link.badge ? ' has-badge' : ''}`;
+    const className = `hi-link${link.badge ? ' has-badge' : ''}${isActive(link) ? ' is-active' : ''}`;
     const content = (
       <>
         {link.label}

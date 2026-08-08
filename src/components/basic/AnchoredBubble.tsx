@@ -122,7 +122,8 @@ const AnchoredBubble: React.FC<AnchoredBubbleProps> = ({
     if (nudgedRef.current !== anchor) {
       nudgedRef.current = anchor;
       const a = anchor.getBoundingClientRect();
-      if (Math.max(roomAbove(a), roomBelow(a)) < PREFERRED_ROOM) {
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile && Math.max(roomAbove(a), roomBelow(a)) < PREFERRED_ROOM) {
         anchor.scrollIntoView({ block: 'start', behavior: 'smooth' });
       }
     }

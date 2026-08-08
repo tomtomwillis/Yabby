@@ -1,77 +1,101 @@
 # Home Page
 
-**File:** `src/pages/Home.tsx`  
-**CSS:** `src/pages/Home.css`  
-**Route:** `/`
+**Files:** `src/pages/Home.tsx` (shell), `src/pages/HomeDashboard.tsx` (body)
+**CSS:** `src/pages/Home.css`
+**Route:** `/` — and every other authenticated route, which render inside the shell
 
-The landing page. Assembles all major feature sections into a dense, multi-column layout using `<fieldset>`/`<legend>` frames — bordered boxes with caption titles riding the border, in `[ bracket → ]` notation.
+Home is split in two. `Home.tsx` is a persistent **shell** that wraps all the
+authenticated routes: the sidebar rail, the ascii wordmark and the player bar stay
+mounted while pages swap through `<Outlet />`. `HomeDashboard.tsx` is what `/`
+itself puts in that outlet.
 
-## Layout
+Keeping the player in the shell is the point of the split — navigating between
+pages never interrupts playback, because the audio element is never unmounted.
 
-Three-column flexbox grid (`.home-grid`). Each column is a flex container stacking panels vertically at natural height — no forced equal-height rows.
+## Shell layout (`Home.tsx`)
 
-| Column | Width | Contents |
-|--------|-------|----------|
-| Left | 50% | Sticker wall, Place Sticker form |
-| Middle | 25% | Radio player, Stats, News |
-| Right | 25% | Lists, Recently Added, Weather |
+```
+┌─────────────┬──────────────────────────────┐
+│ home-side   │ home-main                    │
+│  HomeIndex  │  <Outlet />                  │
+│  Stats      │                              │
+│  Weather    │                              │
+├─────────────┴──────────────────────────────┤
+│ home-bottom: wordmark · visualiser · player│
+└────────────────────────────────────────────┘
+```
 
-Responsive breakpoints:
-- **> 1100 px** — 3 columns (50 / 25 / 25)
-- **700–1100 px** — Stickers full-width, middle and right each 50%
-- **< 700 px** — single column
+- **`.home-side`** — the rail. `HomeIndex` site tree, then two `SideSection`
+  blocks (`stats`, `weather`) drawn with box characters, then the subtitle.
+- **`.home-main`** — the routed page.
+- **`.home-bottom`** — pinned to the viewport bottom: `AsciiTitle` wordmark,
+  `VisualiserDock` (when open), `PlayerBar`, and `AsciiMan` passed to the player
+  as its `trailing` slot so he sits at the end of the transport row.
 
-## Panels
+### Bar height is measured, not calculated
 
-Every section is a `<fieldset className="panel panel--{name}">` with a `<legend>`. Legends that link to a full page use `<a>` or `<Link>` inside the legend. Base styles in `.panel` / `.panel > legend` in `Home.css`; per-panel tweaks via `.panel--{name}`.
+The bar's height depends on the wordmark's fitted scale and how the player lays
+out, so `Home.tsx` measures it with a `ResizeObserver` and publishes
+`--hp-bar-h` on `document.documentElement`. Anything that has to clear the bar
+reserves that variable. A second `useLayoutEffect` republishes on the
+minimise/expand toggle so the padding doesn't trail a frame behind the reflow.
 
-## Sections
+### Visualiser gating
 
-### Sticker Wall (`CarouselStickers`)
-A 4-column CSS grid of the 12 most recently stickered albums. Each tile is square aspect-ratio with the album cover and any placed stickers overlaid at their saved positions. Clicking a tile opens a popup: all stickers on that album (timestamp, username, optional favourite-track), a "Place Sticker" button, and a "Click to listen" link. Owners and admins can delete stickers. Below the wall: `PlaceSticker` in `url-input` mode for searching or pasting an album URL.
+The dock is gated in **JS**, not hidden in CSS (`VIZ_QUERY = min-width: 901px`).
+A `display: none` dock would still mount, and mounting is what pulls in butterchurn
+and starts a WebGL loop a phone would never show. `PlayerBar.css` hides the `[ viz ]`
+switch at the same breakpoint via `.pb-mode--viz`.
 
-### Radio (`WebampRadio`)
-Webamp player (275 × 116 px main window) with milkdrop visualiser stacked immediately below (275 × 174 px, `extraHeight: 2`). Auto-spawns on page load after a 600 ms delay — no toggle button. On mobile, `RadioPlayer` renders instead.
+### Masthead
 
-The container is sized to exactly match the rendered stack: 290 px tall × 275 px wide. Webamp's built-in centering logic mis-computes the bounding box when milkdrop has a custom `extraHeight`, so `WebampRadio.tsx` manually pins both windows to the container's top-left after render via `webamp.store.dispatch({ type: "UPDATE_WINDOW_POSITIONS", ... })`. A `ResizeObserver` and scroll/resize listeners re-pin on layout reflow.
+`Header` is mounted but its `<header>` is `display: none` — the rail carries the
+nav and the title is pinned bottom-left. Header stays for the burger button and
+mobile drawer, which are siblings of `<header>`. On `/` an `.hp-sr` visually-hidden
+`<h1>` supplies the heading a screen reader would otherwise not get, since the
+wordmark is `aria-hidden` ascii. Off `/`, the routed page renders its own `h1`.
 
-Below the container: "♪ now playing: …" text from `useRadioMetadata`, shown when a track is playing.
+Mobile swaps to `.home-top-title` — a second wordmark copy. Only one is ever
+visible; `AsciiTitle` fits itself to whichever wrapper is showing.
 
-### Stats (`Stats`)
-Lazy-loaded. Displays total album count, total song count, song of the day (deterministic hash from today's date, changes daily, cached in `localStorage`), and a **From the Workshop** section showing the latest GitHub commit message, author, date, and total commit count (cached 30 min in `localStorage`).
+## Dashboard body (`HomeDashboard.tsx`)
 
-### News (`RecentNews`)
-The single most recent news post, truncated to 25 words. Shows a "FRESH!" badge if posted within the last 24 hours. If the latest post is within 48 hours, the page subtitle overrides to `"Fresh News!"`.
+Sections in order, each a `Section` component whose title links onward and whose
+rule fills the remaining width:
 
-### Lists (`RecentLists`)
-Up to 3 recently updated public lists, stacked vertically. Each card shows a wide thumbnail (16:7 aspect ratio) with the list title in a bar below. Clicking navigates to `/lists/:id`.
+| Section | Component | Notes |
+|---|---|---|
+| ✦ stickers | `CarouselStickers` | Header carries an `add your own` toggle revealing `PlaceSticker` in `inline-url` mode, plus a recent/random order switch |
+| ♫ recently added | `CarouselAlbums` | Title links out to Navidrome's recently-added view |
+| ≡ recent lists | `RecentLists` | Shares a `.home-row2` flex row with travel |
+| ⚑ travel | `HomeTravel` | Lazy-loaded to keep leaflet out of the eager home chunk |
 
-### Recently Added (`CarouselAlbums`)
-CSS keyframe marquee of the 10 most recently added Navidrome albums. Album covers are 96 px squares with title and artist below. The track list duplicates itself so the loop joins seamlessly. Hover pauses the animation. Covers link to the album in the Navidrome web app.
-
-### Weather
-A combined panel:
-1. **`Weather`** — one line: current temperature and condition for Glasgow (55.83°N, 4.27°W) from Open-Meteo, with a FontAwesome condition icon.
-2. **`WeathrAnimation`** (lazy) — full-width ASCII weather animation from the same data, rendered into a `<pre>` via a custom pixel-font engine (jgs5/jgs7/jgs9 fonts).
-
-The temperature line sits directly above the ASCII animation inside the same fieldset.
-
-### AsciiMan
-Animated two-frame ASCII figure at the bottom of the page, outside the column grid.
+Newly placed stickers are injected straight into the carousel via a
+`CarouselStickersHandle` ref (`injectSticker` + `refetch`) rather than waiting on
+a re-fetch round trip.
 
 ## Subtitle
 
-A random entry from the `SUBTITLES` array (top of `Home.tsx`) is selected on each page load. Overrides to `"Fresh News!"` if the latest news post is within 48 hours.
+A random entry from the `SUBTITLES` array at the top of `Home.tsx`, picked once on
+mount. Rendered twice — in the mobile masthead and at the foot of the rail.
 
 ## Customising
 
-- **Add/remove sections:** Self-contained fieldsets in the appropriate `.home-col` div in `Home.tsx`.
-- **Column weights:** `flex` basis values on `.home-col--stickers`, `.home-col--mid`, `.home-col--right` in `Home.css`.
+- **Add/remove dashboard sections:** `Section` blocks in `HomeDashboard.tsx`.
+- **Rail contents:** `SideSection` blocks in `Home.tsx`; the nav tree itself comes
+  from `navGroups.ts` via `HomeIndex`.
 - **Subtitles:** `SUBTITLES` array near the top of `Home.tsx`.
-- **Sticker wall size:** `ALBUMS_IN_CAROUSEL` in `CarouselStickers.tsx` (default 12). Grid columns via `.sticker-wall { grid-template-columns: repeat(4, 1fr) }` in `CarouselStickers.css`.
-- **Marquee speed:** `animation-duration` on `.albums-marquee__track` in `CarouselAlbums.css` (default 60 s).
-- **Webamp milkdrop height:** `extraHeight` in `windowLayout.milkdrop` in `WebampRadio.tsx`. If changed, update the container CSS height to `116 + (extraHeight × 29)` px and the `y: y + 116` pin offset to match the actual main-window height.
+- **Visualiser breakpoint:** `VIZ_QUERY` in `Home.tsx` — keep it in step with
+  `.pb-mode--viz` in `PlayerBar.css`.
+- **Bar rule motif:** `RULE_MOTIF` / `RULE_REPEATS` in `Home.tsx`.
+- **Weather scene size:** the `cols` / `minRows` / `fontSizePx` props on
+  `WeathrAnimation` — fewer columns means more pixels per glyph. 88 is near the
+  floor; the house alone is 64 wide.
 
 ## Components Used
 
-`CarouselStickers`, `PlaceSticker`, `WebampRadio`, `RecentLists`, `Stats` (lazy), `CarouselAlbums`, `RecentNews`, `Weather`, `WeathrAnimation` (lazy), `AsciiMan`, `AsciiTitle`, `Header`
+**Shell:** `Header`, `AsciiTitle`, `HomeIndex`, `Stats` (lazy), `Weather`,
+`WeathrAnimation` (lazy), `VisualiserDock`, `PlayerBar`, `AsciiMan`
+
+**Dashboard:** `CarouselStickers`, `PlaceSticker`, `CarouselAlbums`, `RecentLists`,
+`HomeTravel` (lazy)

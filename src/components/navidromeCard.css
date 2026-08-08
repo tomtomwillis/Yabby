@@ -261,18 +261,6 @@ a.nc-artist:focus-visible {
   font-size: 0.7rem;
 }
 
-.nc-open-link {
-  margin-top: 0.25rem;
-  color: var(--nc-accent-dim);
-  font-size: 0.7rem;
-}
-
-.nc-open-link:hover,
-.nc-open-link:focus-visible {
-  color: var(--nc-accent);
-  text-decoration: underline;
-}
-
 .nc-pane {
   flex: 1 1 auto;
   min-width: 0;

@@ -135,7 +135,6 @@ src/
   firebaseConfig.ts
 public/
   Stickers/        # Avatar images (webp), including avatar_filmbot.webp
-  skins/           # Webamp radio player skins
   icons/           # PWA icons
 ```
 
@@ -145,12 +144,13 @@ Global colours and fonts are CSS variables in `App.css`:
 
 ```css
 --colour1: #4CAF50;   /* green  */
---colour2: #0000FF;   /* blue   */
---colour3: #FF9F65;   /* orange */
+--colour2: #1a2ecc;   /* blue   */
+--colour3: #e87a3a;   /* orange */
 --colour4: #FFFFFF;   /* white  */
---colour5: #333333;   /* dark   */
+--colour5: #2b2b2b;   /* dark   */
 --font1: 'WorkSans', Arial, sans-serif;
---font2: 'NectoMono', monospace;
+--font2: 'CommitMono', monospace;
+--font3: 'AvaraItalic';
 ```
 
 Components have their own CSS files alongside their `.tsx` files. Some pages (such as MediaManager) also have co-located CSS files.
@@ -168,5 +168,6 @@ Detailed documentation for each page and component is in the [wiki/](wiki/) fold
 - **DOMPurify** for HTML sanitisation
 - **marked** for Markdown-to-HTML rendering (wiki content)
 - **Leaflet** for the travel map
-- **Webamp** for the radio player
+- **Web Audio API** for the player bar (library playback + live radio in one transport)
+- **butterchurn** for the milkdrop visualiser, dynamically imported on first open
 - **vite-plugin-pwa** for PWA support

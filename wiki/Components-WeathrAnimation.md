@@ -72,14 +72,31 @@ If the fetch fails, the scene falls back to a clear day rather than blanking.
 
 ## Adjusting size
 
-The animation is a fixed grid of character cells. Two knobs:
+The scene fills whatever frame it's given rather than being a fixed grid.
+Width is fixed at `cols` glyphs (default `150`), which alone sets the scale;
+the row count is then however many rows that scale lets the frame's actual
+height hold, so the scene grows taller as its container does instead of
+letterboxing inside it. `minRows` (default `15`) is the floor — the scene
+needs 13 rows (3 ground + 10 house) before the house starts sinking into the
+ground, so the default leaves a little sky above it.
 
-- **Grid dimensions** — `cols` (default `150`) and `rows` (default `40`). These
-  are the number of character cells across and down.
+Below `minRows`' worth of height, the scene can no longer fit on width alone;
+it switches to fitting on height instead, drawing narrower than the frame to
+keep the house in shot. Once that squeeze passes 60% of the frame's width the
+scene is hidden entirely (`visibility: hidden`, not unmounted, so a
+`ResizeObserver` on a zero-width frame can still notice room coming back)
+rather than being served as an unreadable stamp in the corner.
+
+The ground band itself is a share of the frame's height (15%, floored at 3
+rows) rather than a fixed count, so the horizon sits proportionally in the
+same place whatever height the container ends up with.
+
+- **Grid width** — `cols` (default `150`).
+- **Minimum row floor** — `minRows` (default `15`).
 - **Pixel size of each cell** — `fontSizePx` (default `10`).
 
 ```tsx
-<WeathrAnimation cols={120} rows={32} fontSizePx={14} />
+<WeathrAnimation cols={120} minRows={18} fontSizePx={14} />
 ```
 
 ### JGS font sizing
