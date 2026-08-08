@@ -15,7 +15,7 @@ import "./CarouselAlbums.css";
 const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
 const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
 const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID; 
+const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
 interface Album {
   id: string;

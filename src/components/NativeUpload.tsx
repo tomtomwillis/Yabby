@@ -3,7 +3,7 @@ import { getAuth } from 'firebase/auth';
 import './NativeUpload.css';
 import Button from './basic/Button';
 
-type FileStatus = 'queued' | 'hashing' | 'uploading' | 'verifying' | 'done' | 'error';
+type FileStatus = 'queued' | 'retrying' | 'hashing' | 'uploading' | 'verifying' | 'done' | 'error';
 
 interface UploadFile {
   id: string;
@@ -14,6 +14,10 @@ interface UploadFile {
   error?: string;
   sha256?: string;
   size: number;
+  attempts: number;
+  // Epoch ms a 'retrying' file becomes eligible again; the backoff timer flips
+  // it back to 'queued' once this passes.
+  nextAttemptAt?: number;
 }
 
 interface AlbumResult {
@@ -32,14 +36,24 @@ interface Rejection {
   reason: string;
 }
 
+interface ImportResult {
+  finalDirName: string;
+  status: 'imported' | 'skipped' | 'duplicate' | 'failed';
+  matchedAs?: string;
+  similarity?: number;
+  message?: string;
+  elapsedSeconds?: number;
+}
+
 interface FinalizeResult {
   albums: AlbumResult[];
   rejections: Rejection[];
+  imports?: ImportResult[];
   totalFiles: number;
   totalSizeBytes: number;
 }
 
-type SessionStatus = 'idle' | 'uploading' | 'finalizing' | 'complete' | 'error';
+type SessionStatus = 'idle' | 'uploading' | 'incomplete' | 'finalizing' | 'complete' | 'error';
 
 interface UploadSession {
   sessionId: string;
@@ -54,8 +68,45 @@ const ALLOWED_EXTENSIONS = new Set([
   '.mp3', '.flac', '.wav', '.ogg', '.opus', '.m4a', '.aac', '.wv', '.ape', '.aiff',
   '.jpg', '.jpeg', '.png',
 ]);
-const CHUNK_SIZE = 64 * 1024;
+// Without this the OS picker greys out audio files it doesn't consider
+// "documents"; listing the extensions explicitly makes every accepted type
+// selectable.
+const ACCEPT_ATTRIBUTE = [...ALLOWED_EXTENSIONS].join(',');
 const MAX_CONCURRENT = 3;
+
+// Resilience tuning. A flaky connection shows up as either an outright network
+// error or a socket that quietly stops moving bytes, so both are treated as
+// transient and retried with jittered exponential backoff.
+const MAX_ATTEMPTS = 5;
+const RETRY_BASE_MS = 1500;
+const RETRY_MAX_MS = 30000;
+const RATE_LIMIT_BACKOFF_MS = 30000;
+// No upload progress for this long means the socket has stalled — abort and retry
+// rather than holding a concurrency slot open indefinitely.
+const STALL_TIMEOUT_MS = 45000;
+// Once the body is sent there are no more progress events while the server hashes
+// and stores the file, so the watchdog switches to this longer budget.
+const RESPONSE_TIMEOUT_MS = 180000;
+
+// Transient conditions worth another attempt. Validation failures (wrong type,
+// too large, bad path) will fail identically every time, so they stop here.
+function isRetryable(httpStatus: number | null, message: string): boolean {
+  if (httpStatus === null) return true; // network error, stall or abort
+  if (httpStatus === 401) return true; // ID token may have expired mid-batch
+  if (httpStatus === 429) return true;
+  if (httpStatus >= 500) return true;
+  // A checksum mismatch means the bytes arrived corrupted — resending can fix it.
+  if (httpStatus === 400 && /checksum/i.test(message)) return true;
+  return false;
+}
+
+function backoffDelay(attempt: number, httpStatus: number | null): number {
+  const base = httpStatus === 429
+    ? RATE_LIMIT_BACKOFF_MS
+    : Math.min(RETRY_BASE_MS * 2 ** (attempt - 1), RETRY_MAX_MS);
+  // Jitter so a batch that fails together doesn't retry in lockstep.
+  return Math.round(base * (0.75 + Math.random() * 0.5));
+}
 
 // Mirrors defaults in backend_server/routes/upload.js (UPLOAD_MAX_* env vars) —
 // keep these in sync if the backend limits ever change.
@@ -109,18 +160,46 @@ async function computeSha256Chunked(file: File): Promise<string> {
     .join('');
 }
 
-function fileRelativePath(file: File, isDirectory: boolean): string {
+interface PickedFile {
+  file: File;
+  relativePath: string;
+}
+
+function fileRelativePath(file: File): string {
   const webkit = (file as unknown as { webkitRelativePath?: string }).webkitRelativePath;
-  if (webkit) return webkit;
-  if (isDirectory && file.name) {
-    return file.name;
+  return webkit || file.name;
+}
+
+// A dropped folder shows up in dataTransfer.files as a single entry with no
+// contents, so the FileSystemEntry tree has to be walked to reach the tracks
+// inside it and to keep each file's path relative to its album folder.
+async function collectEntry(entry: FileSystemEntry, prefix: string, out: PickedFile[]): Promise<void> {
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve, reject) =>
+      (entry as FileSystemFileEntry).file(resolve, reject)
+    );
+    out.push({ file, relativePath: prefix ? `${prefix}/${file.name}` : file.name });
+    return;
   }
-  return file.name;
+  if (!entry.isDirectory) return;
+
+  const dirPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+  const reader = (entry as FileSystemDirectoryEntry).createReader();
+  // readEntries hands back at most 100 children per call and signals the end
+  // of the directory with an empty batch.
+  for (;;) {
+    const batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+      reader.readEntries(resolve, reject)
+    );
+    if (batch.length === 0) break;
+    for (const child of batch) await collectEntry(child, dirPath, out);
+  }
 }
 
 function statusBadge(status: FileStatus): string {
   switch (status) {
     case 'queued': return '[ .. ]';
+    case 'retrying': return '[WAIT]';
     case 'hashing': return '[HASH]';
     case 'uploading': return '[ >> ]';
     case 'verifying': return '[SYNC]';
@@ -133,8 +212,12 @@ function statusBadge(status: FileStatus): string {
 function statusLabel(f: UploadFile): string {
   switch (f.status) {
     case 'queued': return 'queued';
+    case 'retrying': {
+      const wait = Math.max(0, Math.ceil(((f.nextAttemptAt || 0) - Date.now()) / 1000));
+      return `${f.error || 'failed'} — retry ${f.attempts + 1}/${MAX_ATTEMPTS} in ${wait}s`;
+    }
     case 'hashing': return 'computing checksum...';
-    case 'uploading': return `sending — ${f.progress}%`;
+    case 'uploading': return f.attempts > 0 ? `sending (attempt ${f.attempts + 1}) — ${f.progress}%` : `sending — ${f.progress}%`;
     case 'verifying': return 'verifying on server...';
     case 'done': return 'stored';
     case 'error': return f.error || 'error';
@@ -146,6 +229,31 @@ function asciiMeter(percent: number, width: number): { filled: string; empty: st
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const filledCount = Math.round((clamped / 100) * width);
   return { filled: '█'.repeat(filledCount), empty: '░'.repeat(width - filledCount) };
+}
+
+function importBadge(status: ImportResult['status']): string {
+  switch (status) {
+    case 'imported': return '[ OK ]';
+    case 'duplicate': return '[DUPE]';
+    case 'skipped': return '[SKIP]';
+    default: return '[ !! ]';
+  }
+}
+
+function importSummary(imp: ImportResult): string {
+  const bits: string[] = [];
+  if (imp.status === 'imported') {
+    bits.push(imp.matchedAs ? `matched as ${imp.matchedAs}` : 'added to the library');
+    if (typeof imp.similarity === 'number') bits.push(`${imp.similarity.toFixed(1)}% match`);
+  } else if (imp.status === 'duplicate') {
+    bits.push('already in the library — left for a moderator to merge');
+  } else if (imp.status === 'skipped') {
+    bits.push(imp.message || 'no confident metadata match — left for manual tagging');
+  } else {
+    bits.push(imp.message || 'import failed');
+  }
+  if (imp.elapsedSeconds) bits.push(`${imp.elapsedSeconds}s`);
+  return bits.join(' · ');
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +364,7 @@ const Fireworks: React.FC<{ active: boolean }> = ({ active }) => {
 const NativeUpload: React.FC = () => {
   const [session, setSession] = useState<UploadSession>(() => ({ sessionId: crypto.randomUUID(), files: [], status: 'idle' }));
   const [dragOver, setDragOver] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [overallProgress, setOverallProgress] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [eta, setEta] = useState(0);
@@ -263,6 +372,13 @@ const NativeUpload: React.FC = () => {
   const [finalizeElapsed, setFinalizeElapsed] = useState(0);
   const [spinnerFrame, setSpinnerFrame] = useState(0);
   const [log, setLog] = useState<string[]>([]);
+  const [offline, setOffline] = useState(() => !navigator.onLine);
+  const [canRetryFinalize, setCanRetryFinalize] = useState(false);
+  // Drives the per-file retry countdown so it ticks down while waiting.
+  const [, setRetryTick] = useState(0);
+  const offlineRef = useRef(offline);
+  // Distinguishes an abort the user asked for from one the stall watchdog fired.
+  const cancelledRef = useRef(false);
   const activeCountRef = useRef(0);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const speedWindowRef = useRef<{ time: number; bytes: number }[]>([]);
@@ -288,19 +404,51 @@ const NativeUpload: React.FC = () => {
     [session.files]
   );
 
+  const folderCount = useMemo(() => {
+    const groups = new Set<string>();
+    for (const f of session.files) {
+      const slash = f.relativePath.indexOf('/');
+      groups.add(slash === -1 ? '.' : f.relativePath.slice(0, slash));
+    }
+    return groups.size;
+  }, [session.files]);
+
   const counts = useMemo(() => {
     let queued = 0;
     let active = 0;
     let done = 0;
     let failed = 0;
+    let retrying = 0;
     for (const f of session.files) {
       if (f.status === 'queued') queued += 1;
+      else if (f.status === 'retrying') retrying += 1;
       else if (f.status === 'done') done += 1;
       else if (f.status === 'error') failed += 1;
       else active += 1;
     }
-    return { queued, active, done, failed };
+    return { queued, active, done, failed, retrying };
   }, [session.files]);
+
+  const hasRetrying = counts.retrying > 0;
+
+  // Which folders came up short, so the user can see exactly which albums would
+  // be incomplete before deciding to finalize anyway.
+  const failureReport = useMemo(() => {
+    const byFolder = new Map<string, { total: number; done: number; failed: number }>();
+    for (const f of session.files) {
+      const slash = f.relativePath.indexOf('/');
+      const folder = slash === -1 ? '(loose files)' : f.relativePath.slice(0, slash);
+      const entry = byFolder.get(folder) || { total: 0, done: 0, failed: 0 };
+      entry.total += 1;
+      if (f.status === 'done') entry.done += 1;
+      else entry.failed += 1;
+      byFolder.set(folder, entry);
+    }
+    const incomplete = [...byFolder.entries()]
+      .filter(([, v]) => v.failed > 0)
+      .map(([name, v]) => ({ name, ...v }));
+    return { incomplete, failedCount: counts.failed, totalCount: session.files.length };
+  }, [session.files, counts.failed]);
 
   useEffect(() => {
     if (totalBytes === 0) {
@@ -380,15 +528,16 @@ const NativeUpload: React.FC = () => {
   }, [log]);
 
   useEffect(() => {
+    if (session.status !== 'uploading' && session.status !== 'finalizing' && session.status !== 'incomplete') {
+      return undefined;
+    }
     const handler = (e: BeforeUnloadEvent) => {
-      if (session.files.some(f => f.status === 'uploading' || f.status === 'queued')) {
-        e.preventDefault();
-        e.returnValue = 'Uploads are in progress, are you sure you want to leave?';
-      }
+      e.preventDefault();
+      e.returnValue = 'Uploads are in progress, are you sure you want to leave?';
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [session.files]);
+  }, [session.status]);
 
   const updateFile = useCallback((id: string, patch: Partial<UploadFile>) => {
     filesRef.current = filesRef.current.map(f => (f.id === id ? { ...f, ...patch } : f));
@@ -398,58 +547,107 @@ const NativeUpload: React.FC = () => {
     }));
   }, []);
 
-  const setFileError = useCallback((id: string, message: string) => {
-    updateFile(id, { status: 'error', error: message, progress: 0 });
-  }, [updateFile]);
+  // Central failure path: decide whether this attempt is worth repeating and
+  // either schedule a backoff or mark the file permanently failed.
+  const handleFailure = useCallback((item: UploadFile, message: string, httpStatus: number | null) => {
+    const attempts = (filesRef.current.find(f => f.id === item.id)?.attempts ?? item.attempts) + 1;
+    const retryable = isRetryable(httpStatus, message);
 
-  const getAuthToken = useCallback(async (): Promise<string | null> => {
+    if (retryable && attempts < MAX_ATTEMPTS) {
+      const delay = backoffDelay(attempts, httpStatus);
+      updateFile(item.id, {
+        status: 'retrying',
+        attempts,
+        nextAttemptAt: Date.now() + delay,
+        progress: 0,
+        error: message,
+      });
+      pushLog(`[retry] ${item.relativePath} — ${message} · attempt ${attempts + 1}/${MAX_ATTEMPTS} in ${Math.round(delay / 1000)}s`);
+      return;
+    }
+
+    const suffix = retryable ? ` (gave up after ${attempts} attempts)` : '';
+    updateFile(item.id, { status: 'error', attempts, progress: 0, error: `${message}${suffix}`, nextAttemptAt: undefined });
+    pushLog(`[!!] ${item.relativePath} — ${message}${suffix}`);
+  }, [pushLog, updateFile]);
+
+  const getAuthToken = useCallback(async (forceRefresh = false): Promise<string | null> => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return null;
-    return user.getIdToken();
+    return user.getIdToken(forceRefresh);
   }, []);
 
   const uploadFile = useCallback(async (uploadFileItem: UploadFile): Promise<void> => {
     // Immediately claim this file so processQueue doesn't re-pick it while we work.
-    updateFile(uploadFileItem.id, { status: 'hashing', progress: 0, error: undefined });
+    updateFile(uploadFileItem.id, { status: 'hashing', progress: 0, error: undefined, nextAttemptAt: undefined });
 
-    const token = await getAuthToken();
+    // On a retry the previous token may be why we failed, so force a refresh.
+    const token = await getAuthToken(uploadFileItem.attempts > 0);
     if (!token) {
-      setFileError(uploadFileItem.id, 'You must be logged in to upload.');
+      handleFailure(uploadFileItem, 'You must be logged in to upload.', 403);
       return;
     }
 
     let sha256 = uploadFileItem.sha256;
     if (!sha256) {
-      sha256 = await computeSha256Chunked(uploadFileItem.file);
+      try {
+        sha256 = await computeSha256Chunked(uploadFileItem.file);
+      } catch {
+        handleFailure(uploadFileItem, 'Could not read this file from disk — has it been moved or renamed?', 400);
+        return;
+      }
       updateFile(uploadFileItem.id, { sha256 });
     }
 
     updateFile(uploadFileItem.id, { status: 'uploading', progress: 0 });
+    lastProgressRef.current.delete(uploadFileItem.id);
     pushLog(`[xfer] ${uploadFileItem.relativePath} · ${formatBytes(uploadFileItem.size)}`);
 
     const controller = new AbortController();
     abortControllersRef.current.set(uploadFileItem.id, controller);
 
-    return new Promise<void>((resolve, reject) => {
+    // Always resolves — handleFailure owns the outcome, and the queue only needs
+    // to know the concurrency slot is free again.
+    return new Promise<void>(resolve => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `${API_URL}/upload/file`, true);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.setRequestHeader('X-File-Checksum', sha256 as string);
 
       let verifyingAnnounced = false;
+      let stalled = false;
+      let watchdog: number | undefined;
+
+      // A dropped wifi link often leaves the socket open but silent, so progress
+      // events stopping is the only signal that the transfer has died.
+      const armWatchdog = (ms: number) => {
+        if (watchdog !== undefined) clearTimeout(watchdog);
+        watchdog = window.setTimeout(() => {
+          stalled = true;
+          try { xhr.abort(); } catch { /* already settled */ }
+        }, ms);
+      };
+
+      const finish = () => {
+        if (watchdog !== undefined) clearTimeout(watchdog);
+        abortControllersRef.current.delete(uploadFileItem.id);
+        resolve();
+      };
 
       xhr.upload.addEventListener('progress', event => {
         if (!event.lengthComputable) return;
         const percent = Math.round((event.loaded / event.total) * 100);
 
         if (percent >= 100) {
+          armWatchdog(RESPONSE_TIMEOUT_MS);
           if (!verifyingAnnounced) {
             verifyingAnnounced = true;
             pushLog(`[sync] ${uploadFileItem.relativePath} verifying on server...`);
           }
           updateFile(uploadFileItem.id, { status: 'verifying', progress: 100 });
         } else {
+          armWatchdog(STALL_TIMEOUT_MS);
           updateFile(uploadFileItem.id, { progress: percent });
         }
 
@@ -463,23 +661,22 @@ const NativeUpload: React.FC = () => {
       });
 
       xhr.addEventListener('load', () => {
-        abortControllersRef.current.delete(uploadFileItem.id);
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const response = JSON.parse(xhr.responseText);
             if (response.success) {
-              updateFile(uploadFileItem.id, { status: 'done', progress: 100, sha256: response.file?.sha256 || sha256 });
+              updateFile(uploadFileItem.id, {
+                status: 'done',
+                progress: 100,
+                error: undefined,
+                sha256: response.file?.sha256 || sha256,
+              });
               pushLog(`[ok] ${uploadFileItem.relativePath}`);
-              resolve();
             } else {
-              setFileError(uploadFileItem.id, response.error || 'Upload failed.');
-              pushLog(`[!!] ${uploadFileItem.relativePath} — ${response.error || 'upload failed'}`);
-              reject(new Error(response.error || 'Upload failed.'));
+              handleFailure(uploadFileItem, response.error || 'Upload failed.', xhr.status);
             }
           } catch {
-            setFileError(uploadFileItem.id, 'Invalid server response.');
-            pushLog(`[!!] ${uploadFileItem.relativePath} — invalid server response`);
-            reject(new Error('Invalid server response.'));
+            handleFailure(uploadFileItem, 'Invalid server response.', xhr.status);
           }
         } else {
           let message = 'Upload failed.';
@@ -487,25 +684,25 @@ const NativeUpload: React.FC = () => {
             const response = JSON.parse(xhr.responseText);
             message = response.error || message;
           } catch {
-            // ignore
+            // Non-JSON body (e.g. a proxy error page) — keep the generic message.
           }
-          setFileError(uploadFileItem.id, message);
-          pushLog(`[!!] ${uploadFileItem.relativePath} — ${message}`);
-          reject(new Error(message));
+          handleFailure(uploadFileItem, message, xhr.status);
         }
+        finish();
       });
 
       xhr.addEventListener('error', () => {
-        abortControllersRef.current.delete(uploadFileItem.id);
-        setFileError(uploadFileItem.id, 'Network error. Click retry to try again.');
-        pushLog(`[!!] ${uploadFileItem.relativePath} — network error`);
-        reject(new Error('Network error.'));
+        handleFailure(uploadFileItem, 'Connection dropped.', null);
+        finish();
       });
 
       xhr.addEventListener('abort', () => {
-        abortControllersRef.current.delete(uploadFileItem.id);
-        updateFile(uploadFileItem.id, { status: 'queued', progress: 0, error: undefined });
-        reject(new Error('Upload aborted.'));
+        if (cancelledRef.current) {
+          updateFile(uploadFileItem.id, { status: 'queued', progress: 0, error: undefined });
+        } else {
+          handleFailure(uploadFileItem, stalled ? 'Connection stalled.' : 'Upload interrupted.', null);
+        }
+        finish();
       });
 
       controller.signal.addEventListener('abort', () => {
@@ -518,14 +715,16 @@ const NativeUpload: React.FC = () => {
       formData.append('sessionId', session.sessionId);
       formData.append('relativePath', uploadFileItem.relativePath);
       formData.append('file', uploadFileItem.file);
+      armWatchdog(STALL_TIMEOUT_MS);
       xhr.send(formData);
     });
-  }, [getAuthToken, pushLog, session.sessionId, setFileError, updateFile]);
+  }, [getAuthToken, handleFailure, pushLog, session.sessionId, updateFile]);
 
   const finalizeSessionInternal = useCallback(async () => {
     if (statusRef.current === 'finalizing' || statusRef.current === 'complete') return;
     statusRef.current = 'finalizing';
-    setSession(prev => ({ ...prev, status: 'finalizing' }));
+    setCanRetryFinalize(false);
+    setSession(prev => ({ ...prev, status: 'finalizing', error: undefined }));
     pushLog('all files transferred — finalizing session...');
     const token = await getAuthToken();
     if (!token) {
@@ -548,6 +747,8 @@ const NativeUpload: React.FC = () => {
       if (!response.ok) {
         statusRef.current = 'error';
         pushLog(`[!!] finalize failed — ${data.error || 'unknown error'}`);
+        // Server-side faults are worth another go; a rejected session is not.
+        setCanRetryFinalize(response.status >= 500 || response.status === 429);
         setSession(prev => ({ ...prev, status: 'error', error: data.error || 'Finalize failed.' }));
         return;
       }
@@ -558,55 +759,82 @@ const NativeUpload: React.FC = () => {
       (data.rejections || []).forEach((rej: Rejection) => {
         pushLog(`[!!] ${rej.file} — ${rej.reason}`);
       });
+      (data.imports || []).forEach((imp: ImportResult) => {
+        pushLog(`${importBadge(imp.status)} ${imp.finalDirName} — ${importSummary(imp)}`);
+      });
       pushLog('upload complete.');
 
       statusRef.current = 'complete';
       setSession(prev => ({ ...prev, status: 'complete', result: data }));
-    } catch (err) {
+    } catch {
+      // The staged files are still on the server, so this is recoverable — don't
+      // push the user towards starting over and losing the whole transfer.
       statusRef.current = 'error';
-      pushLog('[!!] finalize request failed — network error');
-      setSession(prev => ({ ...prev, status: 'error', error: 'Finalize request failed. Please try again.' }));
+      pushLog('[!!] finalize request failed — connection lost');
+      setCanRetryFinalize(true);
+      setSession(prev => ({
+        ...prev,
+        status: 'error',
+        error: 'Lost the connection while finalizing. Your files are still on the server — retry to finish the job.',
+      }));
     }
   }, [getAuthToken, pushLog, session.sessionId]);
 
   const processQueue = useCallback(async () => {
     if (statusRef.current !== 'uploading') return;
 
-    while (activeCountRef.current < MAX_CONCURRENT) {
-      const next = filesRef.current.find(f => f.status === 'queued');
-      if (!next) break;
+    // While the browser reports no connection, leave files queued rather than
+    // burning retry attempts on requests that cannot succeed.
+    if (!offlineRef.current) {
+      while (activeCountRef.current < MAX_CONCURRENT) {
+        const next = filesRef.current.find(f => f.status === 'queued');
+        if (!next) break;
 
-      activeCountRef.current += 1;
-      setActiveCount(activeCountRef.current);
-      uploadFile(next).finally(() => {
-        activeCountRef.current -= 1;
+        activeCountRef.current += 1;
         setActiveCount(activeCountRef.current);
-        processQueueRef.current?.();
-      });
+        uploadFile(next).finally(() => {
+          activeCountRef.current -= 1;
+          setActiveCount(activeCountRef.current);
+          processQueueRef.current?.();
+        });
+      }
     }
 
     const remaining = filesRef.current.some(f =>
-      f.status === 'queued' || f.status === 'hashing' || f.status === 'uploading' || f.status === 'verifying'
+      f.status === 'queued' || f.status === 'retrying' || f.status === 'hashing'
+      || f.status === 'uploading' || f.status === 'verifying'
     );
     if (!remaining) {
       const hasErrors = filesRef.current.some(f => f.status === 'error');
       if (hasErrors) {
-        statusRef.current = 'error';
-        setSession(prev => ({ ...prev, status: 'error' }));
+        // Never finalize silently past a failure — an album missing tracks has to
+        // be the user's explicit choice.
+        statusRef.current = 'incomplete';
+        setSession(prev => ({ ...prev, status: 'incomplete' }));
+        pushLog('[!!] transfer finished with failures — awaiting your decision');
       } else {
         await finalizeSessionInternal();
       }
     }
-  }, [uploadFile, finalizeSessionInternal]);
+  }, [uploadFile, finalizeSessionInternal, pushLog]);
 
   processQueueRef.current = processQueue;
 
   const startUpload = useCallback(() => {
+    setNotice(null);
     statusRef.current = 'uploading';
     setSession(prev => ({ ...prev, status: 'uploading' }));
   }, []);
 
   const cancelSession = useCallback(async () => {
+    // Abort in-flight requests first, otherwise they keep streaming into a
+    // session directory nothing will ever finalize.
+    cancelledRef.current = true;
+    for (const controller of Array.from(abortControllersRef.current.values())) {
+      controller.abort();
+    }
+    cancelledRef.current = false;
+
     const token = await getAuthToken();
     if (token) {
       try {
@@ -633,28 +861,52 @@ const NativeUpload: React.FC = () => {
     setSpeed(0);
     setEta(0);
     setLog([]);
+    setNotice(null);
   }, [getAuthToken, session.sessionId]);
 
-  const retryFile = useCallback(async (id: string) => {
+  const retryFile = useCallback((id: string) => {
     const target = filesRef.current.find(f => f.id === id);
-    updateFile(id, { status: 'queued', progress: 0, error: undefined });
+    updateFile(id, { status: 'queued', progress: 0, error: undefined, attempts: 0, nextAttemptAt: undefined });
     if (target) pushLog(`retrying ${target.relativePath}...`);
     statusRef.current = 'uploading';
     setSession(prev => ({ ...prev, status: 'uploading' }));
+    processQueueRef.current?.();
   }, [pushLog, updateFile]);
 
-  const addFiles = useCallback((incoming: FileList | null, isDirectory: boolean) => {
-    if (!incoming) return;
+  const retryFailed = useCallback(() => {
+    const failed = filesRef.current.filter(f => f.status === 'error');
+    if (failed.length === 0) return;
+    for (const f of failed) {
+      updateFile(f.id, { status: 'queued', progress: 0, error: undefined, attempts: 0, nextAttemptAt: undefined });
+    }
+    pushLog(`retrying ${failed.length} failed file(s)...`);
+    statusRef.current = 'uploading';
+    setSession(prev => ({ ...prev, status: 'uploading' }));
+    processQueueRef.current?.();
+  }, [pushLog, updateFile]);
 
+  const finalizeAnyway = useCallback(() => {
+    pushLog('proceeding to finalize with missing files — albums may be incomplete');
+    finalizeSessionInternal();
+  }, [finalizeSessionInternal, pushLog]);
+
+  const addPicked = useCallback((picked: PickedFile[]) => {
+    const seen = new Set(filesRef.current.map(f => f.relativePath));
     const newFiles: UploadFile[] = [];
     let skipped = 0;
-    for (const file of Array.from(incoming)) {
-      const relativePath = fileRelativePath(file, isDirectory);
+    let duplicates = 0;
+
+    for (const { file, relativePath } of picked) {
       const ext = relativePath.slice(relativePath.lastIndexOf('.')).toLowerCase();
       if (!ALLOWED_EXTENSIONS.has(ext)) {
         skipped += 1;
         continue;
       }
+      if (seen.has(relativePath)) {
+        duplicates += 1;
+        continue;
+      }
+      seen.add(relativePath);
       newFiles.push({
         id: crypto.randomUUID(),
         file,
@@ -662,24 +914,29 @@ const NativeUpload: React.FC = () => {
         status: 'queued',
         progress: 0,
         size: file.size,
+        attempts: 0,
       });
     }
 
+    const parts: string[] = [];
     if (newFiles.length > 0) {
-      pushLog(`queued ${newFiles.length} file(s) · ${formatBytes(newFiles.reduce((s, f) => s + f.size, 0))}`);
+      parts.push(`added ${newFiles.length} file(s) · ${formatBytes(newFiles.reduce((s, f) => s + f.size, 0))}`);
     }
-    if (skipped > 0) {
-      pushLog(`skipped ${skipped} file(s) — unsupported type`);
-    }
+    if (skipped > 0) parts.push(`skipped ${skipped} unsupported`);
+    if (duplicates > 0) parts.push(`skipped ${duplicates} already queued`);
+    if (picked.length === 0) parts.push('nothing to add — no readable files in that drop');
+    const summary = parts.join(' · ');
+    setNotice(summary || null);
+    if (summary) pushLog(summary);
 
     if (newFiles.length === 0) return;
 
+    // Pickers hand files back in filesystem order, which scatters tracks across
+    // the manifest grid; sorting each batch keeps albums and track numbers together.
+    newFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { numeric: true }));
+
     filesRef.current = [...filesRef.current, ...newFiles];
-    setSession(prev => {
-      const status = prev.status === 'idle' ? 'uploading' : prev.status;
-      statusRef.current = status;
-      return { ...prev, status, files: [...prev.files, ...newFiles] };
-    });
+    setSession(prev => ({ ...prev, files: [...prev.files, ...newFiles] }));
   }, [pushLog]);
 
   useEffect(() => {
@@ -688,37 +945,81 @@ const NativeUpload: React.FC = () => {
     }
   }, [session.status, session.files.length]);
 
-  const handleDirectorySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(e.target.files, true);
+  // Releases files whose backoff has elapsed, and keeps the countdown ticking.
+  useEffect(() => {
+    if (!hasRetrying) return undefined;
+    const t = setInterval(() => {
+      const now = Date.now();
+      const due = filesRef.current.filter(f => f.status === 'retrying' && (f.nextAttemptAt || 0) <= now);
+      for (const f of due) {
+        updateFile(f.id, { status: 'queued', nextAttemptAt: undefined });
+      }
+      setRetryTick(n => n + 1);
+      if (due.length > 0) processQueueRef.current?.();
+    }, 500);
+    return () => clearInterval(t);
+  }, [hasRetrying, updateFile]);
+
+  useEffect(() => {
+    const goOnline = () => {
+      offlineRef.current = false;
+      setOffline(false);
+      pushLog('connection restored — resuming transfers');
+      processQueueRef.current?.();
+    };
+    const goOffline = () => {
+      offlineRef.current = true;
+      setOffline(true);
+      pushLog('connection lost — transfers paused, will resume automatically');
+    };
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, [pushLog]);
+
+  const handleInputSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addPicked(Array.from(e.target.files || []).map(file => ({ file, relativePath: fileRelativePath(file) })));
     e.target.value = '';
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(e.target.files, false);
-    e.target.value = '';
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      const hasDirectory = Array.from(e.dataTransfer.items).some(item => item.webkitGetAsEntry()?.isDirectory);
-      addFiles(e.dataTransfer.files, hasDirectory);
-    } else {
-      addFiles(e.dataTransfer.files, false);
+
+    // webkitGetAsEntry has to be called before the handler yields — the item
+    // list is emptied as soon as the drop event finishes dispatching.
+    const entries = Array.from(e.dataTransfer.items || [])
+      .filter(item => item.kind === 'file')
+      .map(item => item.webkitGetAsEntry())
+      .filter((entry): entry is FileSystemEntry => Boolean(entry));
+
+    if (entries.length === 0) {
+      addPicked(Array.from(e.dataTransfer.files).map(file => ({ file, relativePath: file.name })));
+      return;
     }
+
+    const picked: PickedFile[] = [];
+    for (const entry of entries) {
+      await collectEntry(entry, '', picked);
+    }
+    addPicked(picked);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
     setDragOver(true);
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     setDragOver(false);
   };
 
-  const anyUploading = session.files.some(f => f.status === 'uploading' || f.status === 'queued');
+  const reviewing = session.status === 'idle';
   const overallMeter = asciiMeter(overallProgress, 28);
   const spinnerChar = ['|', '/', '-', '\\'][spinnerFrame];
 
@@ -757,6 +1058,27 @@ const NativeUpload: React.FC = () => {
             </div>
           )}
 
+          {session.result.imports && session.result.imports.length > 0 && (
+            <div className="native-upload-imports">
+              <h3>&gt; library import (beets)</h3>
+              {session.result.imports.some(i => i.status !== 'imported') && (
+                <p className="native-upload-import-warning">
+                  Not everything was added to the library automatically. Anything below that
+                  isn&apos;t [ OK ] is sitting in the uploads folder waiting for a moderator.
+                </p>
+              )}
+              {session.result.imports.map((imp, idx) => (
+                <div key={idx} className={`native-upload-import ${imp.status}`}>
+                  <span className="native-upload-import-badge">{importBadge(imp.status)}</span>
+                  <div>
+                    <div className="native-upload-import-name">{imp.finalDirName}</div>
+                    <div className="native-upload-import-meta">{importSummary(imp)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {session.result.rejections.length > 0 && (
             <div className="native-upload-rejections">
               <h3>&gt; rejected files</h3>
@@ -774,39 +1096,177 @@ const NativeUpload: React.FC = () => {
         </div>
       ) : (
         <>
-          <div
-            className={`native-upload-dropzone term-panel ${dragOver ? 'dragover' : ''}`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            <span className="term-panel-label">drop_zone</span>
-            <div className="native-upload-dropzone-text">
-              &gt; drag folders or files here<span className="native-upload-cursor">_</span>
-            </div>
-            <div className="native-upload-dropzone-or">— or —</div>
-            <div className="native-upload-dropzone-buttons">
-              <label className="native-upload-file-button">
-                [ SELECT FOLDER ]
-                <input
-                  type="file"
-                  {...{ webkitdirectory: 'true', directory: '' }}
-                  onChange={handleDirectorySelect}
-                  disabled={anyUploading || session.status === 'finalizing'}
-                />
-              </label>
-              <label className="native-upload-file-button">
-                [ SELECT FILES ]
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileSelect}
-                  disabled={anyUploading || session.status === 'finalizing'}
-                />
-              </label>
-            </div>
-          </div>
+          {session.files.length > 0 && (
+            <div className="native-upload-manifest term-panel">
+              <span className="term-panel-label">
+                {reviewing ? `manifest — review before upload` : `transfer (${counts.done}/${session.files.length})`}
+              </span>
 
+              {reviewing ? (
+                <div className="native-upload-manifest-head">
+                  <div className="native-upload-manifest-summary">
+                    <span><strong>{session.files.length}</strong> files</span>
+                    <span><strong>{folderCount}</strong> folder(s)</span>
+                    <span><strong>{formatBytes(totalBytes)}</strong> total</span>
+                  </div>
+                  <div className="native-upload-manifest-actions">
+                    <Button label="[ CONFIRM &amp; UPLOAD ]" onClick={startUpload} type="basic" className="native-upload-terminal-button" />
+                    <Button label="[ CLEAR ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
+                  </div>
+                </div>
+              ) : (
+                <div className="native-upload-manifest-head">
+                  <div className="native-upload-overall-meter">
+                    [<span className="ascii-bar-filled">{overallMeter.filled}</span><span className="ascii-bar-empty">{overallMeter.empty}</span>] {overallProgress}%
+                  </div>
+                  <div className="native-upload-stats-inline">
+                    <span>xfer <strong>{formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}</strong></span>
+                    <span>rate <strong>{formatBytes(speed)}/s</strong></span>
+                    <span>eta <strong>{formatDuration(eta)}</strong></span>
+                    <span>
+                      files <strong>{counts.done} done · {activeCount} active · {counts.queued} queued
+                      {counts.retrying > 0 && ` · ${counts.retrying} retrying`}
+                      {counts.failed > 0 && ` · ${counts.failed} failed`}</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {offline && (
+                <div className="native-upload-offline">
+                  !! no connection — transfers paused, they will resume by themselves
+                </div>
+              )}
+
+              <div className="native-upload-grid">
+                {session.files.map(item => {
+                  const slash = item.relativePath.lastIndexOf('/');
+                  const dir = slash === -1 ? '' : item.relativePath.slice(0, slash + 1);
+                  const base = slash === -1 ? item.relativePath : item.relativePath.slice(slash + 1);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`native-upload-cell ${item.status}`}
+                      title={`${item.relativePath} — ${statusLabel(item)}`}
+                    >
+                      <span className="native-upload-cell-badge">{statusBadge(item.status)}</span>
+                      <span className="native-upload-cell-name">
+                        {dir && <span className="native-upload-cell-dir">{dir}</span>}
+                        <span className="native-upload-cell-base">{base}</span>
+                      </span>
+                      <span className="native-upload-cell-size">{formatBytes(item.size)}</span>
+                      {item.status === 'error' && (
+                        <button className="native-upload-cell-retry" onClick={() => retryFile(item.id)} title={item.error}>
+                          ↻
+                        </button>
+                      )}
+                      <span className="native-upload-cell-fill" style={{ width: `${item.progress}%` }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {session.status === 'incomplete' && (
+                <div className="native-upload-gate">
+                  <div className="native-upload-gate-title">
+                    !! {failureReport.failedCount} of {failureReport.totalCount} file(s) did not upload
+                  </div>
+                  <p className="native-upload-gate-warning">
+                    These folders are missing tracks. Incomplete albums usually fail to match
+                    during metadata processing, so they land in the library wrong — or not at all.
+                  </p>
+                  <div className="native-upload-gate-folders">
+                    {failureReport.incomplete.map(folder => (
+                      <div key={folder.name} className="native-upload-gate-folder">
+                        <span className="native-upload-gate-folder-name">{folder.name}</span>
+                        <span className="native-upload-gate-folder-count">
+                          {folder.done} of {folder.total} uploaded · {folder.failed} missing
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="native-upload-gate-hint">
+                    Retrying only re-sends the missing files — nothing already uploaded is repeated.
+                  </p>
+                  <div className="native-upload-gate-actions">
+                    <Button label="[ RETRY MISSING FILES ]" onClick={retryFailed} type="basic" className="native-upload-terminal-button" />
+                    <Button label="[ FINALIZE ANYWAY ]" onClick={finalizeAnyway} type="basic" className="native-upload-terminal-button native-upload-cancel" />
+                    <Button label="[ CANCEL ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
+                  </div>
+                </div>
+              )}
+
+              {session.status === 'finalizing' && (
+                <div className="native-upload-finalizing">
+                  <div className="native-upload-finalizing-title">
+                    <span className="native-upload-spinner">{spinnerChar}</span> FINALIZING — elapsed {formatDuration(finalizeElapsed)}
+                  </div>
+                  <div className="native-upload-finalizing-hint">
+                    Organizing albums &amp; running the metadata tagger (beets import) server-side —
+                    large batches can take several minutes. Please keep this tab open.
+                  </div>
+                </div>
+              )}
+
+              {(session.status === 'uploading' || session.status === 'finalizing' || session.status === 'error') && (
+                <div className="native-upload-actions">
+                  {session.status === 'error' ? (
+                    <>
+                      {canRetryFinalize && (
+                        <Button label="[ RETRY FINALIZE ]" onClick={finalizeSessionInternal} type="basic" className="native-upload-terminal-button" />
+                      )}
+                      <Button label="[ START OVER ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
+                    </>
+                  ) : (
+                    <Button label="[ CANCEL ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
+                  )}
+                </div>
+              )}
+
+              {session.error && <div className="native-upload-error">!! {session.error}</div>}
+            </div>
+          )}
+
+          {reviewing && (
+            <div
+              className={`native-upload-dropzone term-panel ${dragOver ? 'dragover' : ''}`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              <span className="term-panel-label">drop_zone</span>
+              <div className="native-upload-dropzone-text">
+                &gt; drag {session.files.length > 0 ? 'more ' : ''}folders or files here<span className="native-upload-cursor">_</span>
+              </div>
+              <div className="native-upload-dropzone-or">— or —</div>
+              <div className="native-upload-dropzone-buttons">
+                <label className="native-upload-file-button">
+                  [ SELECT FOLDERS ]
+                  <input
+                    type="file"
+                    multiple
+                    {...{ webkitdirectory: 'true', directory: '' }}
+                    onChange={handleInputSelect}
+                  />
+                </label>
+                <label className="native-upload-file-button">
+                  [ SELECT FILES ]
+                  <input
+                    type="file"
+                    multiple
+                    accept={ACCEPT_ATTRIBUTE}
+                    onChange={handleInputSelect}
+                  />
+                </label>
+              </div>
+              <div className="native-upload-dropzone-hint">
+                folder picker greys out individual files — use [ SELECT FILES ] for loose tracks
+              </div>
+              {notice && <div className="native-upload-notice">&gt; {notice}</div>}
+            </div>
+          )}
+
+          {reviewing && (
           <div className="native-upload-limits term-panel">
             <span className="term-panel-label">limits.cfg</span>
             <div className="native-upload-limits-grid">
@@ -824,98 +1284,18 @@ const NativeUpload: React.FC = () => {
               <span>{LIMITS.sessionMaxAgeMinutes} min</span>
             </div>
           </div>
+          )}
 
-          {session.files.length > 0 && (
-            <div className="native-upload-file-section">
-              <div className="native-upload-overall term-panel">
-                <span className="term-panel-label">status.sys</span>
-                <div className="native-upload-overall-meter">
-                  [<span className="ascii-bar-filled">{overallMeter.filled}</span><span className="ascii-bar-empty">{overallMeter.empty}</span>] {overallProgress}%
-                </div>
-                <div className="native-upload-stats-grid">
-                  <span>xfer</span>
-                  <span>{formatBytes(uploadedBytes)} / {formatBytes(totalBytes)}</span>
-                  <span>rate</span>
-                  <span>{formatBytes(speed)}/s</span>
-                  <span>eta</span>
-                  <span>{formatDuration(eta)}</span>
-                  <span>files</span>
-                  <span>
-                    {counts.done} done · {activeCount} active · {counts.queued} queued
-                    {counts.failed > 0 && ` · ${counts.failed} failed`}
-                  </span>
-                </div>
-
-                {session.status === 'finalizing' && (
-                  <div className="native-upload-finalizing">
-                    <div className="native-upload-finalizing-title">
-                      <span className="native-upload-spinner">{spinnerChar}</span> FINALIZING — elapsed {formatDuration(finalizeElapsed)}
-                    </div>
-                    <div className="native-upload-finalizing-hint">
-                      Organizing albums &amp; running the metadata tagger (beets import) server-side —
-                      large batches can take several minutes. Please keep this tab open.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="native-upload-log term-panel" ref={logRef}>
-                <span className="term-panel-label">console</span>
-                {log.length === 0 ? (
-                  <div className="native-upload-log-line native-upload-log-empty">&gt; waiting for activity_</div>
-                ) : (
-                  log.map((line, i) => (
-                    <div key={i} className="native-upload-log-line">&gt; {line}</div>
-                  ))
-                )}
-              </div>
-
-              <div className="native-upload-file-list term-panel">
-                <span className="term-panel-label">queue ({session.files.length})</span>
-                {session.files.map(uploadFileItem => {
-                  const meter = asciiMeter(uploadFileItem.progress, 14);
-                  return (
-                    <div key={uploadFileItem.id} className={`native-upload-file ${uploadFileItem.status}`}>
-                      <div className="native-upload-file-status">{statusBadge(uploadFileItem.status)}</div>
-                      <div className="native-upload-file-info">
-                        <div className="native-upload-file-name" title={uploadFileItem.relativePath}>
-                          {uploadFileItem.relativePath}
-                        </div>
-                        <div className="native-upload-file-meta">
-                          {formatBytes(uploadFileItem.size)} · {statusLabel(uploadFileItem)}
-                        </div>
-                        <div className="native-upload-file-bar">
-                          [<span className="ascii-bar-filled">{meter.filled}</span><span className="ascii-bar-empty">{meter.empty}</span>]
-                        </div>
-                      </div>
-                      {uploadFileItem.status === 'error' && (
-                        <button
-                          className="native-upload-retry-button"
-                          onClick={() => retryFile(uploadFileItem.id)}
-                        >
-                          [ retry ]
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="native-upload-actions">
-                {session.status === 'idle' || (session.status === 'uploading' && session.files.every(f => f.status === 'queued')) ? (
-                  <Button label="[ START UPLOAD ]" onClick={startUpload} type="basic" className="native-upload-terminal-button" />
-                ) : null}
-
-                {(session.status === 'uploading' || session.status === 'finalizing') && (
-                  <Button label="[ CANCEL ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button native-upload-cancel" />
-                )}
-
-                {session.status === 'error' && (
-                  <Button label="[ START OVER ]" onClick={cancelSession} type="basic" className="native-upload-terminal-button" />
-                )}
-              </div>
-
-              {session.error && <div className="native-upload-error">!! {session.error}</div>}
+          {!reviewing && (
+            <div className="native-upload-log term-panel" ref={logRef}>
+              <span className="term-panel-label">console</span>
+              {log.length === 0 ? (
+                <div className="native-upload-log-line native-upload-log-empty">&gt; waiting for activity_</div>
+              ) : (
+                log.map((line, i) => (
+                  <div key={i} className="native-upload-log-line">&gt; {line}</div>
+                ))
+              )}
             </div>
           )}
         </>
