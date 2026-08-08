@@ -94,6 +94,22 @@ interface MessageBoardProps {
   // Forum identity block under each poster's name. Costs a users read per
   // distinct author on screen, so only the message board turns it on.
   showPosterStats?: boolean;
+  /** Leave the newest N replies on show under each post instead of hiding the
+      whole thread behind the toggle. Off by default because it is not free: a
+      page of messages costs one extra (N-document) subcollection query per
+      message that has replies. Where a thread turns out to be no longer than
+      the preview, that query has fetched all of it and expanding costs
+      nothing. */
+  replyPreviewCount?: number;
+  /** Draw the composer with the signed-in user's avatar beside it. */
+  showComposerAvatar?: boolean;
+  /** Rendered between the composer and the thread list — the board's own
+      heading for the list, which only the page above knows the wording of. */
+  listHeader?: React.ReactNode;
+  /** The ledger layout: every composer on the board — the one at the top, and
+      the reply and edit boxes inside a post — puts send, attach and the counter
+      in a row under the field rather than inside it. */
+  ledger?: boolean;
 }
 
 const MESSAGES_PER_PAGE = 20;
@@ -186,6 +202,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   showComposer = true,
   highlightMessageId,
   showPosterStats = false,
+  replyPreviewCount = 0,
+  showComposerAvatar = false,
+  listHeader,
+  ledger = false,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [, setNewMessage] = useState('');
@@ -197,6 +217,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingPoll, setPendingPoll] = useState<PollDraft | null>(null);
+  const [composerAvatar, setComposerAvatar] = useState<string>('');
+  const [composerName, setComposerName] = useState<string>('');
 
   const { isAdmin } = useAdmin();
   const { checkRateLimit } = useRateLimit({ maxAttempts: 10, windowMs: 5 * 60 * 1000 });
@@ -208,6 +230,23 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     // No listeners — nothing to clean up.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableReactions, enableReplies]);
+
+  // Your own avatar for the composer. Goes through the shared profile cache,
+  // so on a board where you have already posted it is free.
+  useEffect(() => {
+    if (!showComposerAvatar) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    let live = true;
+    getUserData(uid).then((data) => {
+      if (!live) return;
+      setComposerAvatar(data.avatar);
+      setComposerName(data.username);
+    });
+    return () => {
+      live = false;
+    };
+  }, [showComposerAvatar]);
 
   // Deep link: pin the linked message if it's beyond the first page, then scroll to it once.
   useEffect(() => {
@@ -257,6 +296,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
 
       const loaded = sortByBump(snapshot.docs.map(mapMessageDoc));
       setMessages(loaded);
+      fetchReplyPreviews(loaded);
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -285,12 +325,58 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       const newMessages = snapshot.docs.map(mapMessageDoc);
       // Dedupe: a deep-linked message pinned to the top can page back in.
       setMessages((prev) => [...prev, ...newMessages.filter((nm) => !prev.some((p) => p.id === nm.id))]);
+      fetchReplyPreviews(newMessages);
     } catch (error) {
       console.error('Error loading more messages:', error);
     } finally {
       setLoadingMore(false);
     }
   };
+
+  /* The newest few replies for each message that has any, so a collapsed
+     thread still shows where it got to. One capped query per message with
+     replies — the reason this is opt-in.
+
+     The result is written into `replies`, not a second array: every handler on
+     this board (react, edit, delete) already operates on `replies`, and a
+     preview that lived somewhere else would go stale the moment one of them
+     fired. `repliesLoaded` stays false while it is only the tail, so expanding
+     still goes and gets the rest — unless the thread turned out to be no
+     longer than the preview, in which case this was the whole thread and the
+     expand is free. */
+  const fetchReplyPreviews = useCallback(async (loaded: Message[]) => {
+    if (replyPreviewCount <= 0) return;
+    const targets = loaded.filter((m) => (m.replyCount ?? 0) > 0 && !m.repliesLoaded && !m.replies);
+    if (targets.length === 0) return;
+
+    const previews = await Promise.all(
+      targets.map(async (m) => {
+        try {
+          const q = query(
+            collection(db, collectionName, m.id, 'replies'),
+            orderBy('timestamp', 'desc'),
+            limit(replyPreviewCount),
+          );
+          const snapshot = await getDocs(q);
+          // Fetched newest-first so the limit takes the right end; the thread
+          // itself reads oldest-first.
+          return { id: m.id, replies: snapshot.docs.map(mapReplyDoc).reverse() };
+        } catch (error) {
+          console.error('Error fetching reply preview:', error);
+          return null;
+        }
+      }),
+    );
+
+    setMessages((prev) =>
+      prev.map((m) => {
+        const hit = previews.find((p) => p?.id === m.id);
+        if (!hit || m.repliesLoaded) return m;
+        const complete = (m.replyCount ?? 0) <= hit.replies.length;
+        return { ...m, replies: hit.replies, repliesLoaded: complete };
+      }),
+    );
+  }, [collectionName, replyPreviewCount]);
 
   // Lazy-fetch replies for a specific message on first expand.
   const fetchRepliesFor = useCallback(async (messageId: string) => {
@@ -743,7 +829,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
           m.id === messageId
             ? {
                 ...m,
-                replies: m.repliesLoaded && m.replies ? [...m.replies, optimisticReply] : m.replies,
+                // Appended whenever anything is held, loaded thread or preview
+                // tail alike: in both cases the newest reply belongs on the
+                // end, and the preview is read from that end.
+                replies: m.replies ? [...m.replies, optimisticReply] : m.replies,
                 replyCount: (m.replyCount ?? 0) + 1,
                 lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
               }
@@ -910,8 +999,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   return (
     <div className="message-board-container">
       {showComposer && (
-        <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} />
+        <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} avatar={showComposerAvatar ? composerAvatar : undefined} avatarName={showComposerAvatar ? composerName : undefined} outsideControls={ledger} />
       )}
+      {listHeader}
       <div className="messages-container">
         {loadingMessages && <p className="messages-loading">Loading messages...</p>}
         {messages.map((message) => (
@@ -925,6 +1015,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
             currentUserId={auth.currentUser?.uid}
             isAdmin={isAdmin}
             showPosterStats={showPosterStats}
+            replyPreviewCount={enableReplies ? replyPreviewCount : 0}
+            ledgerControls={ledger}
             onEdit={(newText: string) => handleEditMessage(message.id, newText)}
             onDelete={() => handleDeleteMessage(message.id)}
             onEditReply={(replyId: string, newText: string) => handleEditReply(message.id, replyId, newText)}

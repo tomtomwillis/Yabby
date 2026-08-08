@@ -5,6 +5,7 @@ import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
+import { normalizeAvatarPath } from '../../utils/avatarPath';
 import PollComposeModal, { type PollDraft } from './PollComposeModal';
 
 interface Result {
@@ -59,6 +60,16 @@ interface ForumMessageBoxProps {
   onImageAttach?: (file: File | null) => void;
   onFilmAnnounce?: (variant: 1 | 2 | 3) => Promise<void>;
   onPollAttach?: (poll: PollDraft | null) => void;
+  /** The signed-in user's avatar, drawn beside the field on boards that lay
+      the composer out as a post. Omitted everywhere else, so nothing changes
+      on a board that has never had one. */
+  avatar?: string;
+  /** Their name, shown under that avatar. Only read when `avatar` is set. */
+  avatarName?: string;
+  /** Put the send button, the attach button and the counter in a row under the
+      field rather than inside it. The ledger boards lay the composer out this
+      way; everywhere else keeps the button in the field. */
+  outsideControls?: boolean;
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -73,6 +84,9 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   onImageAttach,
   onFilmAnnounce,
   onPollAttach,
+  avatar,
+  avatarName,
+  outsideControls,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
@@ -583,6 +597,26 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const charCount = newMessage.length;
   const canSend = (newMessage.trim().length > 0 || !!imagePreviewUrl || !!pendingPoll) && wordCount <= maxWords && charCount <= maxChars && !disabled;
 
+  // Hoisted because they sit either inside the field or in a row under it,
+  // depending on the board.
+  const sendButton = (
+    <div className="send-button-container">
+      <Button
+        type="basic"
+        label="Send"
+        onClick={handleSend}
+        size="2.5em"
+        disabled={!canSend}
+      />
+    </div>
+  );
+
+  const wordCounter = (
+    <div className="word-counter">
+      {wordCount}/{maxWords} words | {charCount}/{maxChars} characters
+    </div>
+  );
+
   const isSlashSearchMode = slashMode !== null && slashMode !== 'command';
   const slashModeLabel = isSlashSearchMode ? SLASH_MODE_LABELS[slashMode as SearchCommand] : '';
 
@@ -597,6 +631,27 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
   return (
     <div className={`textbox-container ${disabled ? 'disabled' : ''} ${className}`}>
+      {avatar && (
+        <>
+          {/* The composer's poster gutter: the same column a post has, so the
+              field you type into starts on the same edge as everything already
+              on the board. */}
+          <div className="textbox-poster">
+            <img
+              className="textbox-avatar"
+              src={normalizeAvatarPath(avatar)}
+              alt=""
+              loading="lazy"
+            />
+            {avatarName && <p className="textbox-poster-name">{avatarName}</p>}
+            <p className="textbox-poster-note">posting as you</p>
+          </div>
+          <div className="textbox-gutter-rule" aria-hidden="true"></div>
+        </>
+      )}
+      {/* Everything that is not the gutter, in one box — a board that lays the
+          composer out in columns needs a single thing to put in the last one. */}
+      <div className="textbox-body">
       <div className="input-area">
         <textarea
           ref={textareaRef}
@@ -614,18 +669,18 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           disabled={disabled}
           rows={1}
         />
-        {showSendButton && (
-          <div className="send-button-container">
-            <Button
-              type="basic"
-              label="Send"
-              onClick={handleSend}
-              size="2.5em"
-              disabled={!canSend}
-            />
-          </div>
-        )}
+        {showSendButton && !outsideControls && sendButton}
       </div>
+
+      {outsideControls && (
+        <div className="textbox-controls">
+          {showSendButton && sendButton}
+          {/* Drawn but not wired: attaching still happens by pasting an image
+              into the field. */}
+          <button type="button" className="textbox-attach">▓ attach</button>
+          {wordCounter}
+        </div>
+      )}
 
       {imagePreviewUrl && (
         <div className="image-preview-container">
@@ -727,8 +782,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         </figure>
       )}
 
-      <div className="word-counter">
-        {wordCount}/{maxWords} words | {charCount}/{maxChars} characters
+      {!outsideControls && wordCounter}
       </div>
     </div>
   );

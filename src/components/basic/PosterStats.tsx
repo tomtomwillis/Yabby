@@ -7,8 +7,9 @@ interface PosterStatsProps {
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
-/** The forum identity block under a poster's name: when they joined, how much
-    they have said, and where they are. Reads through the shared profile cache,
+/** The forum identity block beside a poster's avatar: their bio, when they
+    joined, how much they have said, and where they are. All of it comes out of
+    the one profile document. Reads through the shared profile cache,
     so a thread with five posts by the same person costs one users read, and
     that read is shared with the hover bubble on their name. */
 const PosterStats: React.FC<PosterStatsProps> = ({ userId }) => {
@@ -30,17 +31,26 @@ const PosterStats: React.FC<PosterStatsProps> = ({ userId }) => {
     : null;
   const place = [profile.locationFlag, profile.locationText].filter(Boolean).join(' ');
 
-  if (!joined && !profile.postCount && !place) return null;
+  if (!joined && !profile.postCount && !place && !profile.bio) return null;
+
+  const hasMeta = !!joined || profile.postCount > 0 || !!place;
 
   return (
     <div className="user-message-poster-stats">
-      {joined && <span>joined {joined}</span>}
-      {profile.postCount > 0 && (
-        <span>
-          {profile.postCount} {profile.postCount === 1 ? 'post' : 'posts'}
-        </span>
+      {profile.bio && <span className="user-message-poster-bio">{profile.bio}</span>}
+      {/* Everything the board counted on their behalf, kept apart from the one
+          line above it that they wrote themselves. */}
+      {hasMeta && (
+        <div className="user-message-poster-meta">
+          {joined && <span>joined {joined}</span>}
+          {profile.postCount > 0 && (
+            <span>
+              {profile.postCount} {profile.postCount === 1 ? 'post' : 'posts'}
+            </span>
+          )}
+          {place && <span>{place}</span>}
+        </div>
       )}
-      {place && <span>{place}</span>}
     </div>
   );
 };

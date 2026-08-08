@@ -1,23 +1,21 @@
 /*
- * Message board — a wide BBS listing.
+ * Message board — a flat BBS ledger.
  *
- * Posts are near-opaque pale blue panels on the star, in the same vocabulary as
- * home: nothing rounded, nothing shadowed, mono chrome around serif prose. The
- * old forum two-column split does the work — a poster gutter on the left
- * carrying the avatar and name, the body filling everything to its right.
+ * The panels are gone. The board is one continuous sheet of posts separated by
+ * hairlines, in the same vocabulary as home: nothing rounded, nothing shadowed,
+ * everything set in the mono. Rules run the full width of the body column, so
+ * the page reads as a ledger printed on the sheet rather than a stack of cards
+ * laid on it — the board cancels the shell's side padding to get there.
  *
- * There are no rules anywhere inside a post. The panel edge is the only divider:
- * where a line would previously have separated something, an ornament does it
- * instead, or the space between two panels does. Replies are the same panel a
- * shade deeper, so nesting reads by tone rather than by indent lines.
+ * A post is three tracks: a poster gutter carrying the avatar, name, bio and
+ * what the board knows about them; a dotted channel; and the body carrying what
+ * they actually said, held to about 66 characters. Nothing is positioned out of
+ * flow — a post is as tall as its content and no taller.
  *
- * That gutter is built with absolute positioning rather than a grid. Username
- * and timestamp live inside .user-message-content in the markup, which is
- * shared with News, the sticker wall and the issues board, so they cannot be
- * moved into the avatar's column without changing every other page that renders
- * a UserMessage. Positioning them against the post box instead leaves the DOM
- * alone. The cost is that their offsets have to be arithmetic on a known avatar
- * size (--mb-av) and the username has to stay on one line — hence the ellipsis.
+ * Replies drop their avatars and become a tree under the post, drawn with box
+ * characters, their timestamp and controls sharing the first line with the name.
+ *
+ * A board index sits on the right, sticky against the column.
  *
  * Everything is scoped to .mb-board, so /news, /issues and /filmclubmessage —
  * which render the same components — are untouched.
@@ -25,80 +23,135 @@
 
 .mb-board {
   --mb-rule: #c9cee4;
+  /* A hairline a step lighter than --mb-rule, for the rules drawn inside a post
+     rather than between them. */
+  --mb-rule-soft: #dfe3f0;
   --mb-ink: var(--colour5);
   --mb-accent: var(--colour2);
   --mb-dim: #5566c9;
-  /* Carried by the things a person did — their name, their likes, the replies
-     they drew — so the pink marks people and the blue marks furniture. */
-  --mb-pink: var(--colour7);
-  /* Left just short of solid: the star still passes behind the prose, but only
-     as a tint, so nothing has to be read through it. */
-  --mb-panel: rgba(234, 238, 252, 0.94);
-  /* A definite step down from the post, not the 6% nudge it was — the indent
-     was doing all the work of showing the nesting on its own. */
-  --mb-panel-reply: rgba(203, 215, 245, 0.95);
+  /* A step quieter than --mb-dim, for the things you read last: timestamps,
+     counts, the note at the end of a heading. */
+  --mb-mute: #8a90a8;
+  /* The bio, and only the bio — the one thing in the gutter a person wrote
+     themselves rather than the board counting on their behalf. */
+  --mb-voice: var(--colour6);
 
-  /* The board is set in the serif throughout — names, dates and controls as
-     well as prose — so the two fonts here are split by job, not by role: text
-     in --mb-face, box-drawing and ornaments in --mb-glyph. Libre Baskerville
-     has no ┌ ─ ✦ ₊ ˚, so anything decorative has to stay in the mono or it
-     silently falls back to whatever the OS offers. */
-  --mb-face: var(--font4);
+  /* The sheet the posts are printed on. Left just short of solid so the star
+     still passes behind the page, but only as a tint — the prose is never read
+     through it. Rows are contiguous, so this reads as one sheet rather than a
+     run of cards. */
+  --mb-sheet: rgba(251, 251, 253, 0.94);
+  --mb-sheet-hover: rgba(255, 255, 255, 0.98);
+  /* The composer, which is the one band on the page that is not a post. */
+  --mb-tint: rgba(238, 241, 251, 0.95);
+  /* The tip, a quieter band again — it is a note about the board, not part of
+     it. */
+  --mb-tint-soft: rgba(246, 247, 252, 0.95);
+
+  /* Mono throughout — prose included. Both slots point at CommitMono; they
+     stay separate names only so the box-drawing can be moved to another face
+     without dragging the body text with it. */
+  --mb-face: var(--font2);
   --mb-glyph: var(--font2);
 
-  /* The board is a column, not a page. Left-aligned and capped: at full width
-     every post was a 1240px rectangle holding two lines of text, and all the
-     empty space ended up inside the panel. Capping the panel rather than the
-     prose puts that space outside the post, where the star can have it, and
-     brings the measure to roughly 70 characters on the way. */
-  --mb-width: min(880px, 100%);
-
-  /* The post's own top padding; the poster column's offsets are measured from
-     it, so the two stay locked together if it changes. */
-  --mb-pad: 1.1rem;
-  --mb-av: clamp(84px, 7vw, 120px);
-  /* Named because the timestamp's offset is two lines of it — see the header. */
-  --mb-name-fs: clamp(0.82rem, 0.85vw, 0.98rem);
+  /* The distance every row holds off the column's edges. The rules themselves
+     run past it, edge to edge. */
+  --mb-edge: clamp(18px, 3vw, 44px);
+  /* Wide enough for a wrapped handle over a 72px avatar, and no wider — past
+     this the gutter starts competing with the prose beside it. */
+  --mb-gutter: clamp(116px, 11vw, 148px);
+  /* The channel between the poster and what they said, and the dotted rule
+     drawn down the middle of it. */
+  --mb-gap: 18px;
+  --mb-channel: 14px;
+  /* About 66 characters of the body face. Fixed rather than in ch because the
+     same measure has to line up across elements set at different sizes — a ch
+     is only as wide as the font the element it lands on happens to be in. */
+  --mb-measure: 660px;
+  /* Sized off the track rather than fixed, so the picture grows with the gutter
+     and keeps the same margin of air round it at every width. */
+  --mb-avatar: calc(var(--mb-gutter) - 1.75rem);
+  /* A reply gets a thumbnail of the same picture, centred on its name's line.
+     The line box is a variable because the avatar is positioned off it. */
+  --mb-reply-avatar: 28px;
+  --mb-reply-line: 0.85rem;
+  /* The board index on the right. */
+  --mb-aside: 212px;
 
   align-items: stretch;
   text-align: left;
 }
 
-/* Panels go solid where the OS asks for less transparency: the star behind them
-   is decoration, the prose over them is not. */
 @media (prefers-reduced-transparency: reduce) {
   .mb-board {
-    --mb-panel: #eaeefc;
-    --mb-panel-reply: #cbd7f5;
+    --mb-sheet: #fbfbfd;
+    --mb-sheet-hover: #ffffff;
+    --mb-tint: #eef1fb;
+    --mb-tint-soft: #f6f7fc;
   }
+}
+
+/* ─── Full bleed ──────────────────────────────────────── */
+
+/* The shell centres a padded body column; the ledger's rules have to reach both
+   of its edges, so the board insets itself by exactly that padding and puts it
+   back on each row as --mb-edge. --hp-main-pad is published by Home.css; the
+   fallback covers the board being rendered outside the shell. */
+.app-container.mb-board {
+  width: auto;
+  margin-inline: calc(-1 * var(--hp-main-pad, 0px));
+}
+
+.mb-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  width: 100%;
+}
+
+.mb-column {
+  min-width: 0;
 }
 
 /* ─── Board masthead ──────────────────────────────────── */
 
+/* The page title keeps the site's voice — WorkSans over AvaraItalic, same as
+   every other page. Only the space around it is the board's business: it is the
+   first row of the ledger, ruled off like the rest. */
+.mb-board .mb-column > header.header {
+  margin: 0;
+  padding: 1.6rem var(--mb-edge) 1.1rem;
+  border-bottom: 1px solid var(--mb-rule);
+}
+
+.mb-board .mb-column > header.header h1 {
+  margin: 0 0 0.25rem;
+}
+
+.mb-board .mb-column > header.header .small-text {
+  margin: 0;
+  font-family: var(--font3);
+  font-size: 1.125rem;
+  color: var(--mb-voice);
+}
+
 /* The section-heading idiom from home: a small label, a hairline filling
    whatever is left, and a note pinned to the far end. */
-.mb-board-bar {
+.mb-board .mb-board-bar {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
-  width: var(--mb-width);
-  margin: 0 auto 1.1rem 0;
-  font-family: var(--mb-face);
-  font-size: clamp(0.78rem, 0.75vw, 0.95rem);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 1rem var(--mb-edge) 0.5rem;
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.12em;
   color: var(--mb-accent);
 }
 
 .mb-board-bar-label,
 .mb-board-bar-note {
   flex: 0 0 auto;
-}
-
-.mb-board-bar-label::before {
-  content: '˖✧˖ ';
-  color: var(--mb-dim);
-  font-family: var(--mb-glyph);
 }
 
 .mb-board-bar-rule {
@@ -109,16 +162,16 @@
 }
 
 .mb-board-bar-note {
-  color: var(--mb-dim);
+  color: var(--mb-mute);
 }
 
 /* ─── Shell ───────────────────────────────────────────── */
 
 .mb-board .message-board-container {
-  width: var(--mb-width);
+  width: 100%;
   max-width: none;
   min-height: 0;
-  margin: 0 auto 0 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -126,232 +179,379 @@
   gap: 0;
 }
 
-/* Nothing rules off the posts now, so the closing ornament below the run is
-   what ends it. */
-
 .mb-board .messages-loading,
 .mb-board .messages-end {
-  padding: 1.2rem 0;
-  font-family: var(--mb-face);
-  font-size: 0.85rem;
+  padding: 1.25rem var(--mb-edge);
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
   font-style: normal;
-  letter-spacing: 0.04em;
-  color: var(--mb-dim);
+  letter-spacing: 0.06em;
+  color: var(--mb-mute);
   text-align: left;
 }
 
 .mb-board .messages-more {
   justify-content: flex-start;
-  margin: 1.2rem 0 0;
+  margin: 0;
+  padding: 1.25rem var(--mb-edge);
 }
 
-/* ─── Ornaments ───────────────────────────────────────── */
+/* ─── The channel ─────────────────────────────────────── */
 
-/* Posts are separated by an ornament in the gap between their panels rather
-   than by a rule: a plain block in flow with no background, so the star behind
-   the page shows straight through it. */
+/* The dotted rule between the poster and what they said — a track of its own in
+   both the composer and the post, so it runs their full height whichever column
+   is taller. */
+.mb-board .user-message-gutter-rule,
+.mb-board .textbox-gutter-rule {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  width: var(--mb-channel);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    #c3c9e0 0 6px,
+    transparent 6px 13px
+  );
+  background-size: 1px 100%;
+  background-position: 50% 0;
+  background-repeat: no-repeat;
+}
 
-/* Between posts only — the first has the composer above it, not a neighbour. */
-.mb-board .messages-container > div + div::before {
-  content: '˚₊·　✧　·₊˚';
+/* ─── Composer ────────────────────────────────────────── */
+
+/* The one band on the page that is not a post: the same three tracks, a blue
+   tint behind it, and a full-strength rule under it marking where the board
+   proper starts. */
+.mb-board .textbox-container {
+  display: grid;
+  grid-template-columns: var(--mb-gutter) var(--mb-channel) minmax(0, 1fr);
+  /* No row gap: the body column stacks the field, the controls and anything
+     the search puts between them, and each sets its own margin. */
+  gap: 0 var(--mb-gap);
+  align-items: start;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 1.25rem var(--mb-edge);
+  background: var(--mb-tint);
+  border-bottom: 2px solid var(--mb-accent);
+  /* Also what makes the measure below resolve against the right face. */
+  font-family: var(--mb-face);
+}
+
+/* Held to the same measure as a post, so the field you type into ends on the
+   same right edge as everything already on the board. */
+.mb-board .textbox-body {
+  grid-column: 3;
+  /* border-box, or the field's own padding and border would push it past the
+     measure it is being held to. */
+  box-sizing: border-box;
+  max-width: var(--mb-measure);
+  min-width: 0;
+}
+
+/* Your own gutter: the avatar, your name, and a note saying whose voice this
+   will go out in. */
+/* Both gutter tracks span every row the body column makes, or the field would
+   be pinned to the top of a row as tall as the whole poster block and the
+   controls would fall a long way below it. */
+.mb-board .textbox-poster {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  text-align: center;
+}
+
+.mb-board .textbox-avatar {
+  width: calc(var(--mb-gutter) - 4.5rem);
+  height: auto;
+  aspect-ratio: 1;
+  border: none;
+  object-fit: cover;
+}
+
+.mb-board .textbox-poster-name {
+  margin: 0;
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.06em;
+  color: var(--mb-accent);
+  overflow-wrap: anywhere;
+}
+
+.mb-board .textbox-poster-note {
+  margin: 0;
+  font-family: var(--mb-glyph);
+  font-size: 0.66rem;
+  color: var(--mb-mute);
+}
+
+/* The controls sit under the field, so the wrapper round it carries nothing —
+   the field itself is the bordered box. */
+.mb-board .input-area {
   display: block;
-  padding: 0.5rem 0 0.9rem;
-  color: var(--mb-dim);
-  font-family: var(--mb-glyph);
-  font-size: 0.95rem;
-  letter-spacing: 0.15em;
-  text-align: center;
-  user-select: none;
-  pointer-events: none;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
 }
 
-/* Closes the run of posts the way the masthead opens it. */
-.mb-board .messages-container::after {
-  content: '──✧˖°˖☆˖°˖✧──';
-  padding: 1.4rem 0 0.2rem;
-  color: var(--mb-rule);
+/* A plain field, not a panel: the border is the only thing saying it is one.
+   Roomy inside — the field is the one thing on the page you type into, and the
+   reference has the text sitting well clear of its edges. */
+.mb-board .text-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  background: var(--colour4);
+  border: 1px solid var(--mb-rule);
+  font-family: var(--mb-face);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--mb-ink);
+}
+
+.mb-board .text-input:focus {
+  border-color: var(--mb-accent);
+}
+
+.mb-board .text-input::placeholder {
+  color: var(--mb-mute);
+}
+
+/* Send, attach and the count on one line under the field. */
+.mb-board .textbox-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+/* The only filled control on the board — it is the one thing you came here to
+   press. */
+.mb-board .send-button-container button {
+  padding: 0.3rem 1rem;
+  background: var(--mb-accent);
+  border: 1px solid var(--mb-accent);
+  border-radius: 0;
+  color: var(--colour4);
   font-family: var(--mb-glyph);
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
-  text-align: center;
-  user-select: none;
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mb-board .send-button-container button:hover:not(:disabled) {
+  background: var(--colour3);
+  border-color: var(--colour3);
+  color: var(--colour4);
+}
+
+.mb-board .textbox-attach {
+  padding: 0.3rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--mb-rule);
+  border-radius: 0;
+  color: var(--mb-accent);
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.mb-board .textbox-attach:hover {
+  border-color: var(--colour3);
+  color: var(--colour3);
+}
+
+.mb-board .word-counter {
+  margin: 0 0 0 auto;
+  padding: 0;
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.04em;
+  color: var(--mb-mute);
 }
 
 /* ─── The post ────────────────────────────────────────── */
 
 .mb-board .user-message {
-  /* Declared here, not on .mb-board: a custom property's var() references are
-     resolved on the element that declares it, so a gutter defined on the board
-     would keep the board's --mb-av even inside a reply that has overridden it —
-     which is what used to leave replies with a hole between avatar and text. */
-  /* Panel inset, avatar, then the gap before the body. */
-  --mb-gutter: calc(var(--mb-av) + 2.5rem);
-
-  display: block;
+  display: grid;
+  grid-template-columns: var(--mb-gutter) var(--mb-channel) minmax(0, 1fr);
+  gap: var(--mb-gap);
+  align-items: start;
   width: 100%;
   max-width: none;
+  min-height: 0;
   margin: 0;
-  padding: var(--mb-pad) 1.4rem 1.2rem var(--mb-gutter);
-  background: var(--mb-panel);
+  padding: 1.4rem var(--mb-edge);
+  background: var(--mb-sheet);
+  border-bottom: 1px solid var(--mb-rule);
   border-radius: 0;
   color: var(--mb-ink);
   font-family: var(--mb-face);
-  /* Room for the avatar plus the name and timestamp stacked under it — the
-     poster column is out of flow and cannot push the post open itself. */
-  min-height: calc(var(--mb-av) + 2.9 * var(--mb-name-fs) + 8rem);
+  transition: background-color 0.15s ease;
 }
 
-/* ─── Panel corners ───────────────────────────────────── */
-
-/* Box-drawing marks at the four corners in place of a border — the navidrome
-   card idiom, and the only frame a panel gets. Four corners need four pseudos,
-   so the bottom pair hangs off .user-message-content; it is never a containing
-   block, so all four anchor to the post box itself.
-
-   Pink, and at full strength: it is the one structural thing carrying the
-   accent, which is what stops the pink on names and counts reading as an
-   accident. Faint dim-blue corners were also barely visible on the panel. */
-.mb-board .user-message::before,
-.mb-board .user-message::after,
-.mb-board .user-message-content::before,
-.mb-board .user-message-content::after {
-  position: absolute;
-  color: var(--mb-pink);
-  font-family: var(--mb-glyph);
-  font-size: 0.85rem;
-  line-height: 1;
-  user-select: none;
-  pointer-events: none;
+.mb-board .user-message:hover {
+  background: var(--mb-sheet-hover);
 }
 
-.mb-board .user-message::before {
-  content: '┌';
-  top: 0.3rem;
-  left: 0.35rem;
-}
-
-.mb-board .user-message::after {
-  content: '┐';
-  top: 0.3rem;
-  right: 0.35rem;
-}
-
-.mb-board .user-message-content::before {
-  content: '└';
-  bottom: 0.3rem;
-  left: 0.35rem;
-}
-
-.mb-board .user-message-content::after {
-  content: '┘';
-  bottom: 0.3rem;
-  right: 0.35rem;
-}
-
-/* Deep-linked post: marked with a bar in the gutter rather than a fill, so it
-   reads as a margin note instead of a highlighted card. */
+/* Deep-linked post: a bar in the margin rather than a fill, so it reads as a
+   marked entry instead of a highlighted card. */
 .mb-board .mb-msg-highlight .user-message {
   box-shadow: inset 3px 0 0 var(--colour3);
 }
 
-/* ─── Poster column ───────────────────────────────────── */
+/* ─── Poster gutter ───────────────────────────────────── */
 
+/* One centred stack: avatar, name, the bio they wrote, then everything the
+   board counted. Centred rather than flush left because the avatar is square
+   and narrower than the track — ranged left it sat off to one side of the text
+   under it. */
 .mb-board .user-message-sticker-container {
-  position: absolute;
-  top: var(--mb-pad);
-  left: 1.1rem;
-  width: var(--mb-av);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
   padding: 0;
+  text-align: center;
 }
 
-/* No frame — the panel is the only edge on the page. */
+/* No frame. The avatar is the only picture in the gutter; a border round it
+   read as a card in a design that has no cards. */
 .mb-board .user-message-sticker {
-  width: var(--mb-av);
-  height: var(--mb-av);
+  width: var(--mb-avatar);
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   border: none;
   border-radius: 0;
   object-fit: cover;
 }
 
-/* Emoji stickers are a <span>, so they need the box drawn round the glyph. */
+/* Emoji stickers are a <span>, so the glyph has to be given the same box. */
 .mb-board span.user-message-sticker {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(var(--mb-av) * 0.5);
+  font-size: calc(var(--mb-avatar) * 0.62);
+  line-height: 1;
 }
 
 .mb-board .user-message-sticker-fallback {
   border-radius: 0;
 }
 
-/* Both of these are absolute against the post box, not the content column they
-   sit in — see the file header. */
-.mb-board .user-message-username {
-  position: absolute;
-  top: calc(var(--mb-pad) + var(--mb-av) + 0.5rem);
-  left: 1.1rem;
-  /* Wider than the avatar — the column runs to the body, not to the image. */
-  width: calc(var(--mb-av) + 1.3rem);
-  margin: 0;
-  /* Two lines, then ellipsis. The timestamp below is placed by arithmetic on
-     exactly this many lines, so a third would run straight through it; the full
-     name is in the hover bubble either way. */
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  font-family: var(--mb-face);
-  /* Set above the timestamp beneath it — the variable axis gives a real 700
-     rather than a synthesised one. */
-  font-size: calc(var(--mb-name-fs) * 1.15);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.mb-board .user-message-timestamp {
-  position: absolute;
-  top: calc(var(--mb-pad) + var(--mb-av) + 0.55rem + 2.9 * var(--mb-name-fs));
-  left: 1.1rem;
-  /* Wider than the avatar — the column runs to the body, not to the image. */
-  width: calc(var(--mb-av) + 1.3rem);
-  margin: 0;
-  opacity: 1;
-  color: var(--mb-dim);
-  font-family: var(--mb-face);
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
+/* The poster's name, directly under their picture — the two together are who
+   wrote this, and the body column is left to carry only what they said. */
+.mb-board .user-message-sticker-container .user-message-username {
+  width: 100%;
+  margin: -0.15rem 0 0;
+  /* The component ranges the name left and pins it to the start of its flex
+     line; in the gutter everything sits on the avatar's centre line. */
+  align-self: center;
+  text-align: center;
+  font-family: var(--mb-glyph);
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
   line-height: 1.35;
-  /* Two lines whether or not it needs them, so the stats block below sits at a
-     fixed offset rather than moving with the length of a date. */
-  min-height: 1.95rem;
+  /* A long handle wraps here rather than being cut: the gutter is narrow and
+     there is nothing beside it competing for the room. */
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
 }
 
-/* Joined, posts, location — the phpBB identity block, and the reason the poster
-   column is allowed to be as tall as the post. Stacked under the timestamp by
-   the same arithmetic as everything else in this column (see the file header).
-   Anchoring it to the foot of the panel instead was tempting and wrong: a post
-   with its replies open is tall, and the block ended up stranded at the bottom
-   beside the last reply rather than under the name it belongs to. */
 .mb-board .user-message-poster-stats {
-  position: absolute;
-  top: calc(var(--mb-pad) + var(--mb-av) + 0.55rem + 2.9 * var(--mb-name-fs) + 2.35rem);
-  left: 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  width: calc(var(--mb-av) + 1.3rem);
-  color: var(--mb-dim);
-  font-family: var(--mb-face);
-  font-size: 0.68rem;
-  line-height: 1.4;
+  gap: 0.4rem;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
   overflow-wrap: break-word;
 }
 
+/* The one line in the gutter they wrote themselves — set in the site's italic
+   and commented out, the way a note in the margin of a listing would be. */
+.mb-board .user-message-poster-bio {
+  font-family: var(--font3);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--mb-voice);
+}
+
+.mb-board .user-message-poster-bio::before {
+  content: '// ';
+}
+
+/* What the board counted on their behalf, ruled off from it. */
+.mb-board .user-message-poster-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: center;
+  width: 100%;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--mb-rule-soft);
+  color: var(--mb-dim);
+  font-family: var(--mb-glyph);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+
+/* ─── Body ────────────────────────────────────────────── */
+
+/* A wrapping flex row. On the board the gutter has taken the name, so the first
+   line here is the timestamp alone; on a reply — which has no gutter — the name
+   comes back and the two share that line with the controls.
+
+   No row gap. A gap here would apply between every pair of lines equally —
+   the header and the prose it introduces would sit as far apart as the prose and
+   the controls under it, which is what left the header floating. Each block
+   sets its own margin instead. */
+.mb-board .user-message-content {
+  display: flex;
+  /* The component sets column; a real wrapping row is what lets a reply's name,
+     time and controls share their first line while everything else takes one of
+     its own. */
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  max-width: var(--mb-measure);
+  gap: 0 0.6rem;
+  min-width: 0;
+}
+
+.mb-board .user-message-content > * {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+.mb-board .user-message-username {
+  flex: 0 1 auto;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--mb-glyph);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mb-board .user-message-username-link {
-  color: var(--mb-pink);
+  color: var(--mb-accent);
   text-decoration: none;
 }
 
@@ -361,23 +561,39 @@
   text-decoration: underline;
 }
 
-/* The poster column already divides the post. */
+/* The post's own header line: nothing on it but when this was said, ruled off
+   from the prose it dates with a dashed hairline. */
+.mb-board .user-message-timestamp {
+  margin: 0 0 0.65rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--mb-rule-soft);
+  opacity: 1;
+  color: var(--mb-mute);
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.04em;
+}
+
+.mb-board .user-message-edited-indicator {
+  opacity: 1;
+  color: var(--mb-mute);
+  font-style: normal;
+}
+
+/* The dashed rule above does the job. */
 .mb-board .user-message-separator {
   display: none;
 }
 
-/* ─── Body ────────────────────────────────────────────── */
-
-/* Serif body against mono chrome: the terminal furniture stays in CommitMono and
-   the prose itself is set in Libre Baskerville, which is what --font4 is for. */
 .mb-board .user-message-text {
-  max-width: none;
-  font-family: var(--font4);
-  /* Libre Baskerville runs a large x-height, so it sets bigger than Baskervville
-     did at the same size. */
-  font-size: 1.15rem;
-  line-height: 1.7;
+  max-width: var(--mb-measure);
+  margin: 0 0 0.9rem;
+  font-family: var(--mb-face);
+  font-size: 0.906rem;
+  line-height: 1.75;
+  letter-spacing: 0.005em;
   color: var(--mb-ink);
+  text-wrap: pretty;
   /* Never split a word across lines: an over-long one drops to a line of its
      own and is only broken if it cannot fit even there. */
   hyphens: none;
@@ -389,8 +605,6 @@
   color: var(--mb-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
-  /* break-all would slice a URL mid-character; this keeps it whole unless it
-     genuinely cannot fit on a line by itself. */
   word-break: normal;
   overflow-wrap: break-word;
 }
@@ -407,7 +621,7 @@
 }
 
 .mb-board .user-message-image-container {
-  margin-top: 0.8rem;
+  margin: 0 0 0.9rem;
 }
 
 /* Bounded on both axes: film posters are portrait and would otherwise run to
@@ -421,25 +635,19 @@
   object-fit: contain;
 }
 
-.mb-board .user-message-edited-indicator {
-  display: block;
-  opacity: 1;
-  color: var(--mb-dim);
-}
-
 /* ─── Actions ─────────────────────────────────────────── */
 
-/* Out of the far corner and into the foot of the post it belongs to: labelled
-   controls in flow, aligned with the text. The markup puts this before the
-   replies branch, so it reads as the end of the post rather than the end of the
-   thread, and nothing marks the boundary — the controls are the boundary. An
-   ornament here fired on every post in the list, which made it texture rather
-   than decoration. */
+/* In flow at the foot of the post, aligned with the text. Small outlined
+   controls: like and reply on the left, and anything destructive pushed to the
+   far end and drawn dashed, so the two groups never get mistaken for each
+   other. */
 .mb-board .user-message-actions-container {
   position: static;
+  display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 1rem;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
   padding-top: 0;
   border-top: none;
 }
@@ -448,45 +656,72 @@
   display: none;
 }
 
-/* These are the only things on the panel you can click, and a pale border round
-   pale text on a pale panel made them the faintest marks on it. Full-strength
-   ink and edge. */
 .mb-board .user-message-heart-button,
 .mb-board .user-message-reply-icon-button,
 .mb-board .user-message-edit-button,
 .mb-board .user-message-delete-button,
 .mb-board .user-message-status-button {
   gap: 0.4rem;
-  padding: 0.22rem 0.75rem;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid var(--mb-dim);
+  padding: 0.25rem 0.625rem;
+  background: transparent;
+  border: 1px solid var(--mb-rule);
+  border-radius: 0;
   color: var(--mb-accent);
-  font-family: var(--mb-face);
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
   opacity: 1;
-  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transform: none;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-/* The icons carry no meaning on their own at this size. */
-.mb-board .user-message-heart-button::after { content: 'like'; }
+/* The heart reads as itself with a number beside it; the rest carry no meaning
+   at this size without a word. */
 .mb-board .user-message-reply-icon-button::after { content: 'reply'; }
 .mb-board .user-message-edit-button::after { content: 'edit'; }
 .mb-board .user-message-delete-button::after { content: 'delete'; }
 
-/* Scale, not colour, was the old hover — too subtle once these are boxes. */
+/* DOM order is edit, delete, status, like, reply; the read is like, reply,
+   then your own controls at the far end. */
+.mb-board .user-message-reaction-container { order: 1; }
+.mb-board .user-message-reply-icon-button { order: 2; }
+.mb-board .user-message-edit-button { order: 3; }
+.mb-board .user-message-delete-button { order: 4; }
+.mb-board .user-message-status-button { order: 5; }
+
+/* Whichever of the owner controls comes first opens the gap; delete only takes
+   the margin when there is no edit button in front of it. */
+.mb-board .user-message-edit-button,
+.mb-board .user-message-delete-button,
+.mb-board .user-message-status-button {
+  margin-left: auto;
+  border-style: dashed;
+  border-color: var(--mb-dim);
+  color: var(--mb-dim);
+}
+
+.mb-board .user-message-edit-button ~ .user-message-delete-button,
+.mb-board .user-message-edit-button ~ .user-message-status-button,
+.mb-board .user-message-delete-button ~ .user-message-status-button {
+  margin-left: 0;
+}
+
 .mb-board .user-message-heart-button:hover,
 .mb-board .user-message-reply-icon-button:hover,
 .mb-board .user-message-edit-button:hover,
 .mb-board .user-message-status-button:hover {
-  background: var(--colour4);
+  background: transparent;
   color: var(--colour3);
   border-color: var(--colour3);
   transform: none;
 }
 
 .mb-board .user-message-delete-button:hover {
-  border-color: #ff4757;
+  color: #cc1a1a;
+  border-color: #cc1a1a;
+  border-style: solid;
+  transform: none;
 }
 
 .mb-board .user-message-heart-button.reacted {
@@ -494,12 +729,11 @@
   border-color: var(--colour3);
 }
 
-/* Was an overlay pinned on top of the glyph; here it is the last item in a row
-   that reads "♡ like 9". */
+/* Was an overlay pinned on top of the glyph; here it is the number beside it. */
 .mb-board .user-message-reaction-count {
   position: static;
   order: 2;
-  color: var(--mb-pink);
+  color: inherit;
   font-size: 1em;
   font-weight: 700;
   text-shadow: none;
@@ -510,36 +744,24 @@
   border: 1px solid var(--mb-dim);
   border-radius: 0;
   color: var(--mb-accent);
-  font-family: var(--mb-face);
-  font-size: 0.8rem;
+  font-family: var(--mb-glyph);
+  font-size: 0.72rem;
   box-shadow: none;
 }
 
 /* ─── Replies ─────────────────────────────────────────── */
 
-/* The expand control, as a branch off the post it belongs to. */
+/* The expand control: a plain orange line above the tree, the only orange on an
+   unhovered post, so a busy thread advertises itself. */
 .mb-board .user-message-reply-indicator {
   gap: 0.4rem;
-  margin-top: 0.9rem;
+  margin-top: 0.7rem;
   padding: 0;
   border-radius: 0;
-  color: var(--mb-dim);
-  font-family: var(--mb-face);
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
-}
-
-/* The count itself picks up the pink, so a thread advertises how much talking
-   it has caused the way a post advertises its likes. */
-.mb-board .user-message-reply-count {
-  color: var(--mb-pink);
-  font-weight: 700;
-}
-
-.mb-board .user-message-reply-indicator::before {
-  content: '└─';
-  color: var(--mb-pink);
+  color: var(--colour3);
   font-family: var(--mb-glyph);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
 }
 
 .mb-board .user-message-reply-indicator:hover {
@@ -548,105 +770,198 @@
   text-decoration: underline;
 }
 
-/* Indented, and separated from each other by the gap between their panels —
-   no thread line down the side. */
+.mb-board .user-message-reply-count {
+  font-weight: 400;
+}
+
+/* A tree rather than an indented stack of cards: the replies lose their
+   avatars and their backgrounds, and a box character in the first column says
+   where each one hangs. */
 .mb-board .user-message-replies-container {
-  gap: 0.4rem;
-  margin-top: 0.5rem;
+  gap: 0.7rem;
+  margin-top: 0.55rem;
   padding-top: 0;
-  padding-left: 1.2rem;
+  padding-left: 0;
   border-left: none;
 }
 
-/* One variable resets the whole poster column to reply scale — every offset
-   above is arithmetic on it. */
+/* Tree glyph, a thumbnail of who wrote it, then the reply. The avatar is the
+   third column's worth of identity a reply gets — small enough that the tree
+   still reads as the structure, big enough to recognise someone by. */
 .mb-board .user-message.reply {
-  --mb-av: clamp(48px, 3.4vw, 64px);
-  --mb-pad: 0.9rem;
-  --mb-name-fs: 0.76rem;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 0 0.5rem;
+  align-items: start;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+}
 
-  max-width: none;
-  margin-left: 0;
-  padding-bottom: 1rem;
-  background: var(--mb-panel-reply);
-  border-top: none;
+.mb-board .user-message.reply:hover {
+  background: none;
+}
+
+.mb-board .user-message.reply::before {
+  content: '├─';
+  color: var(--mb-rule);
+  font-family: var(--mb-glyph);
+  font-size: 0.75rem;
+  /* The same line box as the name and the avatar, so all three share a centre. */
+  line-height: var(--mb-reply-line);
+  user-select: none;
+}
+
+.mb-board .user-message-replies-container > .user-message.reply:last-child::before {
+  content: '└─';
+}
+
+/* Centred on the name's line rather than on the whole reply: it belongs to who
+   wrote it, not to the block of text under it. The picture is taller than that
+   line, so it is pulled up by half the difference and overhangs it evenly —
+   which is what puts the two centre lines together. */
+.mb-board .user-message.reply .user-message-sticker-container {
+  display: flex;
+  align-self: start;
+  width: var(--mb-reply-avatar);
+  margin-top: calc((var(--mb-reply-line) - var(--mb-reply-avatar)) / 2);
 }
 
 .mb-board .user-message.reply .user-message-sticker {
-  width: var(--mb-av);
-  height: var(--mb-av);
+  width: var(--mb-reply-avatar);
+  height: var(--mb-reply-avatar);
+  aspect-ratio: auto;
+}
+
+.mb-board .user-message.reply span.user-message-sticker {
+  font-size: calc(var(--mb-reply-avatar) * 0.72);
+}
+
+/* Nobody's avatar rather than a blank square. */
+.mb-board .user-message.reply span.user-message-sticker:empty {
+  display: none;
+}
+
+/* A reply's first line carries everything but the words: who, when, and the
+   controls at the far end. The prose and anything under it drops below. */
+.mb-board .user-message.reply .user-message-content > * {
+  order: 1;
+}
+
+.mb-board .user-message.reply .user-message-username,
+.mb-board .user-message.reply .user-message-timestamp,
+.mb-board .user-message.reply .user-message-actions-container {
+  order: 0;
+  flex: 0 0 auto;
+}
+
+/* Line height pinned, not left to the face: the avatar beside it is positioned
+   off this box. */
+.mb-board .user-message.reply .user-message-username {
+  font-size: 0.72rem;
+  line-height: var(--mb-reply-line);
+  margin: 0 0 0.2rem;
+}
+
+.mb-board .user-message.reply .user-message-timestamp {
+  margin: 0 0 0.2rem;
+  padding-bottom: 0;
+  border-bottom: none;
+  font-size: 0.66rem;
+}
+
+/* Pushed to the far end of that line rather than sitting under the reply — at
+   this size the controls are lighter than the words they belong to. */
+.mb-board .user-message.reply .user-message-actions-container {
+  margin: 0 0 0.2rem auto;
+  gap: 0.3rem;
+}
+
+.mb-board .user-message.reply .user-message-heart-button,
+.mb-board .user-message.reply .user-message-edit-button,
+.mb-board .user-message.reply .user-message-delete-button {
+  padding: 0.1rem 0.5rem;
+  background: var(--colour4);
+  border-color: var(--mb-rule-soft);
+  color: var(--mb-dim);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+}
+
+.mb-board .user-message.reply .user-message-edit-button,
+.mb-board .user-message.reply .user-message-delete-button {
+  margin-left: 0;
+  background: transparent;
+}
+
+.mb-board .user-message.reply .user-message-content {
+  gap: 0 0.6rem;
 }
 
 .mb-board .user-message.reply .user-message-text {
-  font-size: 1.04rem;
-}
-
-.mb-board .user-message.reply .user-message-actions-container {
-  margin-top: 0.7rem;
-}
-
-/* ─── Composer, reply box, edit box ───────────────────── */
-
-.mb-board .textbox-container {
-  max-width: none;
   margin: 0;
-  padding: 0 0 1.4rem;
+  font-size: 0.81rem;
+  line-height: 1.7;
+  color: #3a3a44;
 }
 
-/* The composer used to be a white box between a dashed tip box and a blue
-   panel — three framings in a row. It sits on the post panel instead, and keeps
-   only a border, which is what tells you it is a field and not a post. */
-.mb-board .input-area {
-  padding: 0.6rem 0.7rem;
-  background: var(--mb-panel);
-  border: 1px solid var(--mb-dim);
-  border-radius: 0;
+/* ─── Reply box, edit box ─────────────────────────────── */
+
+/* The in-post composers are the page composer without the band: no tint, no
+   gutter, one column. */
+.mb-board .user-message .textbox-container {
+  display: block;
+  padding: 0;
+  background: none;
+  border-bottom: none;
 }
 
-.mb-board .input-area:focus-within {
-  background: var(--colour4);
-  border-color: var(--mb-accent);
+/* The reply box comes last, under the replies already on show. Set in from the
+   left on the tree's own line, so it reads as the next entry in the thread
+   rather than a second composer for the post. */
+.mb-board .user-message-reply-input-container {
+  /* Two columns so the cancel — which the component renders last — comes up
+     onto the header's line instead of taking one of its own. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  padding-left: 1.35rem;
+  border-top: 1px dashed var(--mb-rule-soft);
 }
 
-/* Composing in the same face the post will be set in. */
-.mb-board .text-input {
-  font-family: var(--mb-face);
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--mb-ink);
+.mb-board .user-message-reply-input-container .textbox-container {
+  grid-column: 1 / -1;
 }
 
-.mb-board .text-input::placeholder {
-  color: var(--mb-dim);
+.mb-board .user-message-reply-input-container .user-message-cancel-reply {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  justify-self: end;
 }
 
-.mb-board .send-button-container button {
-  padding: 0.3rem 1rem;
-  background: transparent;
-  border: 1px solid var(--mb-accent);
-  border-radius: 0;
-  color: var(--mb-accent);
-  font-family: var(--mb-face);
-  font-size: 0.9rem;
+.mb-board .user-message-edit-container {
+  margin-top: 0.5rem;
+  padding-top: 0;
+}
+
+.mb-board .user-message-reply-header {
+  margin-bottom: 0.4rem;
+  color: var(--mb-mute);
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  font-style: normal;
   letter-spacing: 0.05em;
+  opacity: 1;
 }
 
-.mb-board .send-button-container button:hover {
-  background: transparent;
-  color: var(--colour3);
-  border-color: var(--colour3);
-}
-
-.mb-board .word-counter {
-  font-family: var(--mb-face);
-  font-size: 0.78rem;
-  letter-spacing: 0.03em;
-  color: var(--mb-dim);
-}
-
-/* The in-post boxes were written for white-on-blue and are unreadable once the
-   post is white; specificity here has to clear the .user-message-scoped rules
-   they come from. */
+/* These boxes were written for white-on-blue and are unreadable on the sheet;
+   the specificity here has to clear the .user-message-scoped rules they come
+   from. */
 .mb-board .user-message .user-message-reply-input-container .word-counter,
 .mb-board .user-message .user-message-edit-container .word-counter,
 .mb-board .user-message .user-message-reply-input-container .textbox-container figcaption,
@@ -656,30 +971,16 @@
   color: var(--mb-dim);
 }
 
-.mb-board .user-message-reply-input-container,
-.mb-board .user-message-edit-container {
-  margin-top: 0.8rem;
-  padding-top: 0;
-}
-
-.mb-board .user-message-reply-header {
-  color: var(--mb-dim);
-  font-family: var(--mb-face);
-  font-size: 0.82rem;
-  font-style: normal;
-  letter-spacing: 0.05em;
-  opacity: 1;
-}
-
 .mb-board .user-message-cancel-reply {
-  padding: 0.25rem 0.85rem;
+  margin-top: 0.4rem;
+  padding: 0.18rem 0.6rem;
   background: transparent;
-  border: 1px solid var(--mb-rule);
+  border: 1px dashed var(--mb-dim);
   border-radius: 0;
   color: var(--mb-dim);
-  font-family: var(--mb-face);
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
+  font-family: var(--mb-glyph);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
 }
 
 .mb-board .user-message-cancel-reply:hover {
@@ -690,65 +991,50 @@
 
 /* ─── Tip ─────────────────────────────────────────────── */
 
-/* Was the only dashed thing left on the page once the posts lost their rules.
-   Same panel as everything else; the pink mark in the corner is the tell that
-   it is an aside rather than a post. */
+/* A band under the masthead, quieter than the composer below it: a note about
+   the board rather than part of it. */
 .mb-board .tip {
-  position: relative;
-  width: var(--mb-width);
+  width: 100%;
   max-width: none;
-  margin: 0 auto 1.1rem 0;
-  padding: 0.5rem 0.9rem;
-  background: var(--mb-panel);
+  margin: 0;
+  padding: 0.625rem var(--mb-edge);
+  background: var(--mb-tint-soft);
   border: none;
+  border-bottom: 1px solid var(--mb-rule);
   border-radius: 0;
   color: var(--mb-dim);
-  font-family: var(--mb-face);
-  font-size: 0.9rem;
+  font-family: var(--mb-glyph);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
   text-align: left;
   box-shadow: none;
 }
 
-/* Two corners rather than the post's four — same family, lesser thing. */
-.mb-board .tip::before,
-.mb-board .tip::after {
-  position: absolute;
-  color: var(--mb-pink);
-  font-family: var(--mb-glyph);
-  font-size: 0.85rem;
-  line-height: 1;
-  user-select: none;
-  pointer-events: none;
-}
-
-.mb-board .tip::before {
-  content: '┌';
-  top: 0.25rem;
-  left: 0.3rem;
-}
-
-.mb-board .tip::after {
-  content: '┘';
-  right: 0.3rem;
-  bottom: 0.25rem;
+.mb-tip-mark {
+  color: var(--mb-accent);
 }
 
 .mb-board .tip strong {
-  color: var(--mb-accent);
+  color: var(--mb-dim);
   font-weight: 400;
+}
+
+.mb-board .tip code {
+  color: var(--mb-accent);
 }
 
 /* ─── Load more ───────────────────────────────────────── */
 
 .mb-board .messages-more button {
-  padding: 0.4rem 0.9rem;
+  padding: 0.3rem 0.875rem;
   background: transparent;
   border: 1px solid var(--mb-accent);
   border-radius: 0;
   color: var(--mb-accent);
-  font-family: var(--mb-face);
-  font-size: 0.9rem;
-  letter-spacing: 0.05em;
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
 }
 
 .mb-board .messages-more button:hover:not(:disabled) {
@@ -757,75 +1043,164 @@
   border-color: var(--colour3);
 }
 
+/* ─── Board index ─────────────────────────────────────── */
+
+/* The rail on the right, in the same idiom as the site index on the left. It is
+   drawn but not wired: every thread still lives in the one collection, so the
+   entries are labels rather than links. */
+.mb-boards {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  box-sizing: border-box;
+  width: var(--mb-aside);
+  max-height: 100vh;
+  overflow: auto;
+  padding: 1.6rem 1rem 3rem;
+  border-left: 1px solid var(--mb-rule);
+  font-family: var(--mb-glyph);
+  font-size: 0.75rem;
+  line-height: 1.9;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+
+.mb-boards-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.375rem;
+  font-size: 0.69rem;
+  letter-spacing: 0.12em;
+  color: var(--mb-accent);
+}
+
+.mb-boards-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--mb-rule);
+}
+
+.mb-boards-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  color: var(--mb-dim);
+}
+
+.mb-boards-list li {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mb-boards-tree {
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.mb-boards-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The board you are reading. */
+.mb-boards-list li.current .mb-boards-name {
+  color: var(--colour3);
+  border-bottom: 1px solid var(--colour3);
+}
+
 /* ─── Narrow ──────────────────────────────────────────── */
 
-/* Below this the gutter is wider than the body beside it, so the two-column
-   split is abandoned: everything the desktop layout took out of flow goes back
-   into it and the post returns to avatar-beside-content, with the name and
-   timestamp back at the top of the content column where the markup puts them. */
+/* The index has nowhere to go beside a single-column board. */
+@media (max-width: 1100px) {
+  .mb-boards {
+    display: none;
+  }
+
+  .mb-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Below this the gutter is wider than the body beside it, so the columns
+   collapse into one: the poster block goes back above the post and lies along
+   rather than down, with the avatar at a thumbnail size beside it. */
 @media (max-width: 768px) {
   .mb-board .user-message {
-    display: flex;
-    align-items: flex-start;
-    min-height: 0;
-    padding: 0.9rem 0.9rem 1.1rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6rem;
   }
 
+  /* The composer keeps two columns — the avatar is small enough to sit beside
+     the field even here — but the channel between them goes. */
+  .mb-board .textbox-container {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.4rem 0.6rem;
+  }
+
+  .mb-board .textbox-body {
+    grid-column: 2;
+  }
+
+  .mb-board .textbox-poster-name,
+  .mb-board .textbox-poster-note,
+  .mb-board .user-message-gutter-rule,
+  .mb-board .textbox-gutter-rule {
+    display: none;
+  }
+
+  /* Avatar and name along the top of the post, everything the board counted
+     wrapping onto the line below them. */
   .mb-board .user-message-sticker-container {
-    position: static;
-    width: auto;
-    padding-right: 0.7rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.7rem;
+    width: 100%;
+    text-align: left;
   }
 
-  .mb-board .user-message-sticker,
-  .mb-board .user-message.reply .user-message-sticker {
+  .mb-board .user-message-sticker {
+    flex: 0 0 auto;
     width: 52px;
     height: 52px;
+    aspect-ratio: auto;
   }
 
   .mb-board span.user-message-sticker {
-    font-size: 26px;
+    font-size: 28px;
   }
 
-  .mb-board .user-message-username,
-  .mb-board .user-message-timestamp {
-    position: static;
+  /* Beside the avatar rather than under it, so it ranges left again. */
+  .mb-board .user-message-sticker-container .user-message-username {
+    flex: 1 1 auto;
     width: auto;
-    min-height: 0;
-    overflow: visible;
-    white-space: normal;
+    margin: 0;
+    font-size: 0.875rem;
+    text-align: left;
   }
 
-  .mb-board .user-message-username {
-    margin-bottom: 0.15rem;
-  }
-
-  .mb-board .user-message-timestamp {
-    margin-bottom: 0.35rem;
-  }
-
-  /* Back in flow under the timestamp, and along rather than down: the poster
-     column does not exist at this width. */
   .mb-board .user-message-poster-stats {
-    position: static;
+    flex: 0 0 100%;
+    align-items: flex-start;
+    gap: 0.25rem;
+    width: auto;
+    text-align: left;
+  }
+
+  /* Beside rather than under each other once there is a whole line to use. */
+  .mb-board .user-message-poster-meta {
     flex-direction: row;
     flex-wrap: wrap;
+    align-items: baseline;
     gap: 0.15rem 0.7rem;
-    width: auto;
-    margin-bottom: 0.5rem;
+    padding-top: 0;
+    border-top: none;
   }
 
-  .mb-board .user-message-replies-container {
-    padding-left: 0.6rem;
-  }
-
-  .mb-board .user-message-text,
-  .mb-board .user-message.reply .user-message-text {
-    font-size: 1rem;
-  }
-
-  /* Narrower ornament: the wide band overflows a phone column. */
-  .mb-board .messages-container::after {
-    content: '──✧˖°˖✧──';
+  /* The reply keeps its thumbnail — it is the only thing on a narrow screen
+     saying who wrote which reply — just smaller. */
+  .mb-board {
+    --mb-reply-avatar: 24px;
   }
 }

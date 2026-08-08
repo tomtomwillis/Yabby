@@ -79,6 +79,15 @@ interface UserMessageProps {
       poster's name. Off by default: it costs a users read per distinct author
       on screen, which only the message board wants to spend. */
   showPosterStats?: boolean;
+  /** How many of the newest replies to leave on show while the thread is
+      collapsed. 0 (the default) keeps the old behaviour — nothing until you
+      expand. The board fetches exactly this many up front, so `replies` may
+      hold only the tail of the thread; the slice below is taken from the end
+      for that reason. */
+  replyPreviewCount?: number;
+  /** Lay the in-post composers out the way the ledger boards do: send, attach
+      and the counter in a row under the field rather than inside it. */
+  ledgerControls?: boolean;
 }
 
 // Utility function to validate and sanitize URLs
@@ -201,6 +210,8 @@ const UserMessage: React.FC<UserMessageProps> = ({
   status,
   onToggleStatus,
   showPosterStats,
+  replyPreviewCount = 0,
+  ledgerControls,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -215,6 +226,26 @@ const UserMessage: React.FC<UserMessageProps> = ({
   const isOwner = userId !== undefined && currentUserId !== undefined && userId === currentUserId;
   const canEdit = isOwner && onEdit;
   const canDelete = onDelete && (isOwner || isAdmin);
+
+  // Which replies are on screen, and what the toggle under them should say.
+  // With previews off this is the old thread: nothing until expanded, and a
+  // control that reads "3 replies". With previews on the tail of the thread is
+  // always visible and the control only appears when it is hiding something.
+  const loadedReplies = replies ?? [];
+  const shownReplies = repliesExpanded
+    ? loadedReplies
+    : loadedReplies.slice(-replyPreviewCount);
+  const hiddenReplyCount = Math.max(0, (replyCount ?? 0) - shownReplies.length);
+  const showReplyToggle =
+    !isReply &&
+    !!enableReplies &&
+    (replyCount ?? 0) > 0 &&
+    (replyPreviewCount === 0 || repliesExpanded || hiddenReplyCount > 0);
+  const replyToggleLabel = (() => {
+    if (replyPreviewCount === 0) return `${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`;
+    if (repliesExpanded) return 'hide replies';
+    return `show ${hiddenReplyCount} more ${hiddenReplyCount === 1 ? 'reply' : 'replies'}`;
+  })();
 
   const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
   const messageImageUrl = imageId ? `${MEDIA_API_URL}/mb-images/${imageId}.webp` : null;
@@ -304,20 +335,40 @@ const UserMessage: React.FC<UserMessageProps> = ({
     }
   };
 
+  const usernameBlock = (
+    <div className="user-message-username">
+      <UsernameLink
+        userId={userId}
+        username={username}
+        className="user-message-username-link"
+        disableHover={showPosterStats}
+      />
+    </div>
+  );
+
   return (
     <div className={`user-message ${isReply ? 'reply' : ''}`}>
+      {/* The poster column. Name and identity block live here rather than in the
+          content column so a board can lay the post out as two real columns —
+          who wrote it on the left, everything they said on the right — without
+          any of it having to be positioned out of flow. Only the message board
+          asks for it (showPosterStats); every other board still renders this as
+          the bare avatar it always was, with the name above the message. */}
       <div className="user-message-sticker-container">
         {renderUserSticker()}
+        {showPosterStats && usernameBlock}
+        {showPosterStats && <PosterStats userId={userId} />}
       </div>
+      {/* The channel between the two columns. A real element rather than a
+          border on either side of it, because the board draws it as a dotted
+          rule of its own that has to run the full height of the post. */}
+      {showPosterStats && <div className="user-message-gutter-rule" aria-hidden="true"></div>}
       <div className="user-message-content">
-        <div className="user-message-username">
-          <UsernameLink userId={userId} username={username} className="user-message-username-link" />
-        </div>
+        {!showPosterStats && usernameBlock}
         <div className="user-message-timestamp">
           {timestamp}
           {edited && <span className="user-message-edited-indicator"> (edited)</span>}
         </div>
-        {showPosterStats && <PosterStats userId={userId} />}
         <div className="user-message-separator"></div>
 
         {isEditing ? (
@@ -337,6 +388,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
               maxWords={250}
               maxChars={10000}
               showSendButton={true}
+              outsideControls={ledgerControls}
             />
             <button
               className="user-message-cancel-reply"
@@ -532,7 +584,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
         </div>
 
         {/* Reply count indicator - only show for non-reply messages with replies */}
-        {!isReply && enableReplies && replyCount !== undefined && replyCount > 0 && (
+        {showReplyToggle && (
           <div
             className="user-message-reply-indicator"
             onClick={onToggleReplies}
@@ -541,11 +593,49 @@ const UserMessage: React.FC<UserMessageProps> = ({
             aria-label={repliesExpanded ? "Collapse replies" : "Expand replies"}
           >
             {repliesExpanded ? <FaMinus /> : <FaPlus />}
-            <span className="user-message-reply-count">{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+            <span className="user-message-reply-count">{replyToggleLabel}</span>
           </div>
         )}
 
-        {/* Reply input */}
+        {/* Replies container. Collapsed, this is the newest few (or nothing, if
+            the board did not ask for previews); expanded, it is the thread. */}
+        {!isReply && shownReplies.length > 0 && (
+          <div className="user-message-replies-container">
+            {shownReplies.map((reply) => (
+              <UserMessage
+                key={reply.id}
+                username={reply.username}
+                message={reply.text}
+                timestamp={formatTimestamp(reply.timestamp)}
+                userSticker={reply.avatar}
+                userId={reply.userId}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                onEdit={onEditReply ? (newText: string) => onEditReply(reply.id, newText) : undefined}
+                onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
+                onClose={() => {}}
+                hideCloseButton={true}
+                /* A reply shows neither avatar nor gutter, so there is nowhere
+                   to put an identity block — and with none on screen the name
+                   keeps its hover card, which is the only way to see who wrote
+                   it. */
+                showPosterStats={false}
+                reactions={reply.reactions}
+                reactionCount={reply.reactionCount}
+                currentUserReacted={reply.currentUserReacted}
+                onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
+                onReactionHover={onReplyReactionHover ? () => onReplyReactionHover(reply.id) : undefined}
+                isReply={true}
+                enableReplies={false}
+                imageId={reply.imageId}
+                ledgerControls={ledgerControls}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Last, under the replies already on show — the reply you are writing
+            goes to the end of the thread, so this is where it will appear. */}
         {!isReply && showReplyInput && onReply && (
           <div className="user-message-reply-input-container">
             {replyingToUsername && (
@@ -564,6 +654,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
               maxWords={250}
               maxChars={1000}
               showSendButton={true}
+              outsideControls={ledgerControls}
             />
             <button
               className="user-message-cancel-reply"
@@ -571,37 +662,6 @@ const UserMessage: React.FC<UserMessageProps> = ({
             >
               Cancel
             </button>
-          </div>
-        )}
-
-        {/* Replies container */}
-        {!isReply && repliesExpanded && replies && replies.length > 0 && (
-          <div className="user-message-replies-container">
-            {replies.map((reply) => (
-              <UserMessage
-                key={reply.id}
-                username={reply.username}
-                message={reply.text}
-                timestamp={formatTimestamp(reply.timestamp)}
-                userSticker={reply.avatar}
-                userId={reply.userId}
-                currentUserId={currentUserId}
-                isAdmin={isAdmin}
-                onEdit={onEditReply ? (newText: string) => onEditReply(reply.id, newText) : undefined}
-                onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
-                onClose={() => {}}
-                hideCloseButton={true}
-                showPosterStats={showPosterStats}
-                reactions={reply.reactions}
-                reactionCount={reply.reactionCount}
-                currentUserReacted={reply.currentUserReacted}
-                onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
-                onReactionHover={onReplyReactionHover ? () => onReplyReactionHover(reply.id) : undefined}
-                isReply={true}
-                enableReplies={false}
-                imageId={reply.imageId}
-              />
-            ))}
           </div>
         )}
       </div>

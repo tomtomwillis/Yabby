@@ -9,6 +9,10 @@ interface UsernameLinkProps {
   userId?: string;
   username: string;
   className?: string;
+  /** Suppress the hover bubble where the same profile is already on screen —
+      the message board draws bio, join date and location in the post's gutter,
+      so the card would only repeat what is sitting next to it. */
+  disableHover?: boolean;
 }
 
 const OPEN_DELAY = 220;
@@ -18,7 +22,7 @@ const GAP = 8;
 /** Username with a profile bubble on hover. The bubble is pointer-events: none
     and portalled to the body, so it can neither swallow the click on the link
     underneath it nor be clipped by a scrolling ancestor. */
-const UsernameLink: React.FC<UsernameLinkProps> = ({ userId, username, className }) => {
+const UsernameLink: React.FC<UsernameLinkProps> = ({ userId, username, className, disableHover }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const anchorRef = useRef<HTMLAnchorElement>(null);
@@ -50,7 +54,7 @@ const UsernameLink: React.FC<UsernameLinkProps> = ({ userId, username, className
   }, [pos, close]);
 
   const open = () => {
-    if (!userId) return;
+    if (!userId || disableHover) return;
     // Touch and coarse pointers fire a synthetic mouseenter on tap; without this
     // the bubble would flash over the profile the tap is already navigating to.
     if (!window.matchMedia('(hover: hover)').matches) return;
