@@ -191,29 +191,37 @@ function Home() {
       <div className="home-top-title">
         <span className="home-fixed-welcome">welcome to</span>
         <AsciiTitle />
-        <p className="home-top-sub">{subtitle}</p>
       </div>
+
+      {/* Outside the masthead so it survives off `/`, where the wordmark is the
+          routed page's job but the strapline still has to show. */}
+      <p className="home-top-sub">{subtitle}</p>
 
       <div className="home-shell">
         <aside className="home-side">
-          <HomeIndex />
+          {/* Everything above the strapline scrolls in here, so the strapline
+              itself is a footer of the rail rather than its last scrolled row —
+              it stays on screen at any window height. */}
+          <div className="home-side-scroll">
+            <HomeIndex />
 
-          <SideSection branch="├" title="stats">
-            <Suspense fallback={<p className="hp-note">counting…</p>}>
-              <Stats />
-            </Suspense>
-          </SideSection>
+            <SideSection branch="├" title="stats">
+              <Suspense fallback={<p className="hp-note">counting…</p>}>
+                <Stats />
+              </Suspense>
+            </SideSection>
 
-          <SideSection branch="└" title="weather">
-            <Weather />
-            <Suspense fallback={null}>
-              {/* Columns set how big the scene draws in the rail: fewer means
-                  more pixels per glyph. 88 is close to the floor — the house is
-                  64 wide and the fence needs the rest. Rows come from the
-                  frame's height. */}
-              <WeathrAnimation cols={88} minRows={15} fontSizePx={10} />
-            </Suspense>
-          </SideSection>
+            <SideSection branch="└" title="weather">
+              <Weather />
+              <Suspense fallback={null}>
+                {/* Columns set how big the scene draws in the rail: fewer means
+                    more pixels per glyph. 88 is close to the floor — the house is
+                    64 wide and the fence needs the rest. Rows come from the
+                    frame's height. */}
+                <WeathrAnimation cols={88} minRows={15} fontSizePx={10} />
+              </Suspense>
+            </SideSection>
+          </div>
 
           <p className="home-side-sub">{subtitle}</p>
         </aside>

@@ -99,10 +99,20 @@ body:has(.home-page) .star-path {
   display: flex;
   flex: 0 0 var(--hp-side-w);
   flex-direction: column;
-  gap: clamp(0.7rem, 1.7vh, 1.6rem);
   padding: 0.9rem clamp(0.8rem, 0.9vw, 1.2rem) var(--hp-title-clear);
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid var(--hp-rule);
+}
+
+/* The rail's scrolling part. Splitting it out of the aside is what lets the
+   strapline below sit at the rail's bottom edge at every window height. */
+.home-side-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: clamp(0.7rem, 1.7vh, 1.6rem);
+  min-height: 0;
+  overflow-y: auto;
   scrollbar-width: thin;
 }
 
@@ -287,10 +297,12 @@ body:has(.home-page) .star-path {
   flex: 0 0 auto;
 }
 
-/* Deliberately not pushed to the bottom of the rail — that would park it under
-   the fixed wordmark. */
+/* The rail's footer, outside the scrolling part: it holds the bottom edge above
+   the fixed bar (the aside's padding) at any window height. */
 .home-side-sub {
+  flex: 0 0 auto;
   margin: 0;
+  padding-top: clamp(0.5rem, 1.2vh, 1rem);
   font-family: var(--font3);
   font-size: clamp(1rem, 1vw, 1.3rem);
   line-height: 1.45;
@@ -689,9 +701,11 @@ body:has(.home-page) .star-path {
 
 /* ─── Mobile masthead ─────────────────────────────────── */
 
-/* Desktop's title is the one in the bottom bar; this is its counterpart for
-   widths where the bar is the player alone. */
-.home-top-title {
+/* Desktop's title is the one in the bottom bar; these are its counterpart for
+   widths where the bar is the player alone. The strapline is a separate block
+   from the wordmark so the two can be shown independently. */
+.home-top-title,
+.home-top-sub {
   display: none;
 }
 
@@ -867,7 +881,7 @@ body:has(.home-page) .star-path {
    spacing back just enough to keep the whole rail on screen without a
    scrollbar; taller windows keep the roomier setting. */
 @media (max-height: 900px) {
-  .home-side {
+  .home-side-scroll {
     gap: clamp(0.5rem, 1.1vh, 1rem);
   }
 
@@ -914,12 +928,16 @@ body:has(.home-page) .star-path {
   .home-side {
     order: 2;
     flex: 0 0 auto;
-    gap: 1.2rem;
     width: 100%;
     padding: 1.2rem 1rem var(--hp-title-clear);
     overflow: visible;
     border-right: none;
     border-top: 1px solid var(--hp-rule);
+  }
+
+  .home-side-scroll {
+    gap: 1.2rem;
+    overflow: visible;
   }
 
   .home-row2 {
@@ -930,16 +948,27 @@ body:has(.home-page) .star-path {
     display: block;
     /* The right inset is the burger's footprint — it is fixed at z-index 1001
        and would otherwise sit on top of the wordmark's first line. */
-    padding: 0.9rem 4.5rem 1rem 1rem;
+    padding: 0.9rem 4.5rem 0.5rem 1rem;
     color: var(--hp-accent);
   }
 
+  /* Shown at every route down here — the masthead above it goes off `/`, this
+     does not. The right inset clears the fixed burger for the case where this
+     is the first thing on the page. */
   .home-top-sub {
-    margin: 0.5rem 0 0;
+    display: block;
+    margin: 0;
+    padding: 0 4.5rem 0.6rem 1rem;
     font-family: var(--font3);
     font-size: 1.1rem;
     line-height: 1.45;
     color: var(--colour7);
+  }
+
+  /* On `/` the wordmark sits above it and supplies the top margin; off `/` this
+     is the top of the page and needs its own. */
+  .home-page:not(.is-home) .home-top-sub {
+    padding-top: 0.9rem;
   }
 
   /* The bar is the player alone down here — the wordmark is at the top of the
