@@ -50,7 +50,6 @@ export function useNavGroups(): NavGroup[] {
         { label: 'listen', href: import.meta.env.VITE_NAVIDROME_SERVER_URL, external: true },
         { label: 'upload', href: '/upload' },
         { label: 'request', href: import.meta.env.VITE_SLSK_REQUEST_URL, external: true },
-        { label: 'radio', href: '/' },
       ],
     },
     {
