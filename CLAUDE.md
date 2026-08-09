@@ -20,25 +20,9 @@ which, type, env, printenv, pwd, echo
 npm ls, npm outdated
 ```
 
-## Build & Development Commands
-
-Verify changes with `npm run build` to catch TypeScript errors.
-
-
 ## Architecture
 
 **Yabbyville** is a private music community SPA using Firebase Auth (email/password) and Firestore. Root url is yabbyville.xyz
-
-### Routing & Auth
-
-- React Router v7 with `PrivateRoute` wrapper — all routes except `/login` require authentication
-- All authorization logic is enforced server-side via Firestore security rules, not client-side
-
-### Media Manager
-
-- Tabbed container with tools in `src/components/media/`
-- `useMediaManager` hook gates UI access; server enforces actual authorization
-- Express API backend
 
 ### Gotchas
 
@@ -50,16 +34,10 @@ Verify changes with `npm run build` to catch TypeScript errors.
 - **Sanitization**: All user-generated HTML goes through `src/utils/sanitise.ts` (DOMPurify). Usernames use `sanitizeText`. URLs validated with `validateUrl`.
 - **User data caching**: Use shared cache (`userCache.ts`) — never create component-local caches
 
-### Firestore Collections & Security
-
-Key collections: `users`, `messages` (with `reactions`/`replies` subcollections), `news` (with `reactions` subcollection), `stickers`, `lists` (with `items` subcollection), `places` (with `contributions` subcollection), and `admins` (write-protected).
-
 ### Travel Feature
 
 Leaflet map where users pin places with a comment and optional photos.
 
-- `places/{placeId}` — denormalized: coords, `displayName`, `city`, `cityKey`, `country`, OSM fields, `contributorCount`, first contributor info, `lastActivityAt`
-- `places/{placeId}/contributions/{userId}` — `comment`, `photos[]`, timestamps
 - `placeId` via `placeIdFor()` in `src/utils/geocode.ts` — never construct manually
 - Two backends: photo uploads → `VITE_MEDIA_API_URL`, contributions CRUD → `VITE_TRAVEL_API_URL`
 - `loadUserMemberships()` in `TravelPage.tsx` does N subcollection reads (one per place) — avoid adding more
@@ -89,19 +67,7 @@ Free tier (50k reads/day) — minimising reads is critical:
 - **Beets**: Music library management via WebSocket terminal on host
 - **Umami**: Analytics (page views, custom events via `window.umami?.track()`) — suggest adding tracking when implementing features that don't have it
 
-### Backend (Express API)
-
-- Dockerised Express.js server
-- Built manually via Portainer (no CI/CD pipeline)
-- Beets is **executed inside the container** using a virtualenv mounted from the host at `/opt/beetsenv`. Config and `library.db` live on the host (mounted at `/etc/beets`), but the `beet` process and any subprocesses it spawns (e.g. `ffmpeg` for the convert plugin) run in the container — so all such binaries must be installed in the image.
-- Caddy reverse proxy handles WebSocket upgrades automatically — no special config needed
-- Beets import terminal uses WebSocket at `/api/media/beets/terminal` with single-instance session lock (one user at a time, 10-min idle timeout)
-
 All external service credentials are environment variables only.
-
-## Environment Variables
-
-Copy `example.env` to `.env` and fill in values. All vars are prefixed `VITE_` (exposed to client via Vite).
 
 ## Code Style
 

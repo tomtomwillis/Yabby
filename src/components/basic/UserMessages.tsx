@@ -369,6 +369,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
           {timestamp}
           {edited && <span className="user-message-edited-indicator"> (edited)</span>}
         </div>
+        {showPosterStats && <PosterStats userId={userId} />}
         <div className="user-message-separator"></div>
 
         {isEditing ? (
