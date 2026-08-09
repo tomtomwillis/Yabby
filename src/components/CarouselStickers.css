@@ -1,6 +1,9 @@
+/* Relative: the album bubble is placed against this box. */
 .sticker-album-carousel {
-    margin: 0 auto; /* Center the carousel */
-    padding-bottom: 1rem; /* Add padding to the bottom */
+    position: relative;
+    margin: 0 auto;
+    padding-bottom: 0.5rem;
+    width: 100%;
 }
 
 .loading-container,
@@ -13,14 +16,51 @@
     padding: 0rem;
 }
 
+/* The wall — dense static grid of stickered albums. */
+.sticker-wall {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.sticker-tile {
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+}
+
+.sticker-tile .album-card {
+    width: 100%;
+    height: 100%;
+}
+
+.album-card {
+    transition: transform 0.15s ease;
+}
+
 .album-card:hover {
-    transform: scale(1.02);
+    transform: scale(1.03);
+    z-index: 2;
 }
 
 .album-image {
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
     display: block;
+}
+
+@media (max-width: 900px) {
+    .sticker-wall { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .sticker-wall { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+}
+
+@media (max-width: 420px) {
+    .sticker-wall { grid-template-columns: repeat(2, 1fr); }
 }
 
 .sticker-overlay {
@@ -31,21 +71,113 @@
     pointer-events: none; /* Prevent stickers from interfering with clicks */
 }
 
+/* ── The album bubble ──────────────────────────────────── */
+
+.sb-title {
+    margin: 0;
+    font-family: var(--font2);
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--colour2);
+}
+
+.sb-artist {
+    margin: 0 0 0.6rem;
+    font-family: var(--font2);
+    font-size: 0.68rem;
+    color: var(--colour5);
+}
+
+.sb-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.7rem;
+}
+
+/* The shared Button and UserMessage are filled blue cards, which is right on
+   /stickers but shouts inside a hairline bubble. Scoped to .ab so only the home
+   bubble is flattened. */
+.ab .basic-button,
+.ab .sp-toggle {
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    background: transparent;
+    border: 1px solid var(--hp-rule, #c9cee4);
+    border-radius: 0;
+    color: var(--colour2);
+    font-family: var(--font2);
+    font-size: 0.68rem;
+    font-weight: 400;
+    text-transform: none;
+    box-shadow: none;
+}
+
+.ab .basic-button:hover,
+.ab .sp-toggle:hover {
+    background: transparent;
+    border-color: var(--colour2);
+    color: var(--colour3);
+    transform: none;
+}
+
+.ab .user-message {
+    padding: 0.4rem 0;
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--hp-rule, #c9cee4);
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--colour5);
+    font-size: 0.7rem;
+}
+
+/* The message body is set in the reading serif everywhere else. In a bubble
+   this narrow it wants the same mono as the chrome around it. */
+.ab .user-message-text {
+    font-family: var(--font2);
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+.ab .user-message-username {
+    font-size: 0.95em;
+}
+
+.ab .user-message-timestamp {
+    font-size: 0.7em;
+}
+
+/* 80px of avatar next to 0.7rem type is all avatar. */
+.ab .user-message-sticker,
+.ab .user-message-sticker-fallback {
+    width: 36px;
+    height: 36px;
+    min-width: 0;
+    min-height: 0;
+}
+
+.ab .user-message-sticker-container {
+    padding-right: 0.5rem;
+}
+
+.ab .favorite-track-display {
+    padding-left: 0;
+    font-family: var(--font2);
+    font-size: 0.65rem;
+    font-style: normal;
+}
+
+.sticker-messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
 .sticker-message-item {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.popup-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.center-button {
-  width: 100%;
 }
 
 .favorite-track-display {

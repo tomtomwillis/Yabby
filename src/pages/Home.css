@@ -1,0 +1,1029 @@
+/*
+ * Home — fixed rail, scrolling body.
+ *
+ * A left rail carries the site index and the small persistent readouts (radio,
+ * stats, weather); the body beside it scrolls on its own. The ASCII wordmark is
+ * pinned to the bottom-left above both, with the ASCII man opposite it. Sections
+ * are separated by hairline rules and a heading rather than boxes, so the page
+ * reads as one document. Nothing is rounded, nothing is shadowed, and the
+ * rotating star still shows through.
+ */
+
+.home-page {
+  --hp-rule: #c9cee4;
+  --hp-ink: var(--colour5);
+  --hp-accent: var(--colour2);
+  --hp-dim: #5566c9;
+
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  text-align: left;
+}
+
+/* Reachable by a screen reader, absent from layout. Not display:none, which
+   would take it out of the accessibility tree along with the visual one. */
+.hp-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The app shell centres a padded, max-width column; a full-bleed rail cannot
+   live inside it, so home strips the shell back to a plain block. */
+body:has(.home-page) #root,
+#root:has(.home-page) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container:has(.home-page) {
+  display: block;
+  min-height: 0;
+  padding-top: 0;
+}
+
+/* The star is a sibling of the page, so reach it from the body. Home is the
+   only text-dense page that sits directly on top of it — dial it back here
+   rather than everywhere. */
+body:has(.home-page) .star-path {
+  opacity: 0.4;
+}
+
+/* The sidebar carries the index and the wordmark is pinned bottom-left, so the
+   shell's own masthead has nothing left to show. The burger button and mobile
+   drawer are siblings of <header>, so they survive this. Child selector, not
+   descendant — routed pages render their own Header inside .home-main and that
+   one keeps its title. */
+.home-page > header.header {
+  display: none;
+}
+
+/* ─── Shell ───────────────────────────────────────────── */
+
+.home-shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* No global border-box in App.css, so the padded columns need it themselves —
+   otherwise the stacked mobile rail is viewport width plus its padding. */
+.home-side,
+.home-main {
+  box-sizing: border-box;
+}
+
+/* Sized to fit a ~900px viewport without scrolling; overflow is the fallback
+   for shorter windows rather than clipping the index. */
+/* Both columns reserve the bottom bar's height as padding, otherwise their last
+   rows scroll to a stop underneath it. --hp-bar-h is measured and published by
+   Home; the fallback covers the first paint. */
+/* The rail's width is a property rather than a literal because overlays inset
+   themselves by it to land in the frame the two columns leave. */
+.home-page {
+  --hp-title-clear: calc(var(--hp-bar-h, 9rem) + 0.25rem);
+  --hp-side-w: clamp(210px, 17vw, 290px);
+}
+
+.home-side {
+  display: flex;
+  flex: 0 0 var(--hp-side-w);
+  flex-direction: column;
+  padding: 0.9rem clamp(0.8rem, 0.9vw, 1.2rem) var(--hp-title-clear);
+  overflow: hidden;
+  border-right: 1px solid var(--hp-rule);
+}
+
+/* The rail's scrolling part. Splitting it out of the aside is what lets the
+   strapline below sit at the rail's bottom edge at every window height. */
+.home-side-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: clamp(0.7rem, 1.7vh, 1.6rem);
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.home-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: clamp(1.2rem, 2.4vh, 2rem);
+  min-width: 0;
+  /* Extra beyond the bar's height so the last section comes to rest clear of
+     the wordmark rather than flush against it. */
+  padding: 1.4rem clamp(1.2rem, 2.2vw, 2.6rem) calc(var(--hp-title-clear) + 3rem);
+  overflow-y: auto;
+}
+
+/* Lists beside travel, replacing the mock's calendar column. */
+.home-row2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(1.2rem, 2vw, 2rem);
+}
+
+/* ─── Routed pages inside the shell ───────────────────── */
+
+/* Every page was written to own the whole viewport: its own .app-container, its
+   own masthead, and in several cases viewport units. Inside the body column all
+   of that has to give way to the container. Each page keeps its title so you
+   still know where you are; the nav and burger are the shell's job. */
+
+.home-main > * {
+  width: 100%;
+}
+
+.home-main .app-container {
+  display: block;
+  min-height: 0;
+  padding-top: 0;
+}
+
+/* A document page is a single tall flex child of the scrolling column. Left
+   shrinkable, it collapses to the column's height and its content spills past
+   the reserved bottom padding, so the end of the page hides behind the fixed
+   bar. Pinning the shrink keeps the reserve in the scroll extent. The media
+   manager is exempt — it is a fixed-height tool shell that must shrink so its
+   tools scroll internally, and it is the only app-container page that does. */
+.home-main .app-container:not(:has(.media-tabs)) {
+  flex-shrink: 0;
+}
+
+.home-main header.header {
+  margin: 0 0 1.2rem;
+  padding: 0;
+}
+
+.home-main .header h1 {
+  font-size: clamp(1.3rem, 2.2vw, 2rem);
+  text-align: left;
+}
+
+.home-main .header .small-text {
+  display: block;
+  text-align: left;
+}
+
+.home-main .desktop-nav,
+.home-main .header hr,
+.home-main .burger-menu,
+.home-main .mobile-nav,
+.home-main .mobile-nav-overlay {
+  display: none;
+}
+
+/* MessageBoard.css sizes itself against the viewport; the column is the frame
+   now. Covers /messageboard, /news, /issues and /filmclubmessage. */
+.home-main .message-board-container {
+  min-height: 0;
+}
+
+/* Wiki forces viewport widths with !important under its own breakpoints, which
+   would blow straight out of the column. */
+.home-main .wiki-container,
+.home-main .wiki-content,
+.home-main .wiki-collapsible,
+.home-main .wiki-section {
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+/* The uploader is an iframe that needs a real height from a real box. */
+.home-main .upload-page-container {
+  width: auto;
+  max-width: none;
+  height: calc(100dvh - var(--hp-title-clear) - 8rem);
+  min-height: 420px;
+}
+
+/* The map deliberately breaks out of #root to 80vw; in the column it just
+   fills the column. */
+.home-main .travel-page__map-area {
+  width: 100%;
+  left: auto;
+  transform: none;
+}
+
+/* Fixed to the viewport, so left: 2vw would park it on top of the rail. Pushed
+   clear of it instead; dragging the box still wins, since that writes inline. */
+.home-main .travel-page__sidebar {
+  left: calc(clamp(210px, 17vw, 290px) + 1rem);
+  z-index: 899;
+}
+
+.home-main .travel-page__scroll-btn {
+  bottom: calc(var(--hp-title-clear) + 1rem);
+}
+
+/* ─── Section headings ────────────────────────────────── */
+
+.hp-sec {
+  min-width: 0;
+}
+
+.hp-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--hp-accent);
+}
+
+/* The title is the section's only way through to its full page. */
+.hp-h-t {
+  flex: 0 0 auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+.hp-h-t:hover,
+.hp-h-t:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+/* Fills whatever width the label and link leave behind. */
+.hp-h-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--hp-rule);
+  transform: translateY(-0.25em);
+}
+
+.hp-note {
+  margin: 0 0 0.4rem;
+  font-family: var(--font2);
+  font-size: 0.75rem;
+  color: var(--hp-dim);
+}
+
+/* ─── Sidebar ─────────────────────────────────────────── */
+
+.hp-side-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0 0 0.45rem;
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.72vw, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--hp-accent);
+}
+
+.hp-side-branch {
+  flex: 0 0 auto;
+  color: var(--hp-rule);
+}
+
+.hp-side-t {
+  flex: 0 0 auto;
+}
+
+/* The rail's footer, outside the scrolling part: it holds the bottom edge above
+   the fixed bar (the aside's padding) at any window height. */
+.home-side-sub {
+  flex: 0 0 auto;
+  margin: 0;
+  padding-top: clamp(0.5rem, 1.2vh, 1rem);
+  font-family: var(--font3);
+  font-size: clamp(1rem, 1vw, 1.3rem);
+  line-height: 1.45;
+  color: var(--colour7);
+}
+
+.home-side .stats-list {
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
+}
+
+.home-side .stats-row {
+  padding: 0.3rem 0;
+}
+
+.home-side .weather-card {
+  padding: 0;
+}
+
+.home-side .weather-card .normal-text {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
+  line-height: 1.5;
+  color: var(--hp-ink);
+}
+
+/* Weather is the rail's last section, so it can take whatever the index, stats
+   and strapline leave rather than claiming a share of the window that may not
+   be there — the strapline below it stays on screen at any height. */
+/* No min-height: 0 here — the automatic minimum stops the section shrinking
+   past its heading and readout, so the scene is the only thing that gives. */
+.home-side .hp-side-sec:last-of-type {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+/* The engine's <pre> is absolutely positioned, so the frame has no intrinsic
+   height — it has to be given one for the scale-to-fit to have a target. The
+   component derives its row count from whatever height lands here, so there is
+   no aspect ratio to keep in sync with the grid. */
+/* The scene is the rail's only elastic box: it takes the space everything else
+   leaves and gives it all back as the strapline below it runs to more lines,
+   down to nothing. Without min-height: 0 it would refuse to shrink and the
+   strapline would lay out over the top of it. */
+.home-side .weathr-frame {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 260px;
+  margin-top: 0.35rem;
+}
+
+/* ─── Sticker wall ────────────────────────────────────── */
+
+.home-page .sticker-album-carousel {
+  padding-bottom: 0;
+}
+
+/* ┌─── STICKER SIZE ──────────────────────────────────────┐
+   │ Tile width = (main column − gaps) ÷ columns, so MORE  │
+   │ COLUMNS = SMALLER STICKERS. Change these numbers and  │
+   │ nothing else. 6 → 9 makes each sticker 33% narrower.  │
+   └───────────────────────────────────────────────────────┘ */
+.home-page {
+  --hp-sticker-cols: 8;
+}
+
+@media (max-width: 900px) {
+  .home-page { --hp-sticker-cols: 6; }
+}
+
+@media (max-width: 600px) {
+  .home-page { --hp-sticker-cols: 4; }
+}
+/* ─────────────────────────────────────────────────────── */
+
+.home-page .sticker-wall {
+  grid-template-columns: repeat(var(--hp-sticker-cols), 1fr);
+  gap: 4px;
+}
+
+.hp-h-break {
+  flex: 0 0 auto;
+  color: var(--hp-dim);
+  opacity: 0.7;
+}
+
+/* "+ add your own +" — a heading control, so it inherits the heading's type
+   rather than looking like a button dropped into the rule. */
+.hp-af {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--hp-dim);
+  cursor: pointer;
+}
+
+.hp-af:hover,
+.hp-af:focus-visible {
+  color: var(--colour3);
+}
+
+/* A + is unchanged by a quarter turn, so the closed state reads as a plain +
+   and opening looks like the arrow itself swinging down into place. */
+.hp-af-mark {
+  display: inline-block;
+  transform: rotate(-90deg);
+  transition: transform 0.28s ease;
+}
+
+.hp-af.is-open .hp-af-mark {
+  transform: rotate(0deg);
+}
+
+/* grid-template-rows 0fr → 1fr animates to the content's natural height without
+   having to measure it. */
+.hp-sticker-form {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-bottom: 0;
+  transition: grid-template-rows 0.28s ease, margin-bottom 0.28s ease;
+}
+
+.hp-sticker-form.is-open {
+  grid-template-rows: 1fr;
+  margin-bottom: 0.9rem;
+}
+
+.hp-sticker-form-inner {
+  overflow: hidden;
+}
+
+.hp-sticker-form-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.hp-sticker-form-row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hp-sticker-close {
+  flex: 0 0 auto;
+  padding: 0 0.7rem;
+  background: transparent;
+  color: var(--hp-dim);
+  border: 1px solid var(--hp-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.hp-sticker-close:hover,
+.hp-sticker-close:focus-visible {
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+/* The search box centres itself and rounds its corners by default; on home it
+   sits flush above the wall as a plain field. */
+.home-page .album-search-container {
+  max-width: none;
+  margin: 0;
+}
+
+.home-page .album-search-input-area {
+  padding: 0.5rem 0.65rem;
+  border-radius: 0;
+}
+
+.home-page .album-search-input {
+  font-size: 0.85rem;
+}
+
+.home-page .album-result-button {
+  border-radius: 0;
+}
+
+/* ─── Recently added ──────────────────────────────────── */
+
+.home-page .albums-marquee__tile,
+.home-page .albums-marquee__caption {
+  width: clamp(72px, 6vw, 110px);
+}
+
+.home-page .albums-marquee__img {
+  width: clamp(72px, 6vw, 110px);
+  height: clamp(72px, 6vw, 110px);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.home-page .albums-marquee__caption {
+  font-family: var(--font2);
+  font-size: 0.65rem;
+}
+
+/* ─── Recent lists ────────────────────────────────────── */
+
+/* In a half-width column the cards read better as an index: small thumb, title
+   beside it, hairline between rows. */
+.home-page .recent-lists-container {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 0;
+}
+
+.home-page .recent-list-card {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--hp-rule);
+}
+
+.home-page .recent-list-card:last-child {
+  border-bottom: none;
+}
+
+.home-page .recent-list-image-wrapper {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 0;
+}
+
+.home-page .recent-list-image-wrapper:hover {
+  transform: none;
+}
+
+.home-page .recent-list-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  object-fit: cover;
+}
+
+.home-page .recent-list-title-bar {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  color: var(--hp-accent);
+  font-size: 0.8rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.home-page .recent-list-title-bar:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.home-page .recent-lists-loading {
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--hp-dim);
+}
+
+/* ─── Fixed bottom bar: wordmark + radio ──────────────── */
+
+/* The transport lives here, so it inherits the docked player's old 1002 — above
+   the sticker popup overlay (1000), the burger (1000) and the mobile drawer
+   (999/1001), which would otherwise bury the controls with no way to reach
+   them. Opaque, so whatever scrolls underneath is hidden rather than showing
+   through the wordmark. */
+.home-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* No top padding: the decorative rule is the bar's top edge, and the wordmark
+     block below it sets the height the player is sized to fit inside. */
+  padding: 0 clamp(1rem, 2vw, 2rem) 0.5rem 1.2rem;
+  box-sizing: border-box;
+  background: var(--colour4);
+}
+
+/* The fullscreen visualiser paints at z-index -2, behind everything; the bar is
+   the one opaque thing left over it, so it steps out of the way. Only the fill
+   goes — the wordmark, rule and controls stay put and readable on top. */
+.home-bottom.is-viz-fs {
+  background: transparent;
+}
+
+/* Decoration in place of a border. The motif is repeated well past any viewport
+   and clipped, so it reaches both edges at every width. Lives inside the
+   toggle button now, flexed between the two arrows. */
+.home-bottom-rule {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  color: var(--hp-dim);
+  opacity: 0.75;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Control across the top of the bar: an arrow at each end, the star rule
+   filling the space between, echoing the sidebar headings. Full bar width in
+   both states so the arrows sit at its edges. */
+.home-bottom-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.1rem 0 0.3rem;
+  background: none;
+  border: none;
+  color: var(--hp-dim);
+  cursor: pointer;
+}
+
+.home-bottom-toggle-mark {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.home-bottom-toggle:hover .home-bottom-toggle-mark,
+.home-bottom-toggle:focus-visible .home-bottom-toggle-mark {
+  color: var(--colour3);
+}
+
+/* Stretch, not flex-end: the wordmark sets the bar's height and the visualiser
+   and player fill it rather than floating at the bottom of it. */
+.home-bottom-inner {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(1rem, 2vw, 2.5rem);
+  min-width: 0;
+}
+
+/* The wordmark scales to whatever it is given, so its share is really a budget
+   split with the player — enough of the bar for the track title to be readable
+   rather than an ellipsis. */
+.home-bottom-title {
+  flex: 0 0 34%;
+  align-self: flex-end;
+  min-width: 0;
+  color: var(--hp-accent);
+}
+
+/* Grouped with the player rather than the wordmark, so flex-end on the row
+   packs it flush against the player instead of stranding it in the leftover
+   space next to the wordmark. */
+.home-bottom-viz {
+  display: flex;
+  flex: 0 1 clamp(7rem, 12vw, 15rem);
+  min-width: 0;
+}
+
+/* Still position: relative — .pb-queue anchors to it. Gap only shows up when
+   the visualiser is mounted, since it's the row's sole other child. */
+.home-bottom-radio {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: clamp(1rem, 2vw, 2.5rem);
+  min-width: 0;
+}
+
+/* Last item in the transport row, bottom-aligned so his feet land on the same
+   line as the buttons rather than centring against them. */
+.home-bottom-man {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-left: 0.3rem;
+  pointer-events: none;
+}
+
+/* ─── Mobile masthead ─────────────────────────────────── */
+
+/* Desktop's title is the one in the bottom bar; these are its counterpart for
+   widths where the bar is the player alone. The strapline is a separate block
+   from the wordmark so the two can be shown independently. */
+.home-top-title,
+.home-top-sub {
+  display: none;
+}
+
+.home-fixed-welcome {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-family: var(--font2);
+  font-size: clamp(0.62rem, 0.6vw, 0.8rem);
+  letter-spacing: 0.14em;
+  color: var(--hp-dim);
+}
+
+.home-page .ascii-title {
+  justify-content: flex-start;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.home-page .ascii-title-pre {
+  transform-origin: top left;
+}
+
+.home-page .ascii-art {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1;
+  color: var(--hp-dim);
+}
+
+/* Fills the bar's height rather than a fixed slice of it. */
+.home-bottom-viz .vz {
+  gap: 0;
+  min-height: 0;
+}
+
+.home-bottom-viz .vz-box {
+  min-height: 0;
+}
+
+/* ─── Minimised bar ───────────────────────────────────── */
+
+/* Collapsed to a slim transport: the wordmark shrinks with its narrowed column,
+   the man steps aside, the wave borders drop, and the player folds onto one
+   line — play, skip, volume and the current track's name. --hp-bar-h is
+   remeasured off the shorter bar, so the columns reclaim the freed space. */
+.home-bottom--min {
+  padding-top: 0.15rem;
+  padding-bottom: 0.4rem;
+}
+
+/* The ascii wordmark fits itself to its wrapper's width, so narrowing the
+   column shrinks it — height and all — with no fixed scale to maintain. */
+.home-bottom--min .home-bottom-title {
+  flex-basis: 15%;
+}
+
+.home-bottom--min .home-bottom-toggle {
+  padding-bottom: 0.2rem;
+}
+
+.home-bottom--min .home-fixed-welcome,
+.home-bottom--min .home-bottom-man,
+.home-bottom--min .home-bottom-viz,
+.home-bottom--min .pb-seek {
+  display: none;
+}
+
+/* The whole transport folds onto a single row, hugging the right edge. */
+.home-bottom--min .pb-body {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0;
+}
+
+/* Order: now-playing name, then the transport, then volume (the last two share
+   .pb-row). */
+.home-bottom--min .pb-mid {
+  order: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.home-bottom--min .pb-row {
+  order: 2;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.home-bottom--min .pb:not(.pb-radio) .pb-meta-title::before {
+  content: 'Now Playing: ';
+  color: var(--pb-accent-dim);
+}
+
+/* Everything but play, skip, volume and the track name. */
+.home-bottom--min .pb-meta-sub,
+.home-bottom--min .pb-mode,
+.home-bottom--min .pb-queue-toggle {
+  display: none;
+}
+
+/* ─── Burger ──────────────────────────────────────────── */
+
+/* Button's default is a filled, rounded pill in the body face — the one piece
+   of the old chrome still showing on this page. Restyled to the same hairline
+   square control as the sticker form's close button, so the drawer's handle
+   reads as part of the rail's vocabulary rather than a leftover. Opaque, since
+   it floats over whatever is scrolling beneath it. */
+.home-page > .burger-menu {
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+  background: var(--colour4);
+  color: var(--hp-dim);
+  border: 1px solid var(--hp-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.home-page > .burger-menu:hover,
+.home-page > .burger-menu:focus-visible {
+  background: var(--colour4);
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+/* The drawer it opens, brought to the same vocabulary: hairline rules in place
+   of the black and near-black borders, the rail's type scale, and no shadow.
+   Scoped to the shell's own copy — Login and Cinema are outside it and keep the
+   drawer they have. */
+.home-page > .mobile-nav {
+  /* The bar is fixed above this at z-index 1002, so the last group would sit
+     under it with no way to bring it out. */
+  padding-bottom: calc(var(--hp-bar-h, 9rem) + 1rem + env(safe-area-inset-bottom));
+  border-right: 1px solid var(--hp-rule);
+  box-shadow: none;
+}
+
+.home-page > .mobile-nav a {
+  padding: 0.7rem 0;
+  font-size: 0.95rem;
+  color: var(--hp-accent);
+  border-bottom: 1px solid var(--hp-rule);
+}
+
+.home-page > .mobile-nav a:hover,
+.home-page > .mobile-nav a:focus-visible {
+  color: var(--colour3);
+}
+
+.home-page > .mobile-nav .mobile-nav-group-header {
+  padding: 1.1rem 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--hp-dim);
+  text-transform: lowercase;
+  border-bottom: 1px solid var(--hp-rule);
+}
+
+/* ─── Responsive ──────────────────────────────────────── */
+
+/* Short windows are where the rail runs out of room — the wrapped weather
+   sentence and index labels cost the same lines regardless of width. Pull the
+   spacing back just enough to keep the whole rail on screen without a
+   scrollbar; taller windows keep the roomier setting. */
+@media (max-height: 900px) {
+  .home-side-scroll {
+    gap: clamp(0.5rem, 1.1vh, 1rem);
+  }
+
+  .home-side .home-index {
+    line-height: 1.35;
+  }
+
+  .hp-side-h {
+    margin-bottom: 0.3rem;
+  }
+
+  .home-side .stats-row {
+    padding: 0.22rem 0;
+  }
+}
+
+/* Mobile. The rail's two columns cannot both hold their content much below
+   this, so this is where the page stops being a rail-and-body and becomes one
+   scrolling document: title → dashboard → readouts, and off `/` the routed page
+   alone. The drawer becomes the navigation here, which is earlier than
+   Header.css switches over on its own — the burger is pulled up to match just
+   below, since the rail's index goes with the rail. */
+@media (max-width: 900px) {
+  .home-page {
+    height: auto;
+    overflow: visible;
+    /* The rail is under the body now, not beside it — nothing to inset past. */
+    --hp-side-w: 0px;
+  }
+
+  .home-shell {
+    flex-direction: column;
+  }
+
+  /* Stickers, recently added, lists and travel come first; stats and weather
+     are the tail of the page rather than a band above it. Source order is the
+     desktop rail's, so the two columns swap here instead. */
+  .home-main {
+    order: 1;
+    padding: 0 1rem 1.5rem;
+    overflow: visible;
+  }
+
+  .home-side {
+    order: 2;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 1.2rem 1rem var(--hp-title-clear);
+    overflow: visible;
+    border-right: none;
+    border-top: 1px solid var(--hp-rule);
+  }
+
+  .home-side-scroll {
+    gap: 1.2rem;
+    overflow: visible;
+  }
+
+  .home-row2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-top-title {
+    display: block;
+    /* The right inset is the burger's footprint — it is fixed at z-index 1001
+       and would otherwise sit on top of the wordmark's first line. */
+    padding: 0.9rem 4.5rem 0.5rem 1rem;
+    color: var(--hp-accent);
+  }
+
+  /* Shown at every route down here — the masthead above it goes off `/`, this
+     does not. The right inset clears the fixed burger for the case where this
+     is the first thing on the page. */
+  .home-top-sub {
+    display: block;
+    margin: 0;
+    padding: 0 4.5rem 0.6rem 1rem;
+    font-family: var(--font3);
+    font-size: 1.1rem;
+    line-height: 1.45;
+    color: var(--colour7);
+  }
+
+  /* On `/` the wordmark sits above it and supplies the top margin; off `/` this
+     is the top of the page and needs its own. */
+  .home-page:not(.is-home) .home-top-sub {
+    padding-top: 0.9rem;
+  }
+
+  /* The bar is the player alone down here — the wordmark is at the top of the
+     page, and the rail's index and strapline are the drawer's and the
+     masthead's respectively. */
+  .home-bottom-title,
+  .home-side .home-index,
+  .home-side-sub {
+    display: none;
+  }
+
+  /* Off home the shell keeps nothing but the player: the routed page renders
+     its own title, and the rail's readouts belong to the dashboard. Hidden
+     rather than unmounted, so returning to `/` costs no fresh reads. */
+  .home-page:not(.is-home) .home-top-title,
+  .home-page:not(.is-home) .home-side {
+    display: none;
+  }
+
+  /* On `/` the masthead above supplies the top margin and the rail below takes
+     the bar's clearance; with both gone the column owns each end itself. */
+  .home-page:not(.is-home) .home-main {
+    padding-top: 1rem;
+    padding-bottom: var(--hp-title-clear);
+  }
+
+  /* Full width now, so the rail's offset would push it off the screen. */
+  .home-main .travel-page__sidebar {
+    left: 1rem;
+    right: 1rem;
+  }
+
+  /* With the wordmark gone the bar is the transport and nothing else, so it
+     matches the columns' inset. The dock is dropped at this width too, but by
+     Home's VIZ_QUERY rather than here — hiding it in CSS would still mount it. */
+  .home-bottom {
+    padding-right: 1.2rem;
+  }
+
+  /* The drawer is the navigation from here down, but Header.css only reveals
+     its button at 768. Restated rather than reached for, because between the
+     two widths none of its own rules are in play. Direct child: routed pages
+     render a Header of their own inside .home-main, and that burger stays
+     hidden. */
+  .home-page > .burger-menu {
+    display: flex;
+    position: fixed;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 1001;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-bottom-man {
+    display: none;
+  }
+}

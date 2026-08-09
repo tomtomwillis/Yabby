@@ -1,0 +1,101 @@
+/* The shared visualiser: a box in the left rail plus the fullscreen layer it
+   re-parents its canvas into. The canvas is created imperatively by
+   useAudioEngine, so only the containers are styled here. */
+
+.vz {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  font-family: var(--font2);
+}
+
+/* Takes whatever height the rail has left. min-height keeps it from collapsing
+   to nothing once the index, stats and weather have had their share. */
+.vz-box {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 90px;
+}
+
+/* Closed hides the box; the player's switch is what asks for it again. The
+   canvas is parked off-DOM meanwhile and keeps its WebGL context. */
+.vz--closed .vz-box {
+  display: none;
+}
+
+/* Absolutely filling the box rather than a percentage height: the box's own
+   height comes from flex, and inset: 0 resolves against it without depending on
+   a definite height being inherited down. */
+.vz-host {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--hp-rule, #c9cee4);
+}
+
+/* While fullscreen the canvas lives in the fixed layer, so this box would
+   otherwise sit here as an opaque black rectangle over the effect. Clearing it
+   lets the fullscreen visualiser (z-index -2) show through instead. */
+.vz--fs .vz-host {
+  background: transparent;
+  border-color: transparent;
+}
+
+.vz-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Appears on hover in the bottom-right corner of the box. */
+.vz-fs {
+  position: absolute;
+  right: 0.3rem;
+  bottom: 0.3rem;
+  padding: 0.15rem 0.4rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--colour4);
+  border: 1px solid var(--colour2);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.vz-box:hover .vz-fs,
+.vz-fs:focus-visible {
+  opacity: 1;
+}
+
+/* ── Fullscreen layer ──────────────────────────────────── */
+
+/* Fills the viewport behind all page content AND the star (which sits at
+   z-index -1), per the design. pointer-events: none keeps the page usable;
+   Esc returns the canvas to the box. Transparent when idle so no full-screen
+   layer paints while the canvas lives in the rail. */
+.vz-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.vz-fullscreen.is-active {
+  opacity: 1;
+}
+
+/* Stacked layout: the rail is auto-height there, so flex has no leftover space
+   to hand the box and it needs an intrinsic one. */
+@media (max-width: 900px) {
+  .vz-box {
+    aspect-ratio: 4 / 3;
+    max-height: 40vh;
+  }
+}
