@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -7,9 +7,9 @@ import { clearUserCache } from '../utils/userCache';
 import { sanitizeHtml } from '../utils/sanitise';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
+import { useAdmin } from '../utils/useAdmin';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
-import './Profile.css';
 
 const FLAG_OPTIONS: { flag: string; label: string }[] = [
   { flag: '', label: 'None' },
@@ -105,9 +105,9 @@ const Profile: React.FC = () => {
   const [flagSearch, setFlagSearch] = useState('');
   const [flagDropdownOpen, setFlagDropdownOpen] = useState(false);
   const [limitError, setLimitError] = useState('');
-  const [usernameError, setUsernameError] = useState('');
-  const usernameErrorRef = useRef<HTMLDivElement>(null);
   const [nekoEnabled, setNekoEnabled] = useState(false);
+  const [designToolEnabled, setDesignToolEnabled] = useState(false);
+  const { isAdmin } = useAdmin();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -132,6 +132,7 @@ const Profile: React.FC = () => {
             setLocationFlag(data.locationFlag || '');
             setLocationText(data.locationText || '');
             setNekoEnabled(data.nekoEnabled === true);
+            setDesignToolEnabled(data.designToolEnabled === true);
           }
         } catch (error) {
           console.error('Error fetching profile:', error);
@@ -171,30 +172,10 @@ const Profile: React.FC = () => {
     setFlagSearch('');
     setSaveMessage('');
     setLimitError('');
-    setUsernameError('');
   };
 
   const handleSave = async () => {
     if (!user) return;
-
-    const trimmedUsername = editUsername.trim();
-    const showUsernameError = (msg: string) => {
-      setUsernameError(msg);
-      setTimeout(() => usernameErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
-    };
-    if (trimmedUsername.length < 2) {
-      showUsernameError('Username must be at least 2 characters.');
-      return;
-    }
-    if (trimmedUsername.length > 20) {
-      showUsernameError('Username must be 20 characters or fewer.');
-      return;
-    }
-    if (!/^[a-zA-Z0-9 _-]+$/.test(trimmedUsername)) {
-      showUsernameError('Username can only contain letters, numbers, spaces, hyphens, and underscores.');
-      return;
-    }
-    setUsernameError('');
 
     setSaving(true);
     setSaveMessage('');
@@ -297,6 +278,22 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handleDesignToolToggle = async () => {
+    if (!user) return;
+    const newValue = !designToolEnabled;
+    setDesignToolEnabled(newValue);
+    localStorage.setItem('designToolEnabled', String(newValue));
+    window.dispatchEvent(new CustomEvent('design-tool-toggle', { detail: newValue }));
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { designToolEnabled: newValue });
+    } catch {
+      setDesignToolEnabled(!newValue);
+      localStorage.setItem('designToolEnabled', String(!newValue));
+      window.dispatchEvent(new CustomEvent('design-tool-toggle', { detail: !newValue }));
+    }
+  };
+
   const filteredFlags = FLAG_OPTIONS.filter((opt) =>
     opt.label.toLowerCase().includes(flagSearch.toLowerCase())
   );
@@ -347,7 +344,7 @@ const Profile: React.FC = () => {
               <MessageTextBox
                 placeholder="Change Username..."
                 value={editUsername}
-                onChange={(val) => { setEditUsername(val); setUsernameError(''); }}
+                onChange={setEditUsername}
                 maxWords={5}
                 maxChars={50}
                 showSendButton={false}
@@ -355,24 +352,6 @@ const Profile: React.FC = () => {
                 className="form-input"
                 onLimitExceeded={(type) => handleLimitExceeded(type, 'Username')}
               />
-
-              {usernameError && (
-                <div
-                  ref={usernameErrorRef}
-                  style={{
-                    marginTop: '6px',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    backgroundColor: '#f8d7da',
-                    color: '#721c24',
-                    border: '1px solid #f5c6cb',
-                    fontSize: '14px',
-                    fontFamily: 'var(--font2)',
-                  }}
-                >
-                  {usernameError}
-                </div>
-              )}
 
               <div style={{ height: '1rem' }}></div>
 
@@ -476,15 +455,36 @@ const Profile: React.FC = () => {
                         }}
                       />
                     </div>
-                    {filteredFlags.map((opt) => (
+                    {filteredFlags.map((opt, i) => (
                       <div
-                        key={opt.label}
+                        key={i}
                         onClick={() => {
                           setEditLocationFlag(opt.flag);
                           setFlagDropdownOpen(false);
                           setFlagSearch('');
                         }}
-                        className={`flag-dropdown-option${editLocationFlag === opt.flag ? ' selected' : ''}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          backgroundColor: editLocationFlag === opt.flag ? 'var(--colour2)' : 'transparent',
+                          color: editLocationFlag === opt.flag ? 'var(--colour4)' : 'var(--colour5)',
+                          fontFamily: 'var(--font2)',
+                          fontSize: '0.9em',
+                          transition: 'background-color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (editLocationFlag !== opt.flag) {
+                            e.currentTarget.style.backgroundColor = 'rgba(0,0,255,0.08)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (editLocationFlag !== opt.flag) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
                       >
                         <span style={{ fontSize: '1.3em' }}>{opt.flag || '✕'}</span>
                         <span>{opt.label}</span>
@@ -719,6 +719,34 @@ const Profile: React.FC = () => {
                   style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                 />
                 Oneko
+              </label>
+            </div>
+          </>
+        )}
+
+        {isAdmin && (
+          <>
+            <div style={{ height: '1rem' }}></div>
+            <div className="form-group" style={{ textAlign: 'center' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font2)',
+                  fontSize: '0.95em',
+                  color: 'var(--colour5)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={designToolEnabled}
+                  onChange={handleDesignToolToggle}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                Design Tool
               </label>
             </div>
           </>

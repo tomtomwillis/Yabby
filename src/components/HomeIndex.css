@@ -1,0 +1,55 @@
+/* Site index for the home sidebar. Box characters carry the tree, so the whole
+   thing has to sit in the mono face at a fixed line height or the branches
+   stop lining up. */
+
+.home-index {
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.72vw, 0.9rem);
+  line-height: 1.55;
+}
+
+.hi-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.hi-branch {
+  flex: 0 0 auto;
+  color: var(--hp-rule);
+  white-space: pre;
+}
+
+.hi-groupname {
+  color: var(--hp-dim);
+  letter-spacing: 0.06em;
+}
+
+.hi-link {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hp-accent);
+  text-decoration: none;
+  text-overflow: ellipsis;
+}
+
+.hi-link:hover,
+.hi-link:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.hi-link.is-active {
+  color: var(--colour7);
+  font-weight: 700;
+}
+
+.hi-link.is-active:hover,
+.hi-link.is-active:focus-visible {
+  color: var(--colour7);
+}
+
+.hi-link .nav-badge {
+  margin-left: 0.3rem;
+}

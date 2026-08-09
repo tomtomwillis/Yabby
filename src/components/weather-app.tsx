@@ -14,7 +14,12 @@ export default function Weather() {
       const weatherApi = `${baseWeatherApiUrl}?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
       try {
       const response = await fetch(weatherApi);
+      // A 503 resolves rather than throwing, and open-meteo answers it with a
+      // JSON error body — which parses fine and would otherwise be stored as
+      // weather with no current_weather on it.
+      if (!response.ok) throw new Error(`Weather API returned ${response.status}`);
       const data = await response.json();
+      if (!data?.current_weather) throw new Error('Weather API returned no current_weather');
       setWeatherData(data);
     } catch (error) {
       setError(true);

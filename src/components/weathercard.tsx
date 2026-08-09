@@ -42,7 +42,10 @@ const weatherCodes: WeatherCode[] = [
 ];
 
 export default function WeatherCard({weather} : { weather: any }) {
-  if (!weather) return null;
+  // Checked here as well as at the fetch: this renders inside the home shell
+  // with no error boundary above it, so a malformed response reaching this line
+  // takes the whole site down rather than just the card.
+  if (!weather?.current_weather) return null;
 
   const weatherCode = weather.current_weather.weathercode;
   const weatherInfo = weatherCodes.find(item => item.weatherCode === weatherCode) || { icon: faSun, description: "Unknown weather" }; // Fallback

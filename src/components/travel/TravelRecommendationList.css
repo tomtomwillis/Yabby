@@ -125,14 +125,14 @@
   opacity: 1;
 }
 
-/* Expanded panel — reuses the blue bubble styling inline */
+/* Expanded panel — reuses the bubble styling inline */
 .travel-rec-list__expanded {
   padding: 0 14px 12px;
 }
 
 .travel-rec-list__expanded .travel-bubble {
-  border-radius: 10px;
-  border: 1px solid rgba(26, 46, 204, 0.2);
+  border-radius: 0;
+  border: 1px solid var(--hp-rule, #c9cee4);
 }
 
 /* Show more */

@@ -79,7 +79,6 @@ const NewsPost: React.FC<NewsPostProps> = ({
           src={normalizedStickerPath}
           alt={`${username}'s avatar`}
           className="user-message-sticker"
-          loading="lazy"
           onError={() => setImageError(true)}
         />
       );

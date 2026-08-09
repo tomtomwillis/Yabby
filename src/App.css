@@ -6,11 +6,55 @@
   font-style: normal;
 }
 
+/* Variable weight axis, wght 400–700 in one file: font-weight anywhere in that
+   range interpolates rather than synthesising a bold. */
 @font-face {
-  font-family: 'NectoMono';
-  src: url('./assets/fonts/NectoMono-Regular.otf') format('opentype'); /* Correct format for .otf */
+  font-family: 'LibreBaskerville';
+  src: url('./assets/fonts/LibreBaskerville-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'CommitMono';
+  src: url('./assets/fonts/CommitMono-400-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'CommitMono';
+  src: url('./assets/fonts/CommitMono-700-Regular.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'jgs5';
+  src: url('./assets/fonts/JGS/jgs5.woff2') format('woff2'),
+       url('./assets/fonts/JGS/jgs5.woff') format('woff');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'jgs7';
+  src: url('./assets/fonts/JGS/jgs7.woff2') format('woff2'),
+       url('./assets/fonts/JGS/jgs7.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'jgs9';
+  src: url('./assets/fonts/JGS/jgs9.woff2') format('woff2'),
+       url('./assets/fonts/JGS/jgs9.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -21,61 +65,34 @@
 }
 
 @font-face {
-  font-family: 'Absans';
-  src: url('./assets/fonts/Absans-Regular.otf') format('opentype');
+  font-family: 'AsciiArial';
+  src: url('./assets/fonts/ARIAL.TTF') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: block;
 }
 
 @font-face {
-  font-family: 'OrticaLinear';
-  src: url('./assets/fonts/OrticaLinear-Light.otf') format('opentype');
-  font-weight: 300;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'OrticaLinear';
-  src: url('./assets/fonts/OrticaLinear-Regular.otf') format('opentype');
+  font-family: 'DTNouveau';
+  src: url('./assets/fonts/DTNouveau-Regular.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
-}
-
-@font-face {
-  font-family: 'Ribes';
-  src: url('./assets/fonts/Ribes-Light.otf') format('opentype');
-  font-weight: 300;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Ribes';
-  src: url('./assets/fonts/Ribes-Regular.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Ribes';
-  src: url('./assets/fonts/Ribes-Black.otf') format('opentype');
-  font-weight: 900;
-  font-style: normal;
+  font-display: block;
 }
 
 /* the main colour palette for the app */
 :root {
   --font1: 'WorkSans', Arial, sans-serif; /* Default font */
-  --font2: 'NectoMono', monospace;       /* Secondary font */
+  --font2: 'CommitMono', monospace;      /* Secondary font */
   --font3: 'AvaraItalic';                /* third font */
-  --font4: 'Absans', sans-serif;         /* Absans Regular */
-  --font5: 'OrticaLinear', sans-serif;   /* Ortica Linear (use font-weight: 300 for Light, normal for Regular) */
-  --font6: 'Ribes', sans-serif;          /* Ribes (use font-weight: 300 for Light, normal for Regular, 900 for Black) */
+  --font4: 'LibreBaskerville', Georgia, serif; /* body text: message board, news, travel recommendations */
   --colour1: #4CAF50;
   --colour2: #1a2ecc;
   --colour3: #e87a3a;
   --colour4: #FFFFFF;
   --colour5: #2b2b2b;
   --colour6: #8825e6;
+  --colour7: #f52bc9;
 }
 
 /* Set default font for the entire app */

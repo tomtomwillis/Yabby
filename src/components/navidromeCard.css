@@ -261,18 +261,6 @@ a.nc-artist:focus-visible {
   font-size: 0.7rem;
 }
 
-.nc-open-link {
-  margin-top: 0.25rem;
-  color: var(--nc-accent-dim);
-  font-size: 0.7rem;
-}
-
-.nc-open-link:hover,
-.nc-open-link:focus-visible {
-  color: var(--nc-accent);
-  text-decoration: underline;
-}
-
 .nc-pane {
   flex: 1 1 auto;
   min-width: 0;
@@ -444,7 +432,7 @@ a.nc-artist:focus-visible {
     right: 0;
     bottom: 0;
     left: 0;
-    /* Below the player dock (1002) rather than above it: a full-width sheet at
+    /* Below the bottom bar (1002) rather than above it: a full-width sheet at
        1500 would bury the transport controls with no way to reach them. */
     z-index: 1001;
     width: auto;
@@ -456,9 +444,10 @@ a.nc-artist:focus-visible {
     box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.18);
   }
 
-  /* Keep the sheet's own content clear of the dock overlapping its bottom edge. */
-  body:has(.sp-dock) .nc-card {
-    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  /* Keep the sheet's own content clear of the bar overlapping its bottom edge.
+     The bar is permanent now, so this applies wherever the shell is mounted. */
+  body:has(.home-bottom) .nc-card {
+    padding-bottom: calc(var(--hp-bar-h, 9rem) + env(safe-area-inset-bottom));
   }
 
   .nc-body {

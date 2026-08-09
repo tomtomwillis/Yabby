@@ -10,7 +10,7 @@ import {
   type CardArtist,
   type CardTrack,
 } from '../utils/navidromeCards';
-import { formatTime, useStickerPlayer } from '../utils/useStickerPlayer';
+import { formatTime, usePlayerActions, usePlayerState } from '../utils/usePlayer';
 import type { CardPoint, CardRequest } from '../utils/useNavidromeCard';
 import './stickerPlayer.css';
 import './navidromeCard.css';
@@ -118,7 +118,8 @@ interface TrackListProps {
 }
 
 const TrackList: React.FC<TrackListProps> = ({ albumId, albumTitle, albumArtist, tracks, columns }) => {
-  const { album: playing, index, playAlbum } = useStickerPlayer();
+  const { album: playing, index } = usePlayerState();
+  const { playAlbum } = usePlayerActions();
   const playingHere = playing?.id === albumId;
 
   return (
@@ -198,9 +199,6 @@ const AlbumCardBody: React.FC<AlbumBodyProps> = ({ albumId, onLightbox, onTrackP
           <span className="nc-artist">{album.artist}</span>
         )}
         <AlbumMeta album={album} />
-        <a className="nc-open-link" href={albumLink(album.id)} target="_blank" rel="noopener noreferrer">
-          [View in Navidrome]
-        </a>
       </div>
 
       <div className="nc-pane" ref={paneRef}>
