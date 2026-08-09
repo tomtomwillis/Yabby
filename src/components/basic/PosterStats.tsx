@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getUserProfile, type UserProfile } from '../../utils/userCache';
+import SiteLink from './SiteLink';
 
 interface PosterStatsProps {
   userId?: string;
@@ -31,13 +32,14 @@ const PosterStats: React.FC<PosterStatsProps> = ({ userId }) => {
     : null;
   const place = [profile.locationFlag, profile.locationText].filter(Boolean).join(' ');
 
-  if (!joined && !profile.postCount && !place && !profile.bio) return null;
+  if (!joined && !profile.postCount && !place && !profile.bio && !profile.siteUrl) return null;
 
   const hasMeta = !!joined || profile.postCount > 0 || !!place;
 
   return (
     <div className="user-message-poster-stats">
       {profile.bio && <span className="user-message-poster-bio">{profile.bio}</span>}
+      {profile.siteUrl && <SiteLink url={profile.siteUrl} className="user-message-poster-site" />}
       {/* Everything the board counted on their behalf, kept apart from the one
           line above it that they wrote themselves. */}
       {hasMeta && (

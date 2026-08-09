@@ -15,10 +15,12 @@
  * Replies drop their avatars and become a tree under the post, drawn with box
  * characters, their timestamp and controls sharing the first line with the name.
  *
- * A board index sits on the right, sticky against the column.
+ * A board index sits on the right, sticky against the column. It links the
+ * three boards — general, news and film club — which are separate pages over
+ * separate collections; this stylesheet is what they share.
  *
- * Everything is scoped to .mb-board, so /news, /issues and /filmclubmessage —
- * which render the same components — are untouched.
+ * Everything is scoped to .mb-board, so /issues — which renders the same
+ * components — is untouched.
  */
 
 .mb-board {
@@ -364,9 +366,39 @@
   cursor: pointer;
 }
 
-.mb-board .textbox-attach:hover {
+.mb-board .textbox-attach:hover:not(:disabled) {
   border-color: var(--colour3);
   color: var(--colour3);
+}
+
+.mb-board .textbox-attach:disabled {
+  color: var(--mb-mute);
+  cursor: default;
+}
+
+/* Drop target: the whole composer, so you do not have to hit the field. */
+.mb-board .textbox-container.dragover {
+  outline: 1px dashed var(--mb-accent);
+  outline-offset: 3px;
+}
+
+/* Sub-board composers only: send this to the main board as well. */
+.mb-board .textbox-crosspost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--mb-dim);
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.mb-board .textbox-crosspost input {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
+  accent-color: var(--mb-accent);
 }
 
 .mb-board .word-counter {
@@ -376,6 +408,40 @@
   font-size: 0.69rem;
   letter-spacing: 0.04em;
   color: var(--mb-mute);
+}
+
+/* ─── This month's film (film club board only) ────────── */
+
+/* A band across the top of the board rather than a card laid on it, ruled off
+   from the threads the same way the masthead is. */
+.mb-board .film-club-container {
+  padding: 1.2rem var(--mb-edge);
+  border-bottom: 1px solid var(--mb-rule);
+}
+
+.mb-board .film-card {
+  max-width: none;
+}
+
+.mb-board .film-card-label {
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.12em;
+  color: var(--mb-accent);
+}
+
+.mb-board .film-card-leave-date {
+  font-family: var(--mb-glyph);
+  font-size: 0.69rem;
+  letter-spacing: 0.04em;
+  color: var(--mb-mute);
+}
+
+.mb-board .film-card-inner {
+  max-width: var(--mb-measure);
+  padding: 0;
+  border: none;
+  border-radius: 0;
 }
 
 /* ─── The post ────────────────────────────────────────── */
@@ -494,6 +560,27 @@
   content: '// ';
 }
 
+/* Their own address, sitting with the line above it rather than with the
+   counted stats below. */
+.mb-board .user-message-poster-site {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--mb-accent);
+  font-family: var(--mb-glyph);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-board .user-message-poster-site:hover,
+.mb-board .user-message-poster-site:focus-visible {
+  color: var(--colour3);
+}
+
 /* What the board counted on their behalf, ruled off from it. */
 .mb-board .user-message-poster-meta {
   display: flex;
@@ -578,6 +665,27 @@
   opacity: 1;
   color: var(--mb-mute);
   font-style: normal;
+}
+
+/* A post carried through from one of the other boards. Ruled rather than
+   filled, like every other mark on the sheet, and a link — the thread it
+   belongs to lives on the board it names. */
+.mb-board .user-message-source-tag {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--mb-accent);
+  color: var(--mb-accent);
+  font-family: var(--mb-glyph);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+}
+
+.mb-board .user-message-source-tag:hover,
+.mb-board .user-message-source-tag:focus-visible {
+  border-color: var(--colour3);
+  color: var(--colour3);
 }
 
 /* The dashed rule above does the job. */
@@ -994,6 +1102,7 @@
 /* A band under the masthead, quieter than the composer below it: a note about
    the board rather than part of it. */
 .mb-board .tip {
+  box-sizing: border-box;
   width: 100%;
   max-width: none;
   margin: 0;
@@ -1058,67 +1167,101 @@
   overflow: auto;
   padding: 1.6rem 1rem 3rem;
   border-left: 1px solid var(--mb-rule);
+  /* Set exactly as the site index on the left is: the box characters only line
+     up at that face, size and line height. */
   font-family: var(--mb-glyph);
-  font-size: 0.75rem;
-  line-height: 1.9;
-  letter-spacing: 0.02em;
+  font-size: clamp(0.74rem, 0.72vw, 0.9rem);
+  line-height: 1.55;
   text-align: left;
 }
 
 .mb-boards-heading {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin: 0 0 0.375rem;
-  font-size: 0.69rem;
-  letter-spacing: 0.12em;
-  color: var(--mb-accent);
-}
-
-.mb-boards-rule {
-  flex: 1 1 auto;
-  height: 0;
-  border-bottom: 1px solid var(--mb-rule);
+  margin: 0;
+  color: var(--mb-dim);
+  letter-spacing: 0.06em;
 }
 
 .mb-boards-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  color: var(--mb-dim);
 }
 
 .mb-boards-list li {
   display: flex;
-  gap: 0.5rem;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
 }
 
 .mb-boards-tree {
   flex: 0 0 auto;
+  color: var(--mb-rule);
+  white-space: pre;
   user-select: none;
 }
 
 .mb-boards-name {
-  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+  color: var(--mb-accent);
+  text-decoration: none;
+  text-overflow: ellipsis;
 }
 
-/* The board you are reading. */
-.mb-boards-list li.current .mb-boards-name {
+.mb-boards-name:hover,
+.mb-boards-name:focus-visible {
   color: var(--colour3);
-  border-bottom: 1px solid var(--colour3);
+  text-decoration: underline;
+}
+
+/* The board you are reading, marked the way the active site-index link is. */
+.mb-boards-list li.current .mb-boards-name,
+.mb-boards-list li.current .mb-boards-name:hover,
+.mb-boards-list li.current .mb-boards-name:focus-visible {
+  color: var(--colour7);
+  font-weight: 700;
+  text-decoration: none;
 }
 
 /* ─── Narrow ──────────────────────────────────────────── */
 
-/* The index has nowhere to go beside a single-column board. */
+/* Nowhere to sit beside a single-column board, so the index lies along the top
+   of it instead. It is real navigation now, so it cannot simply go. */
 @media (max-width: 1100px) {
+  .mb-shell {
+    display: flex;
+    flex-direction: column;
+  }
+
   .mb-boards {
+    /* Second in the markup so it reads after the board on a wide screen; on a
+       narrow one it belongs at the top, where a row of tabs would be. */
+    order: -1;
+    position: static;
+    width: auto;
+    max-height: none;
+    padding: 0.9rem var(--mb-edge);
+    border-left: none;
+    border-bottom: 1px solid var(--mb-rule);
+  }
+
+  .mb-boards-heading {
     display: none;
   }
 
-  .mb-shell {
-    grid-template-columns: minmax(0, 1fr);
+  .mb-boards-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1.1rem;
+  }
+
+  .mb-boards-tree {
+    display: none;
+  }
+
+  .mb-boards-name {
+    flex: 0 0 auto;
   }
 }
 

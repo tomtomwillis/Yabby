@@ -4,6 +4,7 @@ import { parseMessageHTML } from './basic/UserMessages';
 import { sanitizeHtml } from '../utils/sanitise';
 import { FaEdit, FaTrash } from 'react-icons/fa';
 import ForumBox from './basic/ForumMessageBox';
+import PosterStats from './basic/PosterStats';
 import './basic/UserMessage.css';
 
 interface NewsPostProps {
@@ -19,6 +20,11 @@ interface NewsPostProps {
   edited?: boolean;
   truncate?: boolean;
   truncateWords?: number;
+  /** Move the poster's name and identity block into the avatar column, the way
+      the boards lay a post out. Costs a users read per distinct author. */
+  showPosterStats?: boolean;
+  /** Lay the edit box out the way the ledger boards do. */
+  ledgerControls?: boolean;
 }
 
 const normalizeAvatarPath = (avatarPath: string): string => {
@@ -43,6 +49,8 @@ const NewsPost: React.FC<NewsPostProps> = ({
   edited,
   truncate = false,
   truncateWords = 25,
+  showPosterStats = false,
+  ledgerControls = false,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -103,21 +111,30 @@ const NewsPost: React.FC<NewsPostProps> = ({
     }
   };
 
+  const usernameBlock = (
+    <div className="user-message-username">
+      {userId ? (
+        <Link to={`/user/${userId}`} className="user-message-username-link">
+          {username}
+        </Link>
+      ) : (
+        username
+      )}
+    </div>
+  );
+
   return (
     <div className="user-message">
+      {/* The poster column, laid out the way the boards lay a post out: who
+          wrote it on the left, what they said on the right. */}
       <div className="user-message-sticker-container">
         {renderUserSticker()}
+        {showPosterStats && usernameBlock}
+        {showPosterStats && <PosterStats userId={userId} />}
       </div>
+      {showPosterStats && <div className="user-message-gutter-rule" aria-hidden="true"></div>}
       <div className="user-message-content">
-        <div className="user-message-username">
-          {userId ? (
-            <Link to={`/user/${userId}`} className="user-message-username-link">
-              {username}
-            </Link>
-          ) : (
-            username
-          )}
-        </div>
+        {!showPosterStats && usernameBlock}
         <div className="user-message-timestamp">
           {timestamp}
           {edited && <span className="user-message-edited-indicator"> (edited)</span>}
@@ -141,6 +158,7 @@ const NewsPost: React.FC<NewsPostProps> = ({
               maxWords={1000}
               maxChars={5000}
               showSendButton={true}
+              outsideControls={ledgerControls}
             />
             <button
               className="user-message-cancel-reply"
@@ -190,33 +208,34 @@ const NewsPost: React.FC<NewsPostProps> = ({
             )}
           </div>
         )}
-      </div>
 
-      {/* Action buttons */}
-      <div className="user-message-actions-container">
-        {canEdit && !isEditing && (
-          <div
-            className="user-message-edit-button"
-            onClick={() => setIsEditing(true)}
-            role="button"
-            tabIndex={0}
-            aria-label="Edit news post"
-          >
-            <FaEdit />
-          </div>
-        )}
+        {/* Action buttons. Inside the content column, so the post is two real
+            columns and nothing has to be positioned out of flow. */}
+        <div className="user-message-actions-container">
+          {canEdit && !isEditing && (
+            <div
+              className="user-message-edit-button"
+              onClick={() => setIsEditing(true)}
+              role="button"
+              tabIndex={0}
+              aria-label="Edit news post"
+            >
+              <FaEdit />
+            </div>
+          )}
 
-        {canDelete && !isEditing && (
-          <div
-            className="user-message-delete-button"
-            onClick={handleDelete}
-            role="button"
-            tabIndex={0}
-            aria-label="Delete news post"
-          >
-            <FaTrash />
-          </div>
-        )}
+          {canDelete && !isEditing && (
+            <div
+              className="user-message-delete-button"
+              onClick={handleDelete}
+              role="button"
+              tabIndex={0}
+              aria-label="Delete news post"
+            >
+              <FaTrash />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -743,7 +743,7 @@ const profileSuite: TestSuite = {
   id: 'profile',
   name: 'Profile stats',
   description:
-    'The join date and post count behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one.',
+    'The join date, post count and site url behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one. Your site url is written over and put back.',
   tests: [
     {
       name: 'reads your own profile',
@@ -806,6 +806,28 @@ const profileSuite: TestSuite = {
       run: async (ctx) =>
         expectDenied('setting a negative post count', () =>
           updateDoc(doc(db, 'users', ctx.uid), { postCount: -1 }),
+        ),
+    },
+    {
+      name: 'saves a site url, then puts yours back',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const before = (await getDoc(ref)).data()?.siteUrl ?? '';
+
+        await updateDoc(ref, { siteUrl: 'coyburn.neocities.org' });
+        const after = (await getDoc(ref)).data()?.siteUrl;
+        // Restore first, so a failed assertion cannot leave the test value behind.
+        await updateDoc(ref, { siteUrl: before });
+
+        assert(after === 'coyburn.neocities.org', `siteUrl read back as ${after}.`);
+        return before ? `restored ${before}` : 'restored empty';
+      },
+    },
+    {
+      name: 'rules reject an over-long site url',
+      run: async (ctx) =>
+        expectDenied('a site url past the 200 character cap', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { siteUrl: 'x'.repeat(201) }),
         ),
     },
     {

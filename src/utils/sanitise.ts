@@ -52,6 +52,30 @@ export const validateUrl = (url: string): boolean => {
 };
 
 /**
+ * Turns a loosely-typed site address into a safe absolute URL.
+ * Accepts a bare host ("coyburn.neocities.org") by assuming https.
+ * Returns '' for anything that is not plausibly a web address, so callers
+ * can fall back to rendering the raw text.
+ *
+ * @param raw - Address as the user typed it
+ * @returns Absolute http/https URL, or '' if it is not one
+ */
+export const normalizeSiteUrl = (raw: string): string => {
+  const trimmed = raw.trim();
+  if (!trimmed || /\s/.test(trimmed)) return '';
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  if (!validateUrl(candidate)) return '';
+
+  try {
+    const { hostname } = new URL(candidate);
+    return hostname.includes('.') && !hostname.endsWith('.') ? candidate : '';
+  } catch {
+    return '';
+  }
+};
+
+/**
  * Sanitizes a URL to ensure it's safe
  * Returns empty string if URL is invalid or dangerous
  *

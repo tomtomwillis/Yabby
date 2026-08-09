@@ -145,6 +145,11 @@
     background-color: var(--colour2) !important;
   }
 
+  /* The picker is opened by the attach button, never shown itself. */
+  .textbox-attach-input {
+    display: none;
+  }
+
   /* Image Preview */
   .image-preview-container {
     margin-top: 12px;

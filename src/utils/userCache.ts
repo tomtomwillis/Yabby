@@ -11,6 +11,7 @@ export interface UserProfile {
   username: string;
   avatar: string;
   bio: string;
+  siteUrl: string;
   locationFlag: string;
   locationText: string;
   /** Null for anyone who has not logged in since join dates were introduced. */
@@ -22,6 +23,7 @@ const EMPTY: UserProfile = {
   username: 'Anonymous',
   avatar: '',
   bio: '',
+  siteUrl: '',
   locationFlag: '',
   locationText: '',
   joinedAt: null,
@@ -58,6 +60,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
             username: data.username || 'Anonymous',
             avatar: data.avatar || '',
             bio: data.bio || '',
+            siteUrl: data.siteUrl || '',
             locationFlag: data.locationFlag || '',
             locationText: data.locationText || '',
             joinedAt: data.joinedAt?.toDate?.() ?? null,

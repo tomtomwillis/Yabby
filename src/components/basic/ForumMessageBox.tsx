@@ -48,6 +48,9 @@ const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
   issueresolved: 'Issues',
 };
 
+// Matches MAX_FILE_SIZE in backend_server/routes/messageImages.js
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
 interface ForumMessageBoxProps {
   placeholder?: string;
   onSend?: (text: string) => void;
@@ -70,6 +73,14 @@ interface ForumMessageBoxProps {
       field rather than inside it. The ledger boards lay the composer out this
       way; everywhere else keeps the button in the field. */
   outsideControls?: boolean;
+  /** A tick box drawn with the controls. The sub-boards use it to offer
+      cross-posting to the main board; the box itself is controlled by whoever
+      does the writing. */
+  crossPost?: {
+    label: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+  };
 }
 
 const ForumBox: React.FC<ForumMessageBoxProps> = ({
@@ -87,6 +98,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   avatar,
   avatarName,
   outsideControls,
+  crossPost,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
@@ -95,6 +107,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState(initialValue);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [pendingPoll, setPendingPoll] = useState<PollDraft | null>(null);
   const [pollComposeOpen, setPollComposeOpen] = useState(false);
 
@@ -110,6 +123,10 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [allIssues, setAllIssues] = useState<Result[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Dragging over a child fires dragleave on the parent, so count depth
+  // instead of toggling on the first leave.
+  const dragDepthRef = useRef(0);
   const triggerPositionRef = useRef<number>(-1);
   const listsFetchPromiseRef = useRef<Promise<void> | null>(null);
   const placesFetchPromiseRef = useRef<Promise<void> | null>(null);
@@ -567,6 +584,24 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     autoResize();
   }, [newMessage]);
 
+  // The one path all three attach methods go through: paste, picker, drop.
+  const attachImageFile = (file: File, method: 'paste' | 'picker' | 'drop') => {
+    // Deliberately looser than the server's allow-list: some platforms report
+    // an empty or odd MIME type (HEIC especially), and the server is the gate.
+    if (!file.type.startsWith('image/')) {
+      alert('Only image files can be attached.');
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      alert('Image must be under 8 MB.');
+      return;
+    }
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(URL.createObjectURL(file));
+    onImageAttach?.(file);
+    window.umami?.track('message-image-attach', { method });
+  };
+
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -575,16 +610,43 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         e.preventDefault();
         const file = item.getAsFile();
         if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-          alert('Image must be under 5 MB.');
-          return;
-        }
-        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-        setImagePreviewUrl(URL.createObjectURL(file));
-        onImageAttach?.(file);
+        attachImageFile(file, 'paste');
         return;
       }
     }
+  };
+
+  const dragEnabled = !!onImageAttach && !disabled;
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!dragEnabled || !e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDragOver(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!dragEnabled || !e.dataTransfer.types.includes('Files')) return;
+    // Without this the browser navigates to the file and no drop event fires.
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!dragEnabled) return;
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!dragEnabled) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDragOver(false);
+    // Dragging an image out of another web page gives a URL, not a File.
+    const file = e.dataTransfer.files?.[0];
+    if (file) attachImageFile(file, 'drop');
   };
 
   const removeImage = () => {
@@ -629,8 +691,55 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     return '';
   })();
 
+  // Only offered where a parent is actually listening for the file — News uses
+  // this layout but has nowhere to put an image.
+  const attachButton = onImageAttach ? (
+    <>
+      {/* accept="image/*" rather than the server's exact list: it is what makes
+          iOS offer Photo Library / Take Photo / Browse and Android show the
+          gallery. No `capture`, so the camera never becomes the only option. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="textbox-attach-input"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) attachImageFile(file, 'picker');
+          e.target.value = ''; // so the same file can be picked again
+        }}
+      />
+      <button
+        type="button"
+        className="textbox-attach"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={disabled}
+      >
+        ▓ attach
+      </button>
+    </>
+  ) : null;
+
+  const crossPostToggle = crossPost ? (
+    <label className="textbox-crosspost">
+      <input
+        type="checkbox"
+        checked={crossPost.checked}
+        onChange={(e) => crossPost.onChange(e.target.checked)}
+        disabled={disabled}
+      />
+      {crossPost.label}
+    </label>
+  ) : null;
+
   return (
-    <div className={`textbox-container ${disabled ? 'disabled' : ''} ${className}`}>
+    <div
+      className={`textbox-container ${disabled ? 'disabled' : ''} ${isDragOver ? 'dragover' : ''} ${className}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {avatar && (
         <>
           {/* The composer's poster gutter: the same column a post has, so the
@@ -675,9 +784,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       {outsideControls && (
         <div className="textbox-controls">
           {showSendButton && sendButton}
-          {/* Drawn but not wired: attaching still happens by pasting an image
-              into the field. */}
-          <button type="button" className="textbox-attach">▓ attach</button>
+          {attachButton}
+          {crossPostToggle}
           {wordCounter}
         </div>
       )}
@@ -782,6 +890,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         </figure>
       )}
 
+      {!outsideControls && crossPostToggle}
       {!outsideControls && wordCounter}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { getUserProfile, type UserProfile } from '../../utils/userCache';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
+import SiteLink from './SiteLink';
 import './UsernameLink.css';
 
 interface UsernameLinkProps {
@@ -66,7 +67,7 @@ const UsernameLink: React.FC<UsernameLinkProps> = ({ userId, username, className
 
       // Below by default, flipped above when the viewport bottom is closer than
       // the card is tall; clamped so a name near either edge stays on screen.
-      const estH = 162 + (data.bio ? 50 : 0);
+      const estH = 162 + (data.bio ? 50 : 0) + (data.siteUrl ? 18 : 0);
       const below = rect.bottom + GAP;
       const top = below + estH > window.innerHeight && rect.top > estH + GAP ? rect.top - estH - GAP : below;
       const left = Math.max(GAP, Math.min(rect.left, window.innerWidth - CARD_W - GAP));
@@ -119,6 +120,7 @@ const UsernameLink: React.FC<UsernameLinkProps> = ({ userId, username, className
             <p className={`ul-bio${profile.bio ? '' : ' is-empty'}`}>
               {profile.bio || 'no bio yet'}
             </p>
+            {profile.siteUrl && <SiteLink url={profile.siteUrl} className="ul-site" />}
             <span className="ul-hint">click to view profile →</span>
 
             <span className="ul-edge ul-edge-bottom" aria-hidden="true">{'─'.repeat(80)}</span>

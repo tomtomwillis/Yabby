@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import Header from '../components/basic/Header';
 import MessageBoard from '../components/MessageBoard';
+import type { CrossPostSource } from '../components/MessageBoard';
+import BoardsRail from '../components/BoardsRail';
 import Tips from '../components/basic/Tips';
 import './MessageBoardPage.css';
 
@@ -17,10 +19,13 @@ const tips: React.ComponentProps<typeof Tips>[] = [
   },
 ];
 
-/* The board index. Nothing behind it yet — every thread still lives in the one
-   collection — so it is drawn but not navigable, with the board you are on
-   marked. */
-const BOARDS = ['general', 'news', 'film club'];
+/* Threads from the other two boards whose authors ticked them through to here.
+   News has no lastActivityAt of its own — nothing bumps a news post — so it is
+   read in the order it was written. */
+const CROSS_POSTS: CrossPostSource[] = [
+  { collection: 'news', orderField: 'timestamp', label: 'news', href: '/news' },
+  { collection: 'filmClubMessages', orderField: 'lastActivityAt', label: 'film club', href: '/filmclubmessage' },
+];
 
 const MessageBoardPage: React.FC = () => {
   const [tip] = useState(() => tips[Math.floor(Math.random() * tips.length)]);
@@ -40,6 +45,7 @@ const MessageBoardPage: React.FC = () => {
             showComposerAvatar={true}
             replyPreviewCount={2}
             ledger={true}
+            crossPostSources={CROSS_POSTS}
             listHeader={
               <div className="mb-board-bar">
                 <span className="mb-board-bar-label">threads</span>
@@ -50,22 +56,7 @@ const MessageBoardPage: React.FC = () => {
           />
         </div>
 
-        <aside className="mb-boards" aria-label="Boards">
-          <p className="mb-boards-heading">
-            <span>boards</span>
-            <span className="mb-boards-rule" aria-hidden="true"></span>
-          </p>
-          <ul className="mb-boards-list">
-            {BOARDS.map((board, i) => (
-              <li key={board} className={board === 'general' ? 'current' : undefined}>
-                <span className="mb-boards-tree" aria-hidden="true">
-                  {i === BOARDS.length - 1 ? '└─' : '├─'}
-                </span>
-                <span className="mb-boards-name">{board}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <BoardsRail current="general" />
       </div>
     </div>
   );

@@ -4,9 +4,10 @@ import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { clearUserCache } from '../utils/userCache';
-import { sanitizeHtml } from '../utils/sanitise';
+import { sanitizeHtml, sanitizeText } from '../utils/sanitise';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
+import SiteLink from '../components/basic/SiteLink';
 import { useAdmin } from '../utils/useAdmin';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
@@ -88,6 +89,7 @@ const Profile: React.FC = () => {
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
 
   const [bio, setBio] = useState('');
+  const [siteUrl, setSiteUrl] = useState('');
   const [locationFlag, setLocationFlag] = useState('');
   const [locationText, setLocationText] = useState('');
 
@@ -97,6 +99,7 @@ const Profile: React.FC = () => {
   const [editShape, setEditShape] = useState('star');
   const [editAvatar, setEditAvatar] = useState('/Stickers/avatar_star_blue.webp');
   const [editBio, setEditBio] = useState('');
+  const [editSiteUrl, setEditSiteUrl] = useState('');
   const [editLocationFlag, setEditLocationFlag] = useState('');
   const [editLocationText, setEditLocationText] = useState('');
   const [saving, setSaving] = useState(false);
@@ -129,6 +132,7 @@ const Profile: React.FC = () => {
             setSelectedShape(fetchedShape);
             setAvatar(fetchedAvatar);
             setBio(data.bio || '');
+            setSiteUrl(data.siteUrl || '');
             setLocationFlag(data.locationFlag || '');
             setLocationText(data.locationText || '');
             setNekoEnabled(data.nekoEnabled === true);
@@ -159,6 +163,7 @@ const Profile: React.FC = () => {
     setEditShape(selectedShape);
     setEditAvatar(avatar);
     setEditBio(bio);
+    setEditSiteUrl(siteUrl);
     setEditLocationFlag(locationFlag);
     setEditLocationText(locationText);
     setIsEditing(true);
@@ -183,6 +188,8 @@ const Profile: React.FC = () => {
 
     try {
       const sanitizedBio = sanitizeHtml(editBio.trim());
+      // A web address never carries markup, so strip tags outright.
+      const sanitizedSiteUrl = sanitizeText(editSiteUrl.trim());
       const sanitizedLocationText = sanitizeHtml(editLocationText.trim());
       const userDoc = doc(db, 'users', user.uid);
       await setDoc(
@@ -193,6 +200,7 @@ const Profile: React.FC = () => {
           shape: editShape,
           avatar: editAvatar,
           bio: sanitizedBio,
+          siteUrl: sanitizedSiteUrl,
           locationFlag: editLocationFlag,
           locationText: sanitizedLocationText,
         },
@@ -204,6 +212,7 @@ const Profile: React.FC = () => {
       setSelectedShape(editShape);
       setAvatar(editAvatar);
       setBio(sanitizedBio);
+      setSiteUrl(sanitizedSiteUrl);
       setLocationFlag(editLocationFlag);
       setLocationText(sanitizedLocationText);
       setIsEditing(false);
@@ -377,6 +386,21 @@ const Profile: React.FC = () => {
                 showCounter={true}
                 rows={3}
                 onLimitExceeded={(type) => handleLimitExceeded(type, 'Bio')}
+              />
+
+              <div style={{ height: '0.75rem' }}></div>
+
+              <label>Website:</label>
+              <MessageTextBox
+                placeholder="your-site.neocities.org"
+                value={editSiteUrl}
+                onChange={setEditSiteUrl}
+                maxWords={1}
+                maxChars={200}
+                showSendButton={false}
+                showCounter={false}
+                rows={1}
+                onLimitExceeded={(type) => handleLimitExceeded(type, 'Website')}
               />
 
               <div style={{ height: '0.75rem' }}></div>
@@ -615,6 +639,20 @@ const Profile: React.FC = () => {
                     margin: 0,
                   }}>
                     No bio yet.
+                  </p>
+                )}
+
+                {siteUrl && (
+                  <p style={{
+                    fontFamily: 'var(--font2)',
+                    fontSize: '0.95em',
+                    margin: '10px 0 0',
+                    wordBreak: 'break-all',
+                  }}>
+                    <SiteLink
+                      url={siteUrl}
+                      style={{ color: 'var(--colour4)' }}
+                    />
                   </p>
                 )}
 

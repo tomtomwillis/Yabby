@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import './UserMessage.css';
 import Button from './Button'; // Import the actual Button component
 import parse, { type HTMLReactParserOptions, Element, domToReact, type DOMNode } from 'html-react-parser';
@@ -88,6 +89,9 @@ interface UserMessageProps {
   /** Lay the in-post composers out the way the ledger boards do: send, attach
       and the counter in a row under the field rather than inside it. */
   ledgerControls?: boolean;
+  /** Marks a post listed on a board other than the one it was written on, and
+      links back to that board. */
+  sourceTag?: { label: string; href: string };
 }
 
 // Utility function to validate and sanitize URLs
@@ -212,6 +216,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   showPosterStats,
   replyPreviewCount = 0,
   ledgerControls,
+  sourceTag,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -366,10 +371,14 @@ const UserMessage: React.FC<UserMessageProps> = ({
       <div className="user-message-content">
         {!showPosterStats && usernameBlock}
         <div className="user-message-timestamp">
+          {sourceTag && (
+            <Link to={sourceTag.href} className="user-message-source-tag">
+              {sourceTag.label}
+            </Link>
+          )}
           {timestamp}
           {edited && <span className="user-message-edited-indicator"> (edited)</span>}
         </div>
-        {showPosterStats && <PosterStats userId={userId} />}
         <div className="user-message-separator"></div>
 
         {isEditing ? (
