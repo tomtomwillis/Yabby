@@ -181,12 +181,13 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
         && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
         && (!('bio' in request.resource.data) || validString(request.resource.data.bio, 0, 500))
+        && (!('siteUrl' in request.resource.data) || validString(request.resource.data.siteUrl, 0, 200))
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
@@ -197,12 +198,13 @@ service cloud.firestore {
         && (!('postCount' in request.resource.data) || request.resource.data.postCount == 0);
 
       allow update: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
         && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
         && (!('bio' in request.resource.data) || validString(request.resource.data.bio, 0, 500))
+        && (!('siteUrl' in request.resource.data) || validString(request.resource.data.siteUrl, 0, 200))
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
@@ -331,7 +333,10 @@ service cloud.firestore {
     }
 
     // Film Club Messages - dedicated film discussion chat
-    // Mirrors messages rules but allows posterUrl for film announcements
+    // Mirrors messages rules but allows posterUrl for film announcements, and
+    // showOnMain - set at post time when the author ticks the box that also
+    // lists the post on the main board. Read-only after the create: the main
+    // board queries on it, so it is not something a later update may flip.
     match /filmClubMessages/{messageId} {
       allow read: if isSignedIn();
 
@@ -340,7 +345,7 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'showOnMain', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
         && hasNoPriorReactions(request.resource.data)
         && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
@@ -348,6 +353,7 @@ service cloud.firestore {
         && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
         && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
+        && (!('showOnMain' in request.resource.data) || request.resource.data.showOnMain is bool)
         && (!('posterUrl' in request.resource.data) || validString(request.resource.data.posterUrl, 0, 500));
 
       allow update: if isOwner(resource.data.userId)
@@ -573,12 +579,16 @@ service cloud.firestore {
     match /news/{newsId} {
       allow read: if isSignedIn();
 
+      // showOnMain is set at post time when the author ticks the box that also
+      // lists the post on the main board. Read-only after the create: the main
+      // board queries on it, so it is not something a later update may flip.
       allow create: if isAdmin()
         && request.resource.data.userId == request.auth.uid
         && isValidMessage(request.resource.data.text)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'showOnMain'])
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
+        && (!('showOnMain' in request.resource.data) || request.resource.data.showOnMain is bool)
         && validString(request.resource.data.avatar, 0, 200);
 
       allow update: if isAdmin() && isOwner(resource.data.userId)
