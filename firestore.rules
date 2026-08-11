@@ -16,22 +16,31 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    function isMediaManager() {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/mediaManagers/$(request.auth.uid));
-    }
-
     function validString(text, minLen, maxLen) {
       return text is string
         && text.size() >= minLen
         && text.size() <= maxLen;
     }
 
+    // Space, dot, hyphen and underscore are separators, and a separator only
+    // sits between runs of letters and digits. That blocks the near-misses a
+    // reservation cannot tell apart by eye — "alice " and "alice." both read
+    // as "alice" — and it keeps the lowercased name usable as the reservation
+    // document id, since Firestore refuses the ids "." and ".." and anything
+    // shaped like __name__.
     function isValidUsername(username) {
       return username is string
         && username.size() >= 2
         && username.size() <= 20
-        && username.matches('^[a-zA-Z0-9 _-]+$');
+        && username.matches('[a-zA-Z0-9]+([ ._-][a-zA-Z0-9]+)*');
+    }
+
+    // A username is the writer's only if the reservation under its lowercased
+    // form belongs to them. getAfter, not get, so the profile write and the
+    // reservation write can land in the same batch — get would see the state
+    // before the batch and never find a newly claimed name.
+    function ownsUsername(userId, username) {
+      return getAfter(/databases/$(database)/documents/usernames/$(username.lower())).data.uid == userId;
     }
 
     function isValidMessage(text) {
@@ -107,6 +116,13 @@ service cloud.firestore {
         || isAdmin();
     }
 
+    // The bot flag is the only trustworthy marker that a post is an
+    // announcement rather than a person: username and avatar can both be
+    // matched by any member, this cannot be written without an admins doc.
+    function isValidBotFlag(data) {
+      return !('isBot' in data) || (data.isBot == true && isAdmin());
+    }
+
     function isValidListItem(data) {
       return data.keys().hasOnly([
           'type', 'userText', 'order', 'timestamp',
@@ -176,6 +192,30 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Username reservations, one document per lowercased username. The
+    // collection is itself the uniqueness constraint: a create can only land
+    // where no document exists, and the profile rules below refuse a username
+    // whose reservation is not the writer's. Without this any member could
+    // rename themselves to another member's name and post under it.
+    match /usernames/{name} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'username'])
+        && request.resource.data.uid == request.auth.uid
+        && isValidUsername(request.resource.data.username)
+        && request.resource.data.username.lower() == name;
+
+      // A rename deletes and re-creates rather than editing, so the document
+      // id and the name inside it can never drift apart.
+      allow update: if false;
+
+      // resource is null when a rename releases a name that was never
+      // reserved — that delete is a no-op and must not fail the batch.
+      allow delete: if isSignedIn()
+        && (resource == null || resource.data.uid == request.auth.uid || isAdmin());
+    }
+
     // User profiles
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -183,6 +223,7 @@ service cloud.firestore {
       allow create: if isOwner(userId)
         && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
+        && ownsUsername(userId, request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
         && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
@@ -192,14 +233,20 @@ service cloud.firestore {
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
-        // Both are server-set: joinedAt must be the moment of the write, so it
-        // cannot be backdated, and a new profile starts on zero posts.
-        && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt == request.time)
+        // joinedAt carries the account's creation time in Auth, which is always
+        // at or before the write that copies it across; a future date is not a
+        // join date. A new profile starts on zero posts.
+        && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt <= request.time)
         && (!('postCount' in request.resource.data) || request.resource.data.postCount == 0);
 
       allow update: if isOwner(userId)
         && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
+        // Only a rename pays for the reservation lookup — every other profile
+        // write, including the post count increment on each post, keeps the
+        // name it already had and skips the read.
+        && (request.resource.data.username == resource.data.get('username', '')
+            || ownsUsername(userId, request.resource.data.username))
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
         && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
@@ -210,10 +257,11 @@ service cloud.firestore {
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
         // Join date is written once, on first login, and is never rewritten
-        // after that — otherwise it is not a join date. When it is written it
-        // has to be the moment of the write, so it cannot be backdated.
+        // after that — otherwise it is not a join date. The value copied across
+        // is the account's Auth creation time, so it may sit in the past, but
+        // never past the moment of the write.
         && (!('joinedAt' in resource.data)
-            ? (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt == request.time)
+            ? (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt <= request.time)
             : request.resource.data.joinedAt == resource.data.joinedAt)
         // Post count may hold or advance by one. A client could still hold it
         // back by never posting through the app, but it cannot inflate itself.
@@ -237,8 +285,9 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes', 'isBot'])
         && hasNoPriorReactions(request.resource.data)
+        && isValidBotFlag(request.resource.data)
         && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
@@ -345,8 +394,9 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'showOnMain', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'showOnMain', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes', 'isBot'])
         && hasNoPriorReactions(request.resource.data)
+        && isValidBotFlag(request.resource.data)
         && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
@@ -530,7 +580,7 @@ service cloud.firestore {
     // to isPublic == true or userId == auth.uid (rules are not filters).
     match /{listCollection}/{listId} {
       allow get: if isListCollection(listCollection) && isSignedIn()
-        && (resource.data.isPublic != false || resource.data.userId == request.auth.uid);
+        && (resource.data.get('isPublic', true) != false || resource.data.userId == request.auth.uid);
 
       allow list: if isListCollection(listCollection) && isSignedIn()
         && (resource.data.isPublic == true || resource.data.userId == request.auth.uid);
@@ -556,7 +606,7 @@ service cloud.firestore {
       match /items/{itemId} {
         // Items inherit the parent list's visibility (one billed read per request)
         allow read: if isListCollection(listCollection) && isSignedIn()
-          && (get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isPublic != false
+          && (get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.get('isPublic', true) != false
             || get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.userId == request.auth.uid);
 
         allow create, update: if isListCollection(listCollection) && isSignedIn()
@@ -662,8 +712,11 @@ service cloud.firestore {
         && request.resource.data.winnerCalculated is bool
         && isValidNextFilm(request.resource.data.nextFilm);
 
+      // get(), not a bare field read: a month doc created by an admin has no
+      // winnerCalculated yet, and reading a missing field is an error that
+      // would deny the very first IRV write.
       allow update: if isSignedIn()
-        && !resource.data.winnerCalculated
+        && resource.data.get('winnerCalculated', false) == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextFilm', 'winnerCalculated'])
         && request.resource.data.winnerCalculated == true
         && request.resource.data.winnerCalculated is bool
