@@ -52,7 +52,6 @@ function HomeDashboard() {
 
   const handleStickerPlaced = (payload: PlacedStickerPayload) => {
     stickersRef.current?.injectSticker(payload);
-    stickersRef.current?.refetch();
   };
 
   return (

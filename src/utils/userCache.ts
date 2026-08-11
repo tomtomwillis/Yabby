@@ -16,6 +16,8 @@ export interface UserProfile {
   /** Null for anyone who has not logged in since join dates were introduced. */
   joinedAt: Date | null;
   postCount: number;
+  nekoEnabled: boolean;
+  designToolEnabled: boolean;
 }
 
 const EMPTY: UserProfile = {
@@ -26,6 +28,8 @@ const EMPTY: UserProfile = {
   locationText: '',
   joinedAt: null,
   postCount: 0,
+  nekoEnabled: false,
+  designToolEnabled: false,
 };
 
 const cache = new Map<string, UserProfile & { timestamp: number }>();
@@ -62,6 +66,8 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
             locationText: data.locationText || '',
             joinedAt: data.joinedAt?.toDate?.() ?? null,
             postCount: typeof data.postCount === 'number' ? data.postCount : 0,
+            nekoEnabled: data.nekoEnabled === true,
+            designToolEnabled: data.designToolEnabled === true,
           }
         : EMPTY;
 

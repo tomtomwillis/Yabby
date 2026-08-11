@@ -4,8 +4,9 @@ import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './StickerGrid.css';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
 import { getUserData } from '../utils/userCache';
 
 interface Sticker {
@@ -104,25 +105,19 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       const allStickersSnapshot = await getDocs(allStickersQuery);
       const allStickers: Sticker[] = allStickersSnapshot.docs.map((doc) => doc.data() as Sticker);
 
-      // Get unique album IDs
-      const uniqueAlbumIds = [...new Set(allStickers.map(sticker => sticker.albumId))];
+      // Group by album. The query above already returned every sticker in
+      // timestamp order, so each album's list needs no further reads.
+      const stickersByAlbum = new Map<string, Sticker[]>();
+      for (const sticker of allStickers) {
+        const list = stickersByAlbum.get(sticker.albumId);
+        if (list) list.push(sticker);
+        else stickersByAlbum.set(sticker.albumId, [sticker]);
+      }
+      const uniqueAlbumIds = [...stickersByAlbum.keys()];
 
-      // For each album, fetch ALL stickers for that album
       const albumsWithAllStickers: AlbumWithStickers[] = await Promise.all(
         uniqueAlbumIds.map(async (albumId) => {
-          // Fetch all stickers for this specific album
-          const albumStickersQuery = query(
-            collection(db, 'stickers'),
-            where('albumId', '==', albumId)
-          );
-          const albumStickersSnapshot = await getDocs(albumStickersQuery);
-          const allAlbumStickers: Sticker[] = albumStickersSnapshot.docs
-            .map((doc) => doc.data() as Sticker)
-            .sort((a, b) => {
-              const timestampA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
-              const timestampB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
-              return timestampB.getTime() - timestampA.getTime();
-            });
+          const allAlbumStickers: Sticker[] = stickersByAlbum.get(albumId) || [];
 
           // Fetch album details from Navidrome API
           const response = await fetch(

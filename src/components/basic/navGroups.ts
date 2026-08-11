@@ -4,9 +4,25 @@ import { db } from '../../firebaseConfig';
 import { useMediaManager } from '../../utils/useMediaManager';
 import { useAdmin } from '../../utils/useAdmin';
 
-// Module-level cache — the nav renders on every page, avoid a count query per navigation
+// Module-level cache — the nav renders on every page, avoid a count query per
+// navigation. Holding the promise rather than the resolved count means the
+// header and the home index share one query instead of racing.
 const ISSUE_COUNT_TTL = 5 * 60 * 1000;
-let issueCountCache: { count: number; timestamp: number } | null = null;
+let issueCountCache: { count: Promise<number>; timestamp: number } | null = null;
+
+function fetchIssueCount(): Promise<number> {
+  if (issueCountCache && Date.now() - issueCountCache.timestamp < ISSUE_COUNT_TTL) {
+    return issueCountCache.count;
+  }
+  const count = getCountFromServer(
+    query(collection(db, 'issues'), where('status', '==', 'inprogress')),
+  ).then((snap) => snap.data().count);
+  issueCountCache = { count, timestamp: Date.now() };
+  count.catch(() => {
+    issueCountCache = null;
+  });
+  return count;
+}
 
 export interface NavLink {
   label: string;
@@ -30,16 +46,8 @@ export function useNavGroups(): NavGroup[] {
 
   useEffect(() => {
     if (!isAdmin) return;
-    if (issueCountCache && Date.now() - issueCountCache.timestamp < ISSUE_COUNT_TTL) {
-      setIssueCount(issueCountCache.count);
-      return;
-    }
-    getCountFromServer(query(collection(db, 'issues'), where('status', '==', 'inprogress')))
-      .then((snap) => {
-        const count = snap.data().count;
-        issueCountCache = { count, timestamp: Date.now() };
-        setIssueCount(count);
-      })
+    fetchIssueCount()
+      .then(setIssueCount)
       .catch((error) => console.error('Error fetching issue count:', error));
   }, [isAdmin]);
 
