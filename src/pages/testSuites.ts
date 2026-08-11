@@ -339,6 +339,55 @@ const messagesSuite: TestSuite = {
       },
     },
     {
+      name: 'only admins can post as the bot',
+      run: async (ctx) => {
+        // The bot flag is what makes a post hide its author's profile, so a
+        // member being able to set it would be an impersonation route.
+        const isAdmin = (await getDoc(doc(db, 'admins', ctx.uid))).exists();
+        const botPost = () =>
+          addDoc(collection(db, SANDBOX_MESSAGES), {
+            text: sanitizeHtml(stamp('bot flag test')),
+            userId: ctx.uid,
+            timestamp: serverTimestamp(),
+            lastActivityAt: serverTimestamp(),
+            username: ctx.username,
+            avatar: ctx.avatar,
+            reactedBy: [],
+            reactionCount: 0,
+            isBot: true,
+          });
+
+        if (!isAdmin) return expectDenied('posting with the bot flag as a member', botPost, ctx);
+
+        const ref = await botPost();
+        const dispose = ctx.cleanup(`${SANDBOX_MESSAGES}/${ref.id}`, () => deleteDoc(ref));
+        assert((await getDoc(ref)).data()?.isBot === true, 'The bot flag did not save.');
+        await deleteDoc(ref);
+        dispose();
+        return 'allowed for you (admin), and written';
+      },
+    },
+    {
+      name: 'rules stop a false bot flag',
+      run: async (ctx) =>
+        expectDenied(
+          'posting with isBot set to false',
+          () =>
+            addDoc(collection(db, SANDBOX_MESSAGES), {
+              text: sanitizeHtml(stamp('should not exist')),
+              userId: ctx.uid,
+              timestamp: serverTimestamp(),
+              lastActivityAt: serverTimestamp(),
+              username: ctx.username,
+              avatar: ctx.avatar,
+              reactedBy: [],
+              reactionCount: 0,
+              isBot: false,
+            }),
+          ctx,
+        ),
+    },
+    {
       name: 'deletes both test messages',
       run: async () => {
         const messageId = requireId(msgState.messageId, 'message');
@@ -840,4 +889,131 @@ const profileSuite: TestSuite = {
   ],
 };
 
-export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite];
+// ---------------------------------------------------------------------------
+// Username reservations
+// ---------------------------------------------------------------------------
+
+const usernameSuite: TestSuite = {
+  id: 'usernames',
+  name: 'Username reservations',
+  description:
+    'The /usernames collection that stops one member taking another member\'s name. There is no sandbox twin, so the claim tests use a throwaway name built from your uid and delete it again; your own reservation is only read, never written.',
+  tests: [
+    {
+      name: 'your username is reserved to you',
+      run: async (ctx) => {
+        const key = ctx.username.toLowerCase();
+        const snap = await getDoc(doc(db, 'usernames', key));
+        assert(snap.exists(), `"${key}" has no reservation — the backfill has not reached your profile.`);
+        assert(
+          snap.data()?.uid === ctx.uid,
+          `"${key}" is reserved by ${snap.data()?.uid}, not you.`,
+        );
+        return `"${key}" → you`;
+      },
+    },
+    {
+      name: 'claims a free name, then releases it',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 10)}`;
+        const ref = doc(db, 'usernames', name.toLowerCase());
+        const cancel = ctx.cleanup(`username reservation ${name}`, () => deleteDoc(ref));
+
+        await setDoc(ref, { uid: ctx.uid, username: name });
+        const snap = await getDoc(ref);
+        assert(snap.exists() && snap.data()?.uid === ctx.uid, 'The reservation did not stick.');
+
+        await deleteDoc(ref);
+        cancel();
+        return `claimed and released "${name}"`;
+      },
+    },
+    {
+      name: 'rules stop reserving a name in someone else\'s name',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 8)}x`;
+        return expectDenied('reserving a name under another uid', () =>
+          setDoc(doc(db, 'usernames', name.toLowerCase()), { uid: 'someone-else', username: name }),
+        );
+      },
+    },
+    {
+      name: 'rules stop a reservation whose id is not its lowercased name',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 8)}y`;
+        return expectDenied('a reservation id that does not match the name inside it', () =>
+          setDoc(doc(db, 'usernames', `${name.toLowerCase()}-other`), { uid: ctx.uid, username: name }),
+        );
+      },
+    },
+    {
+      name: 'rules stop taking a name another member holds',
+      run: async (ctx) => {
+        // Sitting under someone else's reservation is the whole attack: find a
+        // real one that is not yours and try to overwrite it.
+        const others = await getDocs(query(collection(db, 'usernames'), limit(20)));
+        const target = others.docs.find((d) => d.data().uid !== ctx.uid);
+        if (!target) return 'skipped — no other member has a reservation yet';
+
+        return expectDenied(`overwriting the reservation on "${target.id}"`, () =>
+          setDoc(doc(db, 'usernames', target.id), { uid: ctx.uid, username: target.data().username }),
+        );
+      },
+    },
+    {
+      name: 'rules stop deleting a name another member holds',
+      run: async (ctx) => {
+        const others = await getDocs(query(collection(db, 'usernames'), limit(20)));
+        const target = others.docs.find((d) => d.data().uid !== ctx.uid);
+        if (!target) return 'skipped — no other member has a reservation yet';
+
+        return expectDenied(`releasing "${target.id}" out from under its owner`, () =>
+          deleteDoc(doc(db, 'usernames', target.id)),
+        );
+      },
+    },
+    {
+      name: 'rules stop renaming your profile to an unreserved name',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 8)}z`;
+        return expectDenied('a profile username with no reservation behind it', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { username: name }),
+        );
+      },
+    },
+    {
+      name: 'rules reject a username with stray spaces',
+      run: async (ctx) =>
+        expectDenied('a username padded with spaces', () =>
+          setDoc(doc(db, 'usernames', ' padded '), { uid: ctx.uid, username: ' padded ' }),
+        ),
+    },
+    {
+      // A separator at either end reads as the name without it, which is the
+      // whole point of reserving names in the first place.
+      name: 'rules reject a username ending in a separator',
+      run: async (ctx) =>
+        expectDenied('a username with a trailing dot', () =>
+          setDoc(doc(db, 'usernames', `yb${ctx.uid.slice(0, 6)}.`), {
+            uid: ctx.uid,
+            username: `yb${ctx.uid.slice(0, 6)}.`,
+          }),
+        ),
+    },
+    {
+      name: 'dots inside a name are allowed',
+      run: async (ctx) => {
+        const name = `yb.${ctx.uid.slice(0, 8)}`;
+        const ref = doc(db, 'usernames', name.toLowerCase());
+        const cancel = ctx.cleanup(`username reservation ${name}`, () => deleteDoc(ref));
+
+        await setDoc(ref, { uid: ctx.uid, username: name });
+        await deleteDoc(ref);
+        cancel();
+        return `"${name}" accepted`;
+      },
+    },
+  ],
+};
+
+export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite, usernameSuite];

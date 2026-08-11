@@ -58,6 +58,10 @@ interface UserMessageProps {
   enableReplies?: boolean;
   // New props for edit/delete and profile links
   userId?: string;
+  /** Announcement posted under a bot identity. The userId on it is the admin
+      who triggered it, so the post shows no profile link and no identity block
+      — neither belongs to the name on the post. */
+  isBot?: boolean;
   currentUserId?: string;
   isAdmin?: boolean;
   onEdit?: (newText: string) => void;
@@ -195,6 +199,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   replyingToUsername,
   enableReplies,
   userId,
+  isBot,
   currentUserId,
   isAdmin,
   onEdit,
@@ -343,7 +348,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   const usernameBlock = (
     <div className="user-message-username">
       <UsernameLink
-        userId={userId}
+        userId={isBot ? undefined : userId}
         username={username}
         className="user-message-username-link"
         disableHover={showPosterStats}
@@ -362,7 +367,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
       <div className="user-message-sticker-container">
         {renderUserSticker()}
         {showPosterStats && usernameBlock}
-        {showPosterStats && <PosterStats userId={userId} />}
+        {showPosterStats && !isBot && <PosterStats userId={userId} />}
       </div>
       {/* The channel between the two columns. A real element rather than a
           border on either side of it, because the board draws it as a dotted

@@ -172,6 +172,10 @@ const NewsPage: React.FC = () => {
       }
 
       const userData = await getUserData(auth.currentUser.uid);
+      if (!userData.hasUsername) {
+        alert('Set a username on your profile before posting news.');
+        return;
+      }
 
       const newsData: Record<string, any> = {
         text: sanitizedText,

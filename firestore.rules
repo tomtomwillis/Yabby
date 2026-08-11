@@ -27,11 +27,25 @@ service cloud.firestore {
         && text.size() <= maxLen;
     }
 
+    // Space, dot, hyphen and underscore are separators, and a separator only
+    // sits between runs of letters and digits. That blocks the near-misses a
+    // reservation cannot tell apart by eye — "alice " and "alice." both read
+    // as "alice" — and it keeps the lowercased name usable as the reservation
+    // document id, since Firestore refuses the ids "." and ".." and anything
+    // shaped like __name__.
     function isValidUsername(username) {
       return username is string
         && username.size() >= 2
         && username.size() <= 20
-        && username.matches('^[a-zA-Z0-9 _-]+$');
+        && username.matches('[a-zA-Z0-9]+([ ._-][a-zA-Z0-9]+)*');
+    }
+
+    // A username is the writer's only if the reservation under its lowercased
+    // form belongs to them. getAfter, not get, so the profile write and the
+    // reservation write can land in the same batch — get would see the state
+    // before the batch and never find a newly claimed name.
+    function ownsUsername(userId, username) {
+      return getAfter(/databases/$(database)/documents/usernames/$(username.lower())).data.uid == userId;
     }
 
     function isValidMessage(text) {
@@ -107,6 +121,13 @@ service cloud.firestore {
         || isAdmin();
     }
 
+    // The bot flag is the only trustworthy marker that a post is an
+    // announcement rather than a person: username and avatar can both be
+    // matched by any member, this cannot be written without an admins doc.
+    function isValidBotFlag(data) {
+      return !('isBot' in data) || (data.isBot == true && isAdmin());
+    }
+
     function isValidListItem(data) {
       return data.keys().hasOnly([
           'type', 'userText', 'order', 'timestamp',
@@ -176,6 +197,30 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Username reservations, one document per lowercased username. The
+    // collection is itself the uniqueness constraint: a create can only land
+    // where no document exists, and the profile rules below refuse a username
+    // whose reservation is not the writer's. Without this any member could
+    // rename themselves to another member's name and post under it.
+    match /usernames/{name} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'username'])
+        && request.resource.data.uid == request.auth.uid
+        && isValidUsername(request.resource.data.username)
+        && request.resource.data.username.lower() == name;
+
+      // A rename deletes and re-creates rather than editing, so the document
+      // id and the name inside it can never drift apart.
+      allow update: if false;
+
+      // resource is null when a rename releases a name that was never
+      // reserved — that delete is a no-op and must not fail the batch.
+      allow delete: if isSignedIn()
+        && (resource == null || resource.data.uid == request.auth.uid || isAdmin());
+    }
+
     // User profiles
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -183,6 +228,7 @@ service cloud.firestore {
       allow create: if isOwner(userId)
         && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
+        && ownsUsername(userId, request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
         && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
@@ -200,6 +246,11 @@ service cloud.firestore {
       allow update: if isOwner(userId)
         && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
         && isValidUsername(request.resource.data.username)
+        // Only a rename pays for the reservation lookup — every other profile
+        // write, including the post count increment on each post, keeps the
+        // name it already had and skips the read.
+        && (request.resource.data.username == resource.data.get('username', '')
+            || ownsUsername(userId, request.resource.data.username))
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
         && (!('color' in request.resource.data) || validString(request.resource.data.color, 1, 50))
         && (!('shape' in request.resource.data) || validString(request.resource.data.shape, 1, 50))
@@ -237,8 +288,9 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes', 'isBot'])
         && hasNoPriorReactions(request.resource.data)
+        && isValidBotFlag(request.resource.data)
         && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
@@ -345,8 +397,9 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 10000
         && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data || 'pollQuestion' in request.resource.data)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'showOnMain', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'posterUrl', 'showOnMain', 'reactedBy', 'reactionCount', 'pollQuestion', 'pollOptions', 'pollMultiple', 'pollVotes', 'isBot'])
         && hasNoPriorReactions(request.resource.data)
+        && isValidBotFlag(request.resource.data)
         && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)

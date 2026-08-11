@@ -56,27 +56,51 @@
   --mb-face: var(--font2);
   --mb-glyph: var(--font2);
 
+  /* Size, from the board's own settings — a position anywhere on a continuous
+     0 to 1 range, published on :root by the boards rail. Everything below that
+     has a length is stated at its full size and multiplied by one of the four
+     factors here, so the default renders exactly what a fixed stylesheet would.
+
+     Four factors rather than one: shrinking a page uniformly only makes it
+     small, and what makes it dense is the whitespace going faster than the
+     words. So the padding nearly halves, the pictures follow it down at half
+     that rate, and the type barely moves. The controls hold hardest — a button
+     that shrank with the page would stop being worth aiming at.
+
+     The measure is the one length the setting does not touch at all: the column
+     stays where it is at every size, and the line simply takes more words as
+     the type comes down. That is where the density comes from.
+
+     Every factor is floor + rate * t with the rate set so all four pass through
+     exactly 1 at t = 0.75, the default. Past it they rise together. */
+  --mb-k-type: calc(0.904 + 0.128 * var(--mb-t, 0.75));
+  --mb-k-space: calc(0.64 + 0.48 * var(--mb-t, 0.75));
+  --mb-k-avatar: calc(0.7 + 0.4 * var(--mb-t, 0.75));
+  --mb-k-control: calc(0.928 + 0.096 * var(--mb-t, 0.75));
+
   /* The distance every row holds off the column's edges. The rules themselves
      run past it, edge to edge. */
-  --mb-edge: clamp(18px, 3vw, 44px);
+  --mb-edge: calc(clamp(18px, 3vw, 44px) * var(--mb-k-space));
   /* Wide enough for a wrapped handle over a 72px avatar, and no wider — past
      this the gutter starts competing with the prose beside it. */
-  --mb-gutter: clamp(116px, 11vw, 148px);
+  --mb-gutter: calc(clamp(116px, 11vw, 148px) * var(--mb-k-avatar));
   /* The channel between the poster and what they said, and the dotted rule
      drawn down the middle of it. */
-  --mb-gap: 18px;
-  --mb-channel: 14px;
-  /* About 66 characters of the body face. Fixed rather than in ch because the
-     same measure has to line up across elements set at different sizes — a ch
-     is only as wide as the font the element it lands on happens to be in. */
+  --mb-gap: calc(18px * var(--mb-k-space));
+  --mb-channel: calc(14px * var(--mb-k-space));
+  /* About 66 characters of the body face at the default size, and more than that
+     below it — this is held fixed while everything around it scales. In px
+     rather than ch because the same measure has to line up across elements set
+     at different sizes — a ch is only as wide as the font the element it lands
+     on happens to be in. */
   --mb-measure: 660px;
   /* Sized off the track rather than fixed, so the picture grows with the gutter
      and keeps the same margin of air round it at every width. */
-  --mb-avatar: calc(var(--mb-gutter) - 1.75rem);
+  --mb-avatar: calc(var(--mb-gutter) - 1.75rem * var(--mb-k-avatar));
   /* A reply gets a thumbnail of the same picture, centred on its name's line.
      The line box is a variable because the avatar is positioned off it. */
-  --mb-reply-avatar: 28px;
-  --mb-reply-line: 0.85rem;
+  --mb-reply-avatar: calc(28px * var(--mb-k-avatar));
+  --mb-reply-line: calc(0.85rem * var(--mb-k-type));
   /* The board index on the right. */
   --mb-aside: 212px;
 
@@ -122,12 +146,12 @@
    first row of the ledger, ruled off like the rest. */
 .mb-board .mb-column > header.header {
   margin: 0;
-  padding: 1.6rem var(--mb-edge) 1.1rem;
+  padding: calc(1.6rem * var(--mb-k-space)) var(--mb-edge) calc(1.1rem * var(--mb-k-space));
   border-bottom: 1px solid var(--mb-rule);
 }
 
 .mb-board .mb-column > header.header h1 {
-  margin: 0 0 0.25rem;
+  margin: 0 0 calc(0.25rem * var(--mb-k-space));
 }
 
 .mb-board .mb-column > header.header .small-text {
@@ -142,11 +166,11 @@
 .mb-board .mb-board-bar {
   display: flex;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: calc(0.75rem * var(--mb-k-space));
   margin: 0;
-  padding: 1rem var(--mb-edge) 0.5rem;
+  padding: calc(1rem * var(--mb-k-space)) var(--mb-edge) calc(0.5rem * var(--mb-k-space));
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.12em;
   color: var(--mb-accent);
 }
@@ -183,9 +207,9 @@
 
 .mb-board .messages-loading,
 .mb-board .messages-end {
-  padding: 1.25rem var(--mb-edge);
+  padding: calc(1.25rem * var(--mb-k-space)) var(--mb-edge);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   font-style: normal;
   letter-spacing: 0.06em;
   color: var(--mb-mute);
@@ -195,7 +219,7 @@
 .mb-board .messages-more {
   justify-content: flex-start;
   margin: 0;
-  padding: 1.25rem var(--mb-edge);
+  padding: calc(1.25rem * var(--mb-k-space)) var(--mb-edge);
 }
 
 /* ─── The channel ─────────────────────────────────────── */
@@ -234,7 +258,7 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 1.25rem var(--mb-edge);
+  padding: calc(1.25rem * var(--mb-k-space)) var(--mb-edge);
   background: var(--mb-tint);
   border-bottom: 2px solid var(--mb-accent);
   /* Also what makes the measure below resolve against the right face. */
@@ -263,13 +287,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: calc(0.4rem * var(--mb-k-space));
   min-width: 0;
   text-align: center;
 }
 
 .mb-board .textbox-avatar {
-  width: calc(var(--mb-gutter) - 4.5rem);
+  width: calc(var(--mb-gutter) - 4.5rem * var(--mb-k-avatar));
   height: auto;
   aspect-ratio: 1;
   border: none;
@@ -279,7 +303,7 @@
 .mb-board .textbox-poster-name {
   margin: 0;
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.06em;
   color: var(--mb-accent);
   overflow-wrap: anywhere;
@@ -288,7 +312,7 @@
 .mb-board .textbox-poster-note {
   margin: 0;
   font-family: var(--mb-glyph);
-  font-size: 0.66rem;
+  font-size: calc(0.66rem * var(--mb-k-type));
   color: var(--mb-mute);
 }
 
@@ -308,11 +332,11 @@
 .mb-board .text-input {
   box-sizing: border-box;
   width: 100%;
-  padding: 0.7rem 0.8rem;
+  padding: calc(0.7rem * var(--mb-k-control)) calc(0.8rem * var(--mb-k-control));
   background: var(--colour4);
   border: 1px solid var(--mb-rule);
   font-family: var(--mb-face);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--mb-k-type));
   line-height: 1.6;
   color: var(--mb-ink);
 }
@@ -329,21 +353,21 @@
 .mb-board .textbox-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: calc(0.75rem * var(--mb-k-space));
   flex-wrap: wrap;
-  margin-top: 0.6rem;
+  margin-top: calc(0.6rem * var(--mb-k-space));
 }
 
 /* The only filled control on the board — it is the one thing you came here to
    press. */
 .mb-board .send-button-container button {
-  padding: 0.3rem 1rem;
+  padding: calc(0.3rem * var(--mb-k-control)) calc(1rem * var(--mb-k-control));
   background: var(--mb-accent);
   border: 1px solid var(--mb-accent);
   border-radius: 0;
   color: var(--colour4);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -355,13 +379,13 @@
 }
 
 .mb-board .textbox-attach {
-  padding: 0.3rem 0.75rem;
+  padding: calc(0.3rem * var(--mb-k-control)) calc(0.75rem * var(--mb-k-control));
   background: transparent;
   border: 1px solid var(--mb-rule);
   border-radius: 0;
   color: var(--mb-accent);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.08em;
   cursor: pointer;
 }
@@ -386,17 +410,17 @@
 .mb-board .textbox-crosspost {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: calc(0.4rem * var(--mb-k-space));
   color: var(--mb-dim);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.04em;
   cursor: pointer;
 }
 
 .mb-board .textbox-crosspost input {
-  width: 0.85rem;
-  height: 0.85rem;
+  width: calc(0.85rem * var(--mb-k-control));
+  height: calc(0.85rem * var(--mb-k-control));
   margin: 0;
   accent-color: var(--mb-accent);
 }
@@ -405,7 +429,7 @@
   margin: 0 0 0 auto;
   padding: 0;
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.04em;
   color: var(--mb-mute);
 }
@@ -415,7 +439,7 @@
 /* A band across the top of the board rather than a card laid on it, ruled off
    from the threads the same way the masthead is. */
 .mb-board .film-club-container {
-  padding: 1.2rem var(--mb-edge);
+  padding: calc(1.2rem * var(--mb-k-space)) var(--mb-edge);
   border-bottom: 1px solid var(--mb-rule);
 }
 
@@ -425,14 +449,14 @@
 
 .mb-board .film-card-label {
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.12em;
   color: var(--mb-accent);
 }
 
 .mb-board .film-card-leave-date {
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.04em;
   color: var(--mb-mute);
 }
@@ -455,7 +479,7 @@
   max-width: none;
   min-height: 0;
   margin: 0;
-  padding: 1.4rem var(--mb-edge);
+  padding: calc(1.4rem * var(--mb-k-space)) var(--mb-edge);
   background: var(--mb-sheet);
   border-bottom: 1px solid var(--mb-rule);
   border-radius: 0;
@@ -483,7 +507,7 @@
 .mb-board .user-message-sticker-container {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: calc(0.5rem * var(--mb-k-space));
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
@@ -520,13 +544,13 @@
    wrote this, and the body column is left to carry only what they said. */
 .mb-board .user-message-sticker-container .user-message-username {
   width: 100%;
-  margin: -0.15rem 0 0;
+  margin: calc(-0.15rem * var(--mb-k-type)) 0 0;
   /* The component ranges the name left and pins it to the start of its flex
      line; in the gutter everything sits on the avatar's centre line. */
   align-self: center;
   text-align: center;
   font-family: var(--mb-glyph);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--mb-k-type));
   letter-spacing: 0.04em;
   line-height: 1.35;
   /* A long handle wraps here rather than being cut: the gutter is narrow and
@@ -540,7 +564,7 @@
 .mb-board .user-message-poster-stats {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: calc(0.4rem * var(--mb-k-space));
   align-items: center;
   width: 100%;
   min-width: 0;
@@ -551,7 +575,7 @@
    and commented out, the way a note in the margin of a listing would be. */
 .mb-board .user-message-poster-bio {
   font-family: var(--font3);
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--mb-k-type));
   line-height: 1.45;
   color: var(--mb-voice);
 }
@@ -568,7 +592,7 @@
   overflow: hidden;
   color: var(--mb-accent);
   font-family: var(--mb-glyph);
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--mb-k-type));
   letter-spacing: 0.02em;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -585,14 +609,14 @@
 .mb-board .user-message-poster-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: calc(0.2rem * var(--mb-k-space));
   align-items: center;
   width: 100%;
-  padding-top: 0.45rem;
+  padding-top: calc(0.45rem * var(--mb-k-space));
   border-top: 1px solid var(--mb-rule-soft);
   color: var(--mb-dim);
   font-family: var(--mb-glyph);
-  font-size: 0.66rem;
+  font-size: calc(0.66rem * var(--mb-k-type));
   letter-spacing: 0.02em;
   line-height: 1.5;
 }
@@ -616,7 +640,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   max-width: var(--mb-measure);
-  gap: 0 0.6rem;
+  gap: 0 calc(0.6rem * var(--mb-k-space));
   min-width: 0;
 }
 
@@ -630,7 +654,7 @@
   margin: 0;
   overflow: hidden;
   font-family: var(--mb-glyph);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--mb-k-type));
   font-weight: 400;
   letter-spacing: 0.04em;
   text-overflow: ellipsis;
@@ -651,13 +675,13 @@
 /* The post's own header line: nothing on it but when this was said, ruled off
    from the prose it dates with a dashed hairline. */
 .mb-board .user-message-timestamp {
-  margin: 0 0 0.65rem;
-  padding-bottom: 0.5rem;
+  margin: 0 0 calc(0.65rem * var(--mb-k-space));
+  padding-bottom: calc(0.5rem * var(--mb-k-space));
   border-bottom: 1px dashed var(--mb-rule-soft);
   opacity: 1;
   color: var(--mb-mute);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.04em;
 }
 
@@ -672,12 +696,12 @@
    belongs to lives on the board it names. */
 .mb-board .user-message-source-tag {
   display: inline-block;
-  margin-right: 0.5rem;
-  padding: 0 0.35rem;
+  margin-right: calc(0.5rem * var(--mb-k-space));
+  padding: 0 calc(0.35rem * var(--mb-k-control));
   border: 1px solid var(--mb-accent);
   color: var(--mb-accent);
   font-family: var(--mb-glyph);
-  font-size: 0.66rem;
+  font-size: calc(0.66rem * var(--mb-k-type));
   letter-spacing: 0.06em;
   text-decoration: none;
 }
@@ -695,9 +719,9 @@
 
 .mb-board .user-message-text {
   max-width: var(--mb-measure);
-  margin: 0 0 0.9rem;
+  margin: 0 0 calc(0.9rem * var(--mb-k-space));
   font-family: var(--mb-face);
-  font-size: 0.906rem;
+  font-size: calc(0.906rem * var(--mb-k-type));
   line-height: 1.75;
   letter-spacing: 0.005em;
   color: var(--mb-ink);
@@ -729,15 +753,15 @@
 }
 
 .mb-board .user-message-image-container {
-  margin: 0 0 0.9rem;
+  margin: 0 0 calc(0.9rem * var(--mb-k-space));
 }
 
 /* Bounded on both axes: film posters are portrait and would otherwise run to
    several screens of a single post. Click still opens the lightbox. */
 .mb-board .user-message-image {
   width: auto;
-  max-width: min(320px, 100%);
-  max-height: 300px;
+  max-width: min(calc(320px * var(--mb-k-avatar)), 100%);
+  max-height: calc(300px * var(--mb-k-avatar));
   border: 1px solid var(--mb-rule);
   border-radius: 0;
   object-fit: contain;
@@ -754,7 +778,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.375rem;
+  gap: calc(0.375rem * var(--mb-k-space));
   margin: 0;
   padding-top: 0;
   border-top: none;
@@ -769,14 +793,14 @@
 .mb-board .user-message-edit-button,
 .mb-board .user-message-delete-button,
 .mb-board .user-message-status-button {
-  gap: 0.4rem;
-  padding: 0.25rem 0.625rem;
+  gap: calc(0.4rem * var(--mb-k-control));
+  padding: calc(0.25rem * var(--mb-k-control)) calc(0.625rem * var(--mb-k-control));
   background: transparent;
   border: 1px solid var(--mb-rule);
   border-radius: 0;
   color: var(--mb-accent);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.06em;
   line-height: 1.4;
   opacity: 1;
@@ -853,7 +877,7 @@
   border-radius: 0;
   color: var(--mb-accent);
   font-family: var(--mb-glyph);
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--mb-k-type));
   box-shadow: none;
 }
 
@@ -862,13 +886,13 @@
 /* The expand control: a plain orange line above the tree, the only orange on an
    unhovered post, so a busy thread advertises itself. */
 .mb-board .user-message-reply-indicator {
-  gap: 0.4rem;
-  margin-top: 0.7rem;
+  gap: calc(0.4rem * var(--mb-k-control));
+  margin-top: calc(0.7rem * var(--mb-k-space));
   padding: 0;
   border-radius: 0;
   color: var(--colour3);
   font-family: var(--mb-glyph);
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--mb-k-type));
   letter-spacing: 0.06em;
 }
 
@@ -886,8 +910,8 @@
    avatars and their backgrounds, and a box character in the first column says
    where each one hangs. */
 .mb-board .user-message-replies-container {
-  gap: 0.7rem;
-  margin-top: 0.55rem;
+  gap: calc(0.7rem * var(--mb-k-space));
+  margin-top: calc(0.55rem * var(--mb-k-space));
   padding-top: 0;
   padding-left: 0;
   border-left: none;
@@ -899,7 +923,7 @@
 .mb-board .user-message.reply {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
-  gap: 0 0.5rem;
+  gap: 0 calc(0.5rem * var(--mb-k-space));
   align-items: start;
   min-height: 0;
   margin: 0;
@@ -916,7 +940,7 @@
   content: '├─';
   color: var(--mb-rule);
   font-family: var(--mb-glyph);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--mb-k-type));
   /* The same line box as the name and the avatar, so all three share a centre. */
   line-height: var(--mb-reply-line);
   user-select: none;
@@ -968,33 +992,33 @@
 /* Line height pinned, not left to the face: the avatar beside it is positioned
    off this box. */
 .mb-board .user-message.reply .user-message-username {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--mb-k-type));
   line-height: var(--mb-reply-line);
-  margin: 0 0 0.2rem;
+  margin: 0 0 calc(0.2rem * var(--mb-k-space));
 }
 
 .mb-board .user-message.reply .user-message-timestamp {
-  margin: 0 0 0.2rem;
+  margin: 0 0 calc(0.2rem * var(--mb-k-space));
   padding-bottom: 0;
   border-bottom: none;
-  font-size: 0.66rem;
+  font-size: calc(0.66rem * var(--mb-k-type));
 }
 
 /* Pushed to the far end of that line rather than sitting under the reply — at
    this size the controls are lighter than the words they belong to. */
 .mb-board .user-message.reply .user-message-actions-container {
-  margin: 0 0 0.2rem auto;
-  gap: 0.3rem;
+  margin: 0 0 calc(0.2rem * var(--mb-k-space)) auto;
+  gap: calc(0.3rem * var(--mb-k-control));
 }
 
 .mb-board .user-message.reply .user-message-heart-button,
 .mb-board .user-message.reply .user-message-edit-button,
 .mb-board .user-message.reply .user-message-delete-button {
-  padding: 0.1rem 0.5rem;
+  padding: calc(0.1rem * var(--mb-k-control)) calc(0.5rem * var(--mb-k-control));
   background: var(--colour4);
   border-color: var(--mb-rule-soft);
   color: var(--mb-dim);
-  font-size: 0.66rem;
+  font-size: calc(0.66rem * var(--mb-k-type));
   letter-spacing: 0.04em;
 }
 
@@ -1005,12 +1029,12 @@
 }
 
 .mb-board .user-message.reply .user-message-content {
-  gap: 0 0.6rem;
+  gap: 0 calc(0.6rem * var(--mb-k-space));
 }
 
 .mb-board .user-message.reply .user-message-text {
   margin: 0;
-  font-size: 0.81rem;
+  font-size: calc(0.81rem * var(--mb-k-type));
   line-height: 1.7;
   color: #3a3a44;
 }
@@ -1035,9 +1059,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  margin-top: 0.7rem;
-  padding-top: 0.7rem;
-  padding-left: 1.35rem;
+  margin-top: calc(0.7rem * var(--mb-k-space));
+  padding-top: calc(0.7rem * var(--mb-k-space));
+  padding-left: calc(1.35rem * var(--mb-k-space));
   border-top: 1px dashed var(--mb-rule-soft);
 }
 
@@ -1053,15 +1077,15 @@
 }
 
 .mb-board .user-message-edit-container {
-  margin-top: 0.5rem;
+  margin-top: calc(0.5rem * var(--mb-k-space));
   padding-top: 0;
 }
 
 .mb-board .user-message-reply-header {
-  margin-bottom: 0.4rem;
+  margin-bottom: calc(0.4rem * var(--mb-k-space));
   color: var(--mb-mute);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   font-style: normal;
   letter-spacing: 0.05em;
   opacity: 1;
@@ -1080,14 +1104,14 @@
 }
 
 .mb-board .user-message-cancel-reply {
-  margin-top: 0.4rem;
-  padding: 0.18rem 0.6rem;
+  margin-top: calc(0.4rem * var(--mb-k-space));
+  padding: calc(0.18rem * var(--mb-k-control)) calc(0.6rem * var(--mb-k-control));
   background: transparent;
   border: 1px dashed var(--mb-dim);
   border-radius: 0;
   color: var(--mb-dim);
   font-family: var(--mb-glyph);
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--mb-k-type));
   letter-spacing: 0.06em;
 }
 
@@ -1106,14 +1130,14 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0.625rem var(--mb-edge);
+  padding: calc(0.625rem * var(--mb-k-space)) var(--mb-edge);
   background: var(--mb-tint-soft);
   border: none;
   border-bottom: 1px solid var(--mb-rule);
   border-radius: 0;
   color: var(--mb-dim);
   font-family: var(--mb-glyph);
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--mb-k-type));
   letter-spacing: 0.02em;
   line-height: 1.6;
   text-align: left;
@@ -1136,13 +1160,13 @@
 /* ─── Load more ───────────────────────────────────────── */
 
 .mb-board .messages-more button {
-  padding: 0.3rem 0.875rem;
+  padding: calc(0.3rem * var(--mb-k-control)) calc(0.875rem * var(--mb-k-control));
   background: transparent;
   border: 1px solid var(--mb-accent);
   border-radius: 0;
   color: var(--mb-accent);
   font-family: var(--mb-glyph);
-  font-size: 0.69rem;
+  font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.08em;
 }
 
@@ -1224,6 +1248,88 @@
   text-decoration: none;
 }
 
+/* ─── Board settings ──────────────────────────────────── */
+
+/* Under the index and ruled off from it, so it does not read as a fourth
+   board: a disclosure holding how this reader wants the board drawn.
+
+   Nothing in the rail is scaled. The slider sets the board's size, and a
+   control that resized itself as you dragged it would walk out from under the
+   pointer. */
+.mb-boards-settings {
+  margin-top: 1.1rem;
+  padding-top: 0.6rem;
+  border-top: 1px dotted var(--mb-rule);
+}
+
+.mb-boards-settings-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--mb-dim);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.mb-boards-settings-toggle:hover,
+.mb-boards-settings-toggle:focus-visible {
+  color: var(--colour3);
+}
+
+.mb-boards-caret {
+  display: inline-block;
+  transition: transform 0.28s ease;
+}
+
+.mb-boards-settings-toggle.is-open .mb-boards-caret {
+  transform: rotate(90deg);
+}
+
+/* 0fr → 1fr animates to the content's own height without measuring it.
+   Hidden rather than merely flattened: a collapsed row still holds a slider,
+   and visibility is what takes it back out of the tab order. It is held on
+   until the row has finished closing, and dropped the instant it opens. */
+.mb-boards-settings-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0.28s;
+}
+
+.mb-boards-settings-panel.is-open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0s;
+}
+
+.mb-boards-settings-inner {
+  overflow: hidden;
+}
+
+/* One row per setting — label over control. */
+.mb-boards-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-top: 0.55rem;
+}
+
+.mb-boards-setting label {
+  color: var(--mb-mute);
+  letter-spacing: 0.06em;
+}
+
+.mb-boards-size {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--mb-accent);
+  cursor: pointer;
+}
+
 /* ─── Narrow ──────────────────────────────────────────── */
 
 /* Nowhere to sit beside a single-column board, so the index lies along the top
@@ -1239,6 +1345,10 @@
        narrow one it belongs at the top, where a row of tabs would be. */
     order: -1;
     position: static;
+    /* The shell is a column here, so align-self is working across the page
+       rather than down it: left at start the band shrinks to its tabs and its
+       rule stops short of the board it is meant to be ruling off. */
+    align-self: stretch;
     width: auto;
     max-height: none;
     padding: 0.9rem var(--mb-edge);
@@ -1263,6 +1373,17 @@
   .mb-boards-name {
     flex: 0 0 auto;
   }
+
+  /* The rail is a band rather than a column now, so the disclosure sits on its
+     own line under the tabs and the slider stops short of the full width. */
+  .mb-boards-settings {
+    margin-top: 0.55rem;
+    padding-top: 0.55rem;
+  }
+
+  .mb-boards-setting {
+    max-width: 320px;
+  }
 }
 
 /* Below this the gutter is wider than the body beside it, so the columns
@@ -1271,14 +1392,14 @@
 @media (max-width: 768px) {
   .mb-board .user-message {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.6rem;
+    gap: calc(0.6rem * var(--mb-k-space));
   }
 
   /* The composer keeps two columns — the avatar is small enough to sit beside
      the field even here — but the channel between them goes. */
   .mb-board .textbox-container {
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.4rem 0.6rem;
+    gap: calc(0.4rem * var(--mb-k-space)) calc(0.6rem * var(--mb-k-space));
   }
 
   .mb-board .textbox-body {
@@ -1298,20 +1419,20 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.4rem 0.7rem;
+    gap: calc(0.4rem * var(--mb-k-space)) calc(0.7rem * var(--mb-k-space));
     width: 100%;
     text-align: left;
   }
 
   .mb-board .user-message-sticker {
     flex: 0 0 auto;
-    width: 52px;
-    height: 52px;
+    width: calc(52px * var(--mb-k-avatar));
+    height: calc(52px * var(--mb-k-avatar));
     aspect-ratio: auto;
   }
 
   .mb-board span.user-message-sticker {
-    font-size: 28px;
+    font-size: calc(28px * var(--mb-k-avatar));
   }
 
   /* Beside the avatar rather than under it, so it ranges left again. */
@@ -1319,14 +1440,14 @@
     flex: 1 1 auto;
     width: auto;
     margin: 0;
-    font-size: 0.875rem;
+    font-size: calc(0.875rem * var(--mb-k-type));
     text-align: left;
   }
 
   .mb-board .user-message-poster-stats {
     flex: 0 0 100%;
     align-items: flex-start;
-    gap: 0.25rem;
+    gap: calc(0.25rem * var(--mb-k-space));
     width: auto;
     text-align: left;
   }
@@ -1336,7 +1457,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 0.15rem 0.7rem;
+    gap: calc(0.15rem * var(--mb-k-space)) calc(0.7rem * var(--mb-k-space));
     padding-top: 0;
     border-top: none;
   }
@@ -1344,6 +1465,6 @@
   /* The reply keeps its thumbnail — it is the only thing on a narrow screen
      saying who wrote which reply — just smaller. */
   .mb-board {
-    --mb-reply-avatar: 24px;
+    --mb-reply-avatar: calc(24px * var(--mb-k-avatar));
   }
 }

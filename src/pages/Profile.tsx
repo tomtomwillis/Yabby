@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { clearUserCache } from '../utils/userCache';
 import { sanitizeHtml, sanitizeText } from '../utils/sanitise';
@@ -11,6 +11,14 @@ import SiteLink from '../components/basic/SiteLink';
 import { useAdmin } from '../utils/useAdmin';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
+
+const USERNAME_MIN = 2;
+const USERNAME_MAX = 20;
+const USERNAME_PATTERN = /^[a-zA-Z0-9]+([ ._-][a-zA-Z0-9]+)*$/;
+
+/** Usernames are reserved case-insensitively, so "alice " and "al  ice" must
+ *  not be able to stand in for "alice" on a post. */
+const normaliseUsername = (value: string) => value.trim().replace(/\s+/g, ' ');
 
 const FLAG_OPTIONS: { flag: string; label: string }[] = [
   { flag: '', label: 'None' },
@@ -182,6 +190,22 @@ const Profile: React.FC = () => {
   const handleSave = async () => {
     if (!user) return;
 
+    // Matches isValidUsername in firestore.rules, minus the stray-space cases
+    // that normaliseUsername has already removed.
+    const newUsername = normaliseUsername(editUsername);
+    if (newUsername.length < USERNAME_MIN || newUsername.length > USERNAME_MAX) {
+      setSaveMessage(`Username must be ${USERNAME_MIN}–${USERNAME_MAX} characters.`);
+      setSaveSuccess(false);
+      return;
+    }
+    if (!USERNAME_PATTERN.test(newUsername)) {
+      setSaveMessage(
+        'Username must start and end with a letter or number, and can use spaces, dots, hyphens and underscores between them.',
+      );
+      setSaveSuccess(false);
+      return;
+    }
+
     setSaving(true);
     setSaveMessage('');
     setSaveSuccess(false);
@@ -192,10 +216,37 @@ const Profile: React.FC = () => {
       const sanitizedSiteUrl = sanitizeText(editSiteUrl.trim());
       const sanitizedLocationText = sanitizeHtml(editLocationText.trim());
       const userDoc = doc(db, 'users', user.uid);
-      await setDoc(
+
+      // A username is only the writer's while the reservation under its
+      // lowercased form is theirs, so a rename has to release the old name and
+      // claim the new one alongside the profile write. One batch: if the name
+      // is already taken the create fails and the profile keeps its old name.
+      const oldKey = username ? username.toLowerCase() : null;
+      const newKey = newUsername.toLowerCase();
+      const batch = writeBatch(db);
+
+      if (newKey !== oldKey) {
+        // The batch would fail on its own if the name were taken, but only
+        // with a permission error that reads like any other write failure.
+        const held = await getDoc(doc(db, 'usernames', newKey));
+        if (held.exists() && held.data().uid !== user.uid) {
+          setSaveMessage('That username is already taken.');
+          setSaveSuccess(false);
+          setSaving(false);
+          return;
+        }
+        if (oldKey) batch.delete(doc(db, 'usernames', oldKey));
+        // Reservations are create-or-delete only, so a name this user already
+        // holds is left as it stands rather than rewritten.
+        if (!held.exists()) {
+          batch.set(doc(db, 'usernames', newKey), { uid: user.uid, username: newUsername });
+        }
+      }
+
+      batch.set(
         userDoc,
         {
-          username: editUsername,
+          username: newUsername,
           color: editColor,
           shape: editShape,
           avatar: editAvatar,
@@ -207,7 +258,10 @@ const Profile: React.FC = () => {
         { merge: true }
       );
 
-      setUsername(editUsername);
+      await batch.commit();
+
+      setUsername(newUsername);
+      setEditUsername(newUsername);
       setSelectedColor(editColor);
       setSelectedShape(editShape);
       setAvatar(editAvatar);
@@ -228,7 +282,13 @@ const Profile: React.FC = () => {
       }, 3000);
     } catch (error) {
       console.error('Error saving profile:', error);
-      setSaveMessage('Failed to save. Please try again.');
+      // A rename that loses the race for a name lands here, since the
+      // reservation create is what the rules refuse.
+      setSaveMessage(
+        newUsername.toLowerCase() !== username.toLowerCase()
+          ? 'Could not save — that username may have just been taken.'
+          : 'Failed to save. Please try again.'
+      );
       setSaveSuccess(false);
 
       setTimeout(() => {
@@ -355,7 +415,7 @@ const Profile: React.FC = () => {
                 value={editUsername}
                 onChange={setEditUsername}
                 maxWords={5}
-                maxChars={50}
+                maxChars={USERNAME_MAX}
                 showSendButton={false}
                 showCounter={false}
                 className="form-input"

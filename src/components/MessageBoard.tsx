@@ -92,6 +92,9 @@ interface Message {
   pollVoterNames?: Record<number, string[]>;
   /** Set when the post came from another board. */
   sourceBoard?: CrossPostSource;
+  /** Announcement posted under a bot identity. Admin-only to write, so it is
+      the one marker on a post that a member cannot forge. */
+  isBot?: boolean;
 }
 
 interface MessageBoardProps {
@@ -206,6 +209,7 @@ function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>, source?: Cr
     pollMultiple: data.pollMultiple,
     pollVotes: data.pollVotes && typeof data.pollVotes === 'object' ? data.pollVotes : undefined,
     sourceBoard: source,
+    isBot: data.isBot === true,
   };
 }
 
@@ -583,6 +587,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       }
 
       const userData = await getUserData(auth.currentUser.uid);
+      // Posts carry the poster's name, and the rules refuse one that is not
+      // the name on the profile — so a profile with no name cannot post at
+      // all, and saying "try again" would send them round the same loop.
+      if (!userData.hasUsername) {
+        alert('Set a username on your profile before posting.');
+        setLoading(false);
+        return;
+      }
       const messageData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
@@ -780,6 +792,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
         avatar: 'avatar_filmbot.webp',
         reactedBy: [],
         reactionCount: 0,
+        isBot: true,
       };
       if (posterUrl) messageData.posterUrl = posterUrl;
 
@@ -792,13 +805,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
           userId: auth.currentUser!.uid,
           timestamp: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
           lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
-          username: 'FilmClub Bot',
+          username: 'Film Club Bot',
           avatar: 'avatar_filmbot.webp',
           reactedBy: [],
           reactionCount: 0,
           replyCount: 0,
           currentUserReacted: false,
           posterUrl,
+          isBot: true,
         },
         ...prev,
       ]);
@@ -874,6 +888,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       }
 
       const userData = await getUserData(auth.currentUser.uid);
+      if (!userData.hasUsername) {
+        alert('Set a username on your profile before replying.');
+        return;
+      }
       const replyData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
@@ -1100,6 +1118,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
             timestamp={formatTimestamp(message.timestamp)}
             userSticker={message.avatar || 'default-avatar.png'}
             userId={message.userId}
+            isBot={message.isBot}
             currentUserId={auth.currentUser?.uid}
             isAdmin={isAdmin}
             showPosterStats={showPosterStats}

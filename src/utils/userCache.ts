@@ -9,6 +9,10 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
     lookup already paid for. */
 export interface UserProfile {
   username: string;
+  /** False where the profile carries no name of its own and username above is
+      standing in for one. Posts are rejected by the rules in that state, since
+      the name on the post would not be the name on the profile. */
+  hasUsername: boolean;
   avatar: string;
   bio: string;
   siteUrl: string;
@@ -21,6 +25,7 @@ export interface UserProfile {
 
 const EMPTY: UserProfile = {
   username: 'Anonymous',
+  hasUsername: false,
   avatar: '',
   bio: '',
   siteUrl: '',
@@ -58,6 +63,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
       const userData: UserProfile = data
         ? {
             username: data.username || 'Anonymous',
+            hasUsername: typeof data.username === 'string' && data.username.trim().length > 0,
             avatar: data.avatar || '',
             bio: data.bio || '',
             siteUrl: data.siteUrl || '',
@@ -82,9 +88,11 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
   return promise;
 }
 
-export async function getUserData(userId: string): Promise<{ username: string; avatar: string }> {
-  const { username, avatar } = await getUserProfile(userId);
-  return { username, avatar };
+export async function getUserData(
+  userId: string,
+): Promise<{ username: string; avatar: string; hasUsername: boolean }> {
+  const { username, avatar, hasUsername } = await getUserProfile(userId);
+  return { username, avatar, hasUsername };
 }
 
 /** Stamps a join date the first time someone signs in without one. Goes through
