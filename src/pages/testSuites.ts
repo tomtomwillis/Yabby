@@ -43,6 +43,11 @@ export const SANDBOX_MESSAGES = 'testMessages';
 const SANDBOX_LISTS = 'testLists';
 const SANDBOX_STICKERS = 'testStickers';
 
+/** The throwaway account, keyed the way /usernames keys its documents. Tests
+    that need a member who is not the person running them aim here, so a rule
+    that turns out to be too loose costs this account rather than a real one. */
+const TEST_ACCOUNT_USERNAME = 'claude test user';
+
 export interface TestContext {
   uid: string;
   username: string;
@@ -964,9 +969,18 @@ const usernameSuite: TestSuite = {
     {
       name: 'rules stop deleting a name another member holds',
       run: async (ctx) => {
-        const others = await getDocs(query(collection(db, 'usernames'), limit(20)));
-        const target = others.docs.find((d) => d.data().uid !== ctx.uid);
-        if (!target) return 'skipped — no other member has a reservation yet';
+        // Admins are allowed to release any name, so running the delete as one
+        // would not test the rule — it would just destroy a live reservation,
+        // and the rules refuse to let anyone but its owner put it back.
+        const isAdmin = (await getDoc(doc(db, 'admins', ctx.uid))).exists();
+        if (isAdmin) return 'skipped — you are an admin, and admins may release any name';
+
+        // Always aimed at the test account rather than whichever reservation
+        // came back first, so a rule that ever loosens costs a throwaway
+        // account its name instead of a member's.
+        const target = await getDoc(doc(db, 'usernames', TEST_ACCOUNT_USERNAME));
+        if (!target.exists()) return `skipped — "${TEST_ACCOUNT_USERNAME}" holds no reservation`;
+        if (target.data().uid === ctx.uid) return 'skipped — that reservation is your own to release';
 
         return expectDenied(`releasing "${target.id}" out from under its owner`, () =>
           deleteDoc(doc(db, 'usernames', target.id)),
