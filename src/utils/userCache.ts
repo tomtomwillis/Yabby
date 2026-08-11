@@ -1,4 +1,5 @@
-import { doc, increment, serverTimestamp } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
+import { doc, increment, Timestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { trackedGetDoc, trackedUpdateDoc } from './firestoreMetrics';
 
@@ -18,7 +19,8 @@ export interface UserProfile {
   siteUrl: string;
   locationFlag: string;
   locationText: string;
-  /** Null for anyone who has not logged in since join dates were introduced. */
+  /** The account's creation time in Firebase Auth. Null for anyone with no
+      profile document to carry it, and for bots, which were never created. */
   joinedAt: Date | null;
   postCount: number;
 }
@@ -95,18 +97,24 @@ export async function getUserData(
   return { username, avatar, hasUsername };
 }
 
-/** Stamps a join date the first time someone signs in without one. Goes through
-    the same cached profile read the board already does, so on a normal session
-    it costs no extra reads; the write only ever happens once per account.
+/** Copies the account's Auth creation time onto the profile the first time
+    someone signs in without one. Goes through the same cached profile read the
+    board already does, so on a normal session it costs no extra reads; the
+    write only ever happens once per account.
     Silent on failure: anyone who has not saved a profile has no users document
     to update, and the rules require a valid username on every write to one. */
-export async function ensureJoinedAt(userId: string): Promise<void> {
-  const profile = await getUserProfile(userId);
+export async function ensureJoinedAt(user: User): Promise<void> {
+  const profile = await getUserProfile(user.uid);
   if (profile.joinedAt) return;
 
+  const creationTime = user.metadata.creationTime;
+  if (!creationTime) return;
+
   try {
-    await trackedUpdateDoc(doc(db, 'users', userId), { joinedAt: serverTimestamp() });
-    clearUserCache(userId);
+    await trackedUpdateDoc(doc(db, 'users', user.uid), {
+      joinedAt: Timestamp.fromDate(new Date(creationTime)),
+    });
+    clearUserCache(user.uid);
   } catch {
     // No profile document yet, or the write was rejected — either way there is
     // nothing to show in the gutter and nothing to retry.

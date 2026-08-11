@@ -811,9 +811,10 @@ const profileSuite: TestSuite = {
         const ref = doc(db, 'users', ctx.uid);
         const before = await getDoc(ref);
 
-        // First login behaviour: a profile without a join date gets one.
+        // First login behaviour: a profile without a join date gets one, copied
+        // from the account's creation time in Auth and so already in the past.
         if (!before.data()?.joinedAt) {
-          await updateDoc(ref, { joinedAt: serverTimestamp() });
+          await updateDoc(ref, { joinedAt: new Date(Date.now() - 60_000) });
           const after = await getDoc(ref);
           assert(after.data()?.joinedAt, 'The join date did not stick.');
         }
@@ -826,10 +827,10 @@ const profileSuite: TestSuite = {
       },
     },
     {
-      name: 'rules stop backdating a join date',
+      name: 'rules stop a future join date',
       run: async (ctx) =>
-        expectDenied('writing a join date the server did not set', () =>
-          updateDoc(doc(db, 'users', ctx.uid), { joinedAt: new Date('2000-01-01T00:00:00Z') }),
+        expectDenied('writing a join date the account cannot have reached yet', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { joinedAt: new Date(Date.now() + 86_400_000) }),
         ),
     },
     {
