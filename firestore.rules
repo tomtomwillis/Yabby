@@ -238,9 +238,10 @@ service cloud.firestore {
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
-        // Both are server-set: joinedAt must be the moment of the write, so it
-        // cannot be backdated, and a new profile starts on zero posts.
-        && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt == request.time)
+        // joinedAt carries the account's creation time in Auth, which is always
+        // at or before the write that copies it across; a future date is not a
+        // join date. A new profile starts on zero posts.
+        && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt <= request.time)
         && (!('postCount' in request.resource.data) || request.resource.data.postCount == 0);
 
       allow update: if isOwner(userId)
@@ -261,10 +262,11 @@ service cloud.firestore {
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
         // Join date is written once, on first login, and is never rewritten
-        // after that — otherwise it is not a join date. When it is written it
-        // has to be the moment of the write, so it cannot be backdated.
+        // after that — otherwise it is not a join date. The value copied across
+        // is the account's Auth creation time, so it may sit in the past, but
+        // never past the moment of the write.
         && (!('joinedAt' in resource.data)
-            ? (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt == request.time)
+            ? (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt <= request.time)
             : request.resource.data.joinedAt == resource.data.joinedAt)
         // Post count may hold or advance by one. A client could still hold it
         // back by never posting through the app, but it cannot inflate itself.
