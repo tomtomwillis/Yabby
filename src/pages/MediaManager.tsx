@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import Header from '../components/basic/Header';
 import { useMediaManager } from '../utils/useMediaManager';
+import { useAdmin } from '../utils/useAdmin';
 import { MediaThemeProvider, useMediaTheme } from '../utils/useMediaTheme';
 import CoverArtTool from '../components/media/CoverArtTool';
 import BeetsTerminal from '../components/media/BeetsTerminal';
 import MetadataEditor from '../components/media/MetadataEditor';
+import PlaylistManager from '../components/media/PlaylistManager';
 import '../components/media/mediaTheme.css';
 import '../App.css';
 import './MediaManager.css';
@@ -13,9 +15,9 @@ import './MediaManager.css';
 // Types
 // ---------------------------------------------------------------------------
 
-type Tab = 'coverart' | 'metadata' | 'import';
+type Tab = 'coverart' | 'metadata' | 'import' | 'playlists';
 
-const TABS: { key: Tab; label: string }[] = [
+const BASE_TABS: { key: Tab; label: string }[] = [
   { key: 'coverart', label: 'Cover Art' },
   { key: 'metadata', label: 'Metadata Editor' },
   { key: 'import', label: 'Beets Import' },
@@ -36,7 +38,9 @@ const ThemedSurface: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 const MediaManager: React.FC = () => {
   const { isMediaManager, loading } = useMediaManager();
+  const { isAdmin } = useAdmin();
   const [activeTab, setActiveTab] = useState<Tab>('coverart');
+  const TABS = isAdmin ? [...BASE_TABS, { key: 'playlists' as const, label: 'Playlists' }] : BASE_TABS;
 
   if (loading) {
     return (
@@ -84,6 +88,7 @@ const MediaManager: React.FC = () => {
             {activeTab === 'coverart' && <CoverArtTool />}
             {activeTab === 'metadata' && <MetadataEditor />}
             {activeTab === 'import' && <BeetsTerminal />}
+            {activeTab === 'playlists' && isAdmin && <PlaylistManager />}
           </div>
 
           {activeTab === 'coverart' && (
