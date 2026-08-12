@@ -984,10 +984,15 @@
   transition: color 0.15s ease;
 }
 
-/* The glyph keeps its size whatever is beside it. */
+/* The glyph keeps its size whatever is beside it. Painting outside its own box
+   is allowed because the heart's outline reaches the edge of the box it is
+   drawn in: an svg clips to that edge by default, and at a fractional size the
+   outer edge of a lobe is the column that rounding drops — which reads as the
+   side of the heart being flattened. */
 .mb-board .user-message-heart-button svg,
 .mb-board .user-message-reply-icon-button svg {
   flex: 0 0 auto;
+  overflow: visible;
 }
 
 /* These are divs with a button role, so there is no ring to inherit. */

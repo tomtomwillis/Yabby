@@ -234,6 +234,14 @@
   position: relative;
 }
 
+/* The heart's outline reaches the edge of the box it is drawn in, and an svg
+   clips to that edge by default — at a fractional size the outer edge of a lobe
+   is the column rounding drops, which reads as the side being flattened. */
+.user-message-heart-button svg,
+.user-message-reply-icon-button svg {
+  overflow: visible;
+}
+
 .user-message-heart-button.reacted {
   color: #ff4757;
 }
