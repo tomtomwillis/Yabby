@@ -1637,25 +1637,32 @@
    collapse into one: the poster block goes back above the post and lies along
    rather than down, with the avatar at a thumbnail size beside it. */
 @media (max-width: 768px) {
-  /* The poster block lies along the top and the words take the width under it,
-     but the controls keep their column: laid along the bottom instead they
-     would come after the thread, which is not what they act on. */
+  /* The poster block lies along the top and the words take the width under it.
+     The controls go up beside the poster rather than down the side of the body:
+     the name and the lines under it leave the end of that row empty, and a
+     column held open beside the prose is width taken off the measure on the one
+     screen with none to spare. Not along the bottom, where they would come
+     after the thread, which is not what they act on. */
   .mb-board .user-message:not(.reply) {
     grid-template-columns: minmax(0, 1fr) var(--mb-actions);
     gap: 0 calc(0.6rem * var(--mb-k-space));
   }
 
-  /* Two tracks now, and four rows: who wrote it across the top, then the words
-     with their controls beside them, then the thread and the composer across
-     the full width again. */
+  /* Two tracks and four rows: who wrote it with the controls in the space at
+     the end of that line, then the words across both tracks, then the thread
+     and the composer the same. */
   .mb-board .user-message:not(.reply) > .user-message-content {
-    grid-column: 1;
+    grid-column: 1 / -1;
     grid-row: 2;
   }
 
   .mb-board .user-message:not(.reply) > .user-message-actions-container {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1;
+    /* The drop existed to sit the glyphs on the first line of prose they stood
+       beside. There is nothing beside them now, so they range with the top of
+       the poster block instead. */
+    margin-top: 0;
   }
 
   .mb-board .user-message > .user-message-replies-container {
@@ -1687,9 +1694,10 @@
   }
 
   /* Avatar and name along the top of the post, everything the board counted
-     wrapping onto the line below them. */
+     wrapping onto the line below them. One track wide now, with the controls
+     holding the other. */
   .mb-board .user-message:not(.reply) > .user-message-sticker-container {
-    grid-column: 1 / -1;
+    grid-column: 1;
     grid-row: 1;
   }
 
