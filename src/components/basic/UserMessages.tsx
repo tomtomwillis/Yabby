@@ -96,6 +96,10 @@ interface UserMessageProps {
   /** Marks a post listed on a board other than the one it was written on, and
       links back to that board. */
   sourceTag?: { label: string; href: string };
+  /** Word cap on the edit box, matching the composer that wrote the post — a
+      board that takes long posts has to take them back. Replies are always the
+      default length. */
+  postMaxWords?: number;
 }
 
 // Utility function to validate and sanitize URLs
@@ -222,6 +226,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
   replyPreviewCount = 0,
   ledgerControls,
   sourceTag,
+  postMaxWords = 250,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -475,7 +480,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
                 onEdit?.(sanitized);
                 setIsEditing(false);
               }}
-              maxWords={250}
+              maxWords={postMaxWords}
               maxChars={10000}
               showSendButton={true}
               outsideControls={ledgerControls}

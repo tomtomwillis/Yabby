@@ -54,9 +54,9 @@ interface Reply {
   imageId?: string;
 }
 
-/** Another board whose cross-posted threads are listed on this one. They are
-    read-only here — the thread they belong to lives on the board they name, and
-    the tag on the post links back to it. */
+/** Another board whose cross-posted threads are listed on this one. The thread
+    itself still lives on the board it names — reacting, replying and editing it
+    here all write there — and the tag on the post links back to it. */
 export interface CrossPostSource {
   collection: string;
   /** Field that collection is ordered by; news has no lastActivityAt. */
@@ -64,6 +64,9 @@ export interface CrossPostSource {
   /** Wording of the tag drawn on the post, and where it points. */
   label: string;
   href: string;
+  /** That board's post length cap, so editing one of its posts from here is
+      held to the same limit it was written under. Defaults to this board's. */
+  postMaxWords?: number;
 }
 
 interface Message {
@@ -133,6 +136,11 @@ interface MessageBoardProps {
   /** Offer a tick box on the composer that also lists the post on the main
       board. Writes showOnMain, which is what the main board queries on. */
   enableCrossPost?: boolean;
+  composerPlaceholder?: string;
+  /** How long a post on this board may be. News runs to essays; chat does not.
+      Applies to the composer and to the edit box on a post, not to replies. */
+  postMaxWords?: number;
+  postMaxChars?: number;
 }
 
 const MESSAGES_PER_PAGE = 20;
@@ -248,6 +256,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   ledger = false,
   crossPostSources = NO_CROSS_POST_SOURCES,
   enableCrossPost = false,
+  composerPlaceholder,
+  postMaxWords = 250,
+  postMaxChars = 1000,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [, setNewMessage] = useState('');
@@ -265,6 +276,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
 
   const { isAdmin } = useAdmin();
   const { checkRateLimit } = useRateLimit({ maxAttempts: 10, windowMs: 5 * 60 * 1000 });
+
+  /* Which collection a post's writes go to. A cross-posted thread is shown here
+     but belongs to the board it came from, so everything done to it — reacting,
+     replying, editing, deleting — lands there and shows on both. */
+  const boardOf = (message: Message) => message.sourceBoard?.collection ?? collectionName;
+
   const highlightFetchedRef = useRef(false);
   const highlightScrolledRef = useRef(false);
 
@@ -428,15 +445,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
      expand is free. */
   const fetchReplyPreviews = useCallback(async (loaded: Message[]) => {
     if (replyPreviewCount <= 0) return;
-    // Cross-posted threads are read-only here; their replies stay on their board.
-    const targets = loaded.filter((m) => !m.sourceBoard && (m.replyCount ?? 0) > 0 && !m.repliesLoaded && !m.replies);
+    const targets = loaded.filter((m) => (m.replyCount ?? 0) > 0 && !m.repliesLoaded && !m.replies);
     if (targets.length === 0) return;
 
     const previews = await Promise.all(
       targets.map(async (m) => {
         try {
           const q = query(
-            collection(db, collectionName, m.id, 'replies'),
+            collection(db, m.sourceBoard?.collection ?? collectionName, m.id, 'replies'),
             orderBy('timestamp', 'desc'),
             limit(replyPreviewCount),
           );
@@ -462,10 +478,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   }, [collectionName, replyPreviewCount]);
 
   // Lazy-fetch replies for a specific message on first expand.
-  const fetchRepliesFor = useCallback(async (messageId: string) => {
+  const fetchRepliesFor = useCallback(async (board: string, messageId: string) => {
     try {
       const q = query(
-        collection(db, collectionName, messageId, 'replies'),
+        collection(db, board, messageId, 'replies'),
         orderBy('timestamp', 'asc'),
       );
       const snapshot = await getDocs(q);
@@ -476,9 +492,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     } catch (error) {
       console.error('Error fetching replies:', error);
     }
-  }, [collectionName]);
+  }, []);
 
-  const handleToggleReplies = (messageId: string) => {
+  const handleToggleReplies = (message: Message) => {
+    const messageId = message.id;
     setExpandedReplies((prev) => {
       const next = new Set(prev);
       if (next.has(messageId)) {
@@ -488,9 +505,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       }
       return next;
     });
-    const msg = messages.find((m) => m.id === messageId);
-    if (msg && !msg.repliesLoaded && (msg.replyCount ?? 0) > 0) {
-      fetchRepliesFor(messageId);
+    if (!message.repliesLoaded && (message.replyCount ?? 0) > 0) {
+      fetchRepliesFor(boardOf(message), messageId);
     }
   };
 
@@ -644,12 +660,13 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleTogglePollVote = async (messageId: string, optionIndex: number) => {
+  const handleTogglePollVote = async (message: Message, optionIndex: number) => {
     if (!auth.currentUser) {
       alert('You must be logged in to vote.');
       return;
     }
     const uid = auth.currentUser.uid;
+    const messageId = message.id;
     const msg = messages.find((m) => m.id === messageId);
     if (!msg?.pollOptions) return;
     const current = msg.pollVotes?.[uid] ?? [];
@@ -674,7 +691,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
 
     applyLocal(next);
     try {
-      await updateDoc(doc(db, collectionName, messageId), { [`pollVotes.${uid}`]: next });
+      await updateDoc(doc(db, boardOf(message), messageId), { [`pollVotes.${uid}`]: next });
     } catch (error) {
       console.error('Error toggling poll vote:', error);
       applyLocal(current);
@@ -824,13 +841,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleToggleReaction = async (messageId: string) => {
+  const handleToggleReaction = async (message: Message) => {
     if (!auth.currentUser) {
       alert('You must be logged in to react to messages.');
       return;
     }
     const uid = auth.currentUser.uid;
-    const messageRef = doc(db, collectionName, messageId);
+    const messageId = message.id;
+    const messageRef = doc(db, boardOf(message), messageId);
 
     const current = messages.find((m) => m.id === messageId);
     const wasReacted = current?.currentUserReacted ?? false;
@@ -862,8 +880,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleSendReply = async (messageId: string, text: string, imageFile?: File | null) => {
+  const handleSendReply = async (message: Message, text: string, imageFile?: File | null) => {
     if (!text.trim() && !imageFile) return;
+    const board = boardOf(message);
+    const messageId = message.id;
     if (!auth.currentUser) {
       alert('You must be logged in to send replies.');
       return;
@@ -903,9 +923,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       };
       if (imageId) replyData.imageId = imageId;
 
-      const newReplyRef = await addDoc(collection(db, collectionName, messageId, 'replies'), replyData);
+      const newReplyRef = await addDoc(collection(db, board, messageId, 'replies'), replyData);
       void bumpPostCount(auth.currentUser.uid);
-      await updateDoc(doc(db, collectionName, messageId), {
+      await updateDoc(doc(db, board, messageId), {
         lastActivityAt: serverTimestamp(),
         replyCount: increment(1),
       });
@@ -946,13 +966,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleToggleReplyReaction = async (messageId: string, replyId: string) => {
+  const handleToggleReplyReaction = async (message: Message, replyId: string) => {
     if (!auth.currentUser) {
       alert('You must be logged in to react to replies.');
       return;
     }
     const uid = auth.currentUser.uid;
-    const replyRef = doc(db, collectionName, messageId, 'replies', replyId);
+    const messageId = message.id;
+    const replyRef = doc(db, boardOf(message), messageId, 'replies', replyId);
 
     const parent = messages.find((m) => m.id === messageId);
     const reply = parent?.replies?.find((r) => r.id === replyId);
@@ -992,10 +1013,11 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleEditMessage = async (messageId: string, newText: string) => {
+  const handleEditMessage = async (message: Message, newText: string) => {
     if (!auth.currentUser) return;
+    const messageId = message.id;
     try {
-      await updateDoc(doc(db, collectionName, messageId), {
+      await updateDoc(doc(db, boardOf(message), messageId), {
         text: newText,
         editedAt: serverTimestamp(),
       });
@@ -1026,10 +1048,11 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = async (message: Message) => {
     if (!auth.currentUser) return;
+    const messageId = message.id;
     try {
-      await deleteDoc(doc(db, collectionName, messageId));
+      await deleteDoc(doc(db, boardOf(message), messageId));
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -1037,10 +1060,11 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleEditReply = async (messageId: string, replyId: string, newText: string) => {
+  const handleEditReply = async (message: Message, replyId: string, newText: string) => {
     if (!auth.currentUser) return;
+    const messageId = message.id;
     try {
-      await updateDoc(doc(db, collectionName, messageId, 'replies', replyId), {
+      await updateDoc(doc(db, boardOf(message), messageId, 'replies', replyId), {
         text: newText,
         editedAt: serverTimestamp(),
       });
@@ -1062,11 +1086,13 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
-  const handleDeleteReply = async (messageId: string, replyId: string) => {
+  const handleDeleteReply = async (message: Message, replyId: string) => {
     if (!auth.currentUser) return;
+    const board = boardOf(message);
+    const messageId = message.id;
     try {
-      await deleteDoc(doc(db, collectionName, messageId, 'replies', replyId));
-      await updateDoc(doc(db, collectionName, messageId), {
+      await deleteDoc(doc(db, board, messageId, 'replies', replyId));
+      await updateDoc(doc(db, board, messageId), {
         replyCount: increment(-1),
       });
       setMessages((prev) =>
@@ -1098,18 +1124,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   return (
     <div className="message-board-container">
       {showComposer && (
-        <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} avatar={showComposerAvatar ? composerAvatar : undefined} avatarName={showComposerAvatar ? composerName : undefined} outsideControls={ledger} crossPost={enableCrossPost ? { label: 'also post to the message board', checked: crossPostChecked, onChange: setCrossPostChecked } : undefined} />
+        <ForumBox onSend={handleSendMessage} disabled={loading} placeholder={composerPlaceholder} maxWords={postMaxWords} maxChars={postMaxChars} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} avatar={showComposerAvatar ? composerAvatar : undefined} avatarName={showComposerAvatar ? composerName : undefined} outsideControls={ledger} crossPost={enableCrossPost ? { label: 'also post to the message board', checked: crossPostChecked, onChange: setCrossPostChecked } : undefined} />
       )}
       {listHeader}
       <div className="messages-container">
         {loadingMessages && <p className="messages-loading">Loading messages...</p>}
         {messages.map((message) => {
-          /* A thread carried through from another board is shown here but not
-             worked on here: replying, reacting and editing all belong on the
-             board it came from, which its tag links to. */
-          const fromElsewhere = !!message.sourceBoard;
-          const canReact = enableReactions && !fromElsewhere;
-          const canReply = enableReplies && !fromElsewhere;
+          const canReact = enableReactions;
+          const canReply = enableReplies;
           return (
           <div key={`${message.sourceBoard?.collection ?? ''}${message.id}`} id={`mb-msg-${message.id}`} className={message.id === highlightMessageId ? 'mb-msg-highlight' : undefined}>
           <UserMessage
@@ -1124,11 +1146,12 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
             showPosterStats={showPosterStats}
             replyPreviewCount={canReply ? replyPreviewCount : 0}
             ledgerControls={ledger}
+            postMaxWords={message.sourceBoard?.postMaxWords ?? postMaxWords}
             sourceTag={message.sourceBoard && { label: message.sourceBoard.label, href: message.sourceBoard.href }}
-            onEdit={fromElsewhere ? undefined : (newText: string) => handleEditMessage(message.id, newText)}
-            onDelete={fromElsewhere ? undefined : () => handleDeleteMessage(message.id)}
-            onEditReply={(replyId: string, newText: string) => handleEditReply(message.id, replyId, newText)}
-            onDeleteReply={(replyId: string) => handleDeleteReply(message.id, replyId)}
+            onEdit={(newText: string) => handleEditMessage(message, newText)}
+            onDelete={() => handleDeleteMessage(message)}
+            onEditReply={(replyId: string, newText: string) => handleEditReply(message, replyId, newText)}
+            onDeleteReply={(replyId: string) => handleDeleteReply(message, replyId)}
             edited={!!message.editedAt}
             imageId={message.imageId}
             posterUrl={message.posterUrl}
@@ -1137,26 +1160,26 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
             pollMultiple={message.pollMultiple}
             pollVotes={message.pollVotes}
             pollVoterNames={message.pollVoterNames}
-            onTogglePollVote={fromElsewhere ? undefined : (optionIndex: number) => handleTogglePollVote(message.id, optionIndex)}
-            onPollVoterHover={fromElsewhere ? undefined : (optionIndex: number) => handlePollVoterHover(message.id, optionIndex)}
+            onTogglePollVote={(optionIndex: number) => handleTogglePollVote(message, optionIndex)}
+            onPollVoterHover={(optionIndex: number) => handlePollVoterHover(message.id, optionIndex)}
             onClose={() => {}}
             hideCloseButton={true}
             reactions={canReact ? message.reactions : undefined}
             reactionCount={canReact ? message.reactionCount : undefined}
             currentUserReacted={canReact ? message.currentUserReacted : undefined}
-            onToggleReaction={canReact ? () => handleToggleReaction(message.id) : undefined}
+            onToggleReaction={canReact ? () => handleToggleReaction(message) : undefined}
             onReactionHover={canReact ? () => handleReactionHover(message.id) : undefined}
             replies={canReply ? message.replies : undefined}
             replyCount={canReply ? message.replyCount : undefined}
-            onReply={canReply ? (text: string, image?: File | null) => handleSendReply(message.id, text, image) : undefined}
-            onToggleReplies={canReply ? () => handleToggleReplies(message.id) : undefined}
+            onReply={canReply ? (text: string, image?: File | null) => handleSendReply(message, text, image) : undefined}
+            onToggleReplies={canReply ? () => handleToggleReplies(message) : undefined}
             repliesExpanded={canReply ? expandedReplies.has(message.id) : undefined}
-            onToggleReplyReaction={canReply && canReact ? (replyId: string) => handleToggleReplyReaction(message.id, replyId) : undefined}
+            onToggleReplyReaction={canReply && canReact ? (replyId: string) => handleToggleReplyReaction(message, replyId) : undefined}
             onReplyReactionHover={canReply && canReact ? (replyId: string) => handleReplyReactionHover(message.id, replyId) : undefined}
             replyingToUsername={message.username}
             enableReplies={canReply}
             status={message.status as 'inprogress' | 'complete' | undefined}
-            onToggleStatus={isAdmin && statusFilter && !fromElsewhere ? () => handleToggleStatus(message.id) : undefined}
+            onToggleStatus={isAdmin && statusFilter && !message.sourceBoard ? () => handleToggleStatus(message.id) : undefined}
           />
           </div>
           );

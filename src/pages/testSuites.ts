@@ -1031,4 +1031,174 @@ const usernameSuite: TestSuite = {
   ],
 };
 
-export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite, usernameSuite];
+// ---------------------------------------------------------------------------
+// News
+// ---------------------------------------------------------------------------
+
+const newsState: { postId?: string; replyId?: string; disposeReply?: () => void } = {};
+
+/** Whether the account running the suite is an admin. The admin-only checks
+    below cannot mean anything either way without knowing this — an admin is
+    supposed to be able to write news, so denying them would be the bug. */
+async function runnerIsAdmin(ctx: TestContext): Promise<boolean> {
+  return (await getDoc(doc(db, 'admins', ctx.uid))).exists();
+}
+
+const newsSuite: TestSuite = {
+  id: 'news',
+  name: 'News',
+  description:
+    'News is a board like the others bar one thing: only an admin may write a post, while any member may react and reply to one. There is no sandbox twin, because seeding one would need an admin, so these run against the real news board — but nothing lasting is written. The like is put back, the reply is deleted, and the edit attempt writes the text already there.',
+  tests: [
+    {
+      name: 'reads the live news board',
+      run: async () => {
+        const snap = await getDocs(
+          query(collection(db, 'news'), orderBy('lastActivityAt', 'desc'), limit(5)),
+        );
+        assert(!snap.empty, 'No news posts have a lastActivityAt. Run scripts/backfill-news-lastactivity.mjs.');
+        newsState.postId = snap.docs[0].id;
+        const first = snap.docs[0].data();
+        assert(typeof first.text === 'string', 'A news post has no text.');
+        assert(first.lastActivityAt, 'The newest news post has no lastActivityAt, so it will not sort.');
+        return `${snap.size} read, newest by ${first.username ?? 'unknown'}`;
+      },
+    },
+    {
+      // The composite index the main board needs to list news alongside its
+      // own threads. Without it this query throws failed-precondition.
+      name: 'reads the cross-post query the message board runs',
+      run: async () => {
+        const snap = await getDocs(
+          query(
+            collection(db, 'news'),
+            where('showOnMain', '==', true),
+            orderBy('lastActivityAt', 'desc'),
+            limit(5),
+          ),
+        );
+        return snap.empty ? 'index works, nothing cross-posted yet' : `${snap.size} cross-posted`;
+      },
+    },
+    {
+      name: 'rules stop a member posting news',
+      run: async (ctx) => {
+        if (await runnerIsAdmin(ctx)) return 'skipped: you are an admin, so writing news is allowed';
+        return expectDenied(
+          'posting news as a member',
+          () =>
+            addDoc(collection(db, 'news'), {
+              text: sanitizeHtml(stamp('news post test')),
+              userId: ctx.uid,
+              timestamp: serverTimestamp(),
+              lastActivityAt: serverTimestamp(),
+              username: ctx.username,
+              avatar: ctx.avatar,
+              reactedBy: [],
+              reactionCount: 0,
+            }),
+          ctx,
+        );
+      },
+    },
+    {
+      // Writes back the text already on the post, so a rules hole that let this
+      // through would still leave the post reading the same.
+      name: 'rules stop a member editing a news post',
+      run: async (ctx) => {
+        if (await runnerIsAdmin(ctx)) return 'skipped: you are an admin, so editing your own news is allowed';
+        const ref = doc(db, 'news', requireId(newsState.postId, 'news post'));
+        const text = (await getDoc(ref)).data()?.text ?? '';
+        return expectDenied('editing a news post as a member', () =>
+          updateDoc(ref, { text, editedAt: serverTimestamp() }),
+        );
+      },
+    },
+    {
+      // Denied for admins too: the update rule only ever admits text and
+      // editedAt, so the flag the main board queries on cannot move.
+      name: 'rules stop showOnMain being flipped after posting',
+      run: async () => {
+        const ref = doc(db, 'news', requireId(newsState.postId, 'news post'));
+        const current = (await getDoc(ref)).data()?.showOnMain === true;
+        return expectDenied('cross-posting a news post after the fact', () =>
+          updateDoc(ref, { showOnMain: !current }),
+        );
+      },
+    },
+    {
+      name: 'likes and unlikes a news post',
+      run: async (ctx) => {
+        const ref = doc(db, 'news', requireId(newsState.postId, 'news post'));
+        const before = (await getDoc(ref)).data()?.reactionCount ?? 0;
+        const undo = ctx.cleanup(`news like on ${ref.id}`, () =>
+          updateDoc(ref, { reactedBy: arrayRemove(ctx.uid), reactionCount: increment(-1) }),
+        );
+
+        await updateDoc(ref, { reactedBy: arrayUnion(ctx.uid), reactionCount: increment(1) });
+        let data = (await getDoc(ref)).data();
+        assert(data?.reactedBy?.includes(ctx.uid), 'Your id was not added to reactedBy.');
+        assert(data?.reactionCount === before + 1, `Count should be ${before + 1}, it is ${data?.reactionCount}.`);
+
+        await updateDoc(ref, { reactedBy: arrayRemove(ctx.uid), reactionCount: increment(-1) });
+        undo();
+        data = (await getDoc(ref)).data();
+        assert(!(data?.reactedBy ?? []).includes(ctx.uid), 'Your id was not removed from reactedBy.');
+        assert(data?.reactionCount === before, `Count should be back to ${before}, it is ${data?.reactionCount}.`);
+        return 'liked, then unliked';
+      },
+    },
+    {
+      name: 'replies to a news post and bumps it',
+      run: async (ctx) => {
+        const postId = requireId(newsState.postId, 'news post');
+        const parent = doc(db, 'news', postId);
+        const before = (await getDoc(parent)).data()?.replyCount ?? 0;
+
+        const replyRef = await addDoc(collection(db, 'news', postId, 'replies'), {
+          text: sanitizeHtml(stamp('news reply test')),
+          userId: ctx.uid,
+          timestamp: serverTimestamp(),
+          username: ctx.username,
+          avatar: ctx.avatar,
+          reactedBy: [],
+          reactionCount: 0,
+        });
+        newsState.replyId = replyRef.id;
+        newsState.disposeReply = ctx.cleanup(`news/${postId}/replies/${replyRef.id}`, async () => {
+          await deleteDoc(replyRef);
+          await updateDoc(parent, { replyCount: increment(-1) });
+        });
+
+        await updateDoc(parent, { lastActivityAt: serverTimestamp(), replyCount: increment(1) });
+
+        assert((await getDoc(replyRef)).exists(), 'The reply was written but cannot be read back.');
+        const count = (await getDoc(parent)).data()?.replyCount;
+        assert(count === before + 1, `Parent replyCount should be ${before + 1}, it is ${count}.`);
+        return 'reply saved, post bumped';
+      },
+    },
+    {
+      name: 'deletes the reply and drops the count',
+      run: async () => {
+        const postId = requireId(newsState.postId, 'news post');
+        const replyId = requireId(newsState.replyId, 'reply');
+        const ref = doc(db, 'news', postId, 'replies', replyId);
+        const parent = doc(db, 'news', postId);
+        const before = (await getDoc(parent)).data()?.replyCount ?? 0;
+
+        await deleteDoc(ref);
+        await updateDoc(parent, { replyCount: increment(-1) });
+        newsState.disposeReply?.();
+        newsState.replyId = undefined;
+
+        assert(!(await getDoc(ref)).exists(), 'The reply is still there after deleting it.');
+        const count = (await getDoc(parent)).data()?.replyCount;
+        assert(count === before - 1, `Parent replyCount should be ${before - 1}, it is ${count}.`);
+        return 'reply gone, count back down';
+      },
+    },
+  ],
+};
+
+export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite, usernameSuite, newsSuite];
