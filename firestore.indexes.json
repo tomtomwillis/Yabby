@@ -23,6 +23,22 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "lastActivityAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "filmClubMessages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "showOnMain", "order": "ASCENDING" },
+        { "fieldPath": "lastActivityAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "news",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "showOnMain", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

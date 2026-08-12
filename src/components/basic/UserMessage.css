@@ -33,6 +33,10 @@
 
 .user-message {
   display: flex;
+  /* The avatar and the body sit on the first line; the thread and the reply
+     composer are siblings of them rather than part of the body, so they wrap
+     onto lines of their own underneath. */
+  flex-wrap: wrap;
   background-color: var(--colour2);
   border-radius: 12px;
   padding: 16px;
@@ -363,6 +367,14 @@
   padding-top: 12px;
 }
 
+/* Both take a line of their own under the avatar and the body, rather than
+   becoming a third column beside them. */
+.user-message-replies-container,
+.user-message-reply-input-container {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
 .user-message-reply-input-container .input-area {
   background-color: var(--colour4);
 }
@@ -453,6 +465,16 @@
 .user-message-username-link:hover {
   text-decoration: underline;
   color: var(--colour3);
+}
+
+/* Everything acting on a message except the like — replying to it, and what its
+   writer or an admin can do to it — sat under its name rather than out in the
+   corner with the like. */
+.user-message-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 /* Edit and delete button styles */

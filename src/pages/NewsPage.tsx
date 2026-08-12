@@ -15,9 +15,12 @@ import { useRateLimit } from '../utils/useRateLimit';
 import { getUserData } from '../utils/userCache';
 import Header from '../components/basic/Header';
 import NewsPost from '../components/NewsPost';
+import BoardsRail from '../components/BoardsRail';
 import ForumBox from '../components/basic/ForumMessageBox';
+import Tips from '../components/basic/Tips';
 import Button from '../components/basic/Button';
 import '../components/MessageBoard.css';
+import './MessageBoardPage.css';
 
 interface NewsItem {
   id: string;
@@ -31,6 +34,12 @@ interface NewsItem {
 
 const NEWS_PER_PAGE = 5;
 
+const tip: React.ComponentProps<typeof Tips> = {
+  text: <><span className="mb-tip-mark">tip ▸</span> news posts ticked through to the message board are tagged there, and read here</>,
+  showOnMobile: true,
+  showOnDesktop: true,
+};
+
 const NewsPage: React.FC = () => {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,6 +47,7 @@ const NewsPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
+  const [crossPost, setCrossPost] = useState(false);
 
   const { isAdmin } = useAdmin();
 
@@ -162,14 +172,23 @@ const NewsPage: React.FC = () => {
       }
 
       const userData = await getUserData(auth.currentUser.uid);
+      if (!userData.hasUsername) {
+        alert('Set a username on your profile before posting news.');
+        return;
+      }
 
-      await addDoc(collection(db, 'news'), {
+      const newsData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         username: userData.username,
         avatar: userData.avatar,
-      });
+      };
+      // What the message board queries on to list this post alongside its own.
+      if (crossPost) newsData.showOnMain = true;
+
+      await addDoc(collection(db, 'news'), newsData);
+      setCrossPost(false);
     } catch (error) {
       console.error('Error posting news:', error);
       alert('Failed to post news. Please try again.');
@@ -202,88 +221,78 @@ const NewsPage: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
-      <Header title="News" subtitle="Updates & Announcements" />
+    <div className="app-container mb-board">
+      <div className="mb-shell">
+        <div className="mb-column">
+          <Header title="News" subtitle="Updates & Announcements" />
 
-      <div className="message-board-container">
-        {isAdmin && (
-          <>
-            <div style={{
-              marginBottom: '16px',
-              padding: '12px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              color: 'var(--colour2)',
-              fontStyle: 'italic',
-              textAlign: 'center'
-            }}>
-              Post a news update for the community
+          <BoardsRail current="news" />
+
+          <Tips {...tip} />
+
+          <div className="message-board-container">
+            {isAdmin && (
+              <ForumBox
+                onSend={handleSendNews}
+                disabled={sending}
+                placeholder="Write a news post..."
+                maxWords={1000}
+                maxChars={5000}
+                outsideControls={true}
+                crossPost={{
+                  label: 'also post to the message board',
+                  checked: crossPost,
+                  onChange: setCrossPost,
+                }}
+              />
+            )}
+
+            <div className="mb-board-bar">
+              <span className="mb-board-bar-label">posts</span>
+              <span className="mb-board-bar-rule" aria-hidden="true"></span>
+              <span className="mb-board-bar-note">newest first</span>
             </div>
-            <ForumBox
-              onSend={handleSendNews}
-              disabled={sending}
-              placeholder="Write a news post..."
-              maxWords={1000}
-              maxChars={5000}
-            />
-          </>
-        )}
 
-        <div className="messages-container">
-          {newsItems.map((item) => (
-            <NewsPost
-              key={item.id}
-              username={item.username}
-              message={item.text}
-              timestamp={formatTimestamp(item.timestamp)}
-              userSticker={item.avatar || 'default-avatar.png'}
-              userId={item.userId}
-              currentUserId={auth.currentUser?.uid}
-              isAdmin={isAdmin}
-              onEdit={(newText: string) => handleEditNews(item.id, newText)}
-              onDelete={() => handleDeleteNews(item.id)}
-              edited={!!item.editedAt}
-            />
-          ))}
+            <div className="messages-container">
+              {newsItems.map((item) => (
+                <NewsPost
+                  key={item.id}
+                  username={item.username}
+                  message={item.text}
+                  timestamp={formatTimestamp(item.timestamp)}
+                  userSticker={item.avatar || 'default-avatar.png'}
+                  userId={item.userId}
+                  currentUserId={auth.currentUser?.uid}
+                  isAdmin={isAdmin}
+                  showPosterStats={true}
+                  ledgerControls={true}
+                  onEdit={(newText: string) => handleEditNews(item.id, newText)}
+                  onDelete={() => handleDeleteNews(item.id)}
+                  edited={!!item.editedAt}
+                />
+              ))}
+            </div>
+
+            {hasMore && (
+              <div className="messages-more">
+                <Button
+                  type="basic"
+                  label={loadingMore ? 'Loading...' : 'Show More'}
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                />
+              </div>
+            )}
+
+            {!hasMore && newsItems.length > 0 && (
+              <div className="messages-end">No more news posts</div>
+            )}
+
+            {!loading && newsItems.length === 0 && (
+              <div className="messages-end">No news posts yet</div>
+            )}
+          </div>
         </div>
-
-        {hasMore && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginTop: '20px',
-            marginBottom: '20px'
-          }}>
-            <Button
-              type="basic"
-              label={loadingMore ? 'Loading...' : 'Show More'}
-              onClick={loadMore}
-              disabled={loadingMore}
-            />
-          </div>
-        )}
-
-        {!hasMore && newsItems.length > 0 && (
-          <div style={{
-            textAlign: 'center',
-            padding: '20px',
-            color: 'var(--colour4)',
-            fontStyle: 'italic'
-          }}>
-            No more news posts
-          </div>
-        )}
-
-        {!loading && newsItems.length === 0 && (
-          <div style={{
-            textAlign: 'center',
-            padding: '20px',
-            color: 'var(--colour4)',
-            fontStyle: 'italic'
-          }}>
-            No news posts yet
-          </div>
-        )}
       </div>
     </div>
   );

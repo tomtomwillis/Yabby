@@ -25,11 +25,25 @@
   box-sizing: border-box;
 }
 
-/* Force UserMessage components to take full available width */
+/* UserMessage components take the full available width in a list. The selector
+   already outranks the component's own, so nothing here has to be forced. */
 .messages-container .user-message {
-  width: 100% !important;
-  max-width: 100% !important;
-  margin: 0 !important;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+.messages-more {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.messages-end {
+  padding: 20px;
+  color: var(--colour2);
+  font-style: italic;
+  text-align: center;
 }
 
 /* Add responsiveness */
@@ -53,14 +67,4 @@
   .messages-container {
     gap: 12px;
   }
-}
-/* Deep-linked message flash */
-.mb-msg-highlight {
-  animation: mb-highlight-flash 2s ease-out;
-  border-radius: 8px;
-}
-
-@keyframes mb-highlight-flash {
-  0% { background-color: rgba(232, 122, 58, 0.35); }
-  100% { background-color: transparent; }
 }

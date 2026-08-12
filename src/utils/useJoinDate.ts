@@ -9,6 +9,6 @@ import { ensureJoinedAt } from './userCache';
     restored session, but not again on every navigation. */
 export function useJoinDate(): void {
   useEffect(() => onAuthStateChanged(auth, (user) => {
-    if (user) void ensureJoinedAt(user.uid);
+    if (user) void ensureJoinedAt(user);
   }), []);
 }

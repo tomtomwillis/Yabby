@@ -521,14 +521,23 @@ const CreateList: React.FC<CreateListProps> = ({
       } else {
         // Fetch username from user profile (same pattern as MessageBoard)
         let username = 'Anonymous';
+        let hasUsername = false;
         try {
           const userDocRef = doc(db, 'users', auth.currentUser.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             username = userDoc.data().username || 'Anonymous';
+            hasUsername = typeof userDoc.data().username === 'string' && userDoc.data().username.trim().length > 0;
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
+        }
+
+        // The list carries its owner's name and the rules match it against the
+        // profile, so a profile with no name cannot create one.
+        if (!hasUsername) {
+          alert('Set a username on your profile before creating a list.');
+          return;
         }
 
         const lastItemMeta = computeLastItemMetadata(items);

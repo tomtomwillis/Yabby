@@ -43,6 +43,11 @@ export const SANDBOX_MESSAGES = 'testMessages';
 const SANDBOX_LISTS = 'testLists';
 const SANDBOX_STICKERS = 'testStickers';
 
+/** The throwaway account, keyed the way /usernames keys its documents. Tests
+    that need a member who is not the person running them aim here, so a rule
+    that turns out to be too loose costs this account rather than a real one. */
+const TEST_ACCOUNT_USERNAME = 'claude test user';
+
 export interface TestContext {
   uid: string;
   username: string;
@@ -337,6 +342,55 @@ const messagesSuite: TestSuite = {
           updateDoc(ref, { username: 'somebody-else' }),
         );
       },
+    },
+    {
+      name: 'only admins can post as the bot',
+      run: async (ctx) => {
+        // The bot flag is what makes a post hide its author's profile, so a
+        // member being able to set it would be an impersonation route.
+        const isAdmin = (await getDoc(doc(db, 'admins', ctx.uid))).exists();
+        const botPost = () =>
+          addDoc(collection(db, SANDBOX_MESSAGES), {
+            text: sanitizeHtml(stamp('bot flag test')),
+            userId: ctx.uid,
+            timestamp: serverTimestamp(),
+            lastActivityAt: serverTimestamp(),
+            username: ctx.username,
+            avatar: ctx.avatar,
+            reactedBy: [],
+            reactionCount: 0,
+            isBot: true,
+          });
+
+        if (!isAdmin) return expectDenied('posting with the bot flag as a member', botPost, ctx);
+
+        const ref = await botPost();
+        const dispose = ctx.cleanup(`${SANDBOX_MESSAGES}/${ref.id}`, () => deleteDoc(ref));
+        assert((await getDoc(ref)).data()?.isBot === true, 'The bot flag did not save.');
+        await deleteDoc(ref);
+        dispose();
+        return 'allowed for you (admin), and written';
+      },
+    },
+    {
+      name: 'rules stop a false bot flag',
+      run: async (ctx) =>
+        expectDenied(
+          'posting with isBot set to false',
+          () =>
+            addDoc(collection(db, SANDBOX_MESSAGES), {
+              text: sanitizeHtml(stamp('should not exist')),
+              userId: ctx.uid,
+              timestamp: serverTimestamp(),
+              lastActivityAt: serverTimestamp(),
+              username: ctx.username,
+              avatar: ctx.avatar,
+              reactedBy: [],
+              reactionCount: 0,
+              isBot: false,
+            }),
+          ctx,
+        ),
     },
     {
       name: 'deletes both test messages',
@@ -743,7 +797,7 @@ const profileSuite: TestSuite = {
   id: 'profile',
   name: 'Profile stats',
   description:
-    'The join date and post count behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one.',
+    'The join date, post count and site url behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one. Your site url is written over and put back.',
   tests: [
     {
       name: 'reads your own profile',
@@ -762,9 +816,10 @@ const profileSuite: TestSuite = {
         const ref = doc(db, 'users', ctx.uid);
         const before = await getDoc(ref);
 
-        // First login behaviour: a profile without a join date gets one.
+        // First login behaviour: a profile without a join date gets one, copied
+        // from the account's creation time in Auth and so already in the past.
         if (!before.data()?.joinedAt) {
-          await updateDoc(ref, { joinedAt: serverTimestamp() });
+          await updateDoc(ref, { joinedAt: new Date(Date.now() - 60_000) });
           const after = await getDoc(ref);
           assert(after.data()?.joinedAt, 'The join date did not stick.');
         }
@@ -777,10 +832,10 @@ const profileSuite: TestSuite = {
       },
     },
     {
-      name: 'rules stop backdating a join date',
+      name: 'rules stop a future join date',
       run: async (ctx) =>
-        expectDenied('writing a join date the server did not set', () =>
-          updateDoc(doc(db, 'users', ctx.uid), { joinedAt: new Date('2000-01-01T00:00:00Z') }),
+        expectDenied('writing a join date the account cannot have reached yet', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { joinedAt: new Date(Date.now() + 86_400_000) }),
         ),
     },
     {
@@ -809,6 +864,28 @@ const profileSuite: TestSuite = {
         ),
     },
     {
+      name: 'saves a site url, then puts yours back',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const before = (await getDoc(ref)).data()?.siteUrl ?? '';
+
+        await updateDoc(ref, { siteUrl: 'coyburn.neocities.org' });
+        const after = (await getDoc(ref)).data()?.siteUrl;
+        // Restore first, so a failed assertion cannot leave the test value behind.
+        await updateDoc(ref, { siteUrl: before });
+
+        assert(after === 'coyburn.neocities.org', `siteUrl read back as ${after}.`);
+        return before ? `restored ${before}` : 'restored empty';
+      },
+    },
+    {
+      name: 'rules reject an over-long site url',
+      run: async (ctx) =>
+        expectDenied('a site url past the 200 character cap', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { siteUrl: 'x'.repeat(201) }),
+        ),
+    },
+    {
       name: 'rules still reject unknown profile fields',
       run: async (ctx) =>
         expectDenied('adding a field the profile schema does not allow', () =>
@@ -818,4 +895,140 @@ const profileSuite: TestSuite = {
   ],
 };
 
-export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite];
+// ---------------------------------------------------------------------------
+// Username reservations
+// ---------------------------------------------------------------------------
+
+const usernameSuite: TestSuite = {
+  id: 'usernames',
+  name: 'Username reservations',
+  description:
+    'The /usernames collection that stops one member taking another member\'s name. There is no sandbox twin, so the claim tests use a throwaway name built from your uid and delete it again; your own reservation is only read, never written.',
+  tests: [
+    {
+      name: 'your username is reserved to you',
+      run: async (ctx) => {
+        const key = ctx.username.toLowerCase();
+        const snap = await getDoc(doc(db, 'usernames', key));
+        assert(snap.exists(), `"${key}" has no reservation — the backfill has not reached your profile.`);
+        assert(
+          snap.data()?.uid === ctx.uid,
+          `"${key}" is reserved by ${snap.data()?.uid}, not you.`,
+        );
+        return `"${key}" → you`;
+      },
+    },
+    {
+      name: 'claims a free name, then releases it',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 10)}`;
+        const ref = doc(db, 'usernames', name.toLowerCase());
+        const cancel = ctx.cleanup(`username reservation ${name}`, () => deleteDoc(ref));
+
+        await setDoc(ref, { uid: ctx.uid, username: name });
+        const snap = await getDoc(ref);
+        assert(snap.exists() && snap.data()?.uid === ctx.uid, 'The reservation did not stick.');
+
+        await deleteDoc(ref);
+        cancel();
+        return `claimed and released "${name}"`;
+      },
+    },
+    {
+      name: 'rules stop reserving a name in someone else\'s name',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 8)}x`;
+        return expectDenied('reserving a name under another uid', () =>
+          setDoc(doc(db, 'usernames', name.toLowerCase()), { uid: 'someone-else', username: name }),
+        );
+      },
+    },
+    {
+      name: 'rules stop a reservation whose id is not its lowercased name',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 8)}y`;
+        return expectDenied('a reservation id that does not match the name inside it', () =>
+          setDoc(doc(db, 'usernames', `${name.toLowerCase()}-other`), { uid: ctx.uid, username: name }),
+        );
+      },
+    },
+    {
+      name: 'rules stop taking a name another member holds',
+      run: async (ctx) => {
+        // Sitting under someone else's reservation is the whole attack: find a
+        // real one that is not yours and try to overwrite it.
+        const others = await getDocs(query(collection(db, 'usernames'), limit(20)));
+        const target = others.docs.find((d) => d.data().uid !== ctx.uid);
+        if (!target) return 'skipped — no other member has a reservation yet';
+
+        return expectDenied(`overwriting the reservation on "${target.id}"`, () =>
+          setDoc(doc(db, 'usernames', target.id), { uid: ctx.uid, username: target.data().username }),
+        );
+      },
+    },
+    {
+      name: 'rules stop deleting a name another member holds',
+      run: async (ctx) => {
+        // Admins are allowed to release any name, so running the delete as one
+        // would not test the rule — it would just destroy a live reservation,
+        // and the rules refuse to let anyone but its owner put it back.
+        const isAdmin = (await getDoc(doc(db, 'admins', ctx.uid))).exists();
+        if (isAdmin) return 'skipped — you are an admin, and admins may release any name';
+
+        // Always aimed at the test account rather than whichever reservation
+        // came back first, so a rule that ever loosens costs a throwaway
+        // account its name instead of a member's.
+        const target = await getDoc(doc(db, 'usernames', TEST_ACCOUNT_USERNAME));
+        if (!target.exists()) return `skipped — "${TEST_ACCOUNT_USERNAME}" holds no reservation`;
+        if (target.data().uid === ctx.uid) return 'skipped — that reservation is your own to release';
+
+        return expectDenied(`releasing "${target.id}" out from under its owner`, () =>
+          deleteDoc(doc(db, 'usernames', target.id)),
+        );
+      },
+    },
+    {
+      name: 'rules stop renaming your profile to an unreserved name',
+      run: async (ctx) => {
+        const name = `yb${ctx.uid.slice(0, 8)}z`;
+        return expectDenied('a profile username with no reservation behind it', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { username: name }),
+        );
+      },
+    },
+    {
+      name: 'rules reject a username with stray spaces',
+      run: async (ctx) =>
+        expectDenied('a username padded with spaces', () =>
+          setDoc(doc(db, 'usernames', ' padded '), { uid: ctx.uid, username: ' padded ' }),
+        ),
+    },
+    {
+      // A separator at either end reads as the name without it, which is the
+      // whole point of reserving names in the first place.
+      name: 'rules reject a username ending in a separator',
+      run: async (ctx) =>
+        expectDenied('a username with a trailing dot', () =>
+          setDoc(doc(db, 'usernames', `yb${ctx.uid.slice(0, 6)}.`), {
+            uid: ctx.uid,
+            username: `yb${ctx.uid.slice(0, 6)}.`,
+          }),
+        ),
+    },
+    {
+      name: 'dots inside a name are allowed',
+      run: async (ctx) => {
+        const name = `yb.${ctx.uid.slice(0, 8)}`;
+        const ref = doc(db, 'usernames', name.toLowerCase());
+        const cancel = ctx.cleanup(`username reservation ${name}`, () => deleteDoc(ref));
+
+        await setDoc(ref, { uid: ctx.uid, username: name });
+        await deleteDoc(ref);
+        cancel();
+        return `"${name}" accepted`;
+      },
+    },
+  ],
+};
+
+export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite, usernameSuite];

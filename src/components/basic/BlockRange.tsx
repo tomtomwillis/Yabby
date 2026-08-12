@@ -5,6 +5,11 @@ export const SEEK_CELL_PX = 9;
 export const SEEK_MIN_BLOCKS = 16;
 export const VOLUME_CELL_PX = 8;
 export const VOLUME_MIN_BLOCKS = 6;
+/* The board rail's slider is a fraction of the player's width, so it takes a
+   much smaller cell: at the seek bar's 9px a rail that narrow would be a dozen
+   chunky blocks rather than a bar. */
+export const RAIL_CELL_PX = 4;
+export const RAIL_MIN_BLOCKS = 16;
 
 function blockStates(ratio: number, width: number): boolean[] {
   const filled = Math.round(Math.min(Math.max(ratio, 0), 1) * width);
@@ -21,6 +26,9 @@ interface BlockRangeProps {
   className?: string;
   disabled?: boolean;
   onChange: (value: number) => void;
+  /* Fired when the drag or key press ends rather than on every frame of it, for
+     callers whose change handler is too expensive to run continuously. */
+  onCommit?: () => void;
 }
 
 // Each block is its own CSS grid cell (1fr), so the row of cells always sums to
@@ -30,7 +38,7 @@ interface BlockRangeProps {
 // wide gets rendered at a proportionally higher resolution instead of the same
 // handful of blocks stretched apart with gaps.
 const BlockRange: React.FC<BlockRangeProps> = ({
-  label, value, max, step, cellPx, minBlocks, className, disabled, onChange,
+  label, value, max, step, cellPx, minBlocks, className, disabled, onChange, onCommit,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [blockCount, setBlockCount] = useState(minBlocks);
@@ -69,6 +77,8 @@ const BlockRange: React.FC<BlockRangeProps> = ({
         disabled={disabled}
         aria-label={label}
         onChange={(e) => onChange(parseFloat(e.target.value))}
+        onPointerUp={onCommit}
+        onKeyUp={onCommit}
       />
     </div>
   );

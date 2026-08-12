@@ -30,7 +30,7 @@ import type { PollDraft } from './basic/PollComposeModal';
 import Button from './basic/Button';
 import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
-import { getUserData } from '../utils/userCache';
+import { getUserData, bumpPostCount } from '../utils/userCache';
 import { getCurrentMonthId, getPrevMonthId } from '../utils/useFilmClub';
 
 interface Reaction {
@@ -52,6 +52,18 @@ interface Reply {
   currentUserReacted?: boolean;
   editedAt?: any;
   imageId?: string;
+}
+
+/** Another board whose cross-posted threads are listed on this one. They are
+    read-only here — the thread they belong to lives on the board they name, and
+    the tag on the post links back to it. */
+export interface CrossPostSource {
+  collection: string;
+  /** Field that collection is ordered by; news has no lastActivityAt. */
+  orderField: 'lastActivityAt' | 'timestamp';
+  /** Wording of the tag drawn on the post, and where it points. */
+  label: string;
+  href: string;
 }
 
 interface Message {
@@ -78,6 +90,11 @@ interface Message {
   pollMultiple?: boolean;
   pollVotes?: Record<string, number[]>;
   pollVoterNames?: Record<number, string[]>;
+  /** Set when the post came from another board. */
+  sourceBoard?: CrossPostSource;
+  /** Announcement posted under a bot identity. Admin-only to write, so it is
+      the one marker on a post that a member cannot forge. */
+  isBot?: boolean;
 }
 
 interface MessageBoardProps {
@@ -91,9 +108,49 @@ interface MessageBoardProps {
   enableFilmAnnounce?: boolean;
   showComposer?: boolean;
   highlightMessageId?: string;
+  // Forum identity block under each poster's name. Costs a users read per
+  // distinct author on screen, so only the message board turns it on.
+  showPosterStats?: boolean;
+  /** Leave the newest N replies on show under each post instead of hiding the
+      whole thread behind the toggle. Off by default because it is not free: a
+      page of messages costs one extra (N-document) subcollection query per
+      message that has replies. Where a thread turns out to be no longer than
+      the preview, that query has fetched all of it and expanding costs
+      nothing. */
+  replyPreviewCount?: number;
+  /** Draw the composer with the signed-in user's avatar beside it. */
+  showComposerAvatar?: boolean;
+  /** Rendered between the composer and the thread list — the board's own
+      heading for the list, which only the page above knows the wording of. */
+  listHeader?: React.ReactNode;
+  /** The ledger layout: every composer on the board — the one at the top, and
+      the reply and edit boxes inside a post — puts send, attach and the counter
+      in a row under the field rather than inside it. */
+  ledger?: boolean;
+  /** Other boards whose cross-posted threads are listed here alongside this
+      board's own, newest activity first. */
+  crossPostSources?: CrossPostSource[];
+  /** Offer a tick box on the composer that also lists the post on the main
+      board. Writes showOnMain, which is what the main board queries on. */
+  enableCrossPost?: boolean;
 }
 
 const MESSAGES_PER_PAGE = 20;
+/* Cross-posts are the exception rather than the rule, so the other boards are
+   read a handful at a time. What is fetched and not used stays buffered for the
+   next page, so paging on usually costs one query, not three. */
+const CROSS_POST_CHUNK = 5;
+
+/** One board being read, and where its reading got to. */
+interface SourceCursor {
+  /** null for the board's own collection. */
+  source: CrossPostSource | null;
+  cursor: QueryDocumentSnapshot<DocumentData> | null;
+  buffer: Message[];
+  exhausted: boolean;
+}
+
+const NO_CROSS_POST_SOURCES: CrossPostSource[] = [];
 const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 
 async function uploadMessageImage(file: File): Promise<string> {
@@ -119,15 +176,15 @@ async function uploadMessageImage(file: File): Promise<string> {
   return data.imageId;
 }
 
-function sortByBump(messages: Message[]): Message[] {
-  return [...messages].sort((a, b) => {
-    const aTime = (a.lastActivityAt ?? a.timestamp)?.seconds ?? 0;
-    const bTime = (b.lastActivityAt ?? b.timestamp)?.seconds ?? 0;
-    return bTime - aTime;
-  });
+function bumpSeconds(message: Message): number {
+  return (message.lastActivityAt ?? message.timestamp)?.seconds ?? 0;
 }
 
-function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
+function sortByBump(messages: Message[]): Message[] {
+  return [...messages].sort((a, b) => bumpSeconds(b) - bumpSeconds(a));
+}
+
+function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>, source?: CrossPostSource): Message {
   const data = docSnap.data();
   const reactedBy: string[] = Array.isArray(data.reactedBy) ? data.reactedBy : [];
   const uid = auth.currentUser?.uid;
@@ -151,6 +208,8 @@ function mapMessageDoc(docSnap: QueryDocumentSnapshot<DocumentData>): Message {
     pollOptions: Array.isArray(data.pollOptions) ? data.pollOptions : undefined,
     pollMultiple: data.pollMultiple,
     pollVotes: data.pollVotes && typeof data.pollVotes === 'object' ? data.pollVotes : undefined,
+    sourceBoard: source,
+    isBot: data.isBot === true,
   };
 }
 
@@ -182,17 +241,27 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   enableFilmAnnounce = true,
   showComposer = true,
   highlightMessageId,
+  showPosterStats = false,
+  replyPreviewCount = 0,
+  showComposerAvatar = false,
+  listHeader,
+  ledger = false,
+  crossPostSources = NO_CROSS_POST_SOURCES,
+  enableCrossPost = false,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingPoll, setPendingPoll] = useState<PollDraft | null>(null);
+  const [composerAvatar, setComposerAvatar] = useState<string>('');
+  const [composerName, setComposerName] = useState<string>('');
+  const [crossPostChecked, setCrossPostChecked] = useState(false);
+  const sourcesRef = useRef<SourceCursor[]>([]);
 
   const { isAdmin } = useAdmin();
   const { checkRateLimit } = useRateLimit({ maxAttempts: 10, windowMs: 5 * 60 * 1000 });
@@ -204,6 +273,23 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     // No listeners — nothing to clean up.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableReactions, enableReplies]);
+
+  // Your own avatar for the composer. Goes through the shared profile cache,
+  // so on a board where you have already posted it is free.
+  useEffect(() => {
+    if (!showComposerAvatar) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    let live = true;
+    getUserData(uid).then((data) => {
+      if (!live) return;
+      setComposerAvatar(data.avatar);
+      setComposerName(data.username);
+    });
+    return () => {
+      live = false;
+    };
+  }, [showComposerAvatar]);
 
   // Deep link: pin the linked message if it's beyond the first page, then scroll to it once.
   useEffect(() => {
@@ -233,26 +319,78 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightMessageId, loadingMessages, messages]);
 
+  /* The next chunk of one board, appended to whatever of it is still buffered. */
+  const fillSource = async (state: SourceCursor) => {
+    const name = state.source ? state.source.collection : collectionName;
+    const orderField = state.source ? state.source.orderField : 'lastActivityAt';
+    const size = state.source ? CROSS_POST_CHUNK : MESSAGES_PER_PAGE;
+    const filters = state.source
+      ? [where('showOnMain', '==', true)]
+      : statusFilter
+        ? [where('status', '==', statusFilter)]
+        : [];
+
+    const q = query(
+      collection(db, name),
+      ...filters,
+      orderBy(orderField, 'desc'),
+      ...(state.cursor ? [startAfter(state.cursor)] : []),
+      limit(size),
+    );
+
+    let snapshot;
+    try {
+      snapshot = await getDocs(q);
+    } catch (error) {
+      // A board that cannot be read is dropped rather than allowed to take the
+      // list down with it: the one you are actually on still has to load.
+      if (!state.source) throw error;
+      console.error(`Error reading cross-posts from ${name}:`, error);
+      state.exhausted = true;
+      return;
+    }
+
+    if (snapshot.docs.length < size) state.exhausted = true;
+    if (snapshot.docs.length > 0) state.cursor = snapshot.docs[snapshot.docs.length - 1];
+    state.buffer.push(...snapshot.docs.map((d) => mapMessageDoc(d, state.source ?? undefined)));
+  };
+
+  /* One page of the list, merged from every board being read. Each board is
+     ordered newest-first already, so taking whichever buffered post is newest
+     until the page is full gives the same order across all of them — as long as
+     a board that could still have something newer is topped up first, which is
+     what the fill below guarantees. */
+  const takeMergedPage = async (states: SourceCursor[], count: number): Promise<Message[]> => {
+    const page: Message[] = [];
+    while (page.length < count) {
+      await Promise.all(states.filter((s) => s.buffer.length === 0 && !s.exhausted).map(fillSource));
+
+      let next: SourceCursor | null = null;
+      for (const state of states) {
+        if (state.buffer.length === 0) continue;
+        if (!next || bumpSeconds(state.buffer[0]) > bumpSeconds(next.buffer[0])) next = state;
+      }
+      if (!next) break;
+      page.push(next.buffer.shift()!);
+    }
+    return page;
+  };
+
+  const moreToRead = (states: SourceCursor[]) => states.some((s) => s.buffer.length > 0 || !s.exhausted);
+
   const loadInitialMessages = async () => {
     setLoadingMessages(true);
     try {
-      const q = query(
-        collection(db, collectionName),
-        ...(statusFilter ? [where('status', '==', statusFilter)] : []),
-        orderBy('lastActivityAt', 'desc'),
-        limit(MESSAGES_PER_PAGE),
-      );
-      const snapshot = await getDocs(q);
+      const states: SourceCursor[] = [
+        { source: null, cursor: null, buffer: [], exhausted: false },
+        ...crossPostSources.map((source) => ({ source, cursor: null, buffer: [], exhausted: false })),
+      ];
+      sourcesRef.current = states;
 
-      if (snapshot.docs.length > 0) {
-        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-        setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
-      } else {
-        setHasMore(false);
-      }
-
-      const loaded = sortByBump(snapshot.docs.map(mapMessageDoc));
+      const loaded = await takeMergedPage(states, MESSAGES_PER_PAGE);
+      setHasMore(moreToRead(states));
       setMessages(loaded);
+      fetchReplyPreviews(loaded);
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -261,32 +399,67 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   };
 
   const loadMoreMessages = async () => {
-    if (!lastDoc || !hasMore || loadingMore) return;
+    if (!hasMore || loadingMore) return;
     setLoadingMore(true);
     try {
-      const q = query(
-        collection(db, collectionName),
-        ...(statusFilter ? [where('status', '==', statusFilter)] : []),
-        orderBy('lastActivityAt', 'desc'),
-        startAfter(lastDoc),
-        limit(MESSAGES_PER_PAGE),
-      );
-      const snapshot = await getDocs(q);
-      if (snapshot.docs.length === 0) {
-        setHasMore(false);
-        return;
-      }
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-      setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
-      const newMessages = snapshot.docs.map(mapMessageDoc);
+      const states = sourcesRef.current;
+      const newMessages = await takeMergedPage(states, MESSAGES_PER_PAGE);
+      setHasMore(moreToRead(states));
       // Dedupe: a deep-linked message pinned to the top can page back in.
       setMessages((prev) => [...prev, ...newMessages.filter((nm) => !prev.some((p) => p.id === nm.id))]);
+      fetchReplyPreviews(newMessages);
     } catch (error) {
       console.error('Error loading more messages:', error);
     } finally {
       setLoadingMore(false);
     }
   };
+
+  /* The newest few replies for each message that has any, so a collapsed
+     thread still shows where it got to. One capped query per message with
+     replies — the reason this is opt-in.
+
+     The result is written into `replies`, not a second array: every handler on
+     this board (react, edit, delete) already operates on `replies`, and a
+     preview that lived somewhere else would go stale the moment one of them
+     fired. `repliesLoaded` stays false while it is only the tail, so expanding
+     still goes and gets the rest — unless the thread turned out to be no
+     longer than the preview, in which case this was the whole thread and the
+     expand is free. */
+  const fetchReplyPreviews = useCallback(async (loaded: Message[]) => {
+    if (replyPreviewCount <= 0) return;
+    // Cross-posted threads are read-only here; their replies stay on their board.
+    const targets = loaded.filter((m) => !m.sourceBoard && (m.replyCount ?? 0) > 0 && !m.repliesLoaded && !m.replies);
+    if (targets.length === 0) return;
+
+    const previews = await Promise.all(
+      targets.map(async (m) => {
+        try {
+          const q = query(
+            collection(db, collectionName, m.id, 'replies'),
+            orderBy('timestamp', 'desc'),
+            limit(replyPreviewCount),
+          );
+          const snapshot = await getDocs(q);
+          // Fetched newest-first so the limit takes the right end; the thread
+          // itself reads oldest-first.
+          return { id: m.id, replies: snapshot.docs.map(mapReplyDoc).reverse() };
+        } catch (error) {
+          console.error('Error fetching reply preview:', error);
+          return null;
+        }
+      }),
+    );
+
+    setMessages((prev) =>
+      prev.map((m) => {
+        const hit = previews.find((p) => p?.id === m.id);
+        if (!hit || m.repliesLoaded) return m;
+        const complete = (m.replyCount ?? 0) <= hit.replies.length;
+        return { ...m, replies: hit.replies, repliesLoaded: complete };
+      }),
+    );
+  }, [collectionName, replyPreviewCount]);
 
   // Lazy-fetch replies for a specific message on first expand.
   const fetchRepliesFor = useCallback(async (messageId: string) => {
@@ -414,6 +587,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       }
 
       const userData = await getUserData(auth.currentUser.uid);
+      // Posts carry the poster's name, and the rules refuse one that is not
+      // the name on the profile — so a profile with no name cannot post at
+      // all, and saying "try again" would send them round the same loop.
+      if (!userData.hasUsername) {
+        alert('Set a username on your profile before posting.');
+        setLoading(false);
+        return;
+      }
       const messageData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
@@ -427,8 +608,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       };
       if (imageId) messageData.imageId = imageId;
       if (statusFilter) messageData.status = 'inprogress';
+      if (enableCrossPost && crossPostChecked) messageData.showOnMain = true;
 
       const newDoc = await addDoc(collection(db, collectionName), messageData);
+      void bumpPostCount(auth.currentUser.uid);
       // Optimistically prepend so the new post appears without a reload.
       setMessages((prev) => [
         {
@@ -451,6 +634,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       ]);
       setPendingImage(null);
       setPendingPoll(null);
+      setCrossPostChecked(false);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -608,6 +792,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
         avatar: 'avatar_filmbot.webp',
         reactedBy: [],
         reactionCount: 0,
+        isBot: true,
       };
       if (posterUrl) messageData.posterUrl = posterUrl;
 
@@ -620,13 +805,14 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
           userId: auth.currentUser!.uid,
           timestamp: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
           lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
-          username: 'FilmClub Bot',
+          username: 'Film Club Bot',
           avatar: 'avatar_filmbot.webp',
           reactedBy: [],
           reactionCount: 0,
           replyCount: 0,
           currentUserReacted: false,
           posterUrl,
+          isBot: true,
         },
         ...prev,
       ]);
@@ -702,6 +888,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       }
 
       const userData = await getUserData(auth.currentUser.uid);
+      if (!userData.hasUsername) {
+        alert('Set a username on your profile before replying.');
+        return;
+      }
       const replyData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
@@ -714,6 +904,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       if (imageId) replyData.imageId = imageId;
 
       const newReplyRef = await addDoc(collection(db, collectionName, messageId, 'replies'), replyData);
+      void bumpPostCount(auth.currentUser.uid);
       await updateDoc(doc(db, collectionName, messageId), {
         lastActivityAt: serverTimestamp(),
         replyCount: increment(1),
@@ -737,7 +928,10 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
           m.id === messageId
             ? {
                 ...m,
-                replies: m.repliesLoaded && m.replies ? [...m.replies, optimisticReply] : m.replies,
+                // Appended whenever anything is held, loaded thread or preview
+                // tail alike: in both cases the newest reply belongs on the
+                // end, and the preview is read from that end.
+                replies: m.replies ? [...m.replies, optimisticReply] : m.replies,
                 replyCount: (m.replyCount ?? 0) + 1,
                 lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
               }
@@ -904,22 +1098,35 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   return (
     <div className="message-board-container">
       {showComposer && (
-        <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} />
+        <ForumBox onSend={handleSendMessage} disabled={loading} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} avatar={showComposerAvatar ? composerAvatar : undefined} avatarName={showComposerAvatar ? composerName : undefined} outsideControls={ledger} crossPost={enableCrossPost ? { label: 'also post to the message board', checked: crossPostChecked, onChange: setCrossPostChecked } : undefined} />
       )}
+      {listHeader}
       <div className="messages-container">
         {loadingMessages && <p className="messages-loading">Loading messages...</p>}
-        {messages.map((message) => (
-          <div key={message.id} id={`mb-msg-${message.id}`} className={message.id === highlightMessageId ? 'mb-msg-highlight' : undefined}>
+        {messages.map((message) => {
+          /* A thread carried through from another board is shown here but not
+             worked on here: replying, reacting and editing all belong on the
+             board it came from, which its tag links to. */
+          const fromElsewhere = !!message.sourceBoard;
+          const canReact = enableReactions && !fromElsewhere;
+          const canReply = enableReplies && !fromElsewhere;
+          return (
+          <div key={`${message.sourceBoard?.collection ?? ''}${message.id}`} id={`mb-msg-${message.id}`} className={message.id === highlightMessageId ? 'mb-msg-highlight' : undefined}>
           <UserMessage
             username={message.username || 'Anonymous'}
             message={message.text}
             timestamp={formatTimestamp(message.timestamp)}
             userSticker={message.avatar || 'default-avatar.png'}
             userId={message.userId}
+            isBot={message.isBot}
             currentUserId={auth.currentUser?.uid}
             isAdmin={isAdmin}
-            onEdit={(newText: string) => handleEditMessage(message.id, newText)}
-            onDelete={() => handleDeleteMessage(message.id)}
+            showPosterStats={showPosterStats}
+            replyPreviewCount={canReply ? replyPreviewCount : 0}
+            ledgerControls={ledger}
+            sourceTag={message.sourceBoard && { label: message.sourceBoard.label, href: message.sourceBoard.href }}
+            onEdit={fromElsewhere ? undefined : (newText: string) => handleEditMessage(message.id, newText)}
+            onDelete={fromElsewhere ? undefined : () => handleDeleteMessage(message.id)}
             onEditReply={(replyId: string, newText: string) => handleEditReply(message.id, replyId, newText)}
             onDeleteReply={(replyId: string) => handleDeleteReply(message.id, replyId)}
             edited={!!message.editedAt}
@@ -930,33 +1137,34 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
             pollMultiple={message.pollMultiple}
             pollVotes={message.pollVotes}
             pollVoterNames={message.pollVoterNames}
-            onTogglePollVote={(optionIndex: number) => handleTogglePollVote(message.id, optionIndex)}
-            onPollVoterHover={(optionIndex: number) => handlePollVoterHover(message.id, optionIndex)}
+            onTogglePollVote={fromElsewhere ? undefined : (optionIndex: number) => handleTogglePollVote(message.id, optionIndex)}
+            onPollVoterHover={fromElsewhere ? undefined : (optionIndex: number) => handlePollVoterHover(message.id, optionIndex)}
             onClose={() => {}}
             hideCloseButton={true}
-            reactions={enableReactions ? message.reactions : undefined}
-            reactionCount={enableReactions ? message.reactionCount : undefined}
-            currentUserReacted={enableReactions ? message.currentUserReacted : undefined}
-            onToggleReaction={enableReactions ? () => handleToggleReaction(message.id) : undefined}
-            onReactionHover={enableReactions ? () => handleReactionHover(message.id) : undefined}
-            replies={enableReplies ? message.replies : undefined}
-            replyCount={enableReplies ? message.replyCount : undefined}
-            onReply={enableReplies ? (text: string, image?: File | null) => handleSendReply(message.id, text, image) : undefined}
-            onToggleReplies={enableReplies ? () => handleToggleReplies(message.id) : undefined}
-            repliesExpanded={enableReplies ? expandedReplies.has(message.id) : undefined}
-            onToggleReplyReaction={enableReplies && enableReactions ? (replyId: string) => handleToggleReplyReaction(message.id, replyId) : undefined}
-            onReplyReactionHover={enableReplies && enableReactions ? (replyId: string) => handleReplyReactionHover(message.id, replyId) : undefined}
+            reactions={canReact ? message.reactions : undefined}
+            reactionCount={canReact ? message.reactionCount : undefined}
+            currentUserReacted={canReact ? message.currentUserReacted : undefined}
+            onToggleReaction={canReact ? () => handleToggleReaction(message.id) : undefined}
+            onReactionHover={canReact ? () => handleReactionHover(message.id) : undefined}
+            replies={canReply ? message.replies : undefined}
+            replyCount={canReply ? message.replyCount : undefined}
+            onReply={canReply ? (text: string, image?: File | null) => handleSendReply(message.id, text, image) : undefined}
+            onToggleReplies={canReply ? () => handleToggleReplies(message.id) : undefined}
+            repliesExpanded={canReply ? expandedReplies.has(message.id) : undefined}
+            onToggleReplyReaction={canReply && canReact ? (replyId: string) => handleToggleReplyReaction(message.id, replyId) : undefined}
+            onReplyReactionHover={canReply && canReact ? (replyId: string) => handleReplyReactionHover(message.id, replyId) : undefined}
             replyingToUsername={message.username}
-            enableReplies={enableReplies}
+            enableReplies={canReply}
             status={message.status as 'inprogress' | 'complete' | undefined}
-            onToggleStatus={isAdmin && statusFilter ? () => handleToggleStatus(message.id) : undefined}
+            onToggleStatus={isAdmin && statusFilter && !fromElsewhere ? () => handleToggleStatus(message.id) : undefined}
           />
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {!loadingMessages && hasMore && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', marginBottom: '20px' }}>
+        <div className="messages-more">
           <Button
             type="basic"
             label={loadingMore ? 'Loading...' : 'Load More Messages'}
@@ -968,7 +1176,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
 
 
       {!loadingMessages && !hasMore && messages.length > 0 && (
-        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--colour4)', fontStyle: 'italic' }}>
+        <div className="messages-end">
           No more messages to load
         </div>
       )}

@@ -71,7 +71,11 @@ Thumbs.db
 .playwright-mcp/
 .claude/settings.local.json
 CLAUDE.local.md
-yabbyville-firebase-adminsdk.json
+# Service account keys — globs, not exact names: Google appends a key-id suffix
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceaccount*.json
+*-private-key.json
 
 # design-sync
 .ds-sync/

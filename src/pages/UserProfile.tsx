@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
+import SiteLink from '../components/basic/SiteLink';
 
 const normalizeAvatarPath = (avatarPath: string): string => {
   if (!avatarPath) return '';
@@ -18,6 +19,7 @@ const UserProfile: React.FC = () => {
   const [username, setUsername] = useState('');
   const [avatar, setAvatar] = useState('');
   const [bio, setBio] = useState('');
+  const [siteUrl, setSiteUrl] = useState('');
   const [locationFlag, setLocationFlag] = useState('');
   const [locationText, setLocationText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,7 @@ const UserProfile: React.FC = () => {
           setUsername(data.username || 'Anonymous');
           setAvatar(data.avatar || '');
           setBio(data.bio || '');
+          setSiteUrl(data.siteUrl || '');
           setLocationFlag(data.locationFlag || '');
           setLocationText(data.locationText || '');
         } else {
@@ -153,6 +156,20 @@ const UserProfile: React.FC = () => {
                   margin: 0,
                 }}>
                   This user hasn't written a bio yet.
+                </p>
+              )}
+
+              {siteUrl && (
+                <p style={{
+                  fontFamily: 'var(--font2)',
+                  fontSize: '0.95em',
+                  margin: '10px 0 0',
+                  wordBreak: 'break-all',
+                }}>
+                  <SiteLink
+                    url={siteUrl}
+                    style={{ color: 'var(--colour4)' }}
+                  />
                 </p>
               )}
 

@@ -93,6 +93,10 @@ body:has(.home-page) .star-path {
 .home-page {
   --hp-title-clear: calc(var(--hp-bar-h, 9rem) + 0.25rem);
   --hp-side-w: clamp(210px, 17vw, 290px);
+  /* Named because a page inside the body column may need to cancel it: the
+     message board's rules run edge to edge, which it does by insetting itself
+     by this. */
+  --hp-main-pad: clamp(1.2rem, 2.2vw, 2.6rem);
 }
 
 .home-side {
@@ -124,7 +128,7 @@ body:has(.home-page) .star-path {
   min-width: 0;
   /* Extra beyond the bar's height so the last section comes to rest clear of
      the wordmark rather than flush against it. */
-  padding: 1.4rem clamp(1.2rem, 2.2vw, 2.6rem) calc(var(--hp-title-clear) + 3rem);
+  padding: 1.4rem var(--hp-main-pad) calc(var(--hp-title-clear) + 3rem);
   overflow-y: auto;
 }
 

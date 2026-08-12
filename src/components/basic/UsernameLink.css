@@ -114,6 +114,19 @@
   font-style: italic;
 }
 
+/* One line, clipped — the card is pointer-events: none, so this reads rather
+   than clicks; the profile page is where the link is live. */
+.ul-site {
+  display: block;
+  overflow: hidden;
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  color: var(--colour6);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ul-hint {
   display: block;
   color: var(--ul-dim);

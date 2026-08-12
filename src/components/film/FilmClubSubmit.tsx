@@ -41,7 +41,14 @@ function FilmClubSubmit() {
 
     setStatus('submitting');
     try {
-      const { username } = await getUserData(user.uid);
+      const { username, hasUsername } = await getUserData(user.uid);
+      // A submission carries the submitter's name, which the rules match
+      // against the profile — no name on the profile, no submission.
+      if (!hasUsername) {
+        setErrorMsg('Set a username on your profile before submitting a film.');
+        setStatus('error');
+        return;
+      }
       const data = {
         userId: user.uid,
         username,
