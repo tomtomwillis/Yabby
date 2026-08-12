@@ -126,7 +126,7 @@ src/
     film/          # Film Club feature components (FilmClub, NowWatching, FilmCard, etc.)
     media/         # Media manager tools (CoverArtTool, BeetsTerminal)
     travel/        # Travel feature components (TravelMap, TravelRecommendationList, etc.)
-    ...            # Feature components (MessageBoard, StickerGrid, NewsPost, etc.)
+    ...            # Feature components (MessageBoard, StickerGrid, BoardsRail, etc.)
   utils/           # Sanitisation, rate limiting, caching, geocoding
   types/           # TypeScript type definitions
   assets/fonts/    # Custom fonts
