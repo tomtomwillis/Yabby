@@ -690,6 +690,19 @@ body:has(.home-page) .star-path {
   min-width: 0;
 }
 
+/* Size containment, so the column takes its height from the row — i.e. from the
+   wordmark, which is what sets the bar's height — instead of the player's own
+   content pushing the bar taller than the wordmark. It also makes the column a
+   container the player can size itself against (cqh), which is how it stays
+   inside that height. Only where the wordmark exists: below this width it is
+   hidden, and containment would leave the bar with nothing to take a height
+   from. */
+@media (min-width: 901px) {
+  .home-bottom-radio {
+    container-type: size;
+  }
+}
+
 /* Last item in the transport row, bottom-aligned so his feet land on the same
    line as the buttons rather than centring against them. */
 .home-bottom-man {

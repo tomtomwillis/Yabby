@@ -318,18 +318,15 @@
 
 /* ── Responsive ────────────────────────────────────────── */
 
-/* Wide viewports leave the player far shorter than the space it sits in, and
-   .pb-body's flex-end drops all of that slack above it. Grow the whole thing
-   with the viewport — one font-size, since every length inside is em — and
-   let what's still left over fall as a gap under the metadata rather than
-   above it, so the block reaches up into the empty space. */
+/* Wide viewports leave the player far shorter than the bar it sits in, so it
+   grows with them — one font-size, since every length inside is em. The cqh
+   term is the ceiling: the bar's height is the wordmark's, and the player's
+   three rows come to roughly 5.9× its font-size, so this keeps it filling that
+   height without spilling past it. Needs .home-bottom-radio's size containment
+   to resolve against. */
 @media (min-width: 901px) {
   .pb {
-    font-size: clamp(1rem, 0.6rem + 0.67vw, 1.4rem);
-  }
-
-  .pb-mid {
-    margin-bottom: clamp(0.4rem, 2.5vh, 2rem);
+    font-size: clamp(1rem, min(0.6rem + 0.67vw, 16cqh), 1.4rem);
   }
 }
 
