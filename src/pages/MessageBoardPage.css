@@ -67,16 +67,41 @@
      that rate, and the type barely moves. The controls hold hardest — a button
      that shrank with the page would stop being worth aiming at.
 
-     The measure is the one length the setting does not touch at all: the column
-     stays where it is at every size, and the line simply takes more words as
-     the type comes down. That is where the density comes from.
+     The measure is the one length the setting does not touch on the way down:
+     the column stays where it is at every size below the default, and the line
+     simply takes more words as the type comes down. That is where the density
+     comes from.
 
      Every factor is floor + rate * t with the rate set so all four pass through
-     exactly 1 at t = 0.75, the default. Past it they rise together. */
-  --mb-k-type: calc(0.904 + 0.128 * var(--mb-t, 0.75));
-  --mb-k-space: calc(0.64 + 0.48 * var(--mb-t, 0.75));
-  --mb-k-avatar: calc(0.7 + 0.4 * var(--mb-t, 0.75));
-  --mb-k-control: calc(0.928 + 0.096 * var(--mb-t, 0.75));
+     exactly 1 at t = 0.75, the default.
+
+     The travel is split at the default rather than being one line across the
+     whole range, because the two halves are asked for different things. Below
+     it the four rates differ, which is what turns a smaller page into a denser
+     one. Above it a reader on a large screen wants the same page, larger — so
+     the second half is one rate for everything, a plain zoom to 1.3 at the far
+     right, and the measure joins in rather than sitting the setting out. That
+     leaves the line at the same count of words while the column widens, which
+     is the point: on a wide screen the board should fill it with text rather
+     than with air.
+
+     Splitting it this way also leaves every position at or below the default
+     rendering exactly what it rendered before, so a size already chosen and
+     stored still means what it meant. */
+  --mb-t-lo: min(var(--mb-t, 0.75), 0.75);
+  /* Nothing here by default: the zoom is only enabled where there is width to
+     spend on it, further down. On a narrow page every one of these factors
+     takes its share out of the same fixed track, so a page zoomed there gets
+     bigger type in a column too narrow to read it — 30 characters at the far
+     right of a 1150px window, against 51 at the default. So the top half of
+     the travel does nothing until the window can absorb it, and below that
+     width the setting behaves exactly as it did before. */
+  --mb-t-hi: 0;
+  --mb-k-type: calc(0.904 + 0.128 * var(--mb-t-lo) + 1.2 * var(--mb-t-hi));
+  --mb-k-space: calc(0.64 + 0.48 * var(--mb-t-lo) + 1.2 * var(--mb-t-hi));
+  --mb-k-avatar: calc(0.7 + 0.4 * var(--mb-t-lo) + 1.2 * var(--mb-t-hi));
+  --mb-k-control: calc(0.928 + 0.096 * var(--mb-t-lo) + 1.2 * var(--mb-t-hi));
+  --mb-k-measure: calc(1 + 1.2 * var(--mb-t-hi));
 
   /* The distance every row holds off the column's edges. The rules themselves
      run past it, edge to edge. */
@@ -88,12 +113,21 @@
      drawn down the middle of it. */
   --mb-gap: calc(18px * var(--mb-k-space));
   --mb-channel: calc(14px * var(--mb-k-space));
-  /* About 66 characters of the body face at the default size, and more than that
-     below it — this is held fixed while everything around it scales. In px
+  /* About 76 characters of the body face at the default size, and up to 100 at
+     the dense end, where the type comes down and the column does not. In px
      rather than ch because the same measure has to line up across elements set
      at different sizes — a ch is only as wide as the font the element it lands
-     on happens to be in. */
-  --mb-measure: 660px;
+     on happens to be in.
+
+     The floor is the width the column has always been, and it holds until the
+     viewport is wide enough that the track around the column is mostly empty:
+     past that the line lengthens rather than leaving the space beside it doing
+     nothing. The ceiling is about 91 characters — still inside what the dense
+     end of the setting has always produced. Both are then taken up together by
+     the size setting, which is the part that moves on a screen this wide, and
+     because the type is taken up with them the line keeps its count of words
+     however far the column widens. */
+  --mb-measure: calc(clamp(660px, 35vw, 790px) * var(--mb-k-measure));
   /* Sized off the track rather than fixed, so the picture grows with the gutter
      and keeps the same margin of air round it at every width. */
   --mb-avatar: calc(var(--mb-gutter) - 1.75rem * var(--mb-k-avatar));
@@ -103,8 +137,10 @@
   --mb-reply-line: calc(0.85rem * var(--mb-k-type));
   /* The board index on the right. Narrow enough to read as a margin note beside
      the board rather than a second column of it; the floor is what "film club"
-     needs on one line at the rail's own size. */
-  --mb-aside: clamp(132px, 11vw, 164px);
+     needs on one line at the rail's own size. The ceiling is set well above
+     what the words need, so that on a wide screen the rail takes a little of
+     the space it would otherwise be sitting at the far edge of. */
+  --mb-aside: clamp(132px, 11vw, 210px);
   /* The controls in the top corner of a message: bare glyphs, no box round
      them. The glyph is set well above the body size — at the size the rest of
      the board is set in, a heart is small enough that its point falls between
@@ -154,6 +190,18 @@
 
   align-items: stretch;
   text-align: left;
+}
+
+/* Wide enough that the board can be zoomed without the column paying for it.
+   The number is what the widest setting needs and nothing more: the measure at
+   1.3, the gutter and the rules around it at the same, the rail, and the site's
+   own sidebar to the left of all of it. A window narrower than that cannot give
+   the zoom its width, and would take it out of the column instead — so below
+   this the top half of the slider is inert and the board is what it was. */
+@media (min-width: 1800px) {
+  .mb-board {
+    --mb-t-hi: max(0, var(--mb-t, 0.75) - 0.75);
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
