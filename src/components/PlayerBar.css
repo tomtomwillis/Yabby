@@ -24,10 +24,14 @@
      controls themselves; right-hugged by .home-bottom-radio's justify-content. */
   flex: 0 1 auto;
   width: max-content;
-  max-width: 36rem;
+  max-width: 36em;
   min-width: 0;
   color: var(--pb-accent);
   font-family: var(--font2);
+  /* The one size everything inside is measured from — every length below is
+     em, so bumping this in the wide-screen query grows the whole player
+     (type, buttons, sliders, gaps) in step rather than a piece at a time. */
+  font-size: 1rem;
 }
 
 /* Bunched toward the bottom rather than spread: metadata, seek and controls
@@ -43,9 +47,9 @@
   align-items: stretch;
   justify-content: flex-end;
   flex-wrap: nowrap;
-  gap: 0.22rem;
+  gap: 0.22em;
   min-width: 0;
-  padding: 0.2rem 0 0;
+  padding: 0.2em 0 0;
 }
 
 /* ── Seek ──────────────────────────────────────────────── */
@@ -55,7 +59,7 @@
   --sp-accent: var(--colour7);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.5em;
   min-width: 0;
 }
 
@@ -63,7 +67,13 @@
    unchanged) — the glyph row's height tracks its own font-size, so scoping
    the bump to .pb-seek grows only the scrubber, not the volume control. */
 .pb-seek .sp-blocks-glyphs {
-  font-size: 1rem;
+  font-size: 1em;
+}
+
+/* The volume bar keeps BlockRange's smaller default, but as a fraction of the
+   player's size so it grows with the rest of the transport. */
+.pb-row .sp-vol .sp-blocks-glyphs {
+  font-size: 0.6em;
 }
 
 /* The set stands in for the seek bar in radio mode, so it keeps the row's
@@ -82,7 +92,7 @@
      them right against the seek bar in the row below. */
   align-items: flex-end;
   justify-content: space-between;
-  gap: 0.9rem;
+  gap: 0.9em;
   min-width: 0;
 }
 
@@ -96,7 +106,7 @@
 .pb-meta {
   flex: 0 1 auto;
   min-width: 0;
-  font-size: 0.82rem;
+  font-size: 0.82em;
   line-height: 1.3;
   text-align: left;
 }
@@ -116,9 +126,10 @@
   white-space: nowrap;
 }
 
+/* em against .pb-meta's own 0.82em, so the pair keeps its ratio at any size. */
 .pb-meta-sub {
   color: var(--pb-accent-dim);
-  font-size: 0.78rem;
+  font-size: 0.95em;
 }
 
 .pb-meta-link {
@@ -139,7 +150,7 @@
   margin: 0;
   color: var(--pb-accent-dim);
   font-family: var(--font2), monospace;
-  font-size: 0.42rem;
+  font-size: 0.42em;
   line-height: 1.15;
   white-space: pre;
 }
@@ -170,7 +181,7 @@
      own align-self:flex-end put him at it — his feet hung below theirs. */
   align-items: flex-end;
   justify-content: flex-end;
-  gap: 0.4rem;
+  gap: 0.4em;
   min-width: 0;
 }
 
@@ -184,23 +195,25 @@
 }
 
 .pb-row .sp-vol {
-  flex: 0 0 5.5rem;
+  flex: 0 0 5.5em;
   /* Much shorter than the buttons; flex-end would glue it to the very
      bottom of the row instead of sitting level with their middle. */
   align-self: center;
 }
 
+/* Sizes are em against the button's own 0.86em, so they still work out to the
+   40×34px tap target at the player's base size. */
 .pb-btn {
   flex: 0 0 auto;
-  min-width: 40px;
-  min-height: 34px;
-  padding: 0 0.55rem;
+  min-width: 2.9em;
+  min-height: 2.45em;
+  padding: 0 0.64em;
   background: var(--pb-bg-alt);
   color: var(--pb-accent);
   border: 1px solid var(--pb-accent-dim);
   border-radius: 0;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 0.86em;
   cursor: pointer;
 }
 
@@ -215,21 +228,21 @@
 }
 
 .pb-play {
-  min-width: 54px;
+  min-width: 3.9em;
 }
 
 .pb-mute {
   min-width: 0;
-  padding: 0 0.4rem;
+  padding: 0 0.55em;
   background: none;
   border-color: transparent;
   color: var(--pb-accent-dim);
-  font-size: 0.74rem;
+  font-size: 0.74em;
 }
 
 .pb-time {
   flex: 0 0 auto;
-  font-size: 0.78rem;
+  font-size: 0.78em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -238,7 +251,7 @@
   display: flex;
   flex: 0 0 auto;
   justify-content: flex-end;
-  gap: 0.7rem;
+  gap: 0.7em;
   white-space: nowrap;
 }
 
@@ -251,7 +264,7 @@
   border-radius: 0;
   color: var(--pb-accent-dim);
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.76em;
   letter-spacing: 0.08em;
   cursor: pointer;
 }
@@ -304,6 +317,21 @@
 }
 
 /* ── Responsive ────────────────────────────────────────── */
+
+/* Wide viewports leave the player far shorter than the space it sits in, and
+   .pb-body's flex-end drops all of that slack above it. Grow the whole thing
+   with the viewport — one font-size, since every length inside is em — and
+   let what's still left over fall as a gap under the metadata rather than
+   above it, so the block reaches up into the empty space. */
+@media (min-width: 901px) {
+  .pb {
+    font-size: clamp(1rem, 0.6rem + 0.67vw, 1.4rem);
+  }
+
+  .pb-mid {
+    margin-bottom: clamp(0.4rem, 2.5vh, 2rem);
+  }
+}
 
 /* Stacked under the wordmark and short on width — the transport has to stay on
    one row, so everything shrinks rather than wraps. */
