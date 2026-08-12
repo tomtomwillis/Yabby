@@ -7,7 +7,7 @@ import Tips from '../components/basic/Tips';
 import './MessageBoardPage.css';
 
 const tip: React.ComponentProps<typeof Tips> = {
-  text: <><span className="mb-tip-mark">tip ▸</span> news posts ticked through to the message board are tagged there, and read either place</>,
+  text: <><span className="mb-tip-mark">tip ▸</span> news posts ticked through to the message board are tagged there — like and reply to them over there</>,
   showOnMobile: true,
   showOnDesktop: true,
 };
@@ -25,15 +25,16 @@ const NewsPage: React.FC = () => {
 
           <Tips {...tip} />
 
-          {/* A board like the others, bar who may start a thread: only admins
-              get the composer, while anyone can react and reply. */}
+          {/* Announcements, not a conversation: only admins get the composer,
+              and nobody likes or replies here. A post ticked through to the
+              message board is where it gets talked about — the rules allow
+              both there, and both land back on the post itself. */}
           <MessageBoard
             collectionName="news"
-            enableReactions={true}
-            enableReplies={true}
+            enableReactions={false}
+            enableReplies={false}
             showPosterStats={true}
             showComposerAvatar={true}
-            replyPreviewCount={2}
             ledger={true}
             showComposer={isAdmin}
             enablePolls={false}

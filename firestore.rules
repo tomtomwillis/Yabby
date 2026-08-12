@@ -625,7 +625,9 @@ service cloud.firestore {
       }
     }
 
-    // News posts - admin-only creation
+    // News - a board like the others, with one difference: writing a post is
+    // admin-only, while reacting and replying to one is open to every member.
+    // Everything below that split mirrors the filmClubMessages rules.
     match /news/{newsId} {
       allow read: if isSignedIn();
 
@@ -635,10 +637,12 @@ service cloud.firestore {
       allow create: if isAdmin()
         && request.resource.data.userId == request.auth.uid
         && isValidMessage(request.resource.data.text)
-        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'showOnMain'])
+        && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'showOnMain', 'reactedBy', 'reactionCount'])
+        && hasNoPriorReactions(request.resource.data)
         && request.resource.data.timestamp == request.time
         && validString(request.resource.data.username, 1, 50)
         && (!('showOnMain' in request.resource.data) || request.resource.data.showOnMain is bool)
+        && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
         && validString(request.resource.data.avatar, 0, 200);
 
       allow update: if isAdmin() && isOwner(resource.data.userId)
@@ -646,19 +650,71 @@ service cloud.firestore {
         && isValidMessage(request.resource.data.text)
         && request.resource.data.editedAt == request.time;
 
+      // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+        && isValidReactionToggle(
+          resource.data.get('reactedBy', []).toSet(),
+          request.resource.data.reactedBy.toSet(),
+          resource.data.get('reactionCount', 0),
+          request.resource.data.reactionCount
+        );
+
+      // Reply-count bump on reply create/delete: ±1 only
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
+          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+
       allow delete: if isAdmin();
 
+      // Retired: reactions live on the parent doc's reactedBy array.
+      // Legacy subcollection kept readable during transition.
       match /reactions/{reactionId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false;
+      }
+
+      match /replies/{replyId} {
         allow read: if isSignedIn();
 
         allow create: if isSignedIn()
-          && reactionId == request.auth.uid
           && request.resource.data.userId == request.auth.uid
-          && request.resource.data.keys().hasOnly(['userId', 'username', 'timestamp'])
-          && validString(request.resource.data.username, 1, 50);
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000
+          && (request.resource.data.text.size() > 0 || 'imageId' in request.resource.data)
+          && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'username', 'avatar', 'imageId', 'reactedBy', 'reactionCount'])
+          && hasNoPriorReactions(request.resource.data)
+          && request.resource.data.timestamp == request.time
+          && validString(request.resource.data.username, 1, 50)
+          && usernameMatchesProfile(request.resource.data.username)
+          && validString(request.resource.data.avatar, 0, 200)
+          && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36));
 
-        allow delete: if isSignedIn() && reactionId == request.auth.uid;
-        allow update: if false;
+        allow update: if isOwner(resource.data.userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+          && isValidMessage(request.resource.data.text)
+          && request.resource.data.editedAt == request.time;
+
+        // Reaction toggle: own uid in/out of reactedBy, count kept in sync
+        allow update: if isSignedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactedBy', 'reactionCount'])
+          && isValidReactionToggle(
+            resource.data.get('reactedBy', []).toSet(),
+            request.resource.data.reactedBy.toSet(),
+            resource.data.get('reactionCount', 0),
+            request.resource.data.reactionCount
+          );
+
+        allow delete: if isOwner(resource.data.userId) || isAdmin();
+
+        // Retired: reactions live on the parent reply's reactedBy array.
+        match /reactions/{reactionId} {
+          allow read: if isSignedIn();
+          allow create, update, delete: if false;
+        }
       }
     }
 
