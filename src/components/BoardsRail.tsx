@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import BlockRange, { RAIL_CELL_PX, RAIL_MIN_BLOCKS } from './basic/BlockRange';
 
 export type BoardKey = 'general' | 'news' | 'filmclub';
 
@@ -102,18 +103,17 @@ const BoardsRail: React.FC<{ current: BoardKey }> = ({ current }) => {
         >
           <div className="mb-boards-settings-inner">
             <div className="mb-boards-setting">
-              <label htmlFor="mb-boards-size">size</label>
-              <input
-                id="mb-boards-size"
+              <span className="mb-boards-setting-label">size</span>
+              <BlockRange
+                label="Board size"
                 className="mb-boards-size"
-                type="range"
-                min={0}
+                value={sizeT}
                 max={1}
                 step={0.01}
-                value={sizeT}
-                onChange={(e) => setSizeT(Number(e.target.value))}
-                onPointerUp={commitSize}
-                onKeyUp={commitSize}
+                cellPx={RAIL_CELL_PX}
+                minBlocks={RAIL_MIN_BLOCKS}
+                onChange={setSizeT}
+                onCommit={commitSize}
               />
             </div>
           </div>

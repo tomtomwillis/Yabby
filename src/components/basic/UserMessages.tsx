@@ -356,6 +356,78 @@ const UserMessage: React.FC<UserMessageProps> = ({
     </div>
   );
 
+  // What the writer of this message — or an admin — can do to it, as opposed to
+  // what anyone reading it can do. These go on the header line the message
+  // already has; liking and replying stay in the corner controls.
+  //
+  // Splitting them is what keeps those controls to a single row. They share a
+  // track with the controls of every reply underneath, so any height they have
+  // over the body is height the thread has to begin below — which on a
+  // one-line post reads as a hole between the words and the thread.
+  const headerControls = (
+    <>
+
+      {canEdit && !isEditing && (
+        <div
+          className="user-message-edit-button"
+          onClick={handleStartEdit}
+          role="button"
+          tabIndex={0}
+          aria-label="Edit message"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleStartEdit();
+            }
+          }}
+        >
+          <FaEdit />
+        </div>
+      )}
+
+      {canDelete && !isEditing && (
+        <div
+          className="user-message-delete-button"
+          onClick={handleDelete}
+          role="button"
+          tabIndex={0}
+          aria-label="Delete message"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleDelete();
+            }
+          }}
+        >
+          <FaTrash />
+        </div>
+      )}
+
+      {/* Admin only, issues board. Never on a reply. */}
+      {onToggleStatus && !isReply && !isEditing && (
+        <div
+          className="user-message-status-button"
+          onClick={onToggleStatus}
+          role="button"
+          tabIndex={0}
+          aria-label={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+          title={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onToggleStatus();
+            }
+          }}
+        >
+          {status === 'complete' ? <FaUndo /> : <FaCheck />}
+        </div>
+      )}
+    </>
+  );
+
+  const hasHeaderControls =
+    !isEditing && !!(canEdit || canDelete || (onToggleStatus && !isReply));
+
   return (
     <div className={`user-message ${isReply ? 'reply' : ''}`}>
       {/* The poster column. Name and identity block live here rather than in the
@@ -384,6 +456,9 @@ const UserMessage: React.FC<UserMessageProps> = ({
           {timestamp}
           {edited && <span className="user-message-edited-indicator"> (edited)</span>}
         </div>
+        {hasHeaderControls && (
+          <div className="user-message-header-controls">{headerControls}</div>
+        )}
         <div className="user-message-separator"></div>
 
         {isEditing ? (
@@ -463,141 +538,6 @@ const UserMessage: React.FC<UserMessageProps> = ({
           />
         )}
 
-        {/* Action buttons (reactions, reply, edit, delete). Inside the content
-            column, before the replies branch, so a board that puts these in
-            flow gets them at the foot of the post it acts on rather than after
-            its replies. Absolutely positioned by default, and .user-message-content
-            is never a containing block, so this still anchors to .user-message. */}
-        <div className="user-message-actions-container">
-          {/* Edit button - owner only */}
-          {canEdit && !isEditing && (
-            <div
-              className="user-message-edit-button"
-              onClick={handleStartEdit}
-              role="button"
-              tabIndex={0}
-              aria-label="Edit message"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleStartEdit();
-                }
-              }}
-            >
-              <FaEdit />
-            </div>
-          )}
-
-          {/* Delete button - owner or admin */}
-          {canDelete && !isEditing && (
-            <div
-              className="user-message-delete-button"
-              onClick={handleDelete}
-              role="button"
-              tabIndex={0}
-              aria-label="Delete message"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleDelete();
-                }
-              }}
-            >
-              <FaTrash />
-            </div>
-          )}
-
-          {/* Status toggle - admin only, issues board */}
-          {onToggleStatus && !isReply && !isEditing && (
-            <div
-              className="user-message-status-button"
-              onClick={onToggleStatus}
-              role="button"
-              tabIndex={0}
-              aria-label={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
-              title={status === 'complete' ? 'Reopen issue' : 'Mark issue complete'}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onToggleStatus();
-                }
-              }}
-            >
-              {status === 'complete' ? <FaUndo /> : <FaCheck />}
-            </div>
-          )}
-
-          {onToggleReaction && (
-            <div
-              className="user-message-reaction-container"
-              onMouseEnter={() => {
-                onReactionHover?.();
-                setShowTooltip(true);
-              }}
-              onMouseLeave={() => setShowTooltip(false)}
-              onTouchStart={handleTouchStart}
-              onTouchEnd={() => {
-                handleTouchEnd();
-                // Hide tooltip after a short delay on touch end
-                setTimeout(() => setShowTooltip(false), 2000);
-              }}
-              onTouchCancel={handleTouchEnd}
-            >
-              <div
-                className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
-                onClick={(e) => {
-                  // Prevent reaction toggle only during active long press on mobile
-                  if (isLongPress && showTooltip) {
-                    e.preventDefault();
-                    return;
-                  }
-                  onToggleReaction();
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label="React to message"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onToggleReaction();
-                  }
-                }}
-              >
-                {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
-                {reactionCount !== undefined && reactionCount > 0 && (
-                  <span className="user-message-reaction-count">{reactionCount}</span>
-                )}
-              </div>
-              {showTooltip && reactions && reactions.length > 0 && (
-                <div className="user-message-reaction-tooltip">
-                  {reactions.map((reaction, index) => (
-                    <div key={index}>{reaction.username}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Reply icon button - only show for non-reply messages */}
-          {!isReply && enableReplies && onReply && (
-            <div
-              className="user-message-reply-icon-button"
-              onClick={() => setShowReplyInput(!showReplyInput)}
-              role="button"
-              tabIndex={0}
-              aria-label="Reply to message"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setShowReplyInput(!showReplyInput);
-                }
-              }}
-            >
-              <FaReply />
-            </div>
-          )}
-        </div>
-
         {/* Reply count indicator - only show for non-reply messages with replies */}
         {showReplyToggle && (
           <div
@@ -612,71 +552,161 @@ const UserMessage: React.FC<UserMessageProps> = ({
           </div>
         )}
 
-        {/* Replies container. Collapsed, this is the newest few (or nothing, if
-            the board did not ask for previews); expanded, it is the thread. */}
-        {!isReply && shownReplies.length > 0 && (
-          <div className="user-message-replies-container">
-            {shownReplies.map((reply) => (
-              <UserMessage
-                key={reply.id}
-                username={reply.username}
-                message={reply.text}
-                timestamp={formatTimestamp(reply.timestamp)}
-                userSticker={reply.avatar}
-                userId={reply.userId}
-                currentUserId={currentUserId}
-                isAdmin={isAdmin}
-                onEdit={onEditReply ? (newText: string) => onEditReply(reply.id, newText) : undefined}
-                onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
-                onClose={() => {}}
-                hideCloseButton={true}
-                /* A reply shows neither avatar nor gutter, so there is nowhere
-                   to put an identity block — and with none on screen the name
-                   keeps its hover card, which is the only way to see who wrote
-                   it. */
-                showPosterStats={false}
-                reactions={reply.reactions}
-                reactionCount={reply.reactionCount}
-                currentUserReacted={reply.currentUserReacted}
-                onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
-                onReactionHover={onReplyReactionHover ? () => onReplyReactionHover(reply.id) : undefined}
-                isReply={true}
-                enableReplies={false}
-                imageId={reply.imageId}
-                ledgerControls={ledgerControls}
-              />
-            ))}
+      </div>
+
+      {/* Replies container. Collapsed, this is the newest few (or nothing, if
+          the board did not ask for previews); expanded, it is the thread.
+
+          A sibling of the body column rather than part of it: a thread is not
+          the post's prose and should not be held to its measure, and a board
+          laying the post out as columns needs the thread to reach across the
+          body and the controls together — which is what puts a reply's own
+          controls in the same column as the post's. */}
+      {!isReply && shownReplies.length > 0 && (
+        <div className="user-message-replies-container">
+          {shownReplies.map((reply) => (
+            <UserMessage
+              key={reply.id}
+              username={reply.username}
+              message={reply.text}
+              timestamp={formatTimestamp(reply.timestamp)}
+              userSticker={reply.avatar}
+              userId={reply.userId}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+              onEdit={onEditReply ? (newText: string) => onEditReply(reply.id, newText) : undefined}
+              onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
+              onClose={() => {}}
+              hideCloseButton={true}
+              /* A reply shows neither avatar nor gutter, so there is nowhere
+                 to put an identity block — and with none on screen the name
+                 keeps its hover card, which is the only way to see who wrote
+                 it. */
+              showPosterStats={false}
+              reactions={reply.reactions}
+              reactionCount={reply.reactionCount}
+              currentUserReacted={reply.currentUserReacted}
+              onToggleReaction={onToggleReplyReaction ? () => onToggleReplyReaction(reply.id) : undefined}
+              onReactionHover={onReplyReactionHover ? () => onReplyReactionHover(reply.id) : undefined}
+              isReply={true}
+              enableReplies={false}
+              imageId={reply.imageId}
+              ledgerControls={ledgerControls}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Last, under the replies already on show — the reply you are writing
+          goes to the end of the thread, so this is where it will appear. */}
+      {!isReply && showReplyInput && onReply && (
+        <div className="user-message-reply-input-container">
+          {replyingToUsername && (
+            <div className="user-message-reply-header">
+              Replying in thread to {replyingToUsername}
+            </div>
+          )}
+          <ForumBox
+            placeholder="Write a reply..."
+            onSend={(text) => {
+              onReply(text, pendingReplyImage);
+              setPendingReplyImage(null);
+              setShowReplyInput(false);
+            }}
+            onImageAttach={setPendingReplyImage}
+            maxWords={250}
+            maxChars={1000}
+            showSendButton={true}
+            outsideControls={ledgerControls}
+          />
+          <button
+            className="user-message-cancel-reply"
+            onClick={() => setShowReplyInput(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Action buttons. A sibling of the content column rather than part of
+          it, so a board laying the post out as columns can give them a track of
+          their own — one that sizes the row like any other, instead of being
+          positioned over it. Absolutely positioned by default, anchored to
+          .user-message, which is what every board that has not asked for
+          anything else still gets.
+
+          What anyone reading can do: like it, and reply to it. Side by side
+          rather than stacked, so however many a message shows they come to one
+          row — the same height beside a one-line post as beside a long one,
+          and never taller than the body it sits next to. */}
+      <div className="user-message-actions-container">
+        {onToggleReaction && (
+          <div
+            className="user-message-reaction-container"
+            onMouseEnter={() => {
+              onReactionHover?.();
+              setShowTooltip(true);
+            }}
+            onMouseLeave={() => setShowTooltip(false)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={() => {
+              handleTouchEnd();
+              // Hide tooltip after a short delay on touch end
+              setTimeout(() => setShowTooltip(false), 2000);
+            }}
+            onTouchCancel={handleTouchEnd}
+          >
+            <div
+              className={`user-message-heart-button ${currentUserReacted ? 'reacted' : ''}`}
+              onClick={(e) => {
+                // Prevent reaction toggle only during active long press on mobile
+                if (isLongPress && showTooltip) {
+                  e.preventDefault();
+                  return;
+                }
+                onToggleReaction();
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="React to message"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onToggleReaction();
+                }
+              }}
+            >
+              {currentUserReacted ? <FaHeart /> : <FaRegHeart />}
+              {reactionCount !== undefined && reactionCount > 0 && (
+                <span className="user-message-reaction-count">{reactionCount}</span>
+              )}
+            </div>
+            {showTooltip && reactions && reactions.length > 0 && (
+              <div className="user-message-reaction-tooltip">
+                {reactions.map((reaction, index) => (
+                  <div key={index}>{reaction.username}</div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Last, under the replies already on show — the reply you are writing
-            goes to the end of the thread, so this is where it will appear. */}
-        {!isReply && showReplyInput && onReply && (
-          <div className="user-message-reply-input-container">
-            {replyingToUsername && (
-              <div className="user-message-reply-header">
-                Replying in thread to {replyingToUsername}
-              </div>
-            )}
-            <ForumBox
-              placeholder="Write a reply..."
-              onSend={(text) => {
-                onReply(text, pendingReplyImage);
-                setPendingReplyImage(null);
-                setShowReplyInput(false);
-              }}
-              onImageAttach={setPendingReplyImage}
-              maxWords={250}
-              maxChars={1000}
-              showSendButton={true}
-              outsideControls={ledgerControls}
-            />
-            <button
-              className="user-message-cancel-reply"
-              onClick={() => setShowReplyInput(false)}
-            >
-              Cancel
-            </button>
+        {/* Reply icon button - only show for non-reply messages */}
+        {!isReply && enableReplies && onReply && (
+          <div
+            className="user-message-reply-icon-button"
+            onClick={() => setShowReplyInput(!showReplyInput)}
+            role="button"
+            tabIndex={0}
+            aria-label="Reply to message"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setShowReplyInput(!showReplyInput);
+              }
+            }}
+          >
+            <FaReply />
           </div>
         )}
       </div>

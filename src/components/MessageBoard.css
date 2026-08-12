@@ -25,11 +25,12 @@
   box-sizing: border-box;
 }
 
-/* Force UserMessage components to take full available width */
+/* UserMessage components take the full available width in a list. The selector
+   already outranks the component's own, so nothing here has to be forced. */
 .messages-container .user-message {
-  width: 100% !important;
-  max-width: 100% !important;
-  margin: 0 !important;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 .messages-more {

@@ -752,8 +752,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
               alt=""
               loading="lazy"
             />
+            <p className="textbox-poster-note">Posting as</p>
             {avatarName && <p className="textbox-poster-name">{avatarName}</p>}
-            <p className="textbox-poster-note">posting as you</p>
           </div>
           <div className="textbox-gutter-rule" aria-hidden="true"></div>
         </>

@@ -956,9 +956,9 @@ body:has(.home-page) .star-path {
     color: var(--hp-accent);
   }
 
-  /* Shown at every route down here — the masthead above it goes off `/`, this
-     does not. The right inset clears the fixed burger for the case where this
-     is the first thing on the page. */
+  /* Only on `/`. Off it the routed page's own Header carries the title and its
+     matching strapline, and the random one belongs to the wordmark above it.
+     The right inset clears the fixed burger. */
   .home-top-sub {
     display: block;
     margin: 0;
@@ -967,12 +967,6 @@ body:has(.home-page) .star-path {
     font-size: 1.1rem;
     line-height: 1.45;
     color: var(--colour7);
-  }
-
-  /* On `/` the wordmark sits above it and supplies the top margin; off `/` this
-     is the top of the page and needs its own. */
-  .home-page:not(.is-home) .home-top-sub {
-    padding-top: 0.9rem;
   }
 
   /* The bar is the player alone down here — the wordmark is at the top of the
@@ -988,6 +982,7 @@ body:has(.home-page) .star-path {
      its own title, and the rail's readouts belong to the dashboard. Hidden
      rather than unmounted, so returning to `/` costs no fresh reads. */
   .home-page:not(.is-home) .home-top-title,
+  .home-page:not(.is-home) .home-top-sub,
   .home-page:not(.is-home) .home-side {
     display: none;
   }

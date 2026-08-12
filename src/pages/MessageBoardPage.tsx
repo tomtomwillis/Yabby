@@ -36,6 +36,8 @@ const MessageBoardPage: React.FC = () => {
         <div className="mb-column">
           <Header title="Message Board" subtitle="Get Chatty" />
 
+          <BoardsRail current="general" />
+
           <Tips {...tip} />
 
           <MessageBoard
@@ -55,8 +57,6 @@ const MessageBoardPage: React.FC = () => {
             }
           />
         </div>
-
-        <BoardsRail current="general" />
       </div>
     </div>
   );

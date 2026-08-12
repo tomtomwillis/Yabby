@@ -28,6 +28,8 @@ const FilmClubMessagePage: React.FC = () => {
         <div className="mb-column">
           <Header title="Film Club Chat" subtitle="Discuss This Month's Film" />
 
+          <BoardsRail current="filmclub" />
+
           <NowWatching />
 
           <Tips {...tip} />
@@ -50,8 +52,6 @@ const FilmClubMessagePage: React.FC = () => {
             }
           />
         </div>
-
-        <BoardsRail current="filmclub" />
       </div>
     </div>
   );

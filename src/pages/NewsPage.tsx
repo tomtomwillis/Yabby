@@ -226,6 +226,8 @@ const NewsPage: React.FC = () => {
         <div className="mb-column">
           <Header title="News" subtitle="Updates & Announcements" />
 
+          <BoardsRail current="news" />
+
           <Tips {...tip} />
 
           <div className="message-board-container">
@@ -291,8 +293,6 @@ const NewsPage: React.FC = () => {
             )}
           </div>
         </div>
-
-        <BoardsRail current="news" />
       </div>
     </div>
   );
