@@ -65,6 +65,7 @@ const SUBTITLES = [
   "Ƹ̵̡Ӝ̵̨̄Ʒ",
   "°º¤ø,¸¸,ø¤º°`°º¤ø,¸,ø¤°º¤ø,¸¸,ø¤º°`°º¤ø,¸",
   "peer to peer, dust to dust",
+  "Did You Click The Boy? Did You Feel The Joy?",
 ];
 
 /* Repeated to fill the bar's width and clipped by overflow. The wave comes from
