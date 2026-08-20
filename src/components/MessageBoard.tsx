@@ -5,21 +5,28 @@ import {
   where,
   orderBy,
   doc,
-  serverTimestamp,
   limit,
   startAfter,
-  increment,
-  arrayUnion,
-  arrayRemove,
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import {
   trackedGetDoc as getDoc,
   trackedGetDocs as getDocs,
-  trackedAddDoc as addDoc,
-  trackedUpdateDoc as updateDoc,
-  trackedDeleteDoc as deleteDoc,
 } from '../utils/firestoreMetrics';
+// Writes go through the shadow wrappers: they write Firestore exactly as
+// before — still counted by firestoreMetrics — and then report to the API so
+// the SQLite copy keeps up. SERVER_TIME and the transform helpers stand in for
+// the Firestore sentinels, which are indistinguishable from one another once
+// they are inside a patch.
+import {
+  addDocShadowed,
+  updateDocShadowed,
+  deleteDocShadowed,
+  SERVER_TIME,
+  incrementBy,
+  arrayUnionOf,
+  arrayRemoveOf,
+} from '../api/shadow';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { sanitizeHtml, sanitizeText } from '../utils/sanitise';
@@ -614,8 +621,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       const messageData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
-        timestamp: serverTimestamp(),
-        lastActivityAt: serverTimestamp(),
+        timestamp: SERVER_TIME,
+        lastActivityAt: SERVER_TIME,
         username: userData.username,
         avatar: userData.avatar,
         reactedBy: [],
@@ -626,7 +633,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       if (statusFilter) messageData.status = 'inprogress';
       if (enableCrossPost && crossPostChecked) messageData.showOnMain = true;
 
-      const newDoc = await addDoc(collection(db, collectionName), messageData);
+      const newDoc = await addDocShadowed(collection(db, collectionName), messageData);
       void bumpPostCount(auth.currentUser.uid);
       // Optimistically prepend so the new post appears without a reload.
       setMessages((prev) => [
@@ -691,7 +698,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
 
     applyLocal(next);
     try {
-      await updateDoc(doc(db, boardOf(message), messageId), { [`pollVotes.${uid}`]: next });
+      await updateDocShadowed(doc(db, boardOf(message), messageId), { [`pollVotes.${uid}`]: next });
     } catch (error) {
       console.error('Error toggling poll vote:', error);
       applyLocal(current);
@@ -803,8 +810,8 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       const messageData: Record<string, unknown> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
-        timestamp: serverTimestamp(),
-        lastActivityAt: serverTimestamp(),
+        timestamp: SERVER_TIME,
+        lastActivityAt: SERVER_TIME,
         username: 'Film Club Bot',
         avatar: 'avatar_filmbot.webp',
         reactedBy: [],
@@ -813,7 +820,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       };
       if (posterUrl) messageData.posterUrl = posterUrl;
 
-      const newDoc = await addDoc(collection(db, collectionName), messageData);
+      const newDoc = await addDocShadowed(collection(db, collectionName), messageData);
 
       setMessages((prev) => [
         {
@@ -868,9 +875,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     setMessages((prev) => prev.map((m) => (m.id === messageId ? toggleLocal(m, !wasReacted) : m)));
 
     try {
-      await updateDoc(messageRef, {
-        reactedBy: wasReacted ? arrayRemove(uid) : arrayUnion(uid),
-        reactionCount: increment(delta),
+      await updateDocShadowed(messageRef, {
+        reactedBy: wasReacted ? arrayRemoveOf(uid) : arrayUnionOf(uid),
+        reactionCount: incrementBy(delta),
       });
     } catch (error) {
       console.error('Error toggling reaction:', error);
@@ -915,7 +922,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       const replyData: Record<string, any> = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
-        timestamp: serverTimestamp(),
+        timestamp: SERVER_TIME,
         username: userData.username,
         avatar: userData.avatar,
         reactedBy: [],
@@ -923,11 +930,11 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       };
       if (imageId) replyData.imageId = imageId;
 
-      const newReplyRef = await addDoc(collection(db, board, messageId, 'replies'), replyData);
+      const newReplyRef = await addDocShadowed(collection(db, board, messageId, 'replies'), replyData);
       void bumpPostCount(auth.currentUser.uid);
-      await updateDoc(doc(db, board, messageId), {
-        lastActivityAt: serverTimestamp(),
-        replyCount: increment(1),
+      await updateDocShadowed(doc(db, board, messageId), {
+        lastActivityAt: SERVER_TIME,
+        replyCount: incrementBy(1),
       });
 
       // Optimistically append reply + bump counts locally.
@@ -1002,9 +1009,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     applyToggle(!wasReacted);
 
     try {
-      await updateDoc(replyRef, {
-        reactedBy: wasReacted ? arrayRemove(uid) : arrayUnion(uid),
-        reactionCount: increment(delta),
+      await updateDocShadowed(replyRef, {
+        reactedBy: wasReacted ? arrayRemoveOf(uid) : arrayUnionOf(uid),
+        reactionCount: incrementBy(delta),
       });
     } catch (error) {
       console.error('Error toggling reply reaction:', error);
@@ -1017,9 +1024,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     if (!auth.currentUser) return;
     const messageId = message.id;
     try {
-      await updateDoc(doc(db, boardOf(message), messageId), {
+      await updateDocShadowed(doc(db, boardOf(message), messageId), {
         text: newText,
-        editedAt: serverTimestamp(),
+        editedAt: SERVER_TIME,
       });
       setMessages((prev) =>
         prev.map((m) =>
@@ -1039,7 +1046,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     // Optimistic: the message no longer matches the active tab's filter.
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
     try {
-      await updateDoc(doc(db, collectionName, messageId), { status: newStatus });
+      await updateDocShadowed(doc(db, collectionName, messageId), { status: newStatus });
       window.umami?.track?.('issue-status-toggled', { status: newStatus });
     } catch (error) {
       console.error('Error updating status:', error);
@@ -1052,7 +1059,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     if (!auth.currentUser) return;
     const messageId = message.id;
     try {
-      await deleteDoc(doc(db, boardOf(message), messageId));
+      await deleteDocShadowed(doc(db, boardOf(message), messageId));
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -1064,9 +1071,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     if (!auth.currentUser) return;
     const messageId = message.id;
     try {
-      await updateDoc(doc(db, boardOf(message), messageId, 'replies', replyId), {
+      await updateDocShadowed(doc(db, boardOf(message), messageId, 'replies', replyId), {
         text: newText,
-        editedAt: serverTimestamp(),
+        editedAt: SERVER_TIME,
       });
       setMessages((prev) =>
         prev.map((m) =>
@@ -1091,9 +1098,9 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     const board = boardOf(message);
     const messageId = message.id;
     try {
-      await deleteDoc(doc(db, board, messageId, 'replies', replyId));
-      await updateDoc(doc(db, board, messageId), {
-        replyCount: increment(-1),
+      await deleteDocShadowed(doc(db, board, messageId, 'replies', replyId));
+      await updateDocShadowed(doc(db, board, messageId), {
+        replyCount: incrementBy(-1),
       });
       setMessages((prev) =>
         prev.map((m) =>
