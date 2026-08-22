@@ -115,50 +115,61 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       }
       const uniqueAlbumIds = [...stickersByAlbum.keys()];
 
-      const albumsWithAllStickers: AlbumWithStickers[] = await Promise.all(
+      const albumResults = await Promise.all(
         uniqueAlbumIds.map(async (albumId) => {
           const allAlbumStickers: Sticker[] = stickersByAlbum.get(albumId) || [];
 
-          // Fetch album details from Navidrome API
-          const response = await fetch(
-            `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-            {
-              headers: {
-                Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-              },
+          try {
+            // Fetch album details from Navidrome API
+            const response = await fetch(
+              `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
+              {
+                headers: {
+                  Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
+                },
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
-          );
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const text = await response.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, 'application/xml');
+            const albumElement = xmlDoc.querySelector('album');
+
+            if (!albumElement) {
+              throw new Error('Album not found in response');
+            }
+
+            const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
+              'coverArt'
+            )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
+
+            // Find the most recent sticker timestamp for this album
+            const mostRecentTimestamp = allAlbumStickers[0]?.timestamp?.toDate ?
+              allAlbumStickers[0].timestamp.toDate().getTime() : 0;
+
+            return {
+              albumId,
+              albumCover,
+              albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
+              albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
+              stickers: allAlbumStickers,
+              mostRecentTimestamp, // Add this for sorting
+            };
+          } catch (err) {
+            // An album removed from the library still has stickers pointing at it;
+            // drop it rather than failing the whole grid.
+            console.warn(`Skipping album ${albumId}:`, err instanceof Error ? err.message : err);
+            return null;
           }
-
-          const text = await response.text();
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(text, 'application/xml');
-          const albumElement = xmlDoc.querySelector('album');
-
-          if (!albumElement) {
-            throw new Error('Album not found in response');
-          }
-
-          const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-            'coverArt'
-          )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
-
-          // Find the most recent sticker timestamp for this album
-          const mostRecentTimestamp = allAlbumStickers[0]?.timestamp?.toDate ?
-            allAlbumStickers[0].timestamp.toDate().getTime() : 0;
-
-          return {
-            albumId,
-            albumCover,
-            albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
-            albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
-            stickers: allAlbumStickers,
-            mostRecentTimestamp, // Add this for sorting
-          };
         })
+      );
+
+      const albumsWithAllStickers = albumResults.filter(
+        (album): album is NonNullable<typeof album> => album !== null
       );
 
       // Sort by most recent sticker timestamp (chronological by default)
