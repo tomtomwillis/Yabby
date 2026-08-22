@@ -668,6 +668,8 @@ const stickersSuite: TestSuite = {
         const ref = await addDoc(collection(db, SANDBOX_STICKERS), {
           userId: ctx.uid,
           albumId: `yabby-test-${Date.now()}`,
+          albumName: 'Test Album',
+          albumArtist: 'Test Artist',
           text,
           position: { x: 42.5, y: 17.25 },
           sticker: ctx.avatar || 'avatar_astro_blue.webp',
@@ -679,6 +681,10 @@ const stickersSuite: TestSuite = {
         const data = (await getDoc(ref)).data();
         assert(data?.text === text, 'The sticker text did not save.');
         assert(data?.position?.x === 42.5, 'The sticker position did not save.');
+        assert(
+          data?.albumName === 'Test Album' && data?.albumArtist === 'Test Artist',
+          'The album name and artist did not save, so an orphaned sticker would be unreadable.',
+        );
         return `${SANDBOX_STICKERS}/${ref.id}`;
       },
     },
@@ -711,6 +717,24 @@ const stickersSuite: TestSuite = {
               userId: ctx.uid,
               albumId: 'yabby-test-invalid',
               text: `${MARKER} should not exist`,
+              sticker: ctx.avatar || 'avatar_astro_blue.webp',
+              timestamp: serverTimestamp(),
+            }),
+          ctx,
+        ),
+    },
+    {
+      name: 'rules reject an over-long album name',
+      run: async (ctx) =>
+        expectDenied(
+          'posting a sticker with a 301-character album name',
+          () =>
+            addDoc(collection(db, SANDBOX_STICKERS), {
+              userId: ctx.uid,
+              albumId: 'yabby-test-invalid',
+              albumName: 'a'.repeat(301),
+              text: `${MARKER} should not exist`,
+              position: { x: 1, y: 1 },
               sticker: ctx.avatar || 'avatar_astro_blue.webp',
               timestamp: serverTimestamp(),
             }),

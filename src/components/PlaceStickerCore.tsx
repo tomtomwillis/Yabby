@@ -322,6 +322,11 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       const stickerData: any = {
         userId: auth.currentUser.uid,
         albumId: albumInfo.id,
+        // Navidrome reissues album ids when files are re-scanned, orphaning the
+        // sticker. The name and artist keep it readable, and searchable back to
+        // whatever the album became. Capped to the 300 chars the rules allow.
+        albumName: (albumInfo.title || '').slice(0, 300),
+        albumArtist: (albumInfo.artist || '').slice(0, 300),
         text: stickerText.trim(),
         position: {
           x: stickerPos.x,
