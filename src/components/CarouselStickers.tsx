@@ -356,6 +356,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
   };
 
   const handleAlbumClick = async (album: AlbumWithStickers, anchor: HTMLElement) => {
+    // A second click on the open album's tile closes it. The bubble's own
+    // outside-click handler deliberately ignores its anchor, so the toggle has
+    // to live here.
+    if (popup.visible && popup.anchor === anchor) {
+      closePopup();
+      return;
+    }
+
     const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
     const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
     const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
@@ -472,8 +480,8 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     };
   };
 
-  const stickerTiles = albums.map((album) => (
-    <div key={album.albumId} className="sticker-tile">
+  const stickerTiles = albums.map((album, index) => (
+    <div key={album.albumId} className={`sticker-tile${index === 0 ? " is-featured" : ""}`}>
       <div
         className="album-card"
         onClick={(e) => handleAlbumClick(album, e.currentTarget)}
