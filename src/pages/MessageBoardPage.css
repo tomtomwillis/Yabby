@@ -105,29 +105,32 @@
 
   /* The distance every row holds off the column's edges. The rules themselves
      run past it, edge to edge. */
-  --mb-edge: calc(clamp(18px, 3vw, 44px) * var(--mb-k-space));
-  /* Wide enough for a wrapped handle over a 72px avatar, and no wider — past
-     this the gutter starts competing with the prose beside it. */
-  --mb-gutter: calc(clamp(116px, 11vw, 148px) * var(--mb-k-avatar));
+  --mb-edge: calc(clamp(18px, 3vw, 44px) * var(--mb-k-space) * 0.55);
+  /* Wide enough for a wrapped handle over the avatar, and no wider — past this
+     the gutter starts competing with the prose beside it. The trailing factor
+     is the one thing the shape of the clamp is not: it takes the whole track in
+     or out at once, which is how the board was tuned. */
+  --mb-gutter: calc(clamp(116px, 11vw, 148px) * var(--mb-k-avatar) * 0.7);
   /* The channel between the poster and what they said, and the dotted rule
      drawn down the middle of it. */
-  --mb-gap: calc(18px * var(--mb-k-space));
-  --mb-channel: calc(14px * var(--mb-k-space));
-  /* About 76 characters of the body face at the default size, and up to 100 at
-     the dense end, where the type comes down and the column does not. In px
+  --mb-gap: calc(14px * var(--mb-k-space));
+  --mb-channel: calc(9px * var(--mb-k-space));
+  /* In px
      rather than ch because the same measure has to line up across elements set
      at different sizes — a ch is only as wide as the font the element it lands
      on happens to be in.
 
-     The floor is the width the column has always been, and it holds until the
-     viewport is wide enough that the track around the column is mostly empty:
-     past that the line lengthens rather than leaving the space beside it doing
-     nothing. The ceiling is about 91 characters — still inside what the dense
-     end of the setting has always produced. Both are then taken up together by
-     the size setting, which is the part that moves on a screen this wide, and
+     The floor holds until the viewport is wide enough that the track around the
+     column is mostly empty: past that the line lengthens rather than leaving the
+     space beside it doing nothing. Both ends are then taken up together by the
+     size setting, which is the part that moves on a screen this wide, and
      because the type is taken up with them the line keeps its count of words
-     however far the column widens. */
-  --mb-measure: calc(clamp(660px, 35vw, 790px) * var(--mb-k-measure));
+     however far the column widens.
+
+     The trailing factor takes the whole clamp out past those numbers: the line
+     is long by the measure this file was first written to, which is the board
+     the tuning asked for. */
+  --mb-measure: calc(clamp(660px, 35vw, 790px) * var(--mb-k-measure) * 1.44);
   /* Sized off the track rather than fixed, so the picture grows with the gutter
      and keeps the same margin of air round it at every width. */
   --mb-avatar: calc(var(--mb-gutter) - 1.75rem * var(--mb-k-avatar));
@@ -158,7 +161,7 @@
      them — which is what would push the thread below them down the page. */
   --mb-icon: calc(1.3rem * var(--mb-k-type));
   --mb-btn: calc(var(--mb-icon) + 1.25rem * var(--mb-k-control));
-  --mb-btn-gap: calc(4px * var(--mb-k-control));
+  --mb-btn-gap: calc(0px * var(--mb-k-control));
   --mb-actions: calc(var(--mb-btn) * 2 + var(--mb-btn-gap));
 
   /* The header line a message carries: when it was said at one end, and what
@@ -166,13 +169,13 @@
      rule drawn under them meets in the middle. */
   --mb-head-type: calc(0.69rem * var(--mb-k-type));
   --mb-head-leading: 1.2;
-  --mb-head-pad: calc(0.5rem * var(--mb-k-space));
-  --mb-head-gap: calc(0.65rem * var(--mb-k-space));
+  --mb-head-pad: calc(0.25rem * var(--mb-k-space));
+  --mb-head-gap: calc(0.4rem * var(--mb-k-space));
 
   /* The prose, and the line box it sets. Named because the controls are
      positioned off that line as well as set in it. */
   --mb-body-type: calc(0.906rem * var(--mb-k-type));
-  --mb-body-leading: 1.75;
+  --mb-body-leading: 1.38;
 
   /* How far the corner controls sit below the top of the body column, so the
      glyphs read as sitting on the message's first line of prose rather than
@@ -187,6 +190,47 @@
     var(--mb-head-type) * var(--mb-head-leading) + var(--mb-head-pad) + var(--mb-head-gap)
     + (var(--mb-body-type) * var(--mb-body-leading) - var(--mb-btn)) / 2
   );
+
+  /* ─── Spacing knobs ───────────────────────────────────
+     Every length the page spaces things with, named in one place so it can be
+     tuned as a set. Each keeps the size factor it was written with, so the
+     board's own size slider still moves all of them together. */
+  --mb-masthead-top: calc(0rem * var(--mb-k-space));
+  --mb-masthead-bottom: calc(0.4rem * var(--mb-k-space));
+  --mb-bar-top: calc(0.45rem * var(--mb-k-space));
+  --mb-bar-bottom: calc(0rem * var(--mb-k-space));
+  --mb-tip-pad: calc(0.45rem * var(--mb-k-space));
+  --mb-post-pad: calc(0.45rem * var(--mb-k-space));
+  --mb-poster-gap: calc(0rem * var(--mb-k-space));
+  --mb-poster-gap-x: var(--mb-poster-gap);
+  --mb-poster-stats-gap: calc(0rem * var(--mb-k-space));
+  --mb-poster-meta-gap: calc(0rem * var(--mb-k-space));
+  --mb-poster-meta-gap-x: calc(0.3rem * var(--mb-k-space));
+  --mb-poster-meta-pad: calc(0.7rem * var(--mb-k-space));
+  --mb-text-gap: calc(0.2rem * var(--mb-k-space));
+  --mb-replies-top: calc(0.75rem * var(--mb-k-space));
+  --mb-reply-gap: calc(0.6rem * var(--mb-k-space));
+  --mb-reply-indent: calc(1.5rem * var(--mb-k-space));
+  --mb-reply-cols-gap: calc(0.35rem * var(--mb-k-space));
+  /* How much of the body column a reply takes. The row carries the controls in
+     its last track, so this moves the reply's line and its like together — the
+     two hold the same right edge as each other whichever side of the post's
+     they end up on.
+
+     Past 100% the thread runs wider than the prose above it, into the track the
+     measure leaves empty beside the column. There is slack there on a wide
+     screen and none on a narrow one, so the narrow set keeps its own value. */
+  --mb-reply-measure: 100%;
+  --mb-reply-indicator-top: calc(0.6rem * var(--mb-k-space));
+  --mb-reply-input-top: calc(0.7rem * var(--mb-k-space));
+  --mb-reply-input-indent: calc(0rem * var(--mb-k-space));
+  --mb-composer-row-gap: 0px;
+  --mb-composer-pad: calc(0.55rem * var(--mb-k-space));
+  --mb-composer-controls-top: calc(0.35rem * var(--mb-k-space));
+  --mb-composer-controls-gap: calc(1.85rem * var(--mb-k-space));
+  --mb-field-pad-y: calc(0.7rem * var(--mb-k-control));
+  --mb-field-pad-x: calc(0.8rem * var(--mb-k-control));
+  --mb-tail-pad: calc(1.25rem * var(--mb-k-space));
 
   align-items: stretch;
   text-align: left;
@@ -259,7 +303,7 @@
    first row of the ledger, ruled off like the rest. */
 .mb-board .mb-column > header.header {
   margin: 0;
-  padding: calc(1.6rem * var(--mb-k-space)) var(--mb-edge) calc(1.1rem * var(--mb-k-space));
+  padding: var(--mb-masthead-top) var(--mb-edge) var(--mb-masthead-bottom);
   border-bottom: 1px solid var(--mb-rule);
 }
 
@@ -281,7 +325,7 @@
   align-items: baseline;
   gap: calc(0.75rem * var(--mb-k-space));
   margin: 0;
-  padding: calc(1rem * var(--mb-k-space)) var(--mb-edge) calc(0.5rem * var(--mb-k-space));
+  padding: var(--mb-bar-top) var(--mb-edge) var(--mb-bar-bottom);
   font-family: var(--mb-glyph);
   font-size: calc(0.69rem * var(--mb-k-type));
   letter-spacing: 0.12em;
@@ -320,7 +364,7 @@
 
 .mb-board .messages-loading,
 .mb-board .messages-end {
-  padding: calc(1.25rem * var(--mb-k-space)) var(--mb-edge);
+  padding: var(--mb-tail-pad) var(--mb-edge);
   font-family: var(--mb-glyph);
   font-size: calc(0.69rem * var(--mb-k-type));
   font-style: normal;
@@ -332,7 +376,7 @@
 .mb-board .messages-more {
   justify-content: flex-start;
   margin: 0;
-  padding: calc(1.25rem * var(--mb-k-space)) var(--mb-edge);
+  padding: var(--mb-tail-pad) var(--mb-edge);
 }
 
 /* ─── The channel ─────────────────────────────────────── */
@@ -366,12 +410,12 @@
   grid-template-columns: var(--mb-gutter) var(--mb-channel) minmax(0, 1fr);
   /* No row gap: the body column stacks the field, the controls and anything
      the search puts between them, and each sets its own margin. */
-  gap: 0 var(--mb-gap);
+  gap: var(--mb-composer-row-gap) var(--mb-gap);
   align-items: start;
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: calc(1.25rem * var(--mb-k-space)) var(--mb-edge);
+  padding: var(--mb-composer-pad) var(--mb-edge);
   background: var(--mb-tint);
   border-bottom: 2px solid var(--mb-accent);
   /* Also what makes the measure below resolve against the right face. */
@@ -445,7 +489,7 @@
 .mb-board .text-input {
   box-sizing: border-box;
   width: 100%;
-  padding: calc(0.7rem * var(--mb-k-control)) calc(0.8rem * var(--mb-k-control));
+  padding: var(--mb-field-pad-y) var(--mb-field-pad-x);
   background: var(--colour4);
   border: 1px solid var(--mb-rule);
   font-family: var(--mb-face);
@@ -466,9 +510,9 @@
 .mb-board .textbox-controls {
   display: flex;
   align-items: center;
-  gap: calc(0.75rem * var(--mb-k-space));
+  gap: var(--mb-composer-controls-gap);
   flex-wrap: wrap;
-  margin-top: calc(0.6rem * var(--mb-k-space));
+  margin-top: var(--mb-composer-controls-top);
 }
 
 /* The only filled control on the board — it is the one thing you came here to
@@ -602,7 +646,7 @@
   max-width: none;
   min-height: 0;
   margin: 0;
-  padding: calc(1.4rem * var(--mb-k-space)) var(--mb-edge);
+  padding: var(--mb-post-pad) var(--mb-edge);
   background: var(--mb-sheet);
   border-bottom: 1px solid var(--mb-rule);
   border-radius: 0;
@@ -662,7 +706,7 @@
 .mb-board .user-message-sticker-container {
   display: flex;
   flex-direction: column;
-  gap: calc(0.5rem * var(--mb-k-space));
+  gap: var(--mb-poster-gap) var(--mb-poster-gap-x);
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
@@ -719,7 +763,7 @@
 .mb-board .user-message-poster-stats {
   display: flex;
   flex-direction: column;
-  gap: calc(0.4rem * var(--mb-k-space));
+  gap: var(--mb-poster-stats-gap);
   align-items: center;
   width: 100%;
   min-width: 0;
@@ -764,10 +808,10 @@
 .mb-board .user-message-poster-meta {
   display: flex;
   flex-direction: column;
-  gap: calc(0.2rem * var(--mb-k-space));
+  gap: var(--mb-poster-meta-gap) var(--mb-poster-meta-gap-x);
   align-items: center;
   width: 100%;
-  padding-top: calc(0.45rem * var(--mb-k-space));
+  padding-top: var(--mb-poster-meta-pad);
   border-top: 1px solid var(--mb-rule-soft);
   color: var(--mb-dim);
   font-family: var(--mb-glyph);
@@ -875,7 +919,7 @@
 
 .mb-board .user-message-text {
   max-width: var(--mb-measure);
-  margin: 0 0 calc(0.9rem * var(--mb-k-space));
+  margin: 0 0 var(--mb-text-gap);
   font-family: var(--mb-face);
   font-size: var(--mb-body-type);
   line-height: var(--mb-body-leading);
@@ -909,7 +953,7 @@
 }
 
 .mb-board .user-message-image-container {
-  margin: 0 0 calc(0.9rem * var(--mb-k-space));
+  margin: 0 0 var(--mb-text-gap);
 }
 
 /* Bounded on both axes: film posters are portrait and would otherwise run to
@@ -1134,7 +1178,7 @@
    unhovered post, so a busy thread advertises itself. */
 .mb-board .user-message-reply-indicator {
   gap: calc(0.4rem * var(--mb-k-control));
-  margin-top: calc(0.7rem * var(--mb-k-space));
+  margin-top: var(--mb-reply-indicator-top);
   padding: 0;
   border-radius: 0;
   color: var(--colour3);
@@ -1157,13 +1201,13 @@
    avatars and their backgrounds, and a box character in the first column says
    where each one hangs. */
 .mb-board .user-message-replies-container {
-  gap: calc(0.7rem * var(--mb-k-space));
+  gap: var(--mb-reply-gap);
   /* Clear of the disclosure above it by more than the replies are spaced from
      each other, so the control reads as belonging to the post rather than to
      the first reply under it. */
-  margin-top: calc(1.3rem * var(--mb-k-space));
+  margin-top: var(--mb-replies-top);
   padding-top: 0;
-  padding-left: 0;
+  padding-left: var(--mb-reply-indent);
   border-left: none;
 }
 
@@ -1177,8 +1221,9 @@
      thread reaches the post's right edge, so a fixed last track lands on it
      exactly — a reply's like sits directly under the post's. */
   grid-template-columns: auto auto minmax(0, 1fr) var(--mb-actions);
-  gap: 0 calc(0.5rem * var(--mb-k-space));
+  gap: 0 var(--mb-reply-cols-gap);
   align-items: start;
+  width: var(--mb-reply-measure);
   min-height: 0;
   margin: 0;
   padding: 0;
@@ -1302,9 +1347,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  margin-top: calc(0.7rem * var(--mb-k-space));
-  padding-top: calc(0.7rem * var(--mb-k-space));
-  padding-left: calc(1.35rem * var(--mb-k-space));
+  margin-top: var(--mb-reply-input-top);
+  padding-top: var(--mb-reply-input-top);
+  padding-left: var(--mb-reply-input-indent);
   border-top: 1px dashed var(--mb-rule-soft);
 }
 
@@ -1373,7 +1418,7 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: calc(0.625rem * var(--mb-k-space)) var(--mb-edge);
+  padding: var(--mb-tip-pad) var(--mb-edge);
   background: var(--mb-tint-soft);
   border: none;
   border-bottom: 1px solid var(--mb-rule);
@@ -1650,7 +1695,6 @@
      after the thread, which is not what they act on. */
   .mb-board .user-message:not(.reply) {
     grid-template-columns: minmax(0, 1fr) var(--mb-actions);
-    gap: 0 calc(0.6rem * var(--mb-k-space));
   }
 
   /* Two tracks and four rows: who wrote it with the controls in the space at
@@ -1684,7 +1728,6 @@
      the field even here — but the channel between them goes. */
   .mb-board .textbox-container {
     grid-template-columns: auto minmax(0, 1fr);
-    gap: calc(0.4rem * var(--mb-k-space)) calc(0.6rem * var(--mb-k-space));
   }
 
   .mb-board .textbox-body {
@@ -1710,7 +1753,6 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: calc(0.4rem * var(--mb-k-space)) calc(0.7rem * var(--mb-k-space));
     width: 100%;
     text-align: left;
   }
@@ -1738,7 +1780,6 @@
   .mb-board .user-message-poster-stats {
     flex: 0 0 100%;
     align-items: flex-start;
-    gap: calc(0.25rem * var(--mb-k-space));
     width: auto;
     text-align: left;
   }
@@ -1748,14 +1789,43 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: calc(0.15rem * var(--mb-k-space)) calc(0.7rem * var(--mb-k-space));
-    padding-top: 0;
     border-top: none;
   }
 
-  /* The reply keeps its thumbnail — it is the only thing on a narrow screen
-     saying who wrote which reply — just smaller. */
+  /* The narrow layout's own spacing — the same knobs as the top of the file at
+     different lengths, since the poster block lies along the top here rather
+     than down the side. The reply keeps its thumbnail, the one thing on a
+     narrow screen saying who wrote which reply, just smaller. */
   .mb-board {
     --mb-reply-avatar: calc(24px * var(--mb-k-avatar));
+    --mb-edge: calc(clamp(18px, 3vw, 44px) * var(--mb-k-space) * 0.9);
+    --mb-gutter: calc(clamp(116px, 11vw, 148px) * var(--mb-k-avatar) * 1.1);
+    --mb-gap: calc(9.6px * var(--mb-k-space));
+    --mb-masthead-top: calc(0rem * var(--mb-k-space));
+    --mb-masthead-bottom: calc(0.9rem * var(--mb-k-space));
+    --mb-bar-top: calc(1.1rem * var(--mb-k-space));
+    --mb-bar-bottom: calc(0.05rem * var(--mb-k-space));
+    --mb-tip-pad: calc(0.2rem * var(--mb-k-space));
+    --mb-post-pad: calc(0.25rem * var(--mb-k-space));
+    --mb-body-leading: 1.36;
+    --mb-text-gap: calc(0.45rem * var(--mb-k-space));
+    --mb-btn-gap: calc(0px * var(--mb-k-control));
+    --mb-poster-gap: calc(0.15rem * var(--mb-k-space));
+    --mb-poster-gap-x: calc(0.1rem * var(--mb-k-space));
+    --mb-poster-stats-gap: calc(0rem * var(--mb-k-space));
+    --mb-poster-meta-gap: calc(0.2rem * var(--mb-k-space));
+    --mb-poster-meta-gap-x: calc(0.5rem * var(--mb-k-space));
+    --mb-poster-meta-pad: calc(0.25rem * var(--mb-k-space));
+    --mb-replies-top: calc(1.55rem * var(--mb-k-space));
+    --mb-reply-measure: 112%;
+    --mb-reply-gap: calc(1.1rem * var(--mb-k-space));
+    --mb-reply-indent: calc(0.4rem * var(--mb-k-space));
+    --mb-reply-cols-gap: calc(0.35rem * var(--mb-k-space));
+    --mb-reply-indicator-top: calc(0.55rem * var(--mb-k-space));
+    --mb-composer-pad: calc(0.5rem * var(--mb-k-space));
+    --mb-composer-row-gap: calc(0.4rem * var(--mb-k-space));
+    --mb-composer-controls-top: calc(0.45rem * var(--mb-k-space));
+    --mb-field-pad-y: calc(0.25rem * var(--mb-k-control));
+    --mb-field-pad-x: calc(3rem * var(--mb-k-control));
   }
 }
