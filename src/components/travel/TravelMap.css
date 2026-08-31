@@ -87,3 +87,61 @@
   border: 2px solid #fff;
   box-sizing: content-box;
 }
+
+.travel-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--colour2, #ff3ec8);
+  border: 3px solid #fff;
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.travel-cluster__count {
+  color: #fff;
+  font-family: var(--font2);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Pins that have just broken out of a group slide from where the group sat. */
+.travel-pin--spawn {
+  animation: travel-pin-spawn 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes travel-pin-spawn {
+  from {
+    transform: translate(var(--spawn-x, 0), var(--spawn-y, 0)) scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+.travel-cluster {
+  animation: travel-cluster-pop 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes travel-cluster-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-pin--spawn,
+  .travel-cluster {
+    animation: none;
+  }
+}
