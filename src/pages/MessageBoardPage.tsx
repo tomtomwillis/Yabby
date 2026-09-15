@@ -20,10 +20,10 @@ const tips: React.ComponentProps<typeof Tips>[] = [
 ];
 
 /* Threads from the other two boards whose authors ticked them through to here.
-   News has no lastActivityAt of its own — nothing bumps a news post — so it is
-   read in the order it was written. */
+   Reacting, replying and editing one of them here writes to the board it came
+   from, so the thread reads the same either place. */
 const CROSS_POSTS: CrossPostSource[] = [
-  { collection: 'news', orderField: 'timestamp', label: 'news', href: '/news' },
+  { collection: 'news', orderField: 'lastActivityAt', label: 'news', href: '/news', postMaxWords: 1000 },
   { collection: 'filmClubMessages', orderField: 'lastActivityAt', label: 'film club', href: '/filmclubmessage' },
 ];
 

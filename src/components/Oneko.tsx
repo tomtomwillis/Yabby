@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { getAuth } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { getUserProfile } from '../utils/userCache';
 
 // Adjust this value to change the cat's movement speed (original: 10)
 const NEKO_SPEED = 8;
@@ -56,23 +55,11 @@ const Oneko: React.FC = () => {
       setEnabled(cached === 'true');
     }
 
-    // Then verify with Firestore
-    const checkFirestore = async () => {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const val = userDoc.data().nekoEnabled === true;
-          setEnabled(val);
-          localStorage.setItem('nekoEnabled', String(val));
-        } else {
-          setEnabled(false);
-        }
-      } catch {
-        // If Firestore fails, rely on localStorage value or default off
-        if (cached === null) setEnabled(false);
-      }
-    };
-    checkFirestore();
+    // Then verify against the shared profile read the app already makes.
+    getUserProfile(user.uid).then(({ nekoEnabled }) => {
+      setEnabled(nekoEnabled);
+      localStorage.setItem('nekoEnabled', String(nekoEnabled));
+    });
   }, [user]);
 
   // Listen for toggle events from the Profile page

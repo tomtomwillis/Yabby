@@ -35,6 +35,8 @@ const MediaManager = lazy(() => import('./pages/MediaManager'));
 const TravelPage = lazy(() => import('./pages/TravelPage'));
 const CinemaPage = lazy(() => import('./pages/CinemaPage'));
 const IssuesPage = lazy(() => import('./pages/IssuesPage'));
+// Admin tool for dialling in the message board's spacing.
+const SpacingLab = lazy(() => import('./pages/SpacingLab'));
 
 function App() {
   useJoinDate();
@@ -56,6 +58,10 @@ function App() {
                 {/* Cinema takes over the whole viewport — its blackout layer is
                     fixed to the viewport, so it cannot live inside the shell. */}
                 <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
+
+                {/* The spacing lab is full viewport and iframes the board, so
+                    it stays outside the shell. Admin-gated inside the page. */}
+                <Route path="/spacing" element={<PrivateRoute><SpacingLab /></PrivateRoute>} />
 
                 {/* Every other private route renders into the home shell's body
                     column, so the rail, wordmark and player never unmount. */}

@@ -65,6 +65,7 @@ const SUBTITLES = [
   "Ƹ̵̡Ӝ̵̨̄Ʒ",
   "°º¤ø,¸¸,ø¤º°`°º¤ø,¸,ø¤°º¤ø,¸¸,ø¤º°`°º¤ø,¸",
   "peer to peer, dust to dust",
+  "Did You Click The Boy? Did You Feel The Joy?",
 ];
 
 /* Repeated to fill the bar's width and clipped by overflow. The wave comes from
@@ -72,6 +73,8 @@ const SUBTITLES = [
    text node instead of a few hundred spans. */
 const RULE_MOTIF = '·˚⋆~✦~⋆˚·☆';
 const RULE_REPEATS = 60;
+
+const BAR_MIN_KEY = 'yabby.homeBarMinimised';
 
 /* Below this the bar is the transport and nothing else — the width left over
    for a visualiser is a few pixels of nothing. Mirrored by .pb-mode--viz in
@@ -102,7 +105,9 @@ const SideSection: React.FC<SideSectionProps> = ({ branch, title, children }) =>
  *  through <Outlet /> in the body column. */
 function Home() {
   const [subtitle, setSubtitle] = useState('');
-  const [minimised, setMinimised] = useState(false);
+  const [minimised, setMinimised] = useState(
+    () => localStorage.getItem(BAR_MIN_KEY) === '1',
+  );
   const { isPlaying, vizOpen, vizFullscreen } = usePlayerState();
   const { pathname } = useLocation();
 
@@ -240,7 +245,10 @@ function Home() {
         <button
           className="home-bottom-toggle"
           onClick={() => {
-            setMinimised((v) => !v);
+            setMinimised((v) => {
+              localStorage.setItem(BAR_MIN_KEY, v ? '0' : '1');
+              return !v;
+            });
             window.umami?.track('home_bar_minimise', { minimised: !minimised });
           }}
           aria-expanded={!minimised}

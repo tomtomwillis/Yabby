@@ -149,7 +149,7 @@
     height: 100dvh;
     width: 300px;
     max-width: 80vw;
-    padding: 2rem 2rem calc(4rem + env(safe-area-inset-bottom)) 0;
+    padding: 2rem 2rem calc(4rem + env(safe-area-inset-bottom)) 1.25rem;
     box-sizing: border-box;
     background-color: var(--colour4);
     box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2);

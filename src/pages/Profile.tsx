@@ -339,6 +339,7 @@ const Profile: React.FC = () => {
 
     try {
       await updateDoc(doc(db, 'users', user.uid), { nekoEnabled: newValue });
+      clearUserCache(user.uid);
     } catch {
       // Revert on failure
       setNekoEnabled(!newValue);
@@ -356,6 +357,7 @@ const Profile: React.FC = () => {
 
     try {
       await updateDoc(doc(db, 'users', user.uid), { designToolEnabled: newValue });
+      clearUserCache(user.uid);
     } catch {
       setDesignToolEnabled(!newValue);
       localStorage.setItem('designToolEnabled', String(!newValue));

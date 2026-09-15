@@ -9,7 +9,7 @@ interface PosterStatsProps {
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 /** The forum identity block beside a poster's avatar: their bio, when they
-    joined, how much they have said, and where they are. All of it comes out of
+    joined, and where they are. All of it comes out of
     the one profile document. Reads through the shared profile cache,
     so a thread with five posts by the same person costs one users read, and
     that read is shared with the hover bubble on their name. */
@@ -32,9 +32,9 @@ const PosterStats: React.FC<PosterStatsProps> = ({ userId }) => {
     : null;
   const place = [profile.locationFlag, profile.locationText].filter(Boolean).join(' ');
 
-  if (!joined && !profile.postCount && !place && !profile.bio && !profile.siteUrl) return null;
+  if (!joined && !place && !profile.bio && !profile.siteUrl) return null;
 
-  const hasMeta = !!joined || profile.postCount > 0 || !!place;
+  const hasMeta = !!joined || !!place;
 
   return (
     <div className="user-message-poster-stats">
@@ -45,11 +45,8 @@ const PosterStats: React.FC<PosterStatsProps> = ({ userId }) => {
       {hasMeta && (
         <div className="user-message-poster-meta">
           {joined && <span>joined {joined}</span>}
-          {profile.postCount > 0 && (
-            <span>
-              {profile.postCount} {profile.postCount === 1 ? 'post' : 'posts'}
-            </span>
-          )}
+          {/* postCount still accrues on every post, but is not shown until the
+              historical tally is backfilled — it undercounts pre-existing posts. */}
           {place && <span>{place}</span>}
         </div>
       )}

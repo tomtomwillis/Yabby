@@ -23,6 +23,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
+      '/api/data': {
+        target: 'https://yabbyville.xyz',
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
   plugins: [

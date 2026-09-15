@@ -80,16 +80,30 @@ export interface InjectStickerInput {
 
 export interface CarouselStickersHandle {
   injectSticker: (input: InjectStickerInput) => void;
-  refetch: () => void;
 }
 
 // Standard dimensions for consistent rendering
 const ALBUM_DISPLAY_SIZE = 300;
 const STICKER_SIZE = 100;
 // Scan stickers to identify which albums to show. One window either way, so a
-// load costs the same whichever order is asked for.
-const RECENT_STICKERS_SCAN_LIMIT = 50;
+// load costs the same whichever order is asked for. Sized just above the number
+// of albums on the wall — stickers cluster thinly enough that a slightly larger
+// window reaches the full sixteen, and every extra document is a billed read.
+const RECENT_STICKERS_SCAN_LIMIT = 24;
 const ALBUMS_IN_CAROUSEL = 16;
+
+/** The wall is the same for everyone and changes only when someone stickers an
+ *  album, so a short-lived module cache spares a full round on every return to
+ *  the home page and on every flip of the recent/random switch. Keyed by order;
+ *  local edits patch it so a fresh sticker survives a navigation. */
+const WALL_CACHE_TTL = 5 * 60 * 1000;
+const wallCache = new Map<StickerOrder, { albums: AlbumWithStickers[]; timestamp: number }>();
+
+function patchWallCache(update: (albums: AlbumWithStickers[]) => AlbumWithStickers[]): void {
+  for (const [order, entry] of wallCache) {
+    wallCache.set(order, { albums: update(entry.albums), timestamp: entry.timestamp });
+  }
+}
 
 /** Firestore's auto-ID alphabet. A key drawn from it lands uniformly among the
  *  existing document IDs, so a window starting there is a random slice of the
@@ -136,6 +150,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
   const { isAdmin } = useAdmin();
 
   const fetchStickers = useCallback(async () => {
+    const cached = wallCache.get(order);
+    if (cached && Date.now() - cached.timestamp < WALL_CACHE_TTL) {
+      setAlbums(cached.albums);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -188,6 +210,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
 
       if (albumOrder.length === 0) {
         setAlbums([]);
+        wallCache.set(order, { albums: [], timestamp: Date.now() });
         return;
       }
 
@@ -216,47 +239,59 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
         });
       }
 
-      const albumsWithStickers: AlbumWithStickers[] = await Promise.all(
+      const albumResults = await Promise.all(
         albumOrder.map(async (albumId) => {
           const stickers = stickersByAlbum.get(albumId) || [];
 
-          const response = await fetch(
-            `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-            {
-              headers: {
-                Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
+          try {
+            const response = await fetch(
+              `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
+              {
+                headers: {
+                  Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
+                },
               },
-            },
-          );
+            );
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const text = await response.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, 'application/xml');
+            const albumElement = xmlDoc.querySelector('album');
+
+            if (!albumElement) {
+              throw new Error('Album not found in response');
+            }
+
+            const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
+              'coverArt',
+            )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
+
+            return {
+              albumId,
+              albumCover,
+              albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
+              albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
+              stickers,
+            };
+          } catch (err) {
+            // An album removed from the library still has stickers pointing at it;
+            // drop it rather than failing the whole wall.
+            console.warn(`Skipping album ${albumId}:`, err instanceof Error ? err.message : err);
+            return null;
           }
-
-          const text = await response.text();
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(text, 'application/xml');
-          const albumElement = xmlDoc.querySelector('album');
-
-          if (!albumElement) {
-            throw new Error('Album not found in response');
-          }
-
-          const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-            'coverArt',
-          )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
-
-          return {
-            albumId,
-            albumCover,
-            albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
-            albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
-            stickers,
-          };
         }),
       );
 
+      const albumsWithStickers: AlbumWithStickers[] = albumResults.filter(
+        (album): album is AlbumWithStickers => album !== null,
+      );
+
       setAlbums(albumsWithStickers);
+      wallCache.set(order, { albums: albumsWithStickers, timestamp: Date.now() });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       console.error('Error fetching stickers:', errorMessage);
@@ -284,7 +319,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
       favoriteTrackTitle: input.favoriteTrackTitle,
     };
 
-    setAlbums((prev) => {
+    const withSticker = (prev: AlbumWithStickers[]): AlbumWithStickers[] => {
       const existingIdx = prev.findIndex((a) => a.albumId === input.albumId);
       if (existingIdx >= 0) {
         const updated = [...prev];
@@ -307,27 +342,28 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
         },
         ...prev,
       ].slice(0, ALBUMS_IN_CAROUSEL);
-    });
+    };
+
+    setAlbums(withSticker);
+    patchWallCache(withSticker);
   }, []);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      injectSticker: injectStickerLocal,
-      refetch: () => {
-        fetchStickers();
-      },
-    }),
-    [injectStickerLocal, fetchStickers],
-  );
+  useImperativeHandle(ref, () => ({ injectSticker: injectStickerLocal }), [injectStickerLocal]);
 
   const handleInternalStickerSuccess = (payload: InjectStickerInput) => {
     injectStickerLocal(payload);
-    fetchStickers();
     closePopup();
   };
 
   const handleAlbumClick = async (album: AlbumWithStickers, anchor: HTMLElement) => {
+    // A second click on the open album's tile closes it. The bubble's own
+    // outside-click handler deliberately ignores its anchor, so the toggle has
+    // to live here.
+    if (popup.visible && popup.anchor === anchor) {
+      closePopup();
+      return;
+    }
+
     const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
     const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
     const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
@@ -370,7 +406,17 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
         ...prev,
         stickers: prev.stickers.filter((s) => s.stickerId !== stickerId),
       }));
-      fetchStickers();
+      // An album only earns its place on the wall by having a sticker, so drop
+      // it once its last one goes — the refetch used to do this.
+      const withoutSticker = (prev: AlbumWithStickers[]) =>
+        prev
+          .map((album) => ({
+            ...album,
+            stickers: album.stickers.filter((s) => s.stickerId !== stickerId),
+          }))
+          .filter((album) => album.stickers.length > 0);
+      setAlbums(withoutSticker);
+      patchWallCache(withoutSticker);
     } catch (error) {
       console.error('Error deleting sticker:', error);
       alert('Failed to delete sticker. Please try again.');
@@ -434,8 +480,8 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     };
   };
 
-  const stickerTiles = albums.map((album) => (
-    <div key={album.albumId} className="sticker-tile">
+  const stickerTiles = albums.map((album, index) => (
+    <div key={album.albumId} className={`sticker-tile${index === 0 ? " is-featured" : ""}`}>
       <div
         className="album-card"
         onClick={(e) => handleAlbumClick(album, e.currentTarget)}

@@ -53,7 +53,6 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 - [HomeIndex](Components-HomeIndex)
 - [HomeTravel](Components-HomeTravel)
 - [MessageBoard](Components-MessageBoard)
-- [NewsPost](Components-NewsPost)
 - [NowWatching](Components-NowWatching)
 - [Oneko](Components-Oneko)
 - [PlaceSticker](Components-PlaceSticker)

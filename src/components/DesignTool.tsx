@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { getAuth } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { getUserProfile } from '../utils/userCache';
 import { useAdmin } from '../utils/useAdmin';
 import { AUTO_FONTS } from '../utils/autoFonts';
 import './DesignTool.css';
@@ -68,21 +67,10 @@ export default function DesignTool() {
     const cached = localStorage.getItem('designToolEnabled');
     if (cached !== null) setEnabled(cached === 'true');
 
-    const check = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'users', user.uid));
-        if (snap.exists()) {
-          const val = snap.data().designToolEnabled === true;
-          setEnabled(val);
-          localStorage.setItem('designToolEnabled', String(val));
-        } else {
-          setEnabled(false);
-        }
-      } catch {
-        if (cached === null) setEnabled(false);
-      }
-    };
-    check();
+    getUserProfile(user.uid).then(({ designToolEnabled }) => {
+      setEnabled(designToolEnabled);
+      localStorage.setItem('designToolEnabled', String(designToolEnabled));
+    });
   }, [user]);
 
   // Listen for toggle events dispatched from the Profile page

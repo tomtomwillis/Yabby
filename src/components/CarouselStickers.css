@@ -20,6 +20,7 @@
 .sticker-wall {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
+    grid-auto-flow: dense;
     gap: 6px;
     width: 100%;
     box-sizing: border-box;
@@ -28,6 +29,18 @@
 .sticker-tile {
     aspect-ratio: 1 / 1;
     overflow: hidden;
+}
+
+/* The newest sticker leads the wall at 2x2. */
+.sticker-tile.is-featured {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+
+/* The featured tile eats four cells, so trim the tail to keep the wall a clean
+   4x4 block. Mobile keeps 9 albums, which fills 3x4. */
+.sticker-tile:nth-child(n + 14) {
+    display: none;
 }
 
 .sticker-tile .album-card {
@@ -53,14 +66,11 @@
 
 @media (max-width: 900px) {
     .sticker-wall { grid-template-columns: repeat(3, 1fr); }
+    .sticker-tile:nth-child(n + 10) { display: none; }
 }
 
 @media (max-width: 600px) {
-    .sticker-wall { grid-template-columns: repeat(3, 1fr); gap: 4px; }
-}
-
-@media (max-width: 420px) {
-    .sticker-wall { grid-template-columns: repeat(2, 1fr); }
+    .sticker-wall { gap: 4px; }
 }
 
 .sticker-overlay {

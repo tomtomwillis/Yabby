@@ -88,3 +88,18 @@
 .ab-close:focus-visible {
   color: var(--colour3);
 }
+
+/* From 768 down the home shell pins its burger to the top right corner of the
+   viewport, above this box. A tall bubble scrolled up under it puts the two
+   buttons in the same spot, so the close swaps corners where they can meet. */
+@media (max-width: 768px) {
+  .ab-close {
+    right: auto;
+    left: 0.4rem;
+  }
+
+  .ab-body {
+    padding-right: 0;
+    padding-left: 1rem;
+  }
+}
