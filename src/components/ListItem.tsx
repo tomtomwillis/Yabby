@@ -1,22 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import './basic/UserMessage.css';
+import './ListItem.css';
 import { parseMessageHTML } from './basic/UserMessages';
-
-const normalizeAvatarPath = (avatarPath: string): string => {
-  if (!avatarPath) return '';
-  const cleanPath = avatarPath.startsWith('/') ? avatarPath.substring(1) : avatarPath;
-  if (cleanPath.startsWith('Stickers/')) return `/${cleanPath}`;
-  if (cleanPath.startsWith('assets/')) {
-    const fileName = cleanPath.replace('assets/', '');
-    return `/Stickers/${fileName}`;
-  }
-  if (cleanPath.includes('/')) {
-    const fileName = cleanPath.split('/').pop() || '';
-    return `/Stickers/${fileName}`;
-  }
-  return `/Stickers/${cleanPath}`;
-};
+import { normalizeAvatarPath } from '../utils/avatarPath';
 
 interface BaseListItemProps {
   type: 'album' | 'custom';
@@ -48,7 +34,7 @@ interface CustomListItemProps extends BaseListItemProps {
 type ListItemProps = AlbumListItemProps | CustomListItemProps;
 
 const ListItem: React.FC<ListItemProps> = (props) => {
-  const { type, userText, username, timestamp, onRemove, showRemoveButton = false } = props;
+  const { type, userText, onRemove, showRemoveButton = false } = props;
 
   const handleItemClick = () => {
     if (type === 'album') {
@@ -77,7 +63,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         imageUrl: props.albumCover,
         imageAlt: `${props.albumTitle} by ${props.albumArtist}`,
         clickable: true,
-        typeLabel: '🎵 Album'
+        typeLabel: '[album]'
       };
     } else {
       return {
@@ -86,7 +72,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         imageUrl: props.imageUrl,
         imageAlt: props.title,
         clickable: !!props.linkUrl,
-        typeLabel: '📝 Custom Item'
+        typeLabel: '[custom]'
       };
     }
   };
@@ -94,105 +80,71 @@ const ListItem: React.FC<ListItemProps> = (props) => {
   const itemDetails = getItemDetails();
 
   return (
-    <div className="user-message" style={{ flexDirection: 'column', padding: '0' }}>
-      {showRemoveButton && onRemove && (
-        <button 
-          className="user-message-close-button"
-          onClick={onRemove}
-          aria-label="Remove album from list"
-          style={{ top: '8px', right: '8px', zIndex: 20 }}
-        >
-          ✕
-        </button>
-      )}
-
-      {/* Full-width header image */}
+    <div
+      className={
+        'ls-item' +
+        (itemDetails.imageUrl ? '' : ' ls-item--no-image') +
+        (showRemoveButton && onRemove ? ' ls-item--removable' : '')
+      }
+    >
       {itemDetails.imageUrl && (
-        <div 
-          style={{
-            width: '100%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            borderRadius: '12px 12px 0 0',
-            position: 'relative',
-            backgroundColor: 'var(--colour1)'
-          }}
-        >
-          <img
-            src={itemDetails.imageUrl}
-            alt={itemDetails.imageAlt}
-            onClick={itemDetails.clickable ? handleItemClick : undefined}
-            onError={handleImageError}
-            style={{ 
-              maxWidth: '100%',
-              objectFit: 'contain',
-              cursor: itemDetails.clickable ? 'pointer' : 'default',
-              borderRadius: '12px 12px 0 0'
-            }}
-          />
-        </div>
+        itemDetails.clickable ? (
+          <button
+            type="button"
+            className="ls-item-thumb"
+            onClick={handleItemClick}
+            aria-label={`Open ${itemDetails.title}`}
+          >
+            <img src={itemDetails.imageUrl} alt={itemDetails.imageAlt} onError={handleImageError} />
+          </button>
+        ) : (
+          <span className="ls-item-thumb">
+            <img src={itemDetails.imageUrl} alt={itemDetails.imageAlt} onError={handleImageError} />
+          </span>
+        )
       )}
 
-      {/* Content container */}
-      <div
-        className="user-message-content"
-        style={{ padding: '16px', cursor: itemDetails.clickable ? 'pointer' : 'default' }}
-        onClick={itemDetails.clickable ? handleItemClick : undefined}
-      >
-        {/* Item title (replaces username) */}
-        <div className="user-message-username">
-          {itemDetails.title}
-          {itemDetails.subtitle && (
-            <span style={{ fontWeight: 'normal', opacity: 0.8, marginLeft: '8px' }}>
-              {itemDetails.subtitle}
-            </span>
+      <div className="ls-item-body">
+        <div className="ls-item-head">
+          {itemDetails.clickable ? (
+            <button type="button" className="ls-item-title" onClick={handleItemClick}>
+              {itemDetails.title}
+            </button>
+          ) : (
+            <span className="ls-item-title">{itemDetails.title}</span>
           )}
-        </div>
-        {/* Separator */}
-        <div className="user-message-separator"></div>
-
-        {/* User's description text */}
-        <div className="user-message-text">
-          {userText ? parseMessageHTML(userText) : 'No description provided.'}
+          {itemDetails.subtitle && <span className="ls-item-artist">{itemDetails.subtitle}</span>}
+          <span className="ls-item-kind">{itemDetails.typeLabel}</span>
         </div>
 
-        {/* Attribution - who added this item */}
+        <div className={`ls-item-text${userText ? '' : ' ls-item-text--none'}`}>
+          {userText ? parseMessageHTML(userText) : 'no note.'}
+        </div>
+
         {props.addedByUsername && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginTop: '8px',
-            fontSize: '0.8em',
-            opacity: 0.7
-          }}>
+          <div className="ls-item-by">
             {props.addedByAvatar && (
               <img
+                className="ls-item-av"
                 src={normalizeAvatarPath(props.addedByAvatar)}
                 alt={`${props.addedByUsername}'s avatar`}
-                style={{
-                  width: '1em',
-                  height: '1em',
-                  borderRadius: '50%',
-                  objectFit: 'cover'
-                }}
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             )}
             {props.addedByUserId ? (
-              <Link
-                to={`/user/${props.addedByUserId}`}
-                style={{ color: 'inherit', textDecoration: 'none' }}
-              >
-                Added by {props.addedByUsername}
-              </Link>
+              <Link to={`/user/${props.addedByUserId}`}>added by {props.addedByUsername}</Link>
             ) : (
-              <span>Added by {props.addedByUsername}</span>
+              <span>added by {props.addedByUsername}</span>
             )}
           </div>
         )}
       </div>
+
+      {showRemoveButton && onRemove && (
+        <button type="button" className="ls-item-del" onClick={onRemove} aria-label="Remove item from list">
+          del
+        </button>
+      )}
     </div>
   );
 };

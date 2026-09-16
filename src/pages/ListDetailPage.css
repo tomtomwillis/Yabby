@@ -1,0 +1,305 @@
+/*
+ * A list — the ledger the index promises.
+ *
+ * The list's own title is the masthead, and everything the page knows about it
+ * sits on one line under it: where it came back from, who made it, how long it
+ * is, and the two controls that change it. Below that the entries print in
+ * order, numbered down a gutter, each one a rule apart from the next.
+ *
+ * The --ls-* names match the index's, so the form and the entry render the same
+ * either side of the link.
+ */
+
+.list-page {
+  --ls-rule: #c9cee4;
+  --ls-rule-soft: #dfe3f0;
+  --ls-ink: var(--colour5);
+  --ls-accent: var(--colour2);
+  --ls-dim: #5566c9;
+  --ls-mute: #8a90a8;
+
+  --ls-sheet: rgba(251, 251, 253, 0.94);
+  --ls-sheet-hover: rgba(255, 255, 255, 0.98);
+  --ls-tint: rgba(238, 241, 251, 0.95);
+
+  --ls-edge: clamp(14px, 2.4vw, 34px);
+
+  width: 100%;
+  text-align: left;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .list-page {
+    --ls-sheet: #fbfbfd;
+    --ls-sheet-hover: #ffffff;
+    --ls-tint: #eef1fb;
+  }
+}
+
+/* ─── Masthead ────────────────────────────────────────── */
+
+.list-page > header.header {
+  margin: 0;
+  padding: 0 var(--ls-edge) 0.45rem;
+  border-bottom: 1px solid var(--ls-rule);
+}
+
+.list-page > header.header .small-text {
+  margin: 0;
+  font-family: var(--font3);
+  font-size: clamp(1.125rem, 1.3vw, 1.4rem);
+  color: var(--colour6);
+}
+
+/* ─── The bar ─────────────────────────────────────────── */
+
+/* The way back, what the list is, and what you can do to it — one line of type,
+   in that reading order. */
+.lsd-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: clamp(0.4rem, 0.9vw, 0.9rem);
+  padding: 0.6rem var(--ls-edge);
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--ls-rule);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.78vw, 0.92rem);
+  letter-spacing: 0.06em;
+}
+
+.lsd-back {
+  flex: 0 0 auto;
+  color: var(--ls-accent);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.lsd-back:hover,
+.lsd-back:focus-visible {
+  color: var(--colour3);
+}
+
+.lsd-meta {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--ls-mute);
+}
+
+.lsd-by {
+  color: var(--ls-dim);
+  text-decoration: none;
+}
+
+.lsd-sep {
+  color: var(--ls-rule);
+}
+
+.lsd-tag {
+  flex: 0 0 auto;
+  color: var(--ls-dim);
+}
+
+.lsd-tag--private {
+  color: var(--ls-mute);
+}
+
+.lsd-bar-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--ls-rule);
+  transform: translateY(-0.25em);
+}
+
+/* Words, not icons — at this size a bordered button outweighs the line it acts
+   on, and the destructive one says what it does. */
+.lsd-act {
+  flex: 0 0 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ls-dim);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.lsd-act:hover,
+.lsd-act:focus-visible {
+  color: var(--colour3);
+}
+
+.lsd-act--del:hover,
+.lsd-act--del:focus-visible {
+  color: #c0392b;
+}
+
+.lsd-act:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+/* ─── Input band ──────────────────────────────────────── */
+
+.lsd-form-band {
+  background: var(--ls-tint);
+  border-bottom: 2px solid var(--ls-accent);
+}
+
+/* ─── The entries heading ─────────────────────────────── */
+
+/* The section-heading idiom, with the sort pinned where the muted note usually
+   goes — it acts on the entries, so it belongs on their heading rather than up
+   in the bar with the controls that act on the list. */
+.lsd-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.9rem var(--ls-edge) 0.6rem;
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.78vw, 0.92rem);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--ls-accent);
+}
+
+.lsd-h-label {
+  flex: 0 0 auto;
+}
+
+.lsd-h-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--ls-rule);
+  transform: translateY(-0.25em);
+}
+
+/* Both orders stated on the line rather than hidden behind a dropdown — at two
+   values an index to open would cost more than it saves. */
+.lsd-sort {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.lsd-sort-key {
+  color: var(--ls-dim);
+}
+
+.lsd-sort-opt {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ls-mute);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.lsd-sort-opt.is-sel {
+  color: var(--ls-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.lsd-sort-opt:hover,
+.lsd-sort-opt:focus-visible {
+  color: var(--colour3);
+}
+
+.lsd-sort-opt:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.lsd-sort-sep {
+  color: var(--ls-rule);
+}
+
+/* ─── The entries ─────────────────────────────────────── */
+
+.lsd-items {
+  margin: 0;
+  padding: 0 0 1.5rem;
+  list-style: none;
+}
+
+/* Two tracks: the position in a gutter of its own, and the entry beside it. The
+   rules run edge to edge and only the content is inset, so the set reads as one
+   printed sheet rather than a stack of cards. */
+.lsd-item {
+  display: grid;
+  grid-template-columns: clamp(2rem, 3.2vw, 3rem) minmax(0, 1fr);
+  gap: clamp(0.5rem, 1.4vw, 1.2rem);
+  padding: clamp(0.8rem, 1.5vh, 1.15rem) var(--ls-edge);
+  background: var(--ls-sheet);
+  border-bottom: 1px solid var(--ls-rule);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .lsd-item {
+    background: #fbfbfd;
+  }
+}
+
+.lsd-item-n {
+  font-family: var(--font2);
+  font-size: clamp(0.8rem, 0.85vw, 1rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--ls-dim);
+}
+
+/* ─── Notes ───────────────────────────────────────────── */
+
+.lsd-status,
+.lsd-empty,
+.lsd-error {
+  margin: 0;
+  padding: 1rem var(--ls-edge);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.04em;
+  color: var(--ls-mute);
+}
+
+.lsd-error {
+  color: #c0392b;
+}
+
+/* ─── Narrow ──────────────────────────────────────────── */
+
+/* The masthead is the list's own title here, and a long one runs under the
+   fixed burger once the shell stacks. Same inset the shell gives its wordmark. */
+@media (max-width: 900px) {
+  /* border-box because Header.css gives the title a width of its own — on
+     content-box the inset would widen it instead of shortening the line. */
+  .list-page > header.header h1 {
+    box-sizing: border-box;
+    padding-right: 4.5rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .lsd-bar-rule {
+    flex-basis: 100%;
+    min-width: 0;
+    margin: 0.15rem 0;
+    border: none;
+    transform: none;
+  }
+
+  .lsd-item {
+    grid-template-columns: 1.6rem minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+}

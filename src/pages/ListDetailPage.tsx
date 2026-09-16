@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, orderBy, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { doc, getDoc, collection, query, orderBy, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import ListItem from '../components/ListItem';
 import CreateList from '../components/CreateList';
-import Button from '../components/basic/Button';
+import './ListDetailPage.css';
 
 interface List {
   id: string;
@@ -19,6 +19,20 @@ interface List {
   items?: any[];
 }
 
+type SortDir = 'newest' | 'oldest';
+
+const formatDate = (timestamp: any): string => {
+  const millis = timestamp?.toMillis
+    ? timestamp.toMillis()
+    : timestamp?.seconds
+      ? timestamp.seconds * 1000
+      : 0;
+  if (!millis) return '';
+  return new Date(millis)
+    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+    .toLowerCase();
+};
+
 const ListDetailPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
@@ -27,6 +41,24 @@ const ListDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [sort, setSort] = useState<SortDir>('oldest');
+
+  // By position, not by time: every save rewrites all the items with a fresh
+  // serverTimestamp, so an entry's timestamp says when the list was last edited
+  // rather than when the entry was added. Position is the order things went in.
+  const shown = useMemo(
+    () => (sort === 'newest' ? [...items].reverse() : items),
+    [items, sort]
+  );
+
+  const chooseSort = (dir: SortDir) => {
+    setSort(dir);
+    try {
+      window.umami?.track?.('list_items_sort_changed', { dir });
+    } catch {
+      /* ignore umami errors */
+    }
+  };
 
   useEffect(() => {
     if (listId) {
@@ -91,7 +123,7 @@ const ListDetailPage: React.FC = () => {
       // Delete all items first
       const itemsQuery = query(collection(db, 'lists', list.id, 'items'));
       const itemsSnapshot = await getDocs(itemsQuery);
-      
+
       for (const itemDoc of itemsSnapshot.docs) {
         await deleteDoc(itemDoc.ref);
       }
@@ -99,7 +131,6 @@ const ListDetailPage: React.FC = () => {
       // Delete the main list document
       await deleteDoc(doc(db, 'lists', list.id));
 
-      alert('List deleted successfully!');
       navigate('/lists');
     } catch (error) {
       console.error('Error deleting list:', error);
@@ -117,194 +148,136 @@ const ListDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div>
-        <Header title="List" subtitle="Loading..." />
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '200px',
-          color: 'var(--colour4)'
-        }}>
-          Loading list...
+      <div className="list-page">
+        <Header title="Lists" subtitle="" />
+        <div className="lsd-bar">
+          <Link to="/lists" className="lsd-back">◂ lists</Link>
+          <span className="lsd-bar-rule" aria-hidden="true" />
         </div>
+        <p className="lsd-status">loading…</p>
       </div>
     );
   }
 
   if (error || !list) {
     return (
-      <div>
-        <Header title="List" subtitle="Error" />
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column',
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '200px',
-          color: 'var(--colour4)',
-          gap: '16px'
-        }}>
-          <div>{error || 'List not found'}</div>
-          <Button 
-            onClick={() => navigate('/lists')} 
-            label="← Back to Lists" 
-          />
+      <div className="list-page">
+        <Header title="Lists" subtitle="" />
+        <div className="lsd-bar">
+          <Link to="/lists" className="lsd-back">◂ lists</Link>
+          <span className="lsd-bar-rule" aria-hidden="true" />
         </div>
+        <p className="lsd-error">{(error || 'List not found').toLowerCase()}</p>
       </div>
     );
   }
 
+  const created = formatDate(list.timestamp);
+
   return (
-    <div>
-      <Header title="Lists" subtitle="View List" />
-      
+    <div className="list-page">
+      <Header title={list.title} subtitle={`a list by ${list.username}`} />
+
+      <div className="lsd-bar">
+        <Link to="/lists" className="lsd-back">◂ lists</Link>
+
+        <span className="lsd-meta">
+          <Link to={`/user/${list.userId}`} className="lsd-by">by {list.username}</Link>
+          <span className="lsd-sep" aria-hidden="true">·</span>
+          <span>{items.length} item{items.length === 1 ? '' : 's'}</span>
+          {created && (
+            <>
+              <span className="lsd-sep" aria-hidden="true">·</span>
+              <span>{created}</span>
+            </>
+          )}
+        </span>
+
+        {list.isPublic === false && <span className="lsd-tag lsd-tag--private">[private]</span>}
+        {list.isCollaborative && <span className="lsd-tag">[collab]</span>}
+
+        <span className="lsd-bar-rule" aria-hidden="true" />
+
+        {canEdit && (
+          <button
+            type="button"
+            className="lsd-act"
+            onClick={() => setIsEditing((editing) => !editing)}
+          >
+            {isEditing ? 'cancel' : 'edit'}
+          </button>
+        )}
+        {isOwner && !isEditing && (
+          <button type="button" className="lsd-act lsd-act--del" onClick={handleDelete}>
+            del
+          </button>
+        )}
+      </div>
+
       {isEditing ? (
-        <div style={{ padding: '20px' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <Button 
-              onClick={() => setIsEditing(false)} 
-              label="← Cancel Edit" 
-            />
-          </div>
+        <div className="lsd-form-band">
           <CreateList
             editMode={true}
             existingListId={list.id}
             existingList={list}
             onListCreated={handleEditComplete}
+            onCancel={() => setIsEditing(false)}
             isCollaborativeEdit={!isOwner && !!list.isCollaborative}
           />
         </div>
-      ) : (
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-          {/* Header Section */}
-          <div style={{ marginBottom: '30px' }}>
-            <div style={{ marginBottom: '16px' }}>
-              <Button 
-                onClick={() => navigate('/lists')} 
-                label="← Back to Lists" 
-              />
-            </div>
-            
-            <h1 style={{
-              color: 'var(--colour2)',
-              fontFamily: 'var(--font2)',
-              marginBottom: '8px',
-              fontSize: '2em',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              flexWrap: 'wrap'
-            }}>
-              {list.title}
-              {list.isCollaborative && (
-                <span style={{
-                  fontSize: '0.4em',
-                  padding: '4px 10px',
-                  backgroundColor: 'var(--colour4)',
-                  color: 'var(--colour1)',
-                  borderRadius: '12px',
-                  fontWeight: 'normal',
-                  fontFamily: 'var(--font2)'
-                }}>
-                  Collaborative
-                </span>
-              )}
-            </h1>
-            
-            <div style={{ 
-              color: 'var(--colour2)', 
-              opacity: 0.8,
-              marginBottom: '16px'
-            }}>
-              By {list.username} • {items.length} item{items.length !== 1 ? 's' : ''}
-              {list.timestamp && (
-                <> • {new Date(list.timestamp.seconds * 1000).toLocaleDateString()}</>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            {canEdit && (
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  label="Edit List"
-                />
-                {isOwner && (
-                  <Button
-                    onClick={handleDelete}
-                    label="Delete List"
-                    type="basic"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* List Items */}
-          {items.length > 0 ? (
-            <div>
-              {items.map((item, index) => (
-                <div 
-                  key={item.id || index}
-                  style={{
-                    marginBottom: '20px',
-                    padding: '20px',
-                    backgroundColor: 'var(--colour1)',
-                    borderRadius: '12px',
-                    border: '1px solid var(--colour3)'
-                  }}
+      ) : items.length > 0 ? (
+        <>
+          <h2 className="lsd-h">
+            <span className="lsd-h-label">entries</span>
+            <span className="lsd-h-rule" aria-hidden="true" />
+            {items.length > 1 && (
+              <span className="lsd-sort">
+                <span className="lsd-sort-key">sort:</span>
+                <button
+                  type="button"
+                  className={`lsd-sort-opt${sort === 'newest' ? ' is-sel' : ''}`}
+                  aria-pressed={sort === 'newest'}
+                  onClick={() => chooseSort('newest')}
                 >
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'flex-start', 
-                    gap: '16px' 
-                  }}>
-                    {/* Order Number */}
-                    <div style={{
-                      minWidth: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--colour4)',
-                      color: 'var(--colour1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '16px',
-                      fontWeight: 'bold'
-                    }}>
-                      {index + 1}
-                    </div>
+                  newest
+                </button>
+                <span className="lsd-sort-sep" aria-hidden="true">/</span>
+                <button
+                  type="button"
+                  className={`lsd-sort-opt${sort === 'oldest' ? ' is-sel' : ''}`}
+                  aria-pressed={sort === 'oldest'}
+                  onClick={() => chooseSort('oldest')}
+                >
+                  oldest
+                </button>
+              </span>
+            )}
+          </h2>
 
-                    {/* Item Content */}
-                    <div style={{ flex: 1 }}>
-                      <ListItem
-                        {...item}
-                        username=""
-                        timestamp=""
-                        addedByUsername={item.addedByUsername}
-                        addedByAvatar={item.addedByAvatar}
-                        addedByUserId={item.addedByUserId}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{
-              textAlign: 'center',
-              color: 'var(--colour4)',
-              opacity: 0.6,
-              padding: '40px',
-              backgroundColor: 'var(--colour1)',
-              borderRadius: '12px',
-              border: '1px solid var(--colour3)'
-            }}>
-              This list is empty
-            </div>
-          )}
-        </div>
+          <ol className="lsd-items">
+            {shown.map((item, index) => {
+              // The number is the entry's place in the list, so reversing the
+              // sort counts down rather than renumbering the entries.
+              const rank = sort === 'newest' ? items.length - index : index + 1;
+
+              return (
+                <li className="lsd-item" key={item.id || index}>
+                  <span className="lsd-item-n">{String(rank).padStart(2, '0')}</span>
+                  <ListItem
+                    {...item}
+                    username=""
+                    timestamp=""
+                    addedByUsername={item.addedByUsername}
+                    addedByAvatar={item.addedByAvatar}
+                    addedByUserId={item.addedByUserId}
+                  />
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      ) : (
+        <p className="lsd-empty">this list is empty.</p>
       )}
     </div>
   );

@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, doc, serverTimestamp, getDoc, updateDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
-import Button from './basic/Button';
-import MessageTextBox from './basic/MessageTextBox';
-import './basic/Button.css';
+import './CreateList.css';
 
 interface AlbumInfo {
   id: string;
@@ -53,6 +51,7 @@ interface List {
 
 interface CreateListProps {
   onListCreated?: (listId: string) => void;
+  onCancel?: () => void;
   editMode?: boolean;
   existingListId?: string;
   existingList?: List;
@@ -61,6 +60,7 @@ interface CreateListProps {
 
 const CreateList: React.FC<CreateListProps> = ({
   onListCreated,
+  onCancel,
   editMode = false,
   existingListId,
   existingList,
@@ -71,6 +71,9 @@ const CreateList: React.FC<CreateListProps> = ({
   const [currentItemText, setCurrentItemText] = useState('');
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  // Said on the slip itself rather than in a dialog — nothing on these pages
+  // interrupts you to tell you something.
+  const [error, setError] = useState<string | null>(null);
   const [addMode, setAddMode] = useState<'album' | 'custom'>('album');
   const [isPublic, setIsPublic] = useState(existingList?.isPublic ?? true);
   const [isCollaborative, setIsCollaborative] = useState(existingList?.isCollaborative ?? false);
@@ -204,9 +207,10 @@ const CreateList: React.FC<CreateListProps> = ({
   const handleAlbumSelect = async (albumId: string) => {
     const albumInfo = await fetchAlbumInfoById(albumId);
     if (albumInfo) {
+      setError(null);
       setSelectedAlbum(albumInfo);
     } else {
-      alert('Failed to fetch album information');
+      setError('could not fetch that album.');
     }
   };
 
@@ -214,7 +218,7 @@ const CreateList: React.FC<CreateListProps> = ({
   const handleUrlSubmit = async (url: string) => {
     const albumId = extractAlbumId(url);
     if (!albumId) {
-      alert('Invalid Navidrome album URL');
+      setError('that is not a navidrome album url.');
       return;
     }
     await handleAlbumSelect(albumId);
@@ -223,9 +227,10 @@ const CreateList: React.FC<CreateListProps> = ({
   // Add album to list
   const handleAddAlbum = () => {
     if (!selectedAlbum) {
-      alert('Please select an album first');
+      setError('pick an album first.');
       return;
     }
+    setError(null);
 
     const newAlbum: AlbumListItem = {
       type: 'album',
@@ -248,9 +253,10 @@ const CreateList: React.FC<CreateListProps> = ({
   // Add custom item to list
   const handleAddCustomItem = () => {
     if (!customTitle.trim()) {
-      alert('Please enter a title for the custom item');
+      setError('a custom item needs a title.');
       return;
     }
+    setError(null);
 
     const newCustomItem: CustomListItem = {
       type: 'custom',
@@ -389,7 +395,7 @@ const CreateList: React.FC<CreateListProps> = ({
           e.preventDefault();
           cancelEditing();
         }
-        // Note: We don't use Enter to save since MessageTextBox needs Enter for line breaks
+        // Enter is left to the note's textarea for line breaks
       }
     };
 
@@ -432,20 +438,21 @@ const CreateList: React.FC<CreateListProps> = ({
   // Save list to Firestore with subcollection
   const handleSaveList = async () => {
     if (!auth.currentUser) {
-      alert('Please log in to create a list');
+      setError('log in to make a list.');
       return;
     }
 
     if (!listTitle.trim()) {
-      alert('Please enter a list title');
+      setError('give the list a title.');
       return;
     }
 
     if (items.length === 0) {
-      alert('Please add at least one item to the list');
+      setError('add at least one entry.');
       return;
     }
 
+    setError(null);
     setLoading(true);
 
     try {
@@ -516,8 +523,6 @@ const CreateList: React.FC<CreateListProps> = ({
 
           await addDoc(itemsCollection, cleanItemData);
         }
-
-        alert('List updated successfully!');
       } else {
         // Fetch username from user profile (same pattern as MessageBoard)
         let username = 'Anonymous';
@@ -536,7 +541,7 @@ const CreateList: React.FC<CreateListProps> = ({
         // The list carries its owner's name and the rules match it against the
         // profile, so a profile with no name cannot create one.
         if (!hasUsername) {
-          alert('Set a username on your profile before creating a list.');
+          setError('set a username on your profile before making a list.');
           return;
         }
 
@@ -592,8 +597,6 @@ const CreateList: React.FC<CreateListProps> = ({
         await addDoc(itemsCollection, cleanItemData);
       }
 
-        alert('List created successfully!');
-        
         // Reset form
         setListTitle('');
         setItems([]);
@@ -625,149 +628,124 @@ const CreateList: React.FC<CreateListProps> = ({
 
     } catch (error) {
       console.error('Error creating list:', error);
-      alert('Failed to create list. Please try again.');
+      setError(editMode ? 'could not update the list. try again.' : 'could not save the list. try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+    <div className="ls-form">
+      {/* No cancel on this line: the page's own bar already carries one, and the
+          slip repeats it beside the save. */}
+      <h2 className="ls-form-h">
+        <span className="ls-form-h-label">{editMode ? 'edit list' : 'new list'}</span>
+        <span className="ls-form-h-rule" aria-hidden="true" />
+      </h2>
 
-      {/* List Title Input */}
-      <div style={{ marginBottom: '20px' }}>
-        <MessageTextBox
+      <div className="ls-form-field">
+        <label className="ls-form-label" htmlFor="ls-form-title">title</label>
+        <input
+          id="ls-form-title"
+          className="ls-form-input"
+          type="text"
           value={listTitle}
-          onChange={setListTitle}
-          placeholder="Enter list title..."
-          showSendButton={false}
-          showCounter={false}
+          maxLength={120}
+          placeholder="what is this a list of?"
+          onChange={(e) => setListTitle(e.target.value)}
         />
       </div>
 
-      {/* Public/Private and Collaborative Toggles - hidden for non-owner collaborative edits */}
+      {/* Public/Private and Collaborative toggles - hidden for non-owner collaborative edits */}
       {!isCollaborativeEdit && (
-        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--colour2)' }}>
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-              disabled={isCollaborative}
-            />
-            Make this list public
-          </label>
-          <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--colour2)' }}>
+        <>
+          <div className="ls-form-flags">
+            <label className="ls-form-check">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled={isCollaborative}
+              />
+              public
+            </label>
+            <label className="ls-form-check">
               <input
                 type="checkbox"
                 checked={isCollaborative}
                 onChange={(e) => setIsCollaborative(e.target.checked)}
               />
-              Make this list collaborative (anyone can add/edit items)
+              collaborative — anyone can add or edit entries
             </label>
-            {isCollaborative && (
-              <div style={{
-                marginTop: '4px',
-                fontSize: '0.85em',
-                color: 'var(--colour2)',
-                opacity: 0.7,
-                marginLeft: '24px'
-              }}>
-                Collaborative lists are always public.
-              </div>
-            )}
           </div>
-        </div>
+          {isCollaborative && (
+            <p className="ls-form-note">collaborative lists are always public.</p>
+          )}
+        </>
       )}
 
-      {/* Mode Toggle */}
-      <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-        <div style={{ 
-          display: 'inline-flex', 
-          backgroundColor: 'var(--colour2)', 
-          borderRadius: '8px', 
-          padding: '4px',
-          gap: '4px'
-        }}>
-          <button
-            onClick={() => setAddMode('album')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '4px',
-              border: 'none',
-              backgroundColor: addMode === 'album' ? 'var(--colour3)' : 'transparent',
-              color: 'var(--colour4)',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontFamily: 'var(--font2)'
-            }}
-          >
-            Add Album
-          </button>
-          <button
-            onClick={() => setAddMode('custom')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '4px',
-              border: 'none',
-              backgroundColor: addMode === 'custom' ? 'var(--colour3)' : 'transparent',
-              color: 'var(--colour4)',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontFamily: 'var(--font2)'
-            }}
-          >
-            Add Custom Item
-          </button>
-        </div>
+      <h3 className="ls-form-h">
+        <span className="ls-form-h-label">add</span>
+        <span className="ls-form-h-rule" aria-hidden="true" />
+      </h3>
+
+      <div className="ls-form-modes">
+        <span className="ls-form-modes-key">kind:</span>
+        <button
+          type="button"
+          className={`ls-form-mode${addMode === 'album' ? ' is-sel' : ''}`}
+          aria-pressed={addMode === 'album'}
+          onClick={() => setAddMode('album')}
+        >
+          album
+        </button>
+        <span className="ls-form-mode-sep" aria-hidden="true">/</span>
+        <button
+          type="button"
+          className={`ls-form-mode${addMode === 'custom' ? ' is-sel' : ''}`}
+          aria-pressed={addMode === 'custom'}
+          onClick={() => setAddMode('custom')}
+        >
+          anything else
+        </button>
       </div>
 
-      {/* Album Search Mode */}
       {addMode === 'album' && (
         <>
-          <div style={{ marginBottom: '20px' }}>
-            <AlbumSearchBox
-              placeholder="Search for an album or paste Navidrome URL..."
-              onAlbumSelect={handleAlbumSelect}
-              onUrlSubmit={handleUrlSubmit}
-            />
-          </div>
+          <AlbumSearchBox
+            placeholder="search an album, or paste a navidrome url…"
+            onAlbumSelect={handleAlbumSelect}
+            onUrlSubmit={handleUrlSubmit}
+          />
 
-          {/* Selected Album Preview */}
           {selectedAlbum && (
-            <div style={{ 
-              marginBottom: '20px', 
-              padding: '16px', 
-              borderRadius: '8px',
-              display: 'flex',
-              gap: '12px',
-              alignItems: 'flex-start'
-            }}>
-              <img 
-                src={selectedAlbum.cover} 
+            <div className="ls-form-pick">
+              <img
+                className="ls-form-pick-thumb"
+                src={selectedAlbum.cover}
                 alt={`${selectedAlbum.title} by ${selectedAlbum.artist}`}
-                style={{ width: '60px', height: '60px', borderRadius: '4px', objectFit: 'cover' }}
               />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', color: 'var(--colour5)', marginBottom: '4px' }}>
-                  {selectedAlbum.title}
-                </div>
-                <div style={{ color: 'var(--colour5)', opacity: 0.8, fontSize: '0.9em' }}>
-                  by {selectedAlbum.artist}
-                </div>
-                <div style={{ marginTop: '8px' }}>
-                  <MessageTextBox
-                    value={currentItemText}
-                    onChange={setCurrentItemText}
-                    placeholder="Add your thoughts about this album..."
-                    showSendButton={false}
-                    showCounter={false}
-                    rows={4}
-                  />
-                </div>
-                <div style={{ marginTop: '8px' }}>
-                  <Button onClick={handleAddAlbum} label="Add to List" />
+              <div>
+                <div className="ls-form-pick-name">{selectedAlbum.title}</div>
+                <div className="ls-form-pick-artist">by {selectedAlbum.artist}</div>
+                <textarea
+                  className="ls-form-textarea"
+                  value={currentItemText}
+                  maxLength={1000}
+                  placeholder="what do you make of it?"
+                  onChange={(e) => setCurrentItemText(e.target.value)}
+                />
+                <div className="ls-form-actions">
+                  <button type="button" className="ls-form-btn" onClick={handleAddAlbum}>
+                    add entry
+                  </button>
+                  <button
+                    type="button"
+                    className="ls-form-quiet"
+                    onClick={() => setSelectedAlbum(null)}
+                  >
+                    discard
+                  </button>
                 </div>
               </div>
             </div>
@@ -775,290 +753,219 @@ const CreateList: React.FC<CreateListProps> = ({
         </>
       )}
 
-      {/* Custom Item Mode */}
       {addMode === 'custom' && (
-        <div style={{ 
-          marginBottom: '20px', 
-          padding: '16px', 
-          borderRadius: '8px'
-        }}>
-          <h4 style={{ color: 'var(--colour5)', marginTop: 0, marginBottom: '12px' }}>
-            Add Custom Item
-          </h4>
-          
-          <div style={{ marginBottom: '12px' }}>
-            <MessageTextBox
+        <div>
+          <div className="ls-form-field">
+            <label className="ls-form-label" htmlFor="ls-form-custom-title">title</label>
+            <input
+              id="ls-form-custom-title"
+              className="ls-form-input"
+              type="text"
               value={customTitle}
-              onChange={setCustomTitle}
-              placeholder="Enter title (required)"
-              showSendButton={false}
-              showCounter={false}
+              maxLength={200}
+              placeholder="required"
+              onChange={(e) => setCustomTitle(e.target.value)}
             />
           </div>
-          
-          <div style={{ marginBottom: '12px' }}>
-            <MessageTextBox
+
+          <div className="ls-form-field">
+            <label className="ls-form-label" htmlFor="ls-form-custom-image">image url</label>
+            <input
+              id="ls-form-custom-image"
+              className="ls-form-input"
+              type="url"
               value={customImageUrl}
-              onChange={setCustomImageUrl}
-              placeholder="Image URL (optional)"
-              showSendButton={false}
-              showCounter={false}
+              placeholder="optional"
+              onChange={(e) => setCustomImageUrl(e.target.value)}
             />
           </div>
-          
-          <div style={{ marginBottom: '12px' }}>
-            <MessageTextBox
+
+          <div className="ls-form-field">
+            <label className="ls-form-label" htmlFor="ls-form-custom-link">link url</label>
+            <input
+              id="ls-form-custom-link"
+              className="ls-form-input"
+              type="url"
               value={customLinkUrl}
-              onChange={setCustomLinkUrl}
-              placeholder="Link URL (optional)"
-              showSendButton={false}
-              showCounter={false}
+              placeholder="optional"
+              onChange={(e) => setCustomLinkUrl(e.target.value)}
             />
           </div>
-          
-          <div style={{ marginBottom: '12px' }}>
-            <MessageTextBox
+
+          <div className="ls-form-field">
+            <label className="ls-form-label" htmlFor="ls-form-custom-note">note</label>
+            <textarea
+              id="ls-form-custom-note"
+              className="ls-form-textarea"
               value={currentItemText}
-              onChange={setCurrentItemText}
-              placeholder="Add your thoughts about this item..."
-              showSendButton={false}
-              showCounter={false}
-              rows={4}
+              maxLength={1000}
+              placeholder="what do you make of it?"
+              onChange={(e) => setCurrentItemText(e.target.value)}
             />
           </div>
-          
-          <Button onClick={handleAddCustomItem} label="Add to List" />
-        </div>
-      )}
 
-      {/* Items in List */}
-      {items.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ color: 'var(--colour2)', fontFamily: 'var(--font2)', marginBottom: '12px' }}>
-            Items in List ({items.length})
-          </h3>
-          <div style={{ marginBottom: '16px', fontSize: '14px', color: 'var(--colour2)', fontStyle: 'italic' }}>
-            💡 Drag items by the handle to reorder them
+          <div className="ls-form-actions">
+            <button type="button" className="ls-form-btn" onClick={handleAddCustomItem}>
+              add entry
+            </button>
           </div>
-          {items.map((item, index) => {
-            const isDragging = draggedIndex === index;
-            const isDragOver = dragOverIndex === index;
-            
-            return (
-              <div 
-                key={index}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, index)}
-                style={{ 
-                  marginBottom: '12px', 
-                  padding: '12px', 
-                  backgroundColor: isDragging ? 'var(--colour3)' : 'var(--colour1)', 
-                  borderRadius: '8px',
-                  border: isDragOver ? '2px dashed var(--colour4)' : '1px solid var(--colour3)',
-                  display: 'flex',
-                  gap: '12px',
-                  alignItems: 'flex-start',
-                  position: 'relative',
-                  opacity: isDragging ? 0.5 : 1,
-                  transform: isDragOver ? 'translateY(-2px)' : 'none',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {/* Drag handle */}
-                <div 
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragEnd={handleDragEnd}
-                  style={{
-                    color: 'var(--colour4)',
-                    fontSize: '16px',
-                    cursor: 'grab',
-                    padding: '5px',
-                    userSelect: 'none',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    minWidth: '30px'
-                  }}
-                >
-                  <span style={{ lineHeight: 1 }}>⋮⋮</span>
-                  <span style={{ fontSize: '12px', marginTop: '2px' }}>{index + 1}</span>
-                </div>
-
-                <button
-                  onClick={() => handleRemoveItem(index)}
-                  style={{
-                    position: 'absolute',
-                    top: '8px',
-                    right: '8px',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--colour4)',
-                    cursor: 'pointer',
-                    fontSize: '16px'
-                  }}
-                  aria-label="Remove item"
-                >
-                  ✕
-                </button>
-                
-                {/* Image for both album and custom items */}
-                {((item.type === 'album' && item.albumCover) || (item.type === 'custom' && item.imageUrl)) && (
-                  item.type === 'custom' && item.linkUrl ? (
-                    <a href={item.linkUrl} target="_blank" rel="noopener noreferrer">
-                      <img 
-                        src={item.imageUrl} 
-                        alt={item.title}
-                        style={{ width: '50px', height: '50px', borderRadius: '4px', objectFit: 'cover', cursor: 'pointer' }}
-                      />
-                    </a>
-                  ) : (
-                    <img 
-                      src={item.type === 'album' ? item.albumCover : item.imageUrl} 
-                      alt={item.type === 'album' ? `${item.albumTitle} by ${item.albumArtist}` : item.title}
-                      style={{ width: '50px', height: '50px', borderRadius: '4px', objectFit: 'cover' }}
-                    />
-                  )
-                )}
-                
-                <div style={{ flex: 1, paddingRight: '24px' }}>
-                  <div style={{ fontWeight: 'bold', color: 'var(--colour2)', marginBottom: '2px' }}>
-                    {item.type === 'album' ? (
-                      item.albumTitle
-                    ) : item.linkUrl ? (
-                      <a 
-                        href={item.linkUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        style={{ color: 'inherit', textDecoration: 'none' }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.textDecoration = 'underline';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.textDecoration = 'none';
-                        }}
-                      >
-                        {item.title}
-                      </a>
-                    ) : (
-                      item.title
-                    )}
-                  </div>
-                  {item.type === 'album' && (
-                    <div style={{ color: 'var(--colour2)', opacity: 0.8, fontSize: '0.9em', marginBottom: '4px' }}>
-                      by {item.albumArtist}
-                    </div>
-                  )}
-                  {editingItemIndex === index ? (
-                    <div style={{ marginBottom: '8px', backgroundColor: 'var(--colour1)' }}>
-                      {/* Show image and link URL inputs for custom items */}
-                      {item.type === 'custom' && (
-                        <>
-                          <div style={{ marginBottom: '8px' }}>
-                            <MessageTextBox
-                              value={editingImageUrl}
-                              onChange={setEditingImageUrl}
-                              placeholder="Image URL (leave empty to remove image)"
-                              showSendButton={false}
-                              showCounter={false}
-                            />
-                          </div>
-                          <div style={{ marginBottom: '8px' }}>
-                            <MessageTextBox
-                              value={editingLinkUrl}
-                              onChange={setEditingLinkUrl}
-                              placeholder="Link URL (leave empty to remove link)"
-                              showSendButton={false}
-                              showCounter={false}
-                            />
-                          </div>
-                        </>
-                      )}
-                      <div>
-                        <MessageTextBox
-                          value={editingText}
-                          onChange={setEditingText}
-                          placeholder="Enter description..."
-                          showSendButton={false}
-                          showCounter={false}
-                          rows={4}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                        <button
-                          onClick={saveEditedText}
-                          style={{
-                            backgroundColor: 'var(--colour4)',
-                            color: 'var(--colour1)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '4px 8px',
-                            cursor: 'pointer',
-                            fontSize: '12px'
-                          }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={cancelEditing}
-                          style={{
-                            backgroundColor: 'var(--colour3)',
-                            color: 'var(--colour4)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '4px 8px',
-                            cursor: 'pointer',
-                            fontSize: '12px'
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div 
-                      style={{ 
-                        color: 'var(--colour4)', 
-                        fontSize: '0.9em',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        border: '1px solid transparent',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--colour2)';
-                        e.currentTarget.style.border = '1px solid var(--colour3)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.border = '1px solid transparent';
-                      }}
-                      onClick={() => startEditingItem(index, item.userText)}
-                      title="Click to edit description"
-                    >
-                      {item.userText || 'Click to add description...'}
-                      <span style={{ marginLeft: '8px', opacity: 0.6, fontSize: '0.8em' }}>✏️</span>
-                    </div>
-                  )}
-                  <div style={{ color: 'var(--colour4)', opacity: 0.6, fontSize: '0.8em', marginTop: '4px' }}>
-                    {item.type === 'album' ? '🎵 Album' : '📝 Custom Item'}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
       )}
-      {/* Save Button */}
-      <div style={{ textAlign: 'center' }}>
-        <Button 
+
+      {items.length > 0 && (
+        <>
+          <h3 className="ls-form-h">
+            <span className="ls-form-h-label">entries</span>
+            <span className="ls-form-h-rule" aria-hidden="true" />
+            <span className="ls-form-h-note">{items.length} · drag to reorder</span>
+          </h3>
+
+          <ol className="ls-form-entries">
+            {items.map((item, index) => {
+              const isDragging = draggedIndex === index;
+              const isDragOver = dragOverIndex === index;
+              const image = item.type === 'album' ? item.albumCover : item.imageUrl;
+              const title = item.type === 'album' ? item.albumTitle : item.title;
+
+              return (
+                <li
+                  key={index}
+                  className={`ls-form-entry${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-dragover' : ''}`}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                >
+                  <span
+                    className="ls-form-grip"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragEnd={handleDragEnd}
+                    aria-hidden="true"
+                  >
+                    ⋮⋮
+                  </span>
+
+                  <span className="ls-form-entry-n">{String(index + 1).padStart(2, '0')}</span>
+
+                  <div className="ls-form-entry-body">
+                    <div className="ls-form-entry-media">
+                      {image && (
+                        <img
+                          className="ls-form-entry-thumb"
+                          src={image}
+                          alt={title}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      )}
+
+                      <div className="ls-form-entry-main">
+                        <div className="ls-form-entry-head">
+                          {item.type === 'custom' && item.linkUrl ? (
+                            <a
+                              className="ls-form-entry-title"
+                              href={item.linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {title}
+                            </a>
+                          ) : (
+                            <span className="ls-form-entry-title">{title}</span>
+                          )}
+                          {item.type === 'album' && (
+                            <span className="ls-form-entry-artist">by {item.albumArtist}</span>
+                          )}
+                          <span className="ls-form-entry-kind">
+                            {item.type === 'album' ? '[album]' : '[custom]'}
+                          </span>
+                        </div>
+
+                        {editingItemIndex === index ? (
+                          <div className="ls-form-entry-edit">
+                            {item.type === 'custom' && (
+                              <>
+                                <input
+                                  className="ls-form-input"
+                                  type="url"
+                                  value={editingImageUrl}
+                                  placeholder="image url — empty to remove"
+                                  onChange={(e) => setEditingImageUrl(e.target.value)}
+                                />
+                                <input
+                                  className="ls-form-input"
+                                  type="url"
+                                  value={editingLinkUrl}
+                                  placeholder="link url — empty to remove"
+                                  onChange={(e) => setEditingLinkUrl(e.target.value)}
+                                />
+                              </>
+                            )}
+                            <textarea
+                              className="ls-form-textarea"
+                              value={editingText}
+                              maxLength={1000}
+                              placeholder="what do you make of it?"
+                              onChange={(e) => setEditingText(e.target.value)}
+                            />
+                            <div className="ls-form-actions">
+                              <button type="button" className="ls-form-btn" onClick={saveEditedText}>
+                                save entry
+                              </button>
+                              <button type="button" className="ls-form-quiet" onClick={cancelEditing}>
+                                cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`ls-form-entry-text${item.userText ? '' : ' ls-form-entry-text--none'}`}
+                            onClick={() => startEditingItem(index, item.userText)}
+                            title="Click to edit the note"
+                          >
+                            {item.userText || 'add a note…'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ls-form-entry-acts">
+                    <button
+                      type="button"
+                      className="ls-form-del"
+                      onClick={() => handleRemoveItem(index)}
+                      aria-label={`Remove ${title}`}
+                    >
+                      del
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
+
+      <div className="ls-form-actions">
+        <button
+          type="button"
+          className="ls-form-btn ls-form-btn--primary"
           onClick={handleSaveList}
           disabled={loading || !listTitle.trim() || items.length === 0}
-          label={loading ? (editMode ? 'Updating List...' : 'Creating List...') : (editMode ? 'Update List' : 'Save List')}
-        />
+        >
+          {loading
+            ? (editMode ? 'updating…' : 'saving…')
+            : (editMode ? 'update list' : 'save list')}
+        </button>
+        {onCancel && (
+          <button type="button" className="ls-form-quiet" onClick={onCancel} disabled={loading}>
+            cancel
+          </button>
+        )}
       </div>
+
+      {error && <p className="ls-form-error" role="alert">{error}</p>}
     </div>
   );
 };

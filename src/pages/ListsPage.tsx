@@ -1,32 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
-import Button from '../components/basic/Button';
 import CreateList from '../components/CreateList';
-
-interface BaseListItem {
-  type: 'album' | 'custom';
-  userText: string;
-  order: number;
-}
-
-interface AlbumListItem extends BaseListItem {
-  type: 'album';
-  albumId: string;
-  albumTitle: string;
-  albumArtist: string;
-  albumCover: string;
-}
-
-interface CustomListItem extends BaseListItem {
-  type: 'custom';
-  title: string;
-  imageUrl?: string;
-}
-
-type ListItemType = AlbumListItem | CustomListItem;
+import { normalizeAvatarPath } from '../utils/avatarPath';
+import './ListsPage.css';
 
 interface List {
   id: string;
@@ -38,15 +17,43 @@ interface List {
   itemCount: number;
   isPublic?: boolean;
   isCollaborative?: boolean;
-  items?: ListItemType[];
+  // Denormalised onto the list by CreateList on every save, so the sheet needs
+  // no subcollection reads to show what was added last.
+  lastItemImage?: string;
+  lastItemAddedByAvatar?: string;
 }
 
+/** What a list is ordered and dated by: when it last changed, falling back to
+ *  when it was made for the lists that predate the field. */
+const activityMillis = (list: List): number => {
+  const stamp = list.lastUpdated ?? list.timestamp;
+  return stamp?.toMillis ? stamp.toMillis() : 0;
+};
+
+/** What the plate shows, in order of preference: the last thing added to the
+ *  list, the sticker of whoever added it, then nothing. */
+const plateFor = (list: List): { src: string; kind: 'image' | 'avatar' | 'none' } => {
+  if (list.lastItemImage) return { src: list.lastItemImage, kind: 'image' };
+  const avatar = normalizeAvatarPath(list.lastItemAddedByAvatar);
+  if (avatar) return { src: avatar, kind: 'avatar' };
+  return { src: '', kind: 'none' };
+};
+
+const formatDate = (millis: number): string => {
+  if (!millis) return '—';
+  return new Date(millis)
+    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+    .toLowerCase();
+};
+
 const ListsPage: React.FC = () => {
-  const navigate = useNavigate();
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingListId, setEditingListId] = useState<string | null>(null);
+  // Covers are whatever URL someone pasted, so some of them rot or refuse to be
+  // loaded cross-origin. Those fall back to the sleeve rather than to a blank
+  // plate — the set has to survive a dead link.
+  const [coverFailed, setCoverFailed] = useState<Set<string>>(new Set());
 
   const fetchLists = useCallback(async () => {
     try {
@@ -83,13 +90,7 @@ const ListsPage: React.FC = () => {
         });
       });
 
-      const listsData = Array.from(listsById.values()).sort((a, b) => {
-        const aTime = a.lastUpdated?.toMillis ? a.lastUpdated.toMillis() : 0;
-        const bTime = b.lastUpdated?.toMillis ? b.lastUpdated.toMillis() : 0;
-        return bTime - aTime;
-      });
-
-      setLists(listsData);
+      setLists(Array.from(listsById.values()));
     } catch (err) {
       console.error('Error fetching lists:', err);
     } finally {
@@ -110,214 +111,100 @@ const ListsPage: React.FC = () => {
     return () => unsubscribe();
   }, [fetchLists]);
 
+  // Most recently touched first. The two fetches are merged out of a Map, so the
+  // order has to be reimposed here whatever order they came back in.
+  const sorted = useMemo(
+    () => [...lists].sort((a, b) => activityMillis(b) - activityMillis(a)),
+    [lists]
+  );
 
-
-
-
-  // Format timestamp for display
-  const formatTimestamp = (timestamp: any) => {
-    if (!timestamp) return 'Unknown time';
-    
-    try {
-      const date = timestamp.toDate();
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return 'Unknown time';
-    }
-  };
-
-  // Handle list creation completion
-  const handleListCreated = (listId: string) => {
+  const handleListCreated = () => {
     setShowCreateForm(false);
-    fetchLists(); // Re-fetch to show the new/updated list
+    fetchLists(); // Re-fetch to show the new list
   };
-
-  // Handle edit completion
-  const handleEditComplete = () => {
-    setEditingListId(null);
-    fetchLists(); // Re-fetch to show updates
-  };
-
-  if (loading) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--colour4)' }}>
-        Loading lists...
-      </div>
-    );
-  }
 
   return (
-    <div className="app-container">
-      <Header title="Lists" subtitle={''} />
-      
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-        {/* Create List Section */}
-        <div style={{ marginBottom: '30px' }}>
-          {!showCreateForm && !editingListId ? (
-            <div style={{ textAlign: 'center' }}>
-              <Button
-                onClick={() => setShowCreateForm(true)}
-                label="Create a list"
-                type="basic"
-              />
-            </div>
-          ) : showCreateForm ? (
-            <div>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: '20px' 
-              }}>
-                <h2 style={{ color: 'var(--colour2)', margin: 0 }}>Create New List</h2>
-                <Button
-                  onClick={() => setShowCreateForm(false)}
-                  label="Cancel"
-                  type="basic"
-                />
-              </div>
-              <CreateList onListCreated={handleListCreated} />
-            </div>
-          ) : editingListId ? (
-            <div>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: '20px' 
-              }}>
-                <h2 style={{ color: 'var(--colour2)', margin: 0 }}>
-                  Edit List: {lists.find(l => l.id === editingListId)?.title}
-                </h2>
-                <Button
-                  onClick={() => setEditingListId(null)}
-                  label="Cancel"
-                  type="basic"
-                />
-              </div>
-              <CreateList 
-                onListCreated={handleEditComplete}
-                editMode={true}
-                existingListId={editingListId}
-                existingList={lists.find(l => l.id === editingListId)}
-              />
-            </div>
-          ) : null}
+    <div className="lists-page">
+      <div className="ls-sheet">
+        <Header title="Lists" subtitle="albums, records and anything else, in an order someone meant" />
+
+        <div className="ls-bar">
+          <span className="ls-bar-label">lists</span>
+          <span className="ls-bar-rule" aria-hidden="true" />
+
+          <button
+            type="button"
+            className="ls-bar-new"
+            aria-expanded={showCreateForm}
+            onClick={() => setShowCreateForm((open) => !open)}
+          >
+            {showCreateForm ? 'cancel' : '+ new list'}
+          </button>
+
+          <span className="ls-bar-note">
+            {lists.length} list{lists.length === 1 ? '' : 's'}
+          </span>
         </div>
 
-        {/* Lists Display */}
-        <div>
-          <h2 style={{ 
-            color: 'var(--colour2)', 
-            fontFamily: 'var(--font2)', 
-            marginBottom: '20px',
-            textAlign: 'center'
-          }}>
-            All Lists ({lists.length})
-          </h2>
+        {showCreateForm && (
+          <div className="ls-form-band">
+            <CreateList onListCreated={handleListCreated} onCancel={() => setShowCreateForm(false)} />
+          </div>
+        )}
 
-          {lists.length === 0 ? (
-            <div style={{ 
-              textAlign: 'center', 
-              color: 'var(--colour4)', 
-              opacity: 0.7,
-              fontSize: '18px',
-              padding: '40px 0'
-            }}>
-              No lists created yet. Create your first album list above!
-            </div>
-          ) : (
-            lists.map((list) => (
-              <div 
-                key={list.id}
-                style={{
-                  backgroundColor: 'var(--colour2)',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  marginBottom: '20px',
-                  color: 'var(--colour4)'
-                }}
-              >
-                {/* List Header */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start'
-                }}>
-                  {/* Clickable list area */}
-                  <div
-                    onClick={() => navigate(`/lists/${list.id}`)}
-                    style={{
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flex: 1,
-                      paddingRight: '12px'
-                    }}
-                  >
-                    <div style={{ flex: 1, textAlign: 'center' }}>
-                      <h3 style={{
-                        margin: '0 0 8px 0',
-                        fontSize: '1.3em',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px'
-                      }}>
-                        {list.title}
+        {loading ? (
+          <p className="ls-status">loading…</p>
+        ) : sorted.length === 0 ? (
+          <p className="ls-empty">no lists yet — make the first one.</p>
+        ) : (
+          <ul className="ls-grid">
+            {sorted.map((list) => {
+              const plate = coverFailed.has(list.id)
+                ? { src: '', kind: 'none' as const }
+                : plateFor(list);
+
+              return (
+                <li key={list.id}>
+                  <Link to={`/lists/${list.id}`} className="ls-cell">
+                    <span className={`ls-plate ls-plate--${plate.kind}`}>
+                      {plate.kind === 'none' ? (
+                        <>
+                          <span className="ls-plate-sleeve" aria-hidden="true">{list.title}</span>
+                          <span className="ls-plate-mark" aria-hidden="true">·˚⋆</span>
+                        </>
+                      ) : (
+                        <img
+                          src={plate.src}
+                          alt=""
+                          loading="lazy"
+                          onError={() => setCoverFailed((failed) => new Set(failed).add(list.id))}
+                        />
+                      )}
+                    </span>
+
+                    <span className="ls-cap">
+                      <span className="ls-cap-head">
+                        <span className="ls-cap-title">{list.title}</span>
                         {list.isPublic === false && (
-                          <span title="Private list" aria-label="Private">🔒</span>
+                          <span className="ls-cap-tag ls-cap-tag--private">[private]</span>
                         )}
-                        {list.isCollaborative && (
-                          <span
-                            title="Collaborative list - anyone can edit"
-                            aria-label="Collaborative"
-                            style={{
-                              fontSize: '0.55em',
-                              padding: '2px 8px',
-                              backgroundColor: 'var(--colour4)',
-                              color: 'var(--colour2)',
-                              borderRadius: '10px',
-                              fontWeight: 'normal'
-                            }}
-                          >
-                            Collab
-                          </span>
-                        )}
-                      </h3>
-                      <div style={{
-                        fontSize: '0.9em',
-                        opacity: 0.8,
-                        marginBottom: '4px'
-                      }}>
-                        by {list.username} • {formatTimestamp(list.timestamp)}
-                      </div>
-                      <div style={{
-                        fontSize: '0.9em',
-                        opacity: 0.8
-                      }}>
-                        {list.itemCount} item{list.itemCount !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '1.2em' }}>
-                      →
-                    </div>
-                  </div>
-                </div>
-
-
-              </div>
-            ))
-          )}
-        </div>
+                        {list.isCollaborative && <span className="ls-cap-tag">[collab]</span>}
+                      </span>
+                      <span className="ls-cap-meta">
+                        <span className="ls-cap-by">by {list.username}</span>
+                        <span className="ls-cap-sep" aria-hidden="true">·</span>
+                        <span className="ls-cap-count">{list.itemCount}</span>
+                        <span>item{list.itemCount === 1 ? '' : 's'}</span>
+                        <span className="ls-cap-sep" aria-hidden="true">·</span>
+                        <span>{formatDate(activityMillis(list))}</span>
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );

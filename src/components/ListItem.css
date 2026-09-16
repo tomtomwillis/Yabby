@@ -1,0 +1,231 @@
+/* One entry in a list.
+ *
+ * Two tracks: the picture, held to a square with a hairline round it, and the
+ * entry itself — what it is, what the person who added it said about it, and
+ * who that was. No surface of its own: it prints on whichever sheet the page
+ * gives it, and the rule under it belongs to the row, not to this.
+ *
+ * The --ls-* variables are declared on .lists-page / .list-page; the fallbacks
+ * keep the entry standing if it is ever rendered outside them.
+ */
+
+/* Centred against the plate, not hung off its top corner: at this size a note
+   pinned to the top edge leaves half a metre of white under it and reads as a
+   caption that fell off. */
+.ls-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(0.8rem, 1.8vw, 1.8rem);
+  align-items: center;
+  min-width: 0;
+}
+
+.ls-item--no-image {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The remove word takes a track of its own so it stays level with the entry's
+   first line rather than dropping below it. */
+.ls-item--removable {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.ls-item--no-image.ls-item--removable {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* ─── Picture ─────────────────────────────────────────── */
+
+/* Square and ruled rather than rounded and shadowed — a plate in a printed
+   listing. The one curve on the page belongs to people, not to artwork.
+   Sized against the window rather than the column so that roughly one and a
+   half entries stand on a screen: big enough to be the thing you came for,
+   short enough that the next one is always showing under it. Capped against the
+   viewport's width too, or a tall narrow window would print a plate wider than
+   the page. */
+.ls-item-thumb {
+  display: block;
+  width: min(54vh, 46vw);
+  height: min(54vh, 46vw);
+  padding: 0;
+  background: none;
+  border: 1px solid var(--ls-rule, #c9cee4);
+  border-radius: 0;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.ls-item-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+button.ls-item-thumb,
+a.ls-item-thumb {
+  cursor: pointer;
+}
+
+button.ls-item-thumb:hover,
+button.ls-item-thumb:focus-visible,
+a.ls-item-thumb:hover,
+a.ls-item-thumb:focus-visible {
+  border-color: var(--colour3);
+}
+
+button.ls-item-thumb:focus-visible,
+a.ls-item-thumb:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+/* ─── Body ────────────────────────────────────────────── */
+
+.ls-item-body {
+  min-width: 0;
+  font-family: var(--font2);
+}
+
+.ls-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+  font-size: clamp(0.95rem, 1.2vw, 1.45rem);
+  letter-spacing: 0.02em;
+}
+
+.ls-item-title {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ls-accent, var(--colour2));
+  text-align: left;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+button.ls-item-title,
+a.ls-item-title {
+  cursor: pointer;
+}
+
+button.ls-item-title:hover,
+button.ls-item-title:focus-visible,
+a.ls-item-title:hover,
+a.ls-item-title:focus-visible {
+  color: var(--colour3);
+}
+
+.ls-item-artist {
+  color: var(--ls-mute, #8a90a8);
+}
+
+/* What kind of entry it is, stated in the same face as everything else rather
+   than as an icon. */
+.ls-item-kind {
+  margin-left: auto;
+  font-size: 0.82em;
+  letter-spacing: 0.06em;
+  color: var(--ls-mute, #8a90a8);
+}
+
+/* ─── What was said about it ──────────────────────────── */
+
+.ls-item-text {
+  max-width: 68ch;
+  margin-top: 0.5rem;
+  font-size: clamp(0.85rem, 0.92vw, 1.08rem);
+  line-height: 1.6;
+  color: var(--ls-ink, var(--colour5));
+  overflow-wrap: anywhere;
+}
+
+.ls-item-text--none {
+  color: var(--ls-mute, #8a90a8);
+}
+
+.ls-item-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ─── Who added it ────────────────────────────────────── */
+
+.ls-item-by {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  font-size: clamp(0.74rem, 0.78vw, 0.9rem);
+  letter-spacing: 0.04em;
+  color: var(--ls-mute, #8a90a8);
+}
+
+.ls-item-by a {
+  color: var(--ls-dim, #5566c9);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.ls-item-by a:hover,
+.ls-item-by a:focus-visible {
+  color: var(--colour3);
+}
+
+/* Round, like every other picture of a person on the site. */
+.ls-item-av {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ─── Remove ──────────────────────────────────────────── */
+
+/* A word, not an icon, and red only on hover. */
+.ls-item-del {
+  align-self: start;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.74vw, 0.84rem);
+  letter-spacing: 0.08em;
+  color: var(--ls-dim, #5566c9);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ls-item-del:hover,
+.ls-item-del:focus-visible {
+  color: #c0392b;
+}
+
+/* The plate takes the width and the entry reads under it, rather than the two
+   fighting over a column narrower than the plate wants to be. */
+@media (max-width: 700px) {
+  .ls-item,
+  .ls-item--removable {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6rem;
+  }
+
+  .ls-item-thumb {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  .ls-item-kind {
+    margin-left: 0;
+  }
+
+  /* Back in the corner it would have had if the entry were still two tracks. */
+  .ls-item--removable .ls-item-del {
+    justify-self: end;
+  }
+}

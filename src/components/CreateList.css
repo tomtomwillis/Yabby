@@ -1,0 +1,541 @@
+/* Making a list — a form set as a printed slip.
+ *
+ * It renders in flow inside the page's one tinted band rather than as an
+ * overlay, so a page simply grows a section when you choose to make or edit a
+ * list: no floating panel, no shadow, nothing to dismiss. Fields are plain
+ * white squares on the tint; everything else is a word on a line.
+ *
+ * The entries you have added so far print underneath as the same ledger the
+ * saved list will be, so you are looking at the thing you are making.
+ *
+ * The --ls-* variables are declared on .lists-page / .list-page; the fallbacks
+ * keep the form standing if it is ever used outside them.
+ */
+
+.ls-form {
+  padding: 0 var(--ls-edge, 1rem) 0.9rem;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.84rem);
+  color: var(--ls-ink, var(--colour5));
+  text-align: left;
+}
+
+/* ─── Section heads ───────────────────────────────────── */
+
+.ls-form-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.7rem 0 0.6rem;
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--ls-accent, var(--colour2));
+}
+
+.ls-form-h-label,
+.ls-form-h-note {
+  flex: 0 0 auto;
+}
+
+.ls-form-h-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--ls-rule, #c9cee4);
+  transform: translateY(-0.25em);
+}
+
+.ls-form-h-note {
+  color: var(--ls-mute, #8a90a8);
+}
+
+/* ─── Fields ──────────────────────────────────────────── */
+
+.ls-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.7rem;
+}
+
+.ls-form-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--ls-dim, #5566c9);
+}
+
+.ls-form-input,
+.ls-form-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 66ch;
+  padding: 0.45rem 0.6rem;
+  background: var(--colour4);
+  border: 1px solid var(--ls-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.86rem);
+  line-height: 1.5;
+  color: var(--ls-ink, var(--colour5));
+  transition: border-color 0.15s ease;
+}
+
+.ls-form-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.ls-form-input:focus,
+.ls-form-textarea:focus {
+  outline: none;
+  border-color: var(--ls-accent, var(--colour2));
+}
+
+.ls-form-input::placeholder,
+.ls-form-textarea::placeholder {
+  color: var(--ls-mute, #8a90a8);
+}
+
+/* ─── Flags ───────────────────────────────────────────── */
+
+.ls-form-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem clamp(1rem, 2vw, 2rem);
+  margin-bottom: 0.2rem;
+}
+
+.ls-form-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--ls-accent, var(--colour2));
+  cursor: pointer;
+}
+
+.ls-form-check input {
+  width: 0.85em;
+  height: 0.85em;
+  margin: 0;
+  accent-color: var(--ls-accent, var(--colour2));
+  cursor: pointer;
+}
+
+.ls-form-check input:disabled,
+.ls-form-check:has(input:disabled) {
+  color: var(--ls-mute, #8a90a8);
+  cursor: default;
+}
+
+.ls-form-note {
+  margin: 0 0 0.7rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--ls-mute, #8a90a8);
+}
+
+/* ─── Mode ────────────────────────────────────────────── */
+
+/* Two words on a line rather than a segmented control — the same vocabulary the
+   index's sort is set in, so choosing what to add and choosing an order look
+   alike. */
+.ls-form-modes {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin-bottom: 0.7rem;
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+}
+
+.ls-form-modes-key {
+  color: var(--ls-dim, #5566c9);
+}
+
+.ls-form-mode {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ls-mute, #8a90a8);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ls-form-mode.is-sel {
+  color: var(--ls-accent, var(--colour2));
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.ls-form-mode:hover,
+.ls-form-mode:focus-visible {
+  color: var(--colour3);
+}
+
+.ls-form-mode-sep {
+  color: var(--ls-rule, #c9cee4);
+}
+
+/* ─── The album search, brought into the language ─────── */
+
+/* AlbumSearchBox is shared with the media tools, so it is re-set here rather
+   than edited there: square, hairline, mono, and a listing for results instead
+   of a stack of filled buttons. */
+.ls-form .album-search-container {
+  max-width: 66ch;
+  margin: 0;
+}
+
+.ls-form .album-search-input-area {
+  gap: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--colour4);
+  border: 1px solid var(--ls-rule, #c9cee4);
+  border-radius: 0;
+  transition: border-color 0.15s ease;
+}
+
+.ls-form .album-search-input-area:focus-within {
+  border-color: var(--ls-accent, var(--colour2));
+}
+
+.ls-form .album-search-input {
+  font-size: clamp(0.72rem, 0.7vw, 0.86rem);
+  color: var(--ls-ink, var(--colour5));
+}
+
+.ls-form .album-search-input::placeholder {
+  color: var(--ls-mute, #8a90a8);
+  opacity: 1;
+}
+
+.ls-form .album-search-status {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--ls-mute, #8a90a8);
+  opacity: 1;
+}
+
+.ls-form .album-search-results {
+  max-width: 66ch;
+  margin-top: 0.35rem;
+  border: 1px solid var(--ls-rule, #c9cee4);
+}
+
+.ls-form .album-result-button {
+  padding: 0.35rem 0.6rem;
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--ls-rule-soft, #dfe3f0);
+  border-radius: 0;
+  color: var(--ls-accent, var(--colour2)) !important;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.ls-form .album-search-results li:last-child .album-result-button {
+  border-bottom: none;
+}
+
+.ls-form .album-result-button:hover,
+.ls-form .album-result-button:focus-visible {
+  background-color: var(--colour4) !important;
+  color: var(--colour3) !important;
+}
+
+.ls-form .album-result-name {
+  font-size: clamp(0.7rem, 0.68vw, 0.82rem);
+  font-weight: 400;
+}
+
+.ls-form .album-result-artist {
+  font-size: 0.66rem;
+  color: var(--ls-mute, #8a90a8);
+  opacity: 1;
+}
+
+.ls-form .album-search-send-button .basic-button {
+  border-radius: 0;
+}
+
+/* ─── The picked album ────────────────────────────────── */
+
+.ls-form-pick {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+  margin: 0.6rem 0 0.7rem;
+}
+
+.ls-form-pick-thumb {
+  width: 62px;
+  height: 62px;
+  border: 1px solid var(--ls-rule, #c9cee4);
+  object-fit: cover;
+}
+
+.ls-form-pick-name {
+  font-size: clamp(0.74rem, 0.72vw, 0.88rem);
+  color: var(--ls-accent, var(--colour2));
+}
+
+.ls-form-pick-artist {
+  margin-bottom: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--ls-mute, #8a90a8);
+}
+
+/* ─── The entries added so far ────────────────────────── */
+
+.ls-form-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Handle, position, entry, controls — the ledger the saved list will be, with
+   two more tracks for the things only the form can do. */
+.ls-form-entry {
+  display: grid;
+  grid-template-columns: auto clamp(1.5rem, 2.4vw, 2.2rem) minmax(0, 1fr) auto;
+  gap: clamp(0.4rem, 1vw, 0.8rem);
+  align-items: start;
+  padding: 0.55rem 0;
+  /* Held open so the drop mark below costs no height and nothing shifts under
+     the pointer mid-drag. */
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid var(--ls-rule-soft, #dfe3f0);
+  transition: opacity 0.15s ease;
+}
+
+.ls-form-entry.is-dragging {
+  opacity: 0.4;
+}
+
+/* The drop target marks itself with a rule where the entry would land, not by
+   moving — nothing on this page lifts. */
+.ls-form-entry.is-dragover {
+  border-top-color: var(--ls-accent, var(--colour2));
+}
+
+.ls-form-grip {
+  padding: 0 0.1rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  color: var(--ls-mute, #8a90a8);
+  cursor: grab;
+  user-select: none;
+}
+
+.ls-form-grip:active {
+  cursor: grabbing;
+}
+
+.ls-form-entry-n {
+  font-size: clamp(0.72rem, 0.7vw, 0.84rem);
+  font-variant-numeric: tabular-nums;
+  color: var(--ls-dim, #5566c9);
+}
+
+.ls-form-entry-body {
+  min-width: 0;
+}
+
+.ls-form-entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+  font-size: clamp(0.74rem, 0.72vw, 0.86rem);
+}
+
+.ls-form-entry-title {
+  color: var(--ls-accent, var(--colour2));
+  text-decoration: none;
+}
+
+.ls-form-entry-title:hover,
+.ls-form-entry-title:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.ls-form-entry-artist,
+.ls-form-entry-kind {
+  color: var(--ls-mute, #8a90a8);
+  font-size: 0.82em;
+  letter-spacing: 0.06em;
+}
+
+.ls-form-entry-thumb {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--ls-rule, #c9cee4);
+  object-fit: cover;
+}
+
+.ls-form-entry-media {
+  display: flex;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.ls-form-entry-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The note reads as text and edits in place; the only sign it is a control is
+   the colour it takes on hover. */
+.ls-form-entry-text {
+  max-width: 68ch;
+  margin-top: 0.25rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: clamp(0.7rem, 0.68vw, 0.82rem);
+  line-height: 1.5;
+  color: var(--ls-ink, var(--colour5));
+  text-align: left;
+  cursor: text;
+  transition: color 0.15s ease;
+}
+
+.ls-form-entry-text:hover,
+.ls-form-entry-text:focus-visible {
+  color: var(--colour3);
+}
+
+.ls-form-entry-text--none {
+  color: var(--ls-mute, #8a90a8);
+}
+
+.ls-form-entry-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.ls-form-entry-acts {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.ls-form-del {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--ls-dim, #5566c9);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ls-form-del:hover,
+.ls-form-del:focus-visible {
+  color: #c0392b;
+}
+
+/* ─── Actions ─────────────────────────────────────────── */
+
+.ls-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 0.9rem;
+}
+
+.ls-form-btn {
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  border: 1px solid var(--ls-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--ls-accent, var(--colour2));
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ls-form-btn:hover:not(:disabled),
+.ls-form-btn:focus-visible {
+  border-color: var(--colour3);
+  color: var(--colour3);
+}
+
+.ls-form-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The form's one filled control. */
+.ls-form-btn--primary {
+  background: var(--ls-accent, var(--colour2));
+  border-color: var(--ls-accent, var(--colour2));
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.ls-form-btn--primary:hover:not(:disabled),
+.ls-form-btn--primary:focus-visible {
+  background: var(--colour3);
+  border-color: var(--colour3);
+  color: #fff;
+}
+
+.ls-form-btn:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+/* A bare word, for the thing that only takes you back. */
+.ls-form-quiet {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--ls-dim, #5566c9);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ls-form-quiet:hover:not(:disabled),
+.ls-form-quiet:focus-visible {
+  color: var(--colour3);
+}
+
+.ls-form-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #c0392b;
+}
+
+/* ─── Narrow ──────────────────────────────────────────── */
+
+@media (max-width: 620px) {
+  .ls-form-entry {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 0.4rem;
+  }
+
+  /* The position goes with the handle rather than taking a track of its own. */
+  .ls-form-entry-n {
+    display: none;
+  }
+}

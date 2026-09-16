@@ -1,0 +1,447 @@
+/*
+ * Lists — a contact sheet.
+ *
+ * Each list is shown by the last thing added to it: a square plate, ruled with
+ * a hairline, with the title and what the page knows about it printed
+ * underneath. The plates make the page; the type stays small, mono and quiet
+ * beside them. Nothing is rounded, nothing is shadowed, nothing lifts — the
+ * only thing hover changes is colour.
+ *
+ * The sheet is held to a measure and centred, so the set reads as one printed
+ * page rather than as rows stretched across whatever width the window has. The
+ * masthead and the bar sit inside that measure too, so all three edges line up.
+ */
+
+.lists-page {
+  --ls-rule: #c9cee4;
+  /* A hairline a step lighter, for rules drawn inside a band rather than
+     between bands. */
+  --ls-rule-soft: #dfe3f0;
+  --ls-ink: var(--colour5);
+  --ls-accent: var(--colour2);
+  --ls-dim: #5566c9;
+  /* A step quieter again, for what you read last: counts, dates, notes. */
+  --ls-mute: #8a90a8;
+
+  /* The sheet the page is printed on — left just short of solid so the site's
+     star still passes behind it as a tint. */
+  --ls-sheet: rgba(251, 251, 253, 0.94);
+  --ls-sheet-hover: rgba(255, 255, 255, 0.98);
+  /* The one band that is an input rather than content. */
+  --ls-tint: rgba(238, 241, 251, 0.95);
+
+  /* How far the content holds off the sheet's edges. */
+  --ls-edge: clamp(14px, 2.4vw, 34px);
+  /* How many plates to a row. A fixed count rather than auto-fill: the plates
+     should grow with the window, not multiply — five across on a desk, stepping
+     down to two on a phone. */
+  --ls-across: 5;
+
+  width: 100%;
+  text-align: left;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .lists-page {
+    --ls-sheet: #fbfbfd;
+    --ls-sheet-hover: #ffffff;
+    --ls-tint: #eef1fb;
+  }
+}
+
+/* The sheet takes the whole column. The plates stretch to fill it rather than
+   sitting in a centred block, so the page starts at the same left edge as every
+   other page in the shell and the rules run the full width. */
+.ls-sheet {
+  width: 100%;
+}
+
+/* ─── Masthead ────────────────────────────────────────── */
+
+/* The title keeps the site's voice; only the space around it is this page's
+   business — it is the first line of the sheet, ruled off like the rest. */
+.ls-sheet > header.header {
+  margin: 0;
+  padding: 0 var(--ls-edge) 0.45rem;
+  border-bottom: 1px solid var(--ls-rule);
+}
+
+.ls-sheet > header.header .small-text {
+  margin: 0;
+  font-family: var(--font3);
+  font-size: clamp(1.125rem, 1.3vw, 1.4rem);
+  color: var(--colour6);
+}
+
+/* ─── The bar ─────────────────────────────────────────── */
+
+/* The section-heading idiom doing double duty as a control: a small mono label,
+   the sort stated as `key: value value`, a hairline taking whatever width is
+   left, and the count pinned to the far end. Pinned to the top of whatever is
+   scrolling, so the sort stays reachable the whole way down the sheet. */
+.ls-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: baseline;
+  gap: clamp(0.5rem, 1vw, 0.9rem);
+  padding: 0.6rem var(--ls-edge);
+  /* Opaque, unlike the sheet the plates are printed on: this band lies over the
+     page rather than under it, and the translucent surfaces are for letting the
+     star through, never prose. */
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--ls-rule);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.92rem);
+  letter-spacing: 0.08em;
+}
+
+.ls-bar-label {
+  flex: 0 0 auto;
+  color: var(--ls-accent);
+}
+
+.ls-bar-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--ls-rule);
+  transform: translateY(-0.25em);
+}
+
+.ls-bar-note {
+  flex: 0 0 auto;
+  color: var(--ls-mute);
+}
+
+/* ─── Sort ────────────────────────────────────────────── */
+
+/* Both orders stated on the line rather than hidden behind a dropdown — at two
+   values an index to open would cost more than it saves. */
+.ls-sort {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.ls-sort-key {
+  color: var(--ls-dim);
+}
+
+.ls-sort-opt {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ls-mute);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ls-sort-opt.is-sel {
+  color: var(--ls-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.ls-sort-opt:hover,
+.ls-sort-opt:focus-visible {
+  color: var(--colour3);
+}
+
+.ls-sort-opt:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.ls-sort-sep {
+  color: var(--ls-rule);
+}
+
+/* ─── The one control ─────────────────────────────────── */
+
+.ls-bar-new {
+  flex: 0 0 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ls-dim);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ls-bar-new:hover,
+.ls-bar-new:focus-visible {
+  color: var(--colour3);
+}
+
+.ls-bar-new:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+/* ─── Input band ──────────────────────────────────────── */
+
+/* The form that makes a list. In flow rather than over the page, so choosing to
+   make one simply grows a band — the tint marks it as the one thing on the page
+   you type into, and the full-strength rule under it is where the sheet proper
+   starts. */
+.ls-form-band {
+  background: var(--ls-tint);
+  border-bottom: 2px solid var(--ls-accent);
+}
+
+/* ─── The mosaic ──────────────────────────────────────── */
+
+/* No gaps: the plates butt against each other and the only thing between them
+   is a hairline, edge to edge across the column. The rules are the grid's own
+   background showing through 1px gaps rather than borders on the cells — that
+   way every rule is exactly one pixel and no two cells ever double one up. */
+.ls-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ls-across), minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 2.5rem;
+  padding: 0;
+  background: var(--ls-rule);
+  border-top: 1px solid var(--ls-rule);
+  border-bottom: 1px solid var(--ls-rule);
+  list-style: none;
+}
+
+/* Opaque, unlike the rest of the page's surfaces: the hairlines are a colour
+   showing through from behind, so anything translucent here would tint every
+   cell and blunt the rules. */
+.ls-grid > li {
+  background: #fbfbfd;
+}
+
+.ls-cell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  text-decoration: none;
+}
+
+/* ─── The plate ───────────────────────────────────────── */
+
+/* Square and square-cornered, with no border of its own — in the mosaic the
+   grid's hairlines are the plate's edges. The picture is whatever was added to
+   the list last. */
+.ls-plate {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #fbfbfd;
+  transition: outline-color 0.15s ease;
+}
+
+.ls-plate img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A sticker standing in for a missing cover is a small square drawing, not a
+   photograph — printed at its own size in the middle of the plate rather than
+   blown up to fill it. */
+.ls-plate--avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ls-plate--avatar img {
+  width: 55%;
+  height: 55%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* Nothing to show: the plate becomes a plain sleeve with the title printed on
+   it. Lists made before the site started keeping the last item's picture have
+   no cover at all, and a sheet of empty squares would read as a fault rather
+   than as a set. */
+.ls-plate--none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: clamp(0.7rem, 1.4vw, 1.2rem);
+  background: var(--ls-tint);
+  text-align: center;
+}
+
+.ls-plate-sleeve {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 1vw, 0.98rem);
+  line-height: 1.5;
+  letter-spacing: 0.05em;
+  color: var(--ls-dim);
+}
+
+.ls-plate-mark {
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.9vw, 0.88rem);
+  letter-spacing: 0.3em;
+  color: var(--ls-rule);
+  user-select: none;
+}
+
+/* Drawn inside the plate rather than around it: there is no room between two
+   plates for a border to appear in without shifting the whole mosaic. */
+.ls-cell:hover .ls-plate,
+.ls-cell:focus-visible .ls-plate {
+  outline: 1px solid var(--colour3);
+  outline-offset: -1px;
+}
+
+.ls-cell:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: -2px;
+}
+
+/* ─── The caption ─────────────────────────────────────── */
+
+/* A strip printed under the plate, ruled off from it, filling whatever height
+   the row has so every cell in a row ends on the same line. */
+.ls-cap {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.5rem clamp(0.5rem, 0.8vw, 0.8rem) 0.6rem;
+  border-top: 1px solid var(--ls-rule-soft);
+  font-family: var(--font2);
+}
+
+.ls-cap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.4rem;
+}
+
+.ls-cap-title {
+  min-width: 0;
+  font-size: clamp(0.8rem, 0.85vw, 1rem);
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: var(--ls-accent);
+  /* Two lines, then it gives up — a caption under a plate, not a paragraph. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  transition: color 0.15s ease;
+}
+
+.ls-cell:hover .ls-cap-title,
+.ls-cell:focus-visible .ls-cap-title {
+  color: var(--colour3);
+}
+
+/* A word in brackets rather than a pill or an emoji — the caption says what a
+   list is in the same face it says everything else. */
+.ls-cap-tag {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ls-dim);
+}
+
+.ls-cap-tag--private {
+  color: var(--ls-mute);
+}
+
+.ls-cap-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: clamp(0.68rem, 0.7vw, 0.8rem);
+  line-height: 1.5;
+  color: var(--ls-mute);
+}
+
+.ls-cap-by {
+  color: var(--ls-dim);
+}
+
+.ls-cap-sep {
+  color: var(--ls-rule);
+}
+
+.ls-cap-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Notes ───────────────────────────────────────────── */
+
+.ls-status,
+.ls-empty {
+  margin: 0;
+  padding: 1rem var(--ls-edge);
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.74vw, 0.88rem);
+  letter-spacing: 0.04em;
+  color: var(--ls-mute);
+}
+
+/* ─── Narrow ──────────────────────────────────────────── */
+
+/* The line becomes two: the sort and the control on the first, the count on the
+   second. The rule goes with them — at this width it has no space left to
+   fill. */
+@media (max-width: 700px) {
+  .ls-bar {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+
+  .ls-bar-rule {
+    flex-basis: 100%;
+    min-width: 0;
+    margin: 0.15rem 0;
+    border: none;
+    transform: none;
+  }
+}
+
+/* Stepping the count down rather than letting the plates shrink: a plate is the
+   point of the page, and five of them across a tablet would be stamps. */
+@media (max-width: 1100px) {
+  .lists-page {
+    --ls-across: 4;
+  }
+}
+
+@media (max-width: 860px) {
+  .lists-page {
+    --ls-across: 3;
+  }
+}
+
+@media (max-width: 560px) {
+  .lists-page {
+    --ls-across: 2;
+  }
+
+  .ls-cap {
+    padding: 0.45rem 0.5rem 0.55rem;
+  }
+}
