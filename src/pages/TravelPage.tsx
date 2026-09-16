@@ -6,10 +6,7 @@ import { auth, db } from '../firebaseConfig';
 import TravelMap, { type TravelMapView } from '../components/travel/TravelMap';
 import TravelAddBox from '../components/travel/TravelAddBox';
 import TravelConfirmForm from '../components/travel/TravelConfirmForm';
-import TravelFilters, {
-  type CityOption,
-  type UserOption,
-} from '../components/travel/TravelFilters';
+import TravelFilters, { type Facet } from '../components/travel/TravelFilters';
 import TravelPlaceBubble from '../components/travel/TravelPlaceBubble';
 import TravelRecommendationList from '../components/travel/TravelRecommendationList';
 import { getUserData } from '../utils/userCache';
@@ -27,11 +24,24 @@ import {
   deleteTravelContribution,
 } from '../utils/travelApi';
 import Header from '../components/basic/Header';
+import { PLACE_CATEGORIES } from '../components/travel/travelTypes';
 import type { Place, PlaceCategory, TravelPhoto } from '../components/travel/travelTypes';
 import './TravelPage.css';
 
 interface UserPlaceMembership {
   [userId: string]: Set<string>;
+}
+
+/** Which facet a count is being taken for — that one is left out of the match,
+ *  so each index shows what choosing a value would actually leave. */
+type Facetted = 'city' | 'category' | 'user' | null;
+
+function trackFilter(type: string) {
+  try {
+    window.umami?.track?.('travel_filter_changed', { type });
+  } catch {
+    /* ignore umami errors */
+  }
 }
 
 async function loadPlacesAndMemberships(): Promise<{ places: Place[]; memberships: UserPlaceMembership }> {
@@ -95,7 +105,6 @@ export default function TravelPage() {
   const [categoryFilter, setCategoryFilter] = useState<PlaceCategory | ''>('');
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [mapView, setMapView] = useState<TravelMapView | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [deepLinkedPlaceId, setDeepLinkedPlaceId] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -133,53 +142,6 @@ export default function TravelPage() {
     });
   }, [user]);
 
-  // Consume ?city= and ?place= query params once places are loaded
-  useEffect(() => {
-    if (places.length === 0) return;
-    const cityParam = searchParams.get('city');
-    const placeParam = searchParams.get('place');
-    if (cityParam) handleCityChange(cityParam);
-    if (placeParam) setDeepLinkedPlaceId(placeParam);
-  }, [places, searchParams]);
-
-  // Pan map to deep-linked place
-  useEffect(() => {
-    if (!deepLinkedPlaceId || places.length === 0) return;
-    const target = places.find((p) => p.id === deepLinkedPlaceId);
-    if (target) setFocus({ lat: target.lat, lng: target.lng, zoom: 15 });
-  }, [deepLinkedPlaceId, places]);
-
-  const filteredPlaces = useMemo(() => {
-    let list = places;
-    if (cityFilter) list = list.filter((p) => p.cityKey === cityFilter);
-    if (categoryFilter) list = list.filter((p) => p.categories.includes(categoryFilter));
-    if (userFilter) {
-      const set = memberships[userFilter] ?? new Set<string>();
-      list = list.filter((p) => set.has(p.id));
-    }
-    return list;
-  }, [places, cityFilter, categoryFilter, userFilter, memberships]);
-
-  const cities = useMemo<CityOption[]>(() => {
-    const labels = new Map<string, string>();
-    const counts = new Map<string, number>();
-    for (const p of places) {
-      if (!p.cityKey) continue;
-      if (!labels.has(p.cityKey)) labels.set(p.cityKey, p.city || p.cityKey);
-      counts.set(p.cityKey, (counts.get(p.cityKey) ?? 0) + (p.contributorCount || 1));
-    }
-    return Array.from(labels.entries())
-      .map(([cityKey, label]) => ({ cityKey, label, count: counts.get(cityKey) ?? 0 }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-      .map(({ cityKey, label }) => ({ cityKey, label }));
-  }, [places]);
-
-  const users = useMemo<UserOption[]>(() => {
-    return Object.keys(memberships)
-      .map((uid) => ({ userId: uid, username: usernamesById[uid] ?? 'Anonymous' }))
-      .sort((a, b) => a.username.localeCompare(b.username));
-  }, [memberships, usernamesById]);
-
   const handleCityChange = useCallback(
     (key: string) => {
       setCityFilter(key);
@@ -192,6 +154,127 @@ export default function TravelPage() {
     },
     [places],
   );
+
+  // Consume ?city= and ?place= query params once places are loaded
+  useEffect(() => {
+    if (places.length === 0) return;
+    const cityParam = searchParams.get('city');
+    const placeParam = searchParams.get('place');
+    if (cityParam) handleCityChange(cityParam);
+    if (placeParam) setDeepLinkedPlaceId(placeParam);
+  }, [places, searchParams, handleCityChange]);
+
+  // Pan map to deep-linked place
+  useEffect(() => {
+    if (!deepLinkedPlaceId || places.length === 0) return;
+    const target = places.find((p) => p.id === deepLinkedPlaceId);
+    if (target) setFocus({ lat: target.lat, lng: target.lng, zoom: 15 });
+  }, [deepLinkedPlaceId, places]);
+
+  /** Does this place survive the filters, ignoring the one being counted? */
+  const matches = useCallback(
+    (p: Place, skip: Facetted) =>
+      (skip === 'city' || !cityFilter || p.cityKey === cityFilter) &&
+      (skip === 'category' || !categoryFilter || p.categories.includes(categoryFilter)) &&
+      (skip === 'user' || !userFilter || (memberships[userFilter]?.has(p.id) ?? false)),
+    [cityFilter, categoryFilter, userFilter, memberships],
+  );
+
+  /** A place whose last contribution was deleted is still in the collection but
+   *  has nothing to show, so nothing on the page counts it. */
+  const livePlaces = useMemo(() => places.filter((p) => p.contributorCount > 0), [places]);
+
+  const filteredPlaces = useMemo(
+    () => livePlaces.filter((p) => matches(p, null)),
+    [livePlaces, matches],
+  );
+
+  const cityFacet = useMemo(() => {
+    const labels = new Map<string, string>();
+    const counts = new Map<string, number>();
+    let allCount = 0;
+    for (const p of livePlaces) {
+      if (!p.cityKey) continue;
+      if (!labels.has(p.cityKey)) labels.set(p.cityKey, p.city || p.cityKey);
+      if (!matches(p, 'city')) continue;
+      allCount += 1;
+      counts.set(p.cityKey, (counts.get(p.cityKey) ?? 0) + 1);
+    }
+    const options = Array.from(labels.entries())
+      .map(([value, label]) => ({ value, label, count: counts.get(value) ?? 0 }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    return { options, allCount };
+  }, [livePlaces, matches]);
+
+  const categoryFacet = useMemo(() => {
+    const counts = new Map<string, number>();
+    let allCount = 0;
+    for (const p of livePlaces) {
+      if (!matches(p, 'category')) continue;
+      allCount += 1;
+      for (const c of new Set(p.categories)) counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+    const options = PLACE_CATEGORIES.map((c) => ({
+      value: c.value,
+      label: c.label.toLowerCase(),
+      count: counts.get(c.value) ?? 0,
+    })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    return { options, allCount };
+  }, [livePlaces, matches]);
+
+  const userFacet = useMemo(() => {
+    const eligible = new Set(livePlaces.filter((p) => matches(p, 'user')).map((p) => p.id));
+    const options = Object.entries(memberships)
+      .map(([uid, placeIds]) => ({
+        value: uid,
+        label: usernamesById[uid] ?? 'anonymous',
+        count: Array.from(placeIds).filter((id) => eligible.has(id)).length,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    return { options, allCount: eligible.size };
+  }, [livePlaces, memberships, usernamesById, matches]);
+
+  const facets = useMemo<Facet[]>(
+    () => [
+      {
+        key: 'city',
+        value: cityFilter,
+        options: cityFacet.options,
+        allCount: cityFacet.allCount,
+        onChange: (value: string) => {
+          handleCityChange(value);
+          trackFilter('city');
+        },
+      },
+      {
+        key: 'category',
+        value: categoryFilter,
+        options: categoryFacet.options,
+        allCount: categoryFacet.allCount,
+        onChange: (value: string) => {
+          setCategoryFilter(value as PlaceCategory | '');
+          trackFilter('category');
+        },
+      },
+      {
+        key: 'by',
+        value: userFilter,
+        options: userFacet.options,
+        allCount: userFacet.allCount,
+        onChange: (value: string) => {
+          setUserFilter(value);
+          trackFilter('user');
+        },
+      },
+    ],
+    [cityFilter, categoryFilter, userFilter, cityFacet, categoryFacet, userFacet, handleCityChange],
+  );
+
+  const clearFilters = useCallback(() => {
+    handleCityChange('');
+    setCategoryFilter('');
+    setUserFilter('');
+  }, [handleCityChange]);
 
   const suggestedCategory: PlaceCategory = pickedCategoryHint
     ?? (picked ? categoryFromOsm(picked) : 'other');
@@ -280,40 +363,13 @@ export default function TravelPage() {
       const ts = p.lastActivityAt ?? p.createdAt;
       return ts ? ts.toMillis() : 0;
     };
-    return filteredPlaces
-      .filter((p) => p.contributorCount > 0)
-      .slice()
-      .sort((a, b) => tsMillis(b) - tsMillis(a));
+    return filteredPlaces.slice().sort((a, b) => tsMillis(b) - tsMillis(a));
   }, [filteredPlaces]);
+
   const recSectionRef = useRef<HTMLDivElement>(null);
   const [scrolledToList, setScrolledToList] = useState(false);
-  const [filterPos, setFilterPos] = useState<{ x: number; y: number } | null>(null);
-  const filterDragRef = useRef<{ startMouse: { x: number; y: number }; startEl: { x: number; y: number } } | null>(null);
 
-  const handleFilterDragStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const sidebar = (e.currentTarget as HTMLElement).closest('.travel-page__sidebar') as HTMLElement;
-    const rect = sidebar.getBoundingClientRect();
-    filterDragRef.current = {
-      startMouse: { x: e.clientX, y: e.clientY },
-      startEl: { x: rect.left, y: rect.top },
-    };
-    const onMove = (ev: MouseEvent) => {
-      if (!filterDragRef.current) return;
-      setFilterPos({
-        x: filterDragRef.current.startEl.x + (ev.clientX - filterDragRef.current.startMouse.x),
-        y: filterDragRef.current.startEl.y + (ev.clientY - filterDragRef.current.startMouse.y),
-      });
-    };
-    const onUp = () => {
-      filterDragRef.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, []);
-
-  const handleScrollBtn = useCallback(() => {
+  const handleJump = useCallback(() => {
     if (scrolledToList) {
       scrollPageTo({ top: 0, behavior: 'smooth' });
     } else if (recSectionRef.current) {
@@ -359,10 +415,11 @@ export default function TravelPage() {
 
   return (
     <div className="travel-page">
-      <Header title="Travel" subtitle="IRL Recommendations from the Yabby community" />
+      <Header title="Travel" subtitle="IRL recommendations from the Yabby community" />
 
-      {/* Map — breaks out of #root to 80vw */}
-      <div className="travel-page__map-area">
+      {/* The map runs the full width of the column, ruled off top and bottom
+          like any other band on the sheet. */}
+      <div className="tv-map">
         <TravelMap
           places={visiblePlaces}
           focus={focus}
@@ -371,124 +428,63 @@ export default function TravelPage() {
         />
       </div>
 
-      {/* Filters — fixed to viewport, left edge, overlays the map while scrolling */}
-      <div
-        className="travel-page__sidebar"
-        style={filterPos ? { left: filterPos.x, top: filterPos.y, transform: 'none' } : undefined}
-      >
-        <TravelFilters
-          cities={cities}
-          users={users}
-          cityFilter={cityFilter}
-          userFilter={userFilter}
-          categoryFilter={categoryFilter}
-          onCityChange={handleCityChange}
-          onCategoryChange={setCategoryFilter}
-          onUserChange={(uid) => {
-            setUserFilter(uid);
-            try {
-              window.umami?.track?.('travel_filter_changed', { type: 'user' });
-            } catch {
-              /* ignore */
-            }
-          }}
-          dragHandle={
-            <div className="travel-page__filter-handle" onMouseDown={handleFilterDragStart} title="Drag to move">
-              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <circle cx="5" cy="4" r="1.2" /><circle cx="5" cy="8" r="1.2" /><circle cx="5" cy="12" r="1.2" />
-                <circle cx="11" cy="4" r="1.2" /><circle cx="11" cy="8" r="1.2" /><circle cx="11" cy="12" r="1.2" />
-              </svg>
-            </div>
-          }
-        />
-      </div>
+      <TravelFilters
+        facets={facets}
+        shown={visiblePlaces.length}
+        total={livePlaces.length}
+        onClear={clearFilters}
+      />
 
-      {/* Scroll-to-recommendations arrow — hidden on mobile */}
-      <button
-        className={`travel-page__scroll-btn${scrolledToList ? ' scrolled-to-list' : ''}`}
-        onClick={handleScrollBtn}
-        aria-label="Scroll to recommendations"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-
-      {/* Bottom section: input + recs, with confirm form anchored above */}
-      <div className="travel-page__bottom">
-        {picked && (
-          <div className="travel-page__confirm-overlay">
-            <TravelConfirmForm
-              picked={picked}
-              currentUserAvatar={currentUserAvatar}
-              suggestedCategory={suggestedCategory}
-              onConfirm={confirmAdd}
-              onCancel={() => {
-                setPicked(null);
-                setPickedCategoryHint(null);
-              }}
-            />
-          </div>
-        )}
-
-        <div className="travel-page__input-row">
+      {/* The one band on the page that is an input rather than content. */}
+      <div className="tv-add">
+        <div className="tv-add-row">
+          <span className="tv-add-label">add</span>
           <TravelAddBox onPick={setPicked} bias={mapView ?? undefined} />
         </div>
 
-        {/* Mobile-only collapsible filters */}
-        <div className="travel-page__mobile-filters">
-          <button
-            className={`travel-page__mobile-filters-toggle${filtersOpen ? ' open' : ''}`}
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-          >
-            <span>Filters</span>
-            {(cityFilter || userFilter || categoryFilter) && (
-              <span className="travel-page__mobile-filters-dot" />
-            )}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-          {filtersOpen && (
-            <div className="travel-page__mobile-filters-body">
-              <TravelFilters
-                cities={cities}
-                users={users}
-                cityFilter={cityFilter}
-                userFilter={userFilter}
-                categoryFilter={categoryFilter}
-                onCityChange={handleCityChange}
-                onCategoryChange={setCategoryFilter}
-                onUserChange={(uid) => {
-                  setUserFilter(uid);
-                  try {
-                    window.umami?.track?.('travel_filter_changed', { type: 'user' });
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="travel-page__rec-section" ref={recSectionRef}>
-          {loading && <p className="travel-page__status">Loading recommendations…</p>}
-          {pageError && <p className="travel-page__error">{pageError}</p>}
-          {!loading && !pageError && (
-            <TravelRecommendationList
-              places={visiblePlaces}
-              currentUserId={user?.uid ?? null}
-              onEditContribution={editContribution}
-              onDeleteContribution={deleteContribution}
-              onFocus={(p) => setFocus({ lat: p.lat, lng: p.lng, zoom: 14 })}
-              onAddOwn={handleAddOwn}
-              initialExpandedId={deepLinkedPlaceId}
-            />
-          )}
-        </div>
+        {picked && (
+          <TravelConfirmForm
+            picked={picked}
+            currentUserAvatar={currentUserAvatar}
+            suggestedCategory={suggestedCategory}
+            onConfirm={confirmAdd}
+            onCancel={() => {
+              setPicked(null);
+              setPickedCategoryHint(null);
+            }}
+          />
+        )}
       </div>
+
+      <div className="tv-list" ref={recSectionRef}>
+        <h2 className="tv-h">
+          <span className="tv-h-label">recommendations</span>
+          <span className="tv-h-rule" aria-hidden="true" />
+          <span className="tv-h-note">
+            {visiblePlaces.length} {visiblePlaces.length === 1 ? 'entry' : 'entries'}
+          </span>
+        </h2>
+
+        {loading && <p className="tv-status">loading recommendations…</p>}
+        {pageError && <p className="tv-error">{pageError}</p>}
+        {!loading && !pageError && (
+          <TravelRecommendationList
+            places={visiblePlaces}
+            currentUserId={user?.uid ?? null}
+            onEditContribution={editContribution}
+            onDeleteContribution={deleteContribution}
+            onFocus={(p) => setFocus({ lat: p.lat, lng: p.lng, zoom: 14 })}
+            onAddOwn={handleAddOwn}
+            initialExpandedId={deepLinkedPlaceId}
+          />
+        )}
+      </div>
+
+      {/* A word, not a floating disc: the only thing on the page pinned to the
+          viewport, so it stays the plainest control here. */}
+      <button className="tv-jump" onClick={handleJump} type="button">
+        {scrolledToList ? '↑ map' : '↓ list'}
+      </button>
     </div>
   );
 }

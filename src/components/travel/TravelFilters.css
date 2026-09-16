@@ -1,92 +1,266 @@
-.travel-filters {
-  pointer-events: all;
-  background: var(--colour2);
-  border-radius: 10px;
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 2px 12px rgba(26, 46, 204, 0.25);
-}
+/* The filter, set as a line of type.
+ *
+ * The section-heading idiom doing double duty as a control: a small mono label,
+ * the facets stated as `key: value`, a hairline taking whatever width is left,
+ * and the count pinned to the far end. Nothing floats and nothing is a
+ * dropdown — opening a facet unrolls an index of its values under the bar,
+ * each name on a dot leader with the number of places choosing it would leave.
+ *
+ * The bar sticks to the top of the scrolling column, so the filter stays
+ * readable and reachable the whole way down the list.
+ *
+ * The --tv-* variables are declared on .travel-page; the fallbacks keep the bar
+ * standing if it is ever used outside it.
+ */
 
-.travel-filters__field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.travel-filters__label {
+/* Pinned to the top of whatever is scrolling. Inside the home shell that is a
+   padded column rather than the window, so Home.css offsets this back out by
+   the column's top padding — the bar cannot know that padding from here. */
+/* Opaque, unlike the sheet the rows are printed on: this band lies over the
+   page rather than under it, and the one thing the translucent surfaces are
+   for is letting the star through, never letting prose through. */
+.tv-filter {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--tv-rule, #c9cee4);
   font-family: var(--font2);
-  font-size: 0.65rem;
-  text-transform: uppercase;
+}
+
+.tv-filter-bar {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(0.5rem, 1vw, 0.9rem);
+  padding: 0.5rem var(--tv-edge, 1rem);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.7);
 }
 
-.travel-filters__select {
-  font-family: var(--font2);
-  font-size: 0.8rem;
-  color: var(--colour4);
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  padding: 5px 8px;
+.tv-filter-label {
+  flex: 0 0 auto;
+  color: var(--tv-accent, #1a2ecc);
+}
+
+/* A facet is a word on the line, not a box on it — `city: glasgow ▸`, where the
+   value is the only part that carries emphasis. */
+.tv-facet {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--tv-dim, #5566c9);
   cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.6)'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 24px;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.travel-filters__select:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+.tv-facet-key {
+  color: var(--tv-dim, #5566c9);
 }
 
-.travel-filters__select:focus {
-  outline: none;
-  border-color: var(--colour3);
+.tv-facet-val {
+  color: var(--tv-mute, #8a90a8);
 }
 
-.travel-filters__select option {
-  background: var(--colour2);
-  color: var(--colour4);
+.tv-facet.is-set .tv-facet-val {
+  color: var(--tv-accent, #1a2ecc);
 }
 
-.travel-filters__clear {
-  font-family: var(--font2);
-  font-size: 0.75rem;
-  color: var(--colour4);
-  background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.4);
-  border-radius: 6px;
-  padding: 5px 8px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-  text-align: center;
-}
-
-.travel-filters__clear:hover:not(:disabled) {
-  background: rgba(232, 122, 58, 0.2);
-  border-color: var(--colour3);
+.tv-facet:hover,
+.tv-facet:focus-visible,
+.tv-facet:hover .tv-facet-key,
+.tv-facet:hover .tv-facet-val,
+.tv-facet:focus-visible .tv-facet-key,
+.tv-facet:focus-visible .tv-facet-val {
   color: var(--colour3);
 }
 
-.travel-filters__clear:disabled {
-  opacity: 0.35;
-  cursor: default;
+.tv-facet:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
 }
 
-@media (max-width: 768px) {
-  .travel-filters {
-    padding: 8px;
-    gap: 7px;
+.tv-facet-mark {
+  display: inline-block;
+  font-size: 0.85em;
+  transition: transform 0.28s ease;
+}
+
+.tv-facet.is-open .tv-facet-mark {
+  transform: rotate(90deg);
+}
+
+.tv-filter-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--tv-rule, #c9cee4);
+  transform: translateY(-0.25em);
+}
+
+.tv-filter-clear {
+  flex: 0 0 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--tv-dim, #5566c9);
+  cursor: pointer;
+}
+
+.tv-filter-clear:hover,
+.tv-filter-clear:focus-visible {
+  color: var(--colour3);
+}
+
+.tv-filter-note {
+  flex: 0 0 auto;
+  color: var(--tv-mute, #8a90a8);
+}
+
+/* ─── The index a facet opens ─────────────────────────── */
+
+/* 0fr → 1fr animates to the list's own height without measuring it. Hidden
+   rather than merely flattened, so a closed panel's options leave the tab
+   order; held until the roll-up has finished and dropped the instant it opens. */
+.tv-filter-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  /* Opaque for the same reason as the bar above it — it unrolls over the list. */
+  background: #eef1fb;
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0.28s;
+}
+
+.tv-filter-panel.is-open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0s;
+}
+
+.tv-filter-panel-inner {
+  overflow: hidden;
+}
+
+/* Newspaper columns, not a grid — rank has to read top-to-bottom in the first
+   column before it spills into the second, or position 2 in the sort lands
+   beside position 1 instead of under it. A fixed height rather than
+   max-height, because column-fill: auto only obeys a definite one; overflow
+   then runs sideways instead of down, so a long list (a hundred cities) grows
+   more columns rather than pushing the rest of the page off the window. A dot
+   leader rather than a box-drawing tree for the same reason the columns are
+   fluid — a leader reads the same at any column count, where a `└─` would only
+   be right in one of them. */
+.tv-opts {
+  columns: clamp(150px, 15vw, 215px);
+  column-gap: clamp(1rem, 2.2vw, 2.4rem);
+  column-fill: auto;
+  max-height: clamp(160px, 30vh, 320px);
+  margin: 0;
+  padding: 0.55rem var(--tv-edge, 1rem) 0.75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.tv-opts li {
+  break-inside: avoid;
+}
+
+.tv-opt {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  padding: 0.12rem 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  line-height: 1.55;
+  letter-spacing: 0.03em;
+  color: var(--tv-ink, #2b2b2b);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tv-opt:hover,
+.tv-opt:focus-visible {
+  color: var(--colour3);
+}
+
+.tv-opt:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.tv-opt.is-sel {
+  color: var(--tv-accent, #1a2ecc);
+  font-weight: 700;
+}
+
+/* A value the other facets have already ruled out. Left in place rather than
+   dropped, so the index does not reshuffle under the pointer as you filter. */
+.tv-opt.is-empty {
+  color: var(--tv-mute, #8a90a8);
+}
+
+.tv-opt-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tv-opt-leader {
+  flex: 1 1 auto;
+  min-width: 0.8rem;
+  height: 0;
+  margin: 0 0.4rem;
+  border-bottom: 1px dotted var(--tv-rule, #c9cee4);
+  transform: translateY(-0.3em);
+}
+
+.tv-opt-count {
+  flex: 0 0 auto;
+  color: var(--tv-mute, #8a90a8);
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-opt:hover .tv-opt-count,
+.tv-opt:focus-visible .tv-opt-count {
+  color: var(--colour3);
+}
+
+/* ─── Narrow ──────────────────────────────────────────── */
+
+/* The line becomes two: the facets on the first, the count on the second. The
+   rule goes with them — at this width it has no space left to fill. */
+@media (max-width: 700px) {
+  .tv-filter-bar {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
   }
 
-  .travel-filters__select {
-    font-size: 0.75rem;
+  .tv-filter-rule {
+    flex-basis: 100%;
+    min-width: 0;
+    height: 0;
+    margin: 0.15rem 0;
+    border: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-filter-panel,
+  .tv-facet-mark {
+    transition: none;
   }
 }

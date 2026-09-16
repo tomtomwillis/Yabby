@@ -76,103 +76,123 @@ export default function TravelConfirmForm({
     }
   };
 
-  const city = picked.display_name.split(',')[0];
+  const shortName = picked.display_name.split(',')[0];
 
   return (
     <div className="travel-confirm">
-      <h3 className="travel-confirm__heading">Add: {city}</h3>
-      <p className="travel-confirm__subheading">{picked.display_name}</p>
-
-      <div className="travel-confirm__mini-map">
-        <MapContainer
-          center={[lat, lng]}
-          zoom={13}
-          scrollWheelZoom={false}
-          dragging={false}
-          doubleClickZoom={false}
-          touchZoom={false}
-          boxZoom={false}
-          zoomControl={false}
-          attributionControl={false}
+      <div className="travel-confirm__head">
+        <span className="travel-confirm__head-label">new recommendation</span>
+        <span className="travel-confirm__head-rule" aria-hidden="true" />
+        <button
+          type="button"
+          className="travel-confirm__head-cancel"
+          onClick={onCancel}
+          disabled={submitting}
         >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <Marker position={[lat, lng]} icon={singleAvatarIcon(currentUserAvatar, category)} />
-        </MapContainer>
+          cancel
+        </button>
       </div>
 
-      <label className="travel-confirm__category-label">
-        <span className="travel-confirm__category-hint">Category</span>
-        <select
-          className="travel-confirm__category-select"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as PlaceCategory)}
-        >
-          {PLACE_CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <textarea
-        className="travel-confirm__comment"
-        placeholder="Why do you recommend this place?"
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        maxLength={10000}
-      />
-
-      {photos.length > 0 && (
-        <div className="travel-confirm__photos">
-          {photos.map((p) => (
-            <div key={p.imageId} className="travel-confirm__photo-thumb">
-              <img src={getTravelPhotoUrl(p.imageId)} alt="" />
-              <button
-                type="button"
-                className="travel-confirm__photo-remove"
-                onClick={() => removePhoto(p.imageId)}
-                aria-label="Remove photo"
-              >
-                ×
-              </button>
-            </div>
-          ))}
+      <div className="travel-confirm__grid">
+        <div className="travel-confirm__side">
+          <div className="travel-confirm__mini-map">
+            <MapContainer
+              center={[lat, lng]}
+              zoom={13}
+              scrollWheelZoom={false}
+              dragging={false}
+              doubleClickZoom={false}
+              touchZoom={false}
+              boxZoom={false}
+              zoomControl={false}
+              attributionControl={false}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <Marker position={[lat, lng]} icon={singleAvatarIcon(currentUserAvatar, category)} />
+            </MapContainer>
+          </div>
+          <p className="travel-confirm__name">{shortName}</p>
+          <p className="travel-confirm__addr">{picked.display_name}</p>
         </div>
-      )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="travel-confirm__hidden-file"
-        onChange={(e) => handleFilesSelected(e.target.files)}
-      />
+        <div className="travel-confirm__body">
+          {/* The same run of word-controls the filter uses, so the one place
+              that sets a category reads like the one that reads it. */}
+          <div className="travel-confirm__field">
+            <span className="travel-confirm__field-label">category</span>
+            <div className="travel-confirm__cats" role="group" aria-label="Category">
+              {PLACE_CATEGORIES.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  className={`travel-confirm__cat${category === c.value ? ' is-sel' : ''}`}
+                  aria-pressed={category === c.value}
+                  onClick={() => setCategory(c.value)}
+                >
+                  {c.label.toLowerCase()}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="travel-confirm__actions">
-        <button
-          type="button"
-          className="travel-confirm__btn"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading || photos.length >= MAX_PHOTOS}
-        >
-          {uploading ? 'Uploading…' : photos.length >= MAX_PHOTOS ? 'Photo limit reached' : 'Add photo'}
-        </button>
-        <button
-          type="button"
-          className="travel-confirm__btn travel-confirm__btn--primary"
-          onClick={handleSubmit}
-          disabled={submitting || uploading}
-        >
-          {submitting ? 'Saving…' : 'Confirm recommendation'}
-        </button>
-        <button type="button" className="travel-confirm__btn" onClick={onCancel} disabled={submitting}>
-          Cancel
-        </button>
+          <textarea
+            className="travel-confirm__comment"
+            placeholder="why do you recommend this place?"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            maxLength={10000}
+          />
+
+          {photos.length > 0 && (
+            <div className="travel-confirm__photos">
+              {photos.map((p) => (
+                <div key={p.imageId} className="travel-confirm__photo-thumb">
+                  <img src={getTravelPhotoUrl(p.imageId)} alt="" />
+                  <button
+                    type="button"
+                    className="travel-confirm__photo-remove"
+                    onClick={() => removePhoto(p.imageId)}
+                    aria-label="Remove photo"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="travel-confirm__hidden-file"
+            onChange={(e) => handleFilesSelected(e.target.files)}
+          />
+
+          <div className="travel-confirm__actions">
+            <button
+              type="button"
+              className="travel-confirm__btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || photos.length >= MAX_PHOTOS}
+            >
+              {uploading ? 'uploading…' : photos.length >= MAX_PHOTOS ? 'photo limit reached' : 'add photo'}
+            </button>
+            {/* The page's one filled control. */}
+            <button
+              type="button"
+              className="travel-confirm__btn travel-confirm__btn--primary"
+              onClick={handleSubmit}
+              disabled={submitting || uploading}
+            >
+              {submitting ? 'saving…' : 'confirm'}
+            </button>
+          </div>
+
+          {error && <p className="travel-confirm__error">{error}</p>}
+        </div>
       </div>
-
-      {error && <p className="travel-confirm__error">{error}</p>}
     </div>
   );
 }

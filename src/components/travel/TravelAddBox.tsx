@@ -28,7 +28,7 @@ export default function TravelAddBox({ onPick, placeholder, bias }: TravelAddBox
       return;
     }
 
-    setStatus('Searching…');
+    setStatus('searching…');
     const controller = new AbortController();
     abortRef.current?.abort();
     abortRef.current = controller;
@@ -43,10 +43,10 @@ export default function TravelAddBox({ onPick, placeholder, bias }: TravelAddBox
         });
         if (controller.signal.aborted) return;
         setResults(hits);
-        setStatus(hits.length === 0 ? 'No places found' : '');
+        setStatus(hits.length === 0 ? 'no places found' : '');
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
-        setStatus('Search failed');
+        setStatus('search failed');
         setResults([]);
       }
     }, 350);
@@ -69,7 +69,7 @@ export default function TravelAddBox({ onPick, placeholder, bias }: TravelAddBox
       <input
         type="text"
         className="travel-add-box__input"
-        placeholder={placeholder ?? 'Search for a place to recommend…'}
+        placeholder={placeholder ?? 'search for a place to recommend…'}
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />

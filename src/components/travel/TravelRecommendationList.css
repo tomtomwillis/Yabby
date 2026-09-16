@@ -1,159 +1,215 @@
-.travel-rec-list {
-  list-style: none;
+/* The recommendations, as a ledger.
+ *
+ * One row per place, each a single line of type: a caret, the contributor's
+ * picture, the name, a dot leader, and what the page knows about it at the far
+ * end. The rules run edge to edge and only the content is inset by --tv-edge,
+ * so the set reads as printed on the sheet rather than as a stack of cards.
+ *
+ * Opening a row drops its bubble in underneath, hanging off a hairline rather
+ * than carrying a surface of its own.
+ */
+
+.tv-rec-list {
   margin: 0;
   padding: 0;
+  list-style: none;
 }
 
-.travel-rec-list__empty {
-  font-family: var(--font2);
-  font-size: 0.85rem;
-  color: rgba(43, 43, 43, 0.45);
-  padding: 10px 16px;
+.tv-rec-empty {
   margin: 0;
+  padding: 0.6rem var(--tv-edge, 1rem);
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.04em;
+  color: var(--tv-mute, #8a90a8);
 }
 
-.travel-rec-list__item {
-  border-bottom: 1px solid rgba(26, 46, 204, 0.1);
+.tv-rec {
+  background: var(--tv-sheet, rgba(251, 251, 253, 0.94));
+  border-bottom: 1px solid var(--tv-rule, #c9cee4);
 }
 
-.travel-rec-list__item:last-child {
-  border-bottom: none;
+@media (prefers-reduced-transparency: reduce) {
+  .tv-rec {
+    background: #fbfbfd;
+  }
 }
 
-.travel-rec-list__item--expanded {
-  background: transparent;
-}
-
-.travel-rec-list__row {
-  width: 100%;
+.tv-rec-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: transparent;
-  border: none;
+  gap: 0.5rem;
+  padding: 0.3rem var(--tv-edge, 1rem);
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.86rem);
+  color: var(--tv-ink, var(--colour5));
   cursor: pointer;
-  text-align: left;
-  transition: background-color 0.12s ease;
+  transition: background-color 0.15s ease;
 }
 
-.travel-rec-list__row:hover {
-  background: rgba(26, 46, 204, 0.05);
+.tv-rec-row:hover {
+  background: var(--tv-sheet-hover, rgba(255, 255, 255, 0.98));
 }
 
-.travel-rec-list__item--expanded .travel-rec-list__row {
-  background: transparent;
+.tv-rec-row:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: -2px;
 }
 
-.travel-rec-list__avatars {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 4px;
+.tv-rec-mark {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--tv-dim, #5566c9);
+  transition: transform 0.28s ease;
 }
 
-.travel-rec-list__avatar {
-  width: 30px;
-  height: 30px;
+.tv-rec.is-open .tv-rec-mark {
+  transform: rotate(90deg);
+  color: var(--colour3);
+}
+
+.tv-rec-row:hover .tv-rec-mark {
+  color: var(--colour3);
+}
+
+/* Round, to match the pictures the bubble and the map pins already use — the
+   one curve on the page, and it belongs to people rather than to the chrome. */
+.tv-rec-av {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
+  border: 1px solid var(--tv-rule, #c9cee4);
   object-fit: cover;
-  border: 1px solid rgba(26, 46, 204, 0.2);
-  flex-shrink: 0;
+  background: var(--colour4);
 }
 
-.travel-rec-list__avatar--fallback {
-  background: linear-gradient(135deg, var(--colour2), var(--colour6));
+.tv-rec-av--none {
+  background: var(--tv-rule-soft, #dfe3f0);
 }
 
-.travel-rec-list__extra-count {
-  font-family: var(--font2);
-  font-size: 0.7rem;
-  color: var(--colour2);
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.travel-rec-list__meta {
-  flex: 1 1 0;
+.tv-rec-name {
+  flex: 0 1 auto;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--tv-accent, var(--colour2));
+}
+
+.tv-rec-row:hover .tv-rec-name {
+  color: var(--colour3);
+}
+
+.tv-rec-leader {
+  flex: 1 1 auto;
+  min-width: 1rem;
+  height: 0;
+  margin: 0 0.2rem;
+  border-bottom: 1px dotted var(--tv-rule, #c9cee4);
+}
+
+.tv-rec-meta {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.travel-rec-list__name {
-  font-family: var(--font2);
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: var(--colour5);
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.92em;
+  color: var(--tv-mute, #8a90a8);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.travel-rec-list__byline {
-  font-family: var(--font2);
-  font-size: 0.75rem;
-  color: rgba(43, 43, 43, 0.5);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.tv-rec-swatch {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
 }
 
-.travel-rec-list__byline-link {
-  color: inherit;
+.tv-rec-sep {
+  color: var(--tv-rule, #c9cee4);
+}
+
+.tv-rec-cat {
+  color: var(--tv-dim, #5566c9);
+}
+
+.tv-rec-by-link {
+  color: var(--tv-dim, #5566c9);
   text-decoration: none;
-  transition: color 0.2s ease;
 }
 
-.travel-rec-list__byline-link:hover {
+.tv-rec-by-link:hover,
+.tv-rec-by-link:focus-visible {
+  color: var(--colour3);
   text-decoration: underline;
-  color: var(--colour2);
 }
 
-.travel-rec-list__chevron {
-  font-size: 1.1rem;
-  color: var(--colour2);
-  flex-shrink: 0;
-  transition: transform 0.2s ease;
-  line-height: 1;
-  opacity: 0.6;
+/* ─── The opened row ──────────────────────────────────── */
+
+/* No surface of its own — it hangs off a hairline under the row it belongs to,
+   the way a reply hangs off its post. */
+.tv-rec-open-body {
+  margin-left: calc(var(--tv-edge, 1rem) + 0.9rem);
+  padding: 0 0 0.5rem 0.9rem;
+  border-left: 1px solid var(--tv-rule, #c9cee4);
 }
 
-.travel-rec-list__chevron--open {
-  transform: rotate(180deg);
-  opacity: 1;
-}
-
-/* Expanded panel — reuses the bubble styling inline */
-.travel-rec-list__expanded {
-  padding: 0 14px 12px;
-}
-
-.travel-rec-list__expanded .travel-bubble {
-  border-radius: 0;
-  border: 1px solid var(--hp-rule, #c9cee4);
-}
-
-/* Show more */
-.travel-rec-list__show-more {
-  padding: 8px 14px;
-  display: flex;
-  justify-content: center;
-}
-
-.travel-rec-list__show-more-btn {
-  font-family: var(--font2);
-  font-size: 0.82rem;
-  color: var(--colour2);
+.tv-rec-open-body .travel-bubble {
+  padding: 0.2rem 0 0;
   background: transparent;
-  border: 1px dashed var(--colour2);
-  border-radius: 6px;
-  padding: 5px 16px;
-  cursor: pointer;
-  transition: background-color 0.12s ease;
 }
 
-.travel-rec-list__show-more-btn:hover {
-  background: rgba(26, 46, 204, 0.06);
+/* ─── Show more ───────────────────────────────────────── */
+
+.tv-rec-more {
+  padding: 0.5rem var(--tv-edge, 1rem);
+}
+
+.tv-rec-more-btn {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--tv-dim, #5566c9);
+  cursor: pointer;
+}
+
+.tv-rec-more-btn:hover,
+.tv-rec-more-btn:focus-visible {
+  color: var(--colour3);
+}
+
+/* ─── Narrow ──────────────────────────────────────────── */
+
+/* The metadata takes a line of its own rather than squeezing the name off the
+   row, and the leader has nothing left to lead to. */
+@media (max-width: 760px) {
+  .tv-rec-row {
+    flex-wrap: wrap;
+    row-gap: 0.1rem;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .tv-rec-name {
+    flex: 1 1 auto;
+  }
+
+  .tv-rec-leader {
+    display: none;
+  }
+
+  .tv-rec-meta {
+    flex-basis: 100%;
+    padding-left: calc(22px + 1.3rem);
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-rec-mark {
+    transition: none;
+  }
 }

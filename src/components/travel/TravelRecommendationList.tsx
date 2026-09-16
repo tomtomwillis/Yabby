@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Place, PlaceCategory, TravelPhoto } from './travelTypes';
+import { CATEGORY_COLOURS, PLACE_CATEGORIES } from './travelTypes';
 import TravelPlaceBubble from './TravelPlaceBubble';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import './TravelRecommendationList.css';
@@ -21,6 +22,10 @@ interface TravelRecommendationListProps {
 
 const PAGE_SIZE = 20;
 
+const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
+  PLACE_CATEGORIES.map((c) => [c.value, c.label.toLowerCase()]),
+);
+
 export default function TravelRecommendationList({
   places,
   currentUserId,
@@ -38,7 +43,7 @@ export default function TravelRecommendationList({
   const [showAll, setShowAll] = useState(false);
 
   if (places.length === 0) {
-    return <p className="travel-rec-list__empty">No recommendations match the current filters.</p>;
+    return <p className="tv-rec-empty">nothing matches the filter.</p>;
   }
 
   const visible = showAll ? places : places.slice(0, PAGE_SIZE);
@@ -54,15 +59,15 @@ export default function TravelRecommendationList({
   };
 
   return (
-    <ul className="travel-rec-list">
+    <ul className="tv-rec-list">
       {visible.map((place) => {
         const isExpanded = expandedId === place.id;
         return (
-          <li key={place.id} className={`travel-rec-list__item${isExpanded ? ' travel-rec-list__item--expanded' : ''}`}>
+          <li key={place.id} className={`tv-rec${isExpanded ? ' is-open' : ''}`}>
             <div
               role="button"
               tabIndex={0}
-              className="travel-rec-list__row"
+              className="tv-rec-row"
               onClick={() => toggleExpand(place)}
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
@@ -73,32 +78,51 @@ export default function TravelRecommendationList({
               }}
               aria-expanded={isExpanded}
             >
-              <div className="travel-rec-list__avatars">
-                {place.contributorCount >= 2 ? (
-                  <img
-                    className="travel-rec-list__avatar"
-                    src="/Stickers/avatar_star_pink.webp"
-                    alt=""
-                  />
-                ) : place.firstContributorAvatar ? (
-                  <img
-                    className="travel-rec-list__avatar"
-                    src={normalizeAvatarPath(place.firstContributorAvatar)}
-                    alt={place.firstContributorUsername}
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="travel-rec-list__avatar travel-rec-list__avatar--fallback" />
-                )}
-              </div>
+              <span className="tv-rec-mark" aria-hidden="true">
+                ▸
+              </span>
 
-              <div className="travel-rec-list__meta">
-                <span className="travel-rec-list__name">{place.displayName.split(',')[0]}</span>
-                <span className="travel-rec-list__byline">
+              {place.contributorCount >= 2 ? (
+                <img className="tv-rec-av" src="/Stickers/avatar_star_pink.webp" alt="" />
+              ) : place.firstContributorAvatar ? (
+                <img
+                  className="tv-rec-av"
+                  src={normalizeAvatarPath(place.firstContributorAvatar)}
+                  alt=""
+                  loading="lazy"
+                />
+              ) : (
+                <span className="tv-rec-av tv-rec-av--none" />
+              )}
+
+              <span className="tv-rec-name">{place.displayName.split(',')[0]}</span>
+              <span className="tv-rec-leader" aria-hidden="true" />
+
+              <span className="tv-rec-meta">
+                {/* The one square of category colour in the listing — the same
+                    hue the place's pin carries on the map above. */}
+                <span
+                  className="tv-rec-swatch"
+                  style={{ backgroundColor: CATEGORY_COLOURS[place.category] }}
+                  aria-hidden="true"
+                />
+                <span className="tv-rec-cat">{CATEGORY_LABEL[place.category] ?? place.category}</span>
+                {place.city && (
+                  <>
+                    <span className="tv-rec-sep" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="tv-rec-city">{place.city}</span>
+                  </>
+                )}
+                <span className="tv-rec-sep" aria-hidden="true">
+                  ·
+                </span>
+                <span className="tv-rec-by">
                   {place.firstContributorUserId ? (
                     <Link
                       to={`/user/${place.firstContributorUserId}`}
-                      className="travel-rec-list__byline-link"
+                      className="tv-rec-by-link"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {place.firstContributorUsername}
@@ -106,18 +130,13 @@ export default function TravelRecommendationList({
                   ) : (
                     place.firstContributorUsername
                   )}
-                  {place.contributorCount > 1 && ` + ${place.contributorCount - 1} more`}
-                  {place.city ? ` · ${place.city}` : ''}
+                  {place.contributorCount > 1 && ` +${place.contributorCount - 1}`}
                 </span>
-              </div>
-
-              <span className={`travel-rec-list__chevron${isExpanded ? ' travel-rec-list__chevron--open' : ''}`}>
-                ▾
               </span>
             </div>
 
             {isExpanded && (
-              <div className="travel-rec-list__expanded">
+              <div className="tv-rec-open-body">
                 <TravelPlaceBubble
                   place={place}
                   currentUserId={currentUserId}
@@ -132,9 +151,9 @@ export default function TravelRecommendationList({
       })}
 
       {!showAll && hiddenCount > 0 && (
-        <li className="travel-rec-list__show-more">
-          <button type="button" className="travel-rec-list__show-more-btn" onClick={() => setShowAll(true)}>
-            Show {hiddenCount} more
+        <li className="tv-rec-more">
+          <button type="button" className="tv-rec-more-btn" onClick={() => setShowAll(true)}>
+            show {hiddenCount} more
           </button>
         </li>
       )}

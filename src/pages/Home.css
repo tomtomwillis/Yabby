@@ -97,6 +97,10 @@ body:has(.home-page) .star-path {
      message board's rules run edge to edge, which it does by insetting itself
      by this. */
   --hp-main-pad: clamp(1.2rem, 2.2vw, 2.6rem);
+  /* Named for the same reason, but for the top edge: a sticky band inside the
+     column sticks to the column's *content* box, so anything that wants to pin
+     flush with the window has to offset itself back out by this. */
+  --hp-main-pad-top: 1.4rem;
 }
 
 .home-side {
@@ -128,7 +132,7 @@ body:has(.home-page) .star-path {
   min-width: 0;
   /* Extra beyond the bar's height so the last section comes to rest clear of
      the wordmark rather than flush against it. */
-  padding: 1.4rem var(--hp-main-pad) calc(var(--hp-title-clear) + 3rem);
+  padding: var(--hp-main-pad-top) var(--hp-main-pad) calc(var(--hp-title-clear) + 3rem);
   overflow-y: auto;
 }
 
@@ -213,23 +217,24 @@ body:has(.home-page) .star-path {
   min-height: 420px;
 }
 
-/* The map deliberately breaks out of #root to 80vw; in the column it just
-   fills the column. */
-.home-main .travel-page__map-area {
-  width: 100%;
-  left: auto;
-  transform: none;
+/* Travel is a ledger like the board: its rules run to both edges of the body
+   column and each band puts the inset back itself as --tv-edge. Same trick,
+   same reason — the map and the list read as printed on the sheet rather than
+   as boxes laid on it. */
+.home-main .travel-page,
+.home-main .lists-page,
+.home-main .list-page {
+  width: auto;
+  margin-inline: calc(-1 * var(--hp-main-pad));
 }
 
-/* Fixed to the viewport, so left: 2vw would park it on top of the rail. Pushed
-   clear of it instead; dragging the box still wins, since that writes inline. */
-.home-main .travel-page__sidebar {
-  left: calc(clamp(210px, 17vw, 290px) + 1rem);
-  z-index: 899;
-}
-
-.home-main .travel-page__scroll-btn {
-  bottom: calc(var(--hp-title-clear) + 1rem);
+/* A sticky child sticks to the column's content box, which starts below the
+   column's top padding — offset back out by it so the filter line pins flush
+   with the top of the window. Cancelled at the mobile breakpoint, where the
+   window is the scroller instead. */
+.home-main .tv-filter,
+.home-main .ls-bar {
+  top: calc(-1 * var(--hp-main-pad-top));
 }
 
 /* ─── Section headings ────────────────────────────────── */
@@ -936,9 +941,12 @@ body:has(.home-page) .star-path {
   /* Stickers, recently added, lists and travel come first; stats and weather
      are the tail of the page rather than a band above it. Source order is the
      desktop rail's, so the two columns swap here instead. */
+  /* Through the property rather than a literal, so a full-bleed page inside the
+     column cancels exactly this much and not the wider desktop inset. */
   .home-main {
     order: 1;
-    padding: 0 1rem 1.5rem;
+    --hp-main-pad: 1rem;
+    padding: 0 var(--hp-main-pad) 1.5rem;
     overflow: visible;
   }
 
@@ -1007,10 +1015,18 @@ body:has(.home-page) .star-path {
     padding-bottom: var(--hp-title-clear);
   }
 
-  /* Full width now, so the rail's offset would push it off the screen. */
-  .home-main .travel-page__sidebar {
-    left: 1rem;
-    right: 1rem;
+  /* The window scrolls here, not the column, so a sticky band inside it pins to
+     the window and needs no offset back out of the column's padding. The right
+     inset is the burger's footprint — it is fixed at z-index 1001 and the
+     pinned line would otherwise run under it. */
+  .home-main .tv-filter,
+  .home-main .ls-bar {
+    top: 0;
+  }
+
+  .home-main .tv-filter-bar,
+  .home-main .ls-bar {
+    padding-right: 3.6rem;
   }
 
   /* With the wordmark gone the bar is the transport and nothing else, so it

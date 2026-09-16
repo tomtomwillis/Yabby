@@ -1,3 +1,7 @@
+/* The search that starts a recommendation. It sits in the page's one tinted
+   input band, so the field is a plain white square on it and the results drop
+   below as a sheet of hairline-separated rows — a listing, not a menu. */
+
 .travel-add-box {
   position: relative;
   width: 100%;
@@ -5,86 +9,93 @@
 
 .travel-add-box__input {
   width: 100%;
-  padding: 14px 16px;
-  font-size: 0.95rem;
-  font-family: var(--font2);
-  border: none;
-  border-top: 1px solid rgba(26, 46, 204, 0.15);
-  background: var(--colour4);
-  color: var(--colour5);
   box-sizing: border-box;
+  padding: 0.45rem 0.6rem;
+  background: var(--colour4);
+  border: 1px solid var(--tv-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.86rem);
+  color: var(--tv-ink, var(--colour5));
   outline: none;
-  transition: background-color 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .travel-add-box__input::placeholder {
-  color: rgba(43, 43, 43, 0.4);
+  color: var(--tv-mute, #8a90a8);
 }
 
 .travel-add-box__input:focus {
-  background: #f4f6ff;
+  border-color: var(--tv-accent, var(--colour2));
 }
 
 .travel-add-box__status {
-  font-family: var(--font2);
-  font-size: 0.8rem;
-  color: rgba(43, 43, 43, 0.5);
-  padding: 4px 16px 0;
   margin: 0;
+  padding: 0.3rem 0 0;
+  font-family: var(--font2);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--tv-mute, #8a90a8);
 }
 
-/* Autocomplete opens ABOVE the input */
+/* Drops below the field, over whatever the page has under the band. */
 .travel-add-box__results {
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 0;
   right: 0;
   z-index: 1200;
-  margin-bottom: 0;
   max-height: 320px;
-  overflow-y: auto;
-  background: var(--colour2);
-  border-top: 2px solid var(--colour2);
-  list-style: none;
+  margin: -1px 0 0;
   padding: 0;
-  box-shadow: 0 -4px 20px rgba(26, 46, 204, 0.3);
+  overflow-y: auto;
+  list-style: none;
+  /* Opaque: it drops over the list below the band, and nothing is ever meant to
+     be read through a surface. */
+  background: #fbfbfd;
+  border: 1px solid var(--tv-accent, var(--colour2));
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.3) transparent;
 }
 
 .travel-add-box__result {
+  display: block;
   width: 100%;
-  padding: 10px 16px;
-  text-align: left;
+  padding: 0.35rem 0.6rem;
   background: transparent;
   border: none;
-  color: var(--colour4);
-  cursor: pointer;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid var(--tv-rule-soft, #dfe3f0);
   font-family: var(--font2);
-  font-size: 0.9rem;
-  display: block;
-  transition: background-color 0.12s ease;
+  font-size: clamp(0.7rem, 0.68vw, 0.82rem);
+  color: var(--tv-accent, var(--colour2));
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
 }
 
-.travel-add-box__result:last-child {
+.travel-add-box__results li:last-child .travel-add-box__result {
   border-bottom: none;
 }
 
 .travel-add-box__result:hover,
 .travel-add-box__result:focus {
-  background: rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  color: var(--colour3);
   outline: none;
 }
 
 .travel-add-box__result-name {
-  font-weight: 600;
   display: block;
 }
 
 .travel-add-box__result-detail {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: var(--tv-mute, #8a90a8);
+}
+
+.travel-add-box__result:hover .travel-add-box__result-detail,
+.travel-add-box__result:focus .travel-add-box__result-detail {
+  color: var(--colour3);
 }
