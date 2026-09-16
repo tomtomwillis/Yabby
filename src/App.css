@@ -95,6 +95,14 @@
   --colour7: #f52bc9;
 }
 
+/* The app supplies its own pull-to-refresh, so the browser's must stay off.
+   Without this, any downward drag that our handler deliberately ignores (map
+   pans, scrolling a textarea) reaches the browser and reloads the page. */
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
 /* Set default font for the entire app */
 body {
   font-family: var(--font1);
