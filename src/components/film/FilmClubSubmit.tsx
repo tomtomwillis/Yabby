@@ -72,19 +72,23 @@ function FilmClubSubmit() {
     }
   };
 
-  return (
-    <div style={{ width: '100%', maxWidth: '600px', padding: '0 1rem', boxSizing: 'border-box' }}>
+  const canSubmit = !hasSubmissions || isAdmin;
 
-      <a href="/film-club" className="links" style={{ fontSize: '1rem' }}>← back to film club</a>
+  return (
+    <div className="film-club-container">
 
       {!loadingSubmissions && hasSubmissions && (
-        <>
-          <p className="normal-text">
-            Your submission{userSubmissions.length > 1 ? 's' : ''} for {targetMonthName}:
-          </p>
-          {userSubmissions.map((s) => (
-            <div key={s.title} style={{ marginTop: '0.75rem' }}>
+        <div className="film-club-section">
+          <h2 className="fc-h">
+            <span className="fc-h-label">your picks</span>
+            <span className="fc-h-rule" aria-hidden="true"></span>
+            <span className="fc-h-note">for {targetMonthName.toLowerCase()}</span>
+          </h2>
+          <a href="/film-club" className="links">← back to film club</a>
+          <div className="fc-submit-cards">
+            {userSubmissions.map((s) => (
               <FilmCard
+                key={s.title}
                 posterPath={s.posterPath}
                 title={s.title}
                 releaseYear={s.releaseYear}
@@ -92,79 +96,72 @@ function FilmClubSubmit() {
                 pitch={s.pitch}
                 submittedByUsername={s.username}
               />
-            </div>
-          ))}
-          {isAdmin && (
-            <p className="normal-text" style={{ marginTop: '1.5rem' }}>
-              Submit another film:
-            </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {canSubmit && (
+        /* The one band on the page that is typed into rather than read. */
+        <div className="film-club-section fc-submit-band">
+          <h2 className="fc-h">
+            <span className="fc-h-label">{hasSubmissions ? 'another film' : 'your pick'}</span>
+            <span className="fc-h-rule" aria-hidden="true"></span>
+            <span className="fc-h-note">for {targetMonthName.toLowerCase()}</span>
+          </h2>
+
+          {!loadingSubmissions && !hasSubmissions && (
+            <>
+              <a href="/film-club" className="links">← back to film club</a>
+              <p className="normal-text">
+                Choose a film, write why you think the group should watch it, and submit it for {targetMonthName}.
+              </p>
+            </>
           )}
-        </>
-      )}
 
-      {!loadingSubmissions && !hasSubmissions && (
-        <p className="normal-text">
-          Choose a film, write why you think the group should watch it, and submit it for {targetMonthName}.
-        </p>
-      )}
+          <FilmSearchBox onFilmSelect={handleFilmSelect} />
 
-      {(!hasSubmissions || isAdmin) && <FilmSearchBox onFilmSelect={handleFilmSelect} />}
+          {selectedFilm && (
+            <FilmCard
+              posterPath={selectedFilm.posterPath}
+              title={selectedFilm.title}
+              releaseYear={selectedFilm.releaseYear}
+              overview={selectedFilm.overview}
+            />
+          )}
 
-      {selectedFilm && (!hasSubmissions || isAdmin) && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <FilmCard
-            posterPath={selectedFilm.posterPath}
-            title={selectedFilm.title}
-            releaseYear={selectedFilm.releaseYear}
-            overview={selectedFilm.overview}
-          />
+          {selectedFilm && status !== 'success' && (
+            <div className="fc-submit-pitch">
+              <span className="fc-submit-label">why this film?</span>
+              <TextBox
+                placeholder="Tell everyone why you picked this film..."
+                value={pitch}
+                onChange={setPitch}
+                showSendButton={false}
+                maxWords={150}
+                maxChars={600}
+              />
+            </div>
+          )}
+
+          {selectedFilm && status !== 'success' && (
+            <button
+              onClick={handleSubmit}
+              disabled={status === 'submitting'}
+              className="film-club-btn film-club-btn-primary fc-submit-send"
+            >
+              {status === 'submitting' ? 'submitting…' : 'submit film'}
+            </button>
+          )}
+
+          {status === 'success' && (
+            <p className="fc-msg fc-msg--good" role="status">film submitted.</p>
+          )}
+
+          {status === 'error' && (
+            <p className="fc-msg fc-msg--bad" role="status">{errorMsg}</p>
+          )}
         </div>
-      )}
-
-      {selectedFilm && (!hasSubmissions || isAdmin) && status !== 'success' && (
-        <div style={{ marginTop: '1rem' }}>
-          <p className="normal-text" style={{ marginBottom: '0.5rem' }}>Why this film?</p>
-          <TextBox
-            placeholder="Tell everyone why you picked this film..."
-            value={pitch}
-            onChange={setPitch}
-            showSendButton={false}
-            maxWords={150}
-            maxChars={600}
-          />
-        </div>
-      )}
-
-      {selectedFilm && (!hasSubmissions || isAdmin) && status !== 'success' && (
-        <button
-          onClick={handleSubmit}
-          disabled={status === 'submitting'}
-          style={{
-            marginTop: '1rem',
-            padding: '0.6rem 1.4rem',
-            backgroundColor: 'var(--colour2)',
-            color: 'var(--colour4)',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '1rem',
-            fontFamily: 'var(--font2)',
-            cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {status === 'submitting' ? 'Submitting...' : 'Submit film'}
-        </button>
-      )}
-
-      {status === 'success' && (
-        <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '1rem' }}>
-          Film submitted!
-        </p>
-      )}
-
-      {status === 'error' && (
-        <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '1rem' }}>
-          {errorMsg}
-        </p>
       )}
     </div>
   );

@@ -53,8 +53,11 @@ const FilmCard: React.FC<FilmCardProps> = ({
     <div className="film-card">
       {(label || leaveDate) && (
         <div className="film-card-label-row">
-          {label && <span className="film-card-label">{label}</span>}
-          {leaveDate && <span className="film-card-label">leaving {leaveDate}</span>}
+          {label && <span className="film-card-label">{label.toLowerCase()}</span>}
+          <span className="film-card-label-rule" aria-hidden="true"></span>
+          {leaveDate && (
+            <span className="film-card-label film-card-label--leaving">leaving {leaveDate}</span>
+          )}
         </div>
       )}
       <div className="film-card-inner">
@@ -66,8 +69,9 @@ const FilmCard: React.FC<FilmCardProps> = ({
             loading="lazy"
           />
         ) : (
-          <div className="film-card-poster-placeholder" />
+          <div className="film-card-poster-placeholder" aria-hidden="true">···</div>
         )}
+        <span className="film-card-channel" aria-hidden="true"></span>
         <div className="film-card-info">
           <p className="film-card-title">
             {title} {releaseYear && <span className="film-card-year">({releaseYear})</span>}
@@ -94,7 +98,7 @@ const FilmCard: React.FC<FilmCardProps> = ({
           )}
 
           {downloadLinks && downloadLinks.some((l) => l.url) && (
-            <div className="film-card-download-row" style={{ marginTop: '0.75rem' }}>
+            <div className="film-card-download-row">
               <div className="film-card-download-label-row">
                 <HelpLink to="/wiki#how-do-i-use-the-magnet-links-in-the-film-club" />
                 <span className="film-card-download-label">Magnet link for download:</span>
@@ -110,7 +114,7 @@ const FilmCard: React.FC<FilmCardProps> = ({
           )}
 
           {directDownloadLinks && directDownloadLinks.some((l) => l.url && validateUrl(l.url)) && (
-            <div className="film-card-download-row" style={{ marginTop: '0.75rem' }}>
+            <div className="film-card-download-row">
               <div className="film-card-download-label-row">
                 <span className="film-card-download-label">Direct download:</span>
               </div>

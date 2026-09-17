@@ -1,146 +1,190 @@
-/* Define a base font size for the header */
-:root {
-    --header-font-size: clamp(2rem, 5vw, 3.5rem); /* Responsive header size */
-    --subtitle-font-size: calc(var(--header-font-size) * 0.33); /* % of header size */
-    --link-font-size: calc(var(--header-font-size) * 0.4); /* % of header size */
-}
+/*
+ * The page masthead, and the navigation that hangs off it.
+ *
+ * Almost every page now renders inside the home shell, which carries the site
+ * index in its left rail and hides the nav, the burger and the rule below —
+ * there, this file is the title and the strapline and nothing else, and it is
+ * sized to agree with what the shell's own pages (the board, the lists) set
+ * for themselves, so a masthead looks the same whichever page draws it.
+ *
+ * Outside the shell — cinema, the spacing lab — the nav and the drawer are
+ * still the only way off the page, so they are kept: as a line of mono type
+ * with a hairline under it rather than a row of green links, and as a drawer
+ * ruled with hairlines rather than bordered in black.
+ */
 
 .header {
-    margin-bottom: 2rem;
-    padding: 2rem 0; /* Increase padding for a larger header */
+    --hd-rule: #c9cee4;
+    --hd-dim: #5566c9;
+
+    margin-bottom: 1.2rem;
+    padding: 0;
     position: relative;
+    text-align: left;
 }
 
+/* The site's voice, at the size the shell's redesigned pages already set for
+   themselves — the masthead is a page's first line, not a poster. */
 .header h1 {
-    margin-bottom: 0.5rem;
-    margin-top: 0;
-    font-size: var(--header-font-size); /* Use the base header font size */
+    margin: 0 0 0.25rem;
+    font-family: var(--font1);
+    font-size: clamp(1.3rem, 2.2vw, 2rem);
+    line-height: 1.15;
+    color: var(--colour2);
+    text-align: left;
 }
 
-/* Subtitle styling with responsive font size */
+/* Anything in a human voice is set in font3 — the strapline is the page
+   introducing itself. */
 .header .small-text {
     display: block;
-    margin-bottom: 1rem;
-    font-size: var(--subtitle-font-size); /* 70% of header size */
+    margin: 0;
     font-family: var(--font3);
+    font-size: clamp(1.05rem, 1.2vw, 1.4rem);
+    line-height: 1.35;
     color: var(--colour6);
+    text-align: left;
 }
 
-/* Desktop Navigation styling */
+/* A hairline, edge to edge, in place of the old blue bar at 70% width. Pages
+   inside the shell hide this and rule their masthead off themselves, so this
+   is what cinema and the lab get. */
+.header hr {
+    border: none;
+    height: 0;
+    width: 100%;
+    margin: 0.7rem 0 0;
+    border-top: 1px solid var(--hd-rule);
+    background: none;
+    opacity: 1;
+}
+
+/* ─── Desktop navigation ──────────────────────────────── */
+
+/* A line of type, left-aligned under the strapline: the groups first, then
+   whichever one is open printed below it. Small, mono, letterspaced — the same
+   voice as the rail's index, because it is the same thing. */
 .desktop-nav {
-    margin: 2rem 0 1rem 0;
+    margin: 0.9rem 0 0;
+    font-family: var(--font2);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
 }
 
-.nav-links {
+.nav-links,
+.nav-groups {
     list-style: none;
-    padding: 0;
-    margin: 0.5rem 0;
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.5rem 2rem;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 0.25rem 1.3rem;
+    margin: 0;
+    padding: 0;
 }
 
-.nav-links li {
-    display: inline;
+.nav-links li,
+.nav-groups li {
+    display: flex;
+    align-items: baseline;
 }
 
-/* Desktop navigation links with responsive font size */
 .nav-links a {
-    font-family: var(--font2); /* Use font2 for links */
-    font-size: var(--link-font-size);
+    font-family: var(--font2);
+    font-size: inherit;
+    letter-spacing: inherit;
+    color: var(--colour2);
+    text-decoration: none;
+    transition: color 0.15s ease;
 }
 
-.nav-links a:hover {
+.nav-links a:hover,
+.nav-links a:focus-visible {
+    color: var(--colour3);
     text-decoration: underline;
 }
 
-/* Nav group header row */
-.nav-groups {
-    list-style: none;
-    padding: 0;
-    margin: 0.5rem 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem 2rem;
-}
-
-.nav-groups li {
-    display: inline;
-}
-
-/* Group header buttons */
+/* A bare word with a caret, no box — the group header is a control sitting on
+   a line of type, so it inherits the type. */
 .nav-group-btn {
+    padding: 0;
     background: none;
     border: none;
-    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: var(--hd-dim);
     cursor: pointer;
-    font-family: var(--font2);
-    font-size: var(--link-font-size);
-    color: var(--colour1);
-    transition: color 0.3s ease;
+    transition: color 0.15s ease;
 }
 
 .nav-group-btn::after {
     content: ' ▾';
-    font-size: 0.8em;
+    font-size: 0.85em;
 }
 
 .nav-group-btn:hover,
+.nav-group-btn:focus-visible {
+    color: var(--colour3);
+}
+
+/* The open group is the one you are reading, marked the way the rail marks the
+   page you are on. The caret turns to point at what it revealed. */
 .nav-group-btn.active {
-    color: var(--colour2);
-    text-decoration: underline;
+    color: var(--colour7);
+    text-decoration: none;
 }
 
-/* Revealed group links row */
+.nav-group-btn.active::after {
+    content: ' ▸';
+    display: inline-block;
+    transform: rotate(90deg);
+}
+
+.nav-group-btn:focus-visible,
+.nav-links a:focus-visible {
+    outline: 2px solid var(--colour3);
+    outline-offset: 1px;
+}
+
+/* The revealed row, hung off the group above it and ruled off from the line
+   the groups sit on. */
 .group-links {
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
+    padding-top: 0.45rem;
+    border-top: 1px dotted var(--hd-rule);
 }
 
-/* Notification badge on nav links (e.g. in-progress issues for admins) */
+/* ─── Count badge ─────────────────────────────────────── */
+
+/* The admin's in-progress issue count. A bracketed number on the line rather
+   than a pill hung off it — a count is type, and the brackets are what make it
+   read as one without a shape around it. */
 .has-badge {
     position: relative;
 }
 
 .nav-badge {
-    position: absolute;
-    top: -0.7em;
-    right: -1.1em;
-    min-width: 1.4em;
-    height: 1.4em;
-    padding: 0 0.3em;
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    background-color: var(--colour3);
-    color: var(--colour4);
+    margin-left: 0.35em;
     font-family: var(--font2);
-    font-size: 0.6em;
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
     line-height: 1;
+    color: var(--colour3);
     text-decoration: none;
 }
 
-/* Mobile nav links are full-width rows — keep the badge next to the label */
-.mobile-nav .nav-badge {
-    position: static;
-    margin-left: 0.5em;
+.nav-badge::before {
+    content: '[';
 }
 
-/* Horizontal rule styling */
-.header hr {
-    border: none;
-    height: 1px;
-    margin: 0rem auto;
-    width: 70%;
-    opacity: 1;
-    background-color: var(--colour2); 
+.nav-badge::after {
+    content: ']';
 }
 
-/* Mobile navigation - slide in from the left */
+/* ─── Mobile drawer ───────────────────────────────────── */
+
+/* The same vocabulary as the shell's own copy of this drawer: hairlines in
+   place of the black borders, the index's type scale, no shadow. */
 .mobile-nav {
     position: fixed;
     top: 0;
@@ -149,59 +193,97 @@
     height: 100dvh;
     width: 300px;
     max-width: 80vw;
-    padding: 2rem 2rem calc(4rem + env(safe-area-inset-bottom)) 1.25rem;
+    padding: 2.6rem 1.25rem calc(4rem + env(safe-area-inset-bottom));
     box-sizing: border-box;
     background-color: var(--colour4);
-    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2);
+    border-right: 1px solid var(--hd-rule);
     z-index: 1000;
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
+    text-align: left;
 }
 
 .mobile-nav.active {
     transform: translateX(0);
 }
 
-/* Mobile navigation links with responsive font size */
 .mobile-nav a {
-    text-decoration: none;
-    padding: 0.875rem 0;
-    min-height: 44px;
     display: flex;
     align-items: center;
-    font-size: clamp(1rem, 3vw, 1.25rem);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    transition: color 0.2s ease, background-color 0.2s ease;
+    min-height: 44px;
+    padding: 0.7rem 0;
     font-family: var(--font2);
+    font-size: 0.95rem;
+    color: var(--colour2);
+    text-decoration: none;
+    border-bottom: 1px solid var(--hd-rule);
+    transition: color 0.15s ease;
 }
 
-.mobile-nav a:hover {
+.mobile-nav a:hover,
+.mobile-nav a:focus-visible {
     color: var(--colour3);
 }
 
-/* Close button for mobile menu */
-.mobile-nav-close {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0.5rem;
+/* A small quiet label, lowercase — the group names the drawer sorts links
+   under, not headings competing with them. */
+.mobile-nav-group-header {
+    display: block;
+    margin: 0;
+    padding: 1.1rem 0 0.35rem;
+    font-family: var(--font2);
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: var(--hd-dim);
+    text-transform: lowercase;
+    border-bottom: 1px solid var(--hd-rule);
 }
 
-/* Overlay for mobile menu */
+/* Indent the container rather than the links, so each <a>'s own padding is
+   left alone. */
+.mobile-nav-sublinks {
+    padding-left: 1.1rem;
+}
+
+.mobile-nav-sublinks a:last-child {
+    border-bottom: none;
+}
+
+/* Mobile rows are full width, so the count follows the label rather than
+   floating over its corner. */
+.mobile-nav .nav-badge {
+    position: static;
+}
+
+.mobile-nav-close {
+    position: absolute;
+    top: 0.6rem;
+    left: 0.9rem;
+    padding: 0.35rem;
+    background: none;
+    border: none;
+    font-family: var(--font2);
+    font-size: 1rem;
+    color: var(--hd-dim);
+    cursor: pointer;
+}
+
+.mobile-nav-close:hover,
+.mobile-nav-close:focus-visible {
+    color: var(--colour3);
+}
+
 .mobile-nav-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(43, 43, 43, 0.45);
     z-index: 999;
     opacity: 0;
     visibility: hidden;
@@ -213,32 +295,11 @@
     visibility: visible;
 }
 
-/* Mobile nav group headers */
-.mobile-nav-group-header {
-    display: block;
-    font-family: var(--font2);
-    font-size: clamp(1rem, 3vw, 1.25rem);
-    color: var(--colour6);
-    padding: 1.25rem 0 0.4rem;
-    margin: 0;
-    font-weight: bold;
-    border-bottom: 1px solid black;
-}
+/* ─── Burger ──────────────────────────────────────────── */
 
-.mobile-nav > a {
-    padding-left: 1rem;
-}
-
-/* Mobile nav sub-links — indent the container so <a> padding isn't fought over */
-.mobile-nav-sublinks {
-    padding-left: 1.5rem;
-}
-
-.mobile-nav-sublinks a:last-child {
-    border-bottom: none;
-}
-
-/* Hide the burger menu on larger screens */
+/* Hidden until the drawer is the navigation. Restyled off Button's default
+   into the same hairline square as every other control, since it floats over
+   whatever is scrolling beneath it and has to be opaque. */
 .burger-menu {
     display: none;
 }
@@ -248,36 +309,48 @@
         display: none;
     }
 
-    .header {
-        padding: 0;
-    }
-
     .header h1 {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 
     .header .small-text {
-        padding: 0;
+        font-size: 1.05rem;
     }
 
     .burger-menu {
-        display: inline-block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         position: fixed;
-        top: 0.5rem;
-        right: 0.5rem;
+        top: 0.6rem;
+        right: 0.6rem;
         z-index: 1001;
-        min-height: 32px;
-        min-width: 32px;
-        font-size: 1.1rem;
+        min-width: 2.4rem;
+        min-height: 2.4rem;
+        padding: 0;
+        background: var(--colour4);
+        color: var(--hd-dim);
+        border: 1px solid var(--hd-rule);
+        border-radius: 0;
+        font-family: var(--font2);
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .burger-menu:hover,
+    .burger-menu:focus-visible {
+        background: var(--colour4);
+        color: var(--colour3);
+        border-color: var(--colour3);
     }
 }
 
 @media (max-width: 480px) {
     .header h1 {
-        font-size: 1.6rem;
+        font-size: 1.35rem;
     }
 
     .header .small-text {
-        font-size: 0.7rem;
+        font-size: 0.98rem;
     }
 }

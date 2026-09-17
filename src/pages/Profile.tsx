@@ -11,6 +11,7 @@ import SiteLink from '../components/basic/SiteLink';
 import { useAdmin } from '../utils/useAdmin';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
+import './Profile.css';
 
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 20;
@@ -90,6 +91,7 @@ const Profile: React.FC = () => {
   const [selectedColor, setSelectedColor] = useState('blue');
   const [selectedShape, setSelectedShape] = useState('star');
   const [avatar, setAvatar] = useState('/Stickers/avatar_star_blue.webp');
+  const [avatarBroken, setAvatarBroken] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [passwordResetLoading, setPasswordResetLoading] = useState(false);
@@ -139,6 +141,7 @@ const Profile: React.FC = () => {
             setSelectedColor(fetchedColor);
             setSelectedShape(fetchedShape);
             setAvatar(fetchedAvatar);
+            setAvatarBroken(false);
             setBio(data.bio || '');
             setSiteUrl(data.siteUrl || '');
             setLocationFlag(data.locationFlag || '');
@@ -265,6 +268,7 @@ const Profile: React.FC = () => {
       setSelectedColor(editColor);
       setSelectedShape(editShape);
       setAvatar(editAvatar);
+      setAvatarBroken(false);
       setBio(sanitizedBio);
       setSiteUrl(sanitizedSiteUrl);
       setLocationFlag(editLocationFlag);
@@ -381,488 +385,333 @@ const Profile: React.FC = () => {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="me-page">
+        <p className="me-status">loading…</p>
+      </div>
+    );
   }
 
   const hasLocation = locationFlag || locationText;
+  const flagLabel = FLAG_OPTIONS.find((opt) => opt.flag === editLocationFlag)?.label ?? 'none';
 
   return (
-    <div className="app-container">
-      <Header title="Profile Settings" subtitle="Edit Your Profile" />
+    <div className="me-page">
+      <Header title="Profile" subtitle="Your Corner of the Village" />
 
-      {user && (
-        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-          <Link
-            to={`/user/${user.uid}`}
-            style={{
-              color: 'var(--colour6)',
-              textDecoration: 'underline',
-              fontFamily: 'var(--font2)',
-              fontSize: '1em',
-            }}
-          >
-            View your public profile page
-          </Link>
+      <div className="me-bar">
+        <span className="me-bar-label">{isEditing ? 'editing' : 'you'}</span>
+        <span className="me-bar-rule" aria-hidden="true"></span>
+        {!isEditing && (
+          <>
+            <button type="button" className="me-act" onClick={handleStartEditing}>edit</button>
+            <span className="me-sep" aria-hidden="true">·</span>
+          </>
+        )}
+        {user && (
+          <Link to={`/user/${user.uid}`} className="me-act">public page</Link>
+        )}
+      </div>
+
+      {isEditing ? (
+        /* ── EDIT MODE: the one band on the page you type into ── */
+        <div className="me-band">
+          <div className="me-field">
+            <span className="me-label">username</span>
+            <MessageTextBox
+              placeholder="Change Username..."
+              value={editUsername}
+              onChange={setEditUsername}
+              maxWords={5}
+              maxChars={USERNAME_MAX}
+              showSendButton={false}
+              showCounter={false}
+              onLimitExceeded={(type) => handleLimitExceeded(type, 'Username')}
+            />
+          </div>
+
+          <div className="me-field">
+            <span className="me-label">sticker</span>
+            <AvatarPreview
+              selectedColor={editColor}
+              selectedShape={editShape}
+              avatar={editAvatar}
+              onColorChange={setEditColor}
+              onShapeChange={setEditShape}
+              onAvatarChange={setEditAvatar}
+            />
+          </div>
+
+          <div className="me-field">
+            <span className="me-label">bio</span>
+            <MessageTextBox
+              placeholder="Write something about yourself..."
+              value={editBio}
+              onChange={setEditBio}
+              maxWords={100}
+              maxChars={500}
+              showSendButton={false}
+              showCounter={true}
+              rows={3}
+              onLimitExceeded={(type) => handleLimitExceeded(type, 'Bio')}
+            />
+          </div>
+
+          <div className="me-field">
+            <span className="me-label">website</span>
+            <MessageTextBox
+              placeholder="your-site.neocities.org"
+              value={editSiteUrl}
+              onChange={setEditSiteUrl}
+              maxWords={1}
+              maxChars={200}
+              showSendButton={false}
+              showCounter={false}
+              rows={1}
+              onLimitExceeded={(type) => handleLimitExceeded(type, 'Website')}
+            />
+          </div>
+
+          {/* The travel filter's facet: the value stated on the line, and an
+              index of the alternatives unrolled under it in flow rather than
+              dropped over the page. */}
+          <div className="me-field me-flag">
+            <span className="me-label">flag</span>
+            <button
+              type="button"
+              className={`me-facet${flagDropdownOpen ? ' is-open' : ''}`}
+              onClick={() => setFlagDropdownOpen(!flagDropdownOpen)}
+              aria-expanded={flagDropdownOpen}
+              aria-controls="me-flag-panel"
+            >
+              <span className="me-facet-glyph">{editLocationFlag || '🏳️'}</span>
+              <span className="me-facet-val">{flagLabel.toLowerCase()}</span>
+              <span className="me-facet-mark" aria-hidden="true">›</span>
+            </button>
+
+            <div
+              id="me-flag-panel"
+              className={`me-flag-panel${flagDropdownOpen ? ' is-open' : ''}`}
+            >
+              <div className="me-flag-panel-inner">
+                <div className="me-flag-body">
+                  <input
+                    type="text"
+                    className="me-flag-search"
+                    placeholder="search…"
+                    value={flagSearch}
+                    onChange={(e) => setFlagSearch(e.target.value)}
+                    aria-label="Search countries"
+                  />
+
+                  {filteredFlags.length > 0 ? (
+                    <ul className="me-flag-opts">
+                      {filteredFlags.map((opt) => (
+                        <li key={opt.label}>
+                          <button
+                            type="button"
+                            className={`me-flag-opt${editLocationFlag === opt.flag ? ' is-sel' : ''}`}
+                            onClick={() => {
+                              setEditLocationFlag(opt.flag);
+                              setFlagDropdownOpen(false);
+                              setFlagSearch('');
+                            }}
+                          >
+                            <span className="me-flag-opt-glyph">{opt.flag || '✕'}</span>
+                            <span className="me-flag-opt-name">{opt.label.toLowerCase()}</span>
+                            <span className="me-flag-opt-leader" aria-hidden="true"></span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="me-flag-none">no matches.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="me-field">
+            <span className="me-label">where</span>
+            <MessageTextBox
+              placeholder="Where are you located?"
+              value={editLocationText}
+              onChange={setEditLocationText}
+              maxWords={10}
+              maxChars={100}
+              showSendButton={false}
+              showCounter={true}
+              rows={1}
+              onLimitExceeded={(type) => handleLimitExceeded(type, 'Location')}
+            />
+          </div>
+
+          {limitError && (
+            <p className="me-msg me-msg--bad me-msg--in-band" role="alert">{limitError}</p>
+          )}
+          {saveMessage && (
+            <p
+              className={`me-msg me-msg--in-band ${saveSuccess ? 'me-msg--good' : 'me-msg--bad'}`}
+              role="status"
+            >
+              {saveMessage}
+            </p>
+          )}
+
+          <div className="me-band-foot">
+            <Button
+              label={saving ? 'saving…' : 'save'}
+              onClick={handleSave}
+              disabled={saving}
+              className="me-save basic-button--primary"
+            />
+            <button type="button" className="me-act" onClick={handleCancel}>cancel</button>
+          </div>
         </div>
+      ) : (
+        /* ── READ-ONLY: the card everyone else sees ── */
+        <>
+          <div className="me-card">
+            <div className={`me-avatar${avatar && !avatarBroken ? '' : ' me-avatar--none'}`}>
+              {avatar && !avatarBroken ? (
+                <img
+                  src={avatar}
+                  alt={`${username || 'your'} sticker`}
+                  onError={() => setAvatarBroken(true)}
+                />
+              ) : (
+                (username || 'A').charAt(0).toUpperCase()
+              )}
+            </div>
+
+            <span className="me-channel" aria-hidden="true"></span>
+
+            <div className="me-body">
+              <p className="me-name">{username || 'Anonymous'}</p>
+
+              {bio ? (
+                <p className="me-bio">{bio}</p>
+              ) : (
+                <p className="me-bio me-bio--none">no bio yet.</p>
+              )}
+
+              {(siteUrl || hasLocation) && (
+                <dl className="me-facts">
+                  {siteUrl && (
+                    <>
+                      <dt className="me-fact-key">
+                        site<span className="me-fact-leader" aria-hidden="true"></span>
+                      </dt>
+                      <dd className="me-fact-val"><SiteLink url={siteUrl} /></dd>
+                    </>
+                  )}
+
+                  {hasLocation && (
+                    <>
+                      <dt className="me-fact-key">
+                        where<span className="me-fact-leader" aria-hidden="true"></span>
+                      </dt>
+                      <dd className="me-fact-val">
+                        {locationFlag && <span className="me-flag-inline">{locationFlag}</span>}
+                        {locationText}
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              )}
+            </div>
+          </div>
+
+          {saveMessage && (
+            <p
+              className={`me-msg ${saveSuccess ? 'me-msg--good' : 'me-msg--bad'}`}
+              role="status"
+            >
+              {saveMessage}
+            </p>
+          )}
+        </>
       )}
 
-      <div className="profile-container">
-        <div className="form-group">
-          {isEditing ? (
-            /* ── EDIT MODE ── */
-            <div>
-              <label>Username:</label>
-              <MessageTextBox
-                placeholder="Change Username..."
-                value={editUsername}
-                onChange={setEditUsername}
-                maxWords={5}
-                maxChars={USERNAME_MAX}
-                showSendButton={false}
-                showCounter={false}
-                className="form-input"
-                onLimitExceeded={(type) => handleLimitExceeded(type, 'Username')}
-              />
+      {/* ── The account itself ── */}
+      <h2 className="me-h">
+        <span className="me-h-label">account</span>
+        <span className="me-h-rule" aria-hidden="true"></span>
+        {user?.email && <span className="me-h-note">{user.email}</span>}
+      </h2>
 
-              <div style={{ height: '1rem' }}></div>
-
-              <AvatarPreview
-                selectedColor={editColor}
-                selectedShape={editShape}
-                avatar={editAvatar}
-                onColorChange={setEditColor}
-                onShapeChange={setEditShape}
-                onAvatarChange={setEditAvatar}
-              />
-
-              <div style={{ height: '1rem' }}></div>
-
-              <label>Bio:</label>
-              <MessageTextBox
-                placeholder="Write something about yourself..."
-                value={editBio}
-                onChange={setEditBio}
-                maxWords={100}
-                maxChars={500}
-                showSendButton={false}
-                showCounter={true}
-                rows={3}
-                onLimitExceeded={(type) => handleLimitExceeded(type, 'Bio')}
-              />
-
-              <div style={{ height: '0.75rem' }}></div>
-
-              <label>Website:</label>
-              <MessageTextBox
-                placeholder="your-site.neocities.org"
-                value={editSiteUrl}
-                onChange={setEditSiteUrl}
-                maxWords={1}
-                maxChars={200}
-                showSendButton={false}
-                showCounter={false}
-                rows={1}
-                onLimitExceeded={(type) => handleLimitExceeded(type, 'Website')}
-              />
-
-              <div style={{ height: '0.75rem' }}></div>
-
-              {/* Dashed separator */}
-              <div style={{
-                borderBottom: '4px dashed var(--colour2)',
-                marginBottom: '6px',
-                width: '100%',
-              }} />
-
-              <div style={{ height: '0.5rem' }}></div>
-
-              <label style={{
-                fontFamily: 'var(--font2)',
-                fontSize: '0.85em',
-                display: 'block',
-                marginBottom: '6px',
-              }}>
-                Location:
-              </label>
-
-              {/* Flag searchable dropdown */}
-              <div style={{ position: 'relative', marginBottom: '10px' }}>
-                <div
-                  onClick={() => setFlagDropdownOpen(!flagDropdownOpen)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    border: '1px solid var(--colour2)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font2)',
-                    fontSize: '0.95em',
-                    backgroundColor: 'var(--colour4)',
-                    color: 'var(--colour5)',
-                  }}
-                >
-                  <span style={{ fontSize: '1.4em' }}>{editLocationFlag || '🏳️'}</span>
-                  <span>{FLAG_OPTIONS.find(f => f.flag === editLocationFlag)?.label || 'Select a flag...'}</span>
-                </div>
-
-                {flagDropdownOpen && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    zIndex: 10,
-                    backgroundColor: 'var(--colour4)',
-                    border: '1px solid var(--colour2)',
-                    borderRadius: '8px',
-                    marginTop: '4px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
-                  }}>
-                    <div style={{ padding: '8px', position: 'sticky', top: 0, backgroundColor: 'var(--colour4)', zIndex: 1 }}>
-                      <input
-                        type="text"
-                        placeholder="Search country..."
-                        value={flagSearch}
-                        onChange={(e) => setFlagSearch(e.target.value)}
-                        autoFocus
-                        style={{
-                          width: '100%',
-                          padding: '6px 10px',
-                          border: '1px solid var(--colour2)',
-                          borderRadius: '6px',
-                          fontFamily: 'var(--font2)',
-                          fontSize: '0.9em',
-                          boxSizing: 'border-box',
-                          outline: 'none',
-                        }}
-                      />
-                    </div>
-                    {filteredFlags.map((opt, i) => (
-                      <div
-                        key={i}
-                        onClick={() => {
-                          setEditLocationFlag(opt.flag);
-                          setFlagDropdownOpen(false);
-                          setFlagSearch('');
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '8px 12px',
-                          cursor: 'pointer',
-                          backgroundColor: editLocationFlag === opt.flag ? 'var(--colour2)' : 'transparent',
-                          color: editLocationFlag === opt.flag ? 'var(--colour4)' : 'var(--colour5)',
-                          fontFamily: 'var(--font2)',
-                          fontSize: '0.9em',
-                          transition: 'background-color 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (editLocationFlag !== opt.flag) {
-                            e.currentTarget.style.backgroundColor = 'rgba(0,0,255,0.08)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (editLocationFlag !== opt.flag) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                      >
-                        <span style={{ fontSize: '1.3em' }}>{opt.flag || '✕'}</span>
-                        <span>{opt.label}</span>
-                      </div>
-                    ))}
-                    {filteredFlags.length === 0 && (
-                      <div style={{
-                        padding: '12px',
-                        textAlign: 'center',
-                        color: 'var(--colour5)',
-                        opacity: 0.6,
-                        fontFamily: 'var(--font2)',
-                        fontSize: '0.85em',
-                      }}>
-                        No matches found
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <MessageTextBox
-                placeholder="Where are you located?"
-                value={editLocationText}
-                onChange={setEditLocationText}
-                maxWords={10}
-                maxChars={100}
-                showSendButton={false}
-                showCounter={true}
-                rows={1}
-                onLimitExceeded={(type) => handleLimitExceeded(type, 'Location')}
-              />
-
-              {limitError && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    backgroundColor: '#f8d7da',
-                    color: '#721c24',
-                    border: '1px solid #f5c6cb',
-                    textAlign: 'center',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    fontFamily: 'var(--font2)',
-                  }}
-                >
-                  {limitError}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '16px' }}>
-                <Button
-                  type="basic"
-                  label={saving ? 'Saving...' : 'Save'}
-                  onClick={handleSave}
-                  disabled={saving}
-                />
-                <button
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid var(--colour2)',
-                    color: 'var(--colour2)',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font2)',
-                    fontSize: '0.85em',
-                  }}
-                  onClick={handleCancel}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* ── READ-ONLY MODE ── */
-            <div style={{ textAlign: 'center' }}>
-              {/* Avatar */}
-              <div style={{ marginBottom: '12px' }}>
-                {avatar && (
-                  <img
-                    src={avatar}
-                    alt={`${username}'s avatar`}
-                    style={{ width: '100px', height: '100px', objectFit: 'cover' }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                )}
-              </div>
-
-              {/* Username */}
-              <p style={{
-                fontFamily: 'var(--font1)',
-                fontSize: '1.4em',
-                fontWeight: 'bold',
-                color: 'var(--colour2)',
-                margin: '0 0 12px 0',
-              }}>
-                {username || 'Anonymous'}
-              </p>
-
-              {/* Bio + Location box */}
-              <div style={{
-                backgroundColor: 'var(--colour2)',
-                color: 'var(--colour4)',
-                borderRadius: '12px',
-                padding: '16px',
-                maxWidth: '600px',
-                margin: '0 auto',
-              }}>
-                {bio ? (
-                  <p style={{
-                    fontFamily: 'var(--font2)',
-                    lineHeight: '1.6',
-                    whiteSpace: 'pre-wrap',
-                    margin: 0,
-                  }}>
-                    {bio}
-                  </p>
-                ) : (
-                  <p style={{
-                    fontFamily: 'var(--font2)',
-                    fontStyle: 'italic',
-                    opacity: 0.6,
-                    margin: 0,
-                  }}>
-                    No bio yet.
-                  </p>
-                )}
-
-                {siteUrl && (
-                  <p style={{
-                    fontFamily: 'var(--font2)',
-                    fontSize: '0.95em',
-                    margin: '10px 0 0',
-                    wordBreak: 'break-all',
-                  }}>
-                    <SiteLink
-                      url={siteUrl}
-                      style={{ color: 'var(--colour4)' }}
-                    />
-                  </p>
-                )}
-
-                {hasLocation && (
-                  <>
-                    {/* Dashed separator */}
-                    <div style={{
-                      borderBottom: '4px dashed var(--colour4)',
-                      width: '60%',
-                      margin: '12px auto',
-                      opacity: 0.4,
-                    }} />
-                    <p style={{
-                      fontFamily: 'var(--font2)',
-                      fontSize: '1em',
-                      margin: 0,
-                    }}>
-                      {locationFlag && <span style={{ fontSize: '1.4em', marginRight: '8px' }}>{locationFlag}</span>}
-                      {locationText}
-                    </p>
-                  </>
-                )}
-              </div>
-
-              <div style={{ marginTop: '12px' }}>
-                <Button
-                  type="basic"
-                  label="Edit Profile"
-                  onClick={handleStartEditing}
-                  className="submit-button center-button"
-                />
-              </div>
-
-              {saveMessage && (
-                <div
-                  style={{
-                    marginTop: '10px',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    backgroundColor: saveSuccess ? '#d4edda' : '#f8d7da',
-                    color: saveSuccess ? '#155724' : '#721c24',
-                    border: `1px solid ${saveSuccess ? '#c3e6cb' : '#f5c6cb'}`,
-                    textAlign: 'center',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                  }}
-                >
-                  {saveMessage}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div style={{ height: '1rem' }}></div>
-
-        <div className="form-group">
-          <Button
-            label={passwordResetLoading ? 'Sending...' : 'Send Password Reset Email'}
-            onClick={handlePasswordReset}
-            type="basic"
-            className="submit-button center-button"
-            disabled={passwordResetLoading || passwordResetSuccess}
-          />
-          {passwordResetMessage && (
-            <div
-              style={{
-                marginTop: '10px',
-                padding: '8px',
-                borderRadius: '4px',
-                backgroundColor: passwordResetSuccess ? '#d4edda' : '#f8d7da',
-                color: passwordResetSuccess ? '#155724' : '#721c24',
-                border: `1px solid ${passwordResetSuccess ? '#c3e6cb' : '#f5c6cb'}`,
-              }}
+      <ul className="me-rows">
+        <li className="me-row">
+          <span className="me-row-key">password</span>
+          <span className="me-row-leader" aria-hidden="true"></span>
+          <span className="me-row-val">
+            <button
+              type="button"
+              className="me-act"
+              onClick={handlePasswordReset}
+              disabled={passwordResetLoading || passwordResetSuccess}
             >
-              {passwordResetMessage}
-            </div>
-          )}
-        </div>
+              {passwordResetLoading ? 'sending…' : passwordResetSuccess ? 'sent' : 'send reset email'}
+            </button>
+          </span>
+        </li>
 
+        {/* The cat follows a pointer, so there is nothing for it to follow on a
+            touch screen — the setting is not offered where it cannot apply. */}
         {!window.matchMedia('(pointer: coarse)').matches && (
-          <>
-            <div style={{ height: '1rem' }}></div>
-
-            <div className="form-group" style={{ textAlign: 'center' }}>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font2)',
-                  fontSize: '0.95em',
-                  color: 'var(--colour5)',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={nekoEnabled}
-                  onChange={handleNekoToggle}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                />
-                Oneko
+          <li className="me-row">
+            <span className="me-row-key">oneko</span>
+            <span className="me-row-leader" aria-hidden="true"></span>
+            <span className="me-row-val">
+              <label className="me-check">
+                <input type="checkbox" checked={nekoEnabled} onChange={handleNekoToggle} />
+                <span className="me-check-mark" aria-hidden="true">
+                  {nekoEnabled ? '[x] on' : '[ ] off'}
+                </span>
               </label>
-            </div>
-          </>
+            </span>
+          </li>
         )}
 
         {isAdmin && (
-          <>
-            <div style={{ height: '1rem' }}></div>
-            <div className="form-group" style={{ textAlign: 'center' }}>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font2)',
-                  fontSize: '0.95em',
-                  color: 'var(--colour5)',
-                }}
-              >
+          <li className="me-row">
+            <span className="me-row-key">design tool</span>
+            <span className="me-row-leader" aria-hidden="true"></span>
+            <span className="me-row-val">
+              <label className="me-check">
                 <input
                   type="checkbox"
                   checked={designToolEnabled}
                   onChange={handleDesignToolToggle}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                 />
-                Design Tool
+                <span className="me-check-mark" aria-hidden="true">
+                  {designToolEnabled ? '[x] on' : '[ ] off'}
+                </span>
               </label>
-            </div>
-          </>
+            </span>
+          </li>
         )}
 
-        <div style={{ height: '1rem' }}></div>
+        <li className="me-row">
+          <span className="me-row-key">session</span>
+          <span className="me-row-leader" aria-hidden="true"></span>
+          <span className="me-row-val">
+            <button type="button" className="me-act me-act--del" onClick={handleLogout}>
+              log out
+            </button>
+          </span>
+        </li>
+      </ul>
 
-        <div className="form-group">
-          <Button
-            label="Log Out"
-            onClick={handleLogout}
-            type="basic"
-            className="submit-button center-button"
-          />
-        </div>
-      </div>
+      {passwordResetMessage && (
+        <p
+          className={`me-msg ${passwordResetSuccess ? 'me-msg--good' : 'me-msg--bad'}`}
+          role="status"
+        >
+          {passwordResetMessage}
+        </p>
+      )}
     </div>
   );
 };

@@ -1,0 +1,353 @@
+/*
+ * A member — the poster gutter, given a page of its own.
+ *
+ * The board already prints a person as a picture with their own line under it
+ * and what the site counted on their behalf below that. This is the same thing
+ * at full size: the sticker they chose in a gutter, the bio they wrote beside
+ * it in their own voice, and then the facts on dot leaders — the one shape the
+ * site uses for `name .......... value`.
+ *
+ * Two tracks and a dotted channel, exactly as a post is set, so a profile reads
+ * as the same object either side of the link.
+ */
+
+.user-page {
+  --up-rule: #c9cee4;
+  --up-rule-soft: #dfe3f0;
+  --up-ink: var(--colour5);
+  --up-accent: var(--colour2);
+  --up-dim: #5566c9;
+  --up-mute: #8a90a8;
+  /* The bio, and only the bio — the one thing on the page they wrote
+     themselves rather than the site recording on their behalf. */
+  --up-voice: var(--colour6);
+
+  --up-sheet: rgba(251, 251, 253, 0.94);
+  --up-edge: clamp(14px, 2.4vw, 34px);
+  /* Wide enough for the picture and a wrapped handle under it, and no wider. */
+  --up-gutter: clamp(120px, 12vw, 160px);
+  --up-channel: 9px;
+  --up-gap: 14px;
+  /* The line the bio is held to — a measure, not the column's width. */
+  --up-measure: 62ch;
+
+  width: 100%;
+  text-align: left;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .user-page {
+    --up-sheet: #fbfbfd;
+  }
+}
+
+/* ─── Masthead ────────────────────────────────────────── */
+
+/* Their name is the page's title, ruled off as the first line of the sheet —
+   the same masthead the lists and the board draw. */
+.user-page > header.header {
+  margin: 0;
+  padding: 0 var(--up-edge) 0.45rem;
+  border-bottom: 1px solid var(--up-rule);
+}
+
+.user-page > header.header .small-text {
+  margin: 0;
+  font-family: var(--font3);
+  font-size: clamp(1.125rem, 1.3vw, 1.4rem);
+  color: var(--up-voice);
+}
+
+/* ─── The bar ─────────────────────────────────────────── */
+
+/* The section-heading idiom: a label, a hairline taking what is left, and when
+   they turned up pinned to the far end. */
+.up-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: clamp(0.4rem, 0.9vw, 0.9rem);
+  padding: 0.6rem var(--up-edge);
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--up-rule);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.78vw, 0.92rem);
+  letter-spacing: 0.08em;
+}
+
+.up-bar-label {
+  flex: 0 0 auto;
+  color: var(--up-accent);
+}
+
+.up-bar-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--up-rule);
+  transform: translateY(-0.25em);
+}
+
+.up-bar-note {
+  flex: 0 0 auto;
+  color: var(--up-mute);
+}
+
+.up-bar-sep {
+  flex: 0 0 auto;
+  color: var(--up-rule);
+}
+
+/* A word, not a button — the one control on the page, and it only appears on
+   your own profile. */
+.up-bar-edit {
+  flex: 0 0 auto;
+  color: var(--up-dim);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.up-bar-edit:hover,
+.up-bar-edit:focus-visible {
+  color: var(--colour3);
+}
+
+.up-bar-edit:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+/* ─── The card ────────────────────────────────────────── */
+
+/* Three tracks, as a post is: the picture, the dotted channel, and what the
+   page has to say. The rules run edge to edge and only the content is inset. */
+.up-card {
+  display: grid;
+  grid-template-columns: var(--up-gutter) var(--up-channel) minmax(0, 1fr);
+  gap: 0 var(--up-gap);
+  align-items: start;
+  padding: clamp(1rem, 2.2vh, 1.6rem) var(--up-edge) clamp(1.2rem, 2.6vh, 2rem);
+  background: var(--up-sheet);
+  border-bottom: 1px solid var(--up-rule);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .up-card {
+    background: #fbfbfd;
+  }
+}
+
+.up-channel {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  width: var(--up-channel);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    #c3c9e0 0 6px,
+    transparent 6px 13px
+  );
+  background-size: 1px 100%;
+  background-position: 50% 0;
+  background-repeat: no-repeat;
+}
+
+/* ─── The gutter ──────────────────────────────────────── */
+
+.up-gutter {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* No frame, the way the board's gutter has none: the sticker is the only
+   picture on the page, and a border round it would read as a card in a design
+   that has no cards. Square and square-cornered. */
+.up-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.up-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Nothing chosen: their initial, set large and quiet in the mono. No fill, no
+   circle, no box — there is nothing here to put one around. */
+.up-avatar--none {
+  font-family: var(--font2);
+  font-size: clamp(2rem, 4.5vw, 3.4rem);
+  letter-spacing: 0.06em;
+  color: var(--up-rule);
+  user-select: none;
+}
+
+/* ─── The body ────────────────────────────────────────── */
+
+.up-body {
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+/* Their own line, set in the human face and marked the way a comment in the
+   margin is — the one thing here nobody else wrote. */
+.up-bio {
+  margin: 0;
+  max-width: var(--up-measure);
+  font-family: var(--font3);
+  font-size: clamp(1.05rem, 1.15vw, 1.3rem);
+  line-height: 1.5;
+  color: var(--up-voice);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.up-bio::before {
+  content: '// ';
+  color: var(--up-mute);
+}
+
+/* No bio at all: said in the mono rather than in their voice, because it is
+   the page talking, not them. */
+.up-bio--none {
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.04em;
+  color: var(--up-mute);
+}
+
+/* ─── The facts ───────────────────────────────────────── */
+
+/* `name .......... value`, the same leader the travel filter's index is drawn
+   with. A real definition list, because that is what it is: two grid tracks, so
+   each term and its value land on a row of their own without a wrapper. */
+.up-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  margin: 0;
+  max-width: var(--up-measure);
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--up-rule-soft);
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.74vw, 0.88rem);
+  letter-spacing: 0.04em;
+}
+
+/* The leader lives inside the term rather than between the two, which is what
+   keeps the markup to a plain dt/dd pair. */
+.up-fact-key {
+  display: flex;
+  align-items: baseline;
+  padding: 0.2rem 0;
+  color: var(--up-dim);
+}
+
+.up-fact-leader {
+  flex: 1 1 auto;
+  min-width: 0.8rem;
+  height: 0;
+  margin: 0 0.45rem;
+  border-bottom: 1px dotted var(--up-rule);
+  transform: translateY(-0.3em);
+}
+
+.up-fact-val {
+  min-width: 0;
+  margin: 0;
+  padding: 0.2rem 0;
+  color: var(--up-ink);
+  overflow-wrap: anywhere;
+}
+
+.up-fact-val a {
+  color: var(--up-accent);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.up-fact-val a:hover,
+.up-fact-val a:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.up-flag {
+  margin-right: 0.35em;
+}
+
+/* ─── Notes ───────────────────────────────────────────── */
+
+.up-status,
+.up-error {
+  margin: 0;
+  padding: 1rem var(--up-edge);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.04em;
+  color: var(--up-mute);
+  text-align: left;
+}
+
+.up-error {
+  color: #c0392b;
+}
+
+/* ─── Narrow ──────────────────────────────────────────── */
+
+/* Below this the gutter is wider than the body beside it, so the columns
+   collapse into one: the picture lies along the top with the handle next to it
+   rather than under it, and the words take the whole width below. */
+@media (max-width: 700px) {
+  .up-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.9rem;
+    padding-top: 1rem;
+  }
+
+  .up-channel {
+    display: none;
+  }
+
+  .up-gutter {
+    grid-column: 1;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .up-avatar {
+    flex: 0 0 76px;
+    width: 76px;
+  }
+
+  .up-handle {
+    text-align: left;
+  }
+
+  .up-body {
+    grid-column: 1;
+  }
+}
+
+/* The masthead is their name here, and a long one runs under the fixed burger
+   once the shell stacks. Same inset the shell gives its wordmark. */
+@media (max-width: 900px) {
+  .user-page > header.header h1 {
+    box-sizing: border-box;
+    padding-right: 4.5rem;
+  }
+}

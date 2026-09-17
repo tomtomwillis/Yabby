@@ -523,7 +523,7 @@ function FilmClub() {
 
       {isRevealPhase && !monthData?.nextFilm && (
         <div className="film-club-section">
-          <p className="normal-text" style={{ fontFamily: 'var(--font2)', fontSize: '0.875rem', color: 'var(--colour5)', opacity: 0.7 }}>
+          <p className="fc-note fc-note--quiet">
             Calculating next month's film…
           </p>
         </div>
@@ -531,8 +531,14 @@ function FilmClub() {
 
       {/* Actions */}
       <div className="film-club-section film-club-actions">
-        <a href="/filmclubmessage" className="film-club-btn film-club-btn-primary film-club-btn-wide" style={{ marginBottom: '1rem' }}>
-          Film Club Message Board
+        <h2 className="fc-h">
+          <span className="fc-h-label">take part</span>
+          <span className="fc-h-rule" aria-hidden="true"></span>
+          <span className="fc-h-note">{isRevealPhase ? monthAfterNextName.toLowerCase() : nextMonthName.toLowerCase()}</span>
+        </h2>
+
+        <a href="/filmclubmessage" className="film-club-btn film-club-btn-wide">
+          film club message board
         </a>
         {/* <a href="/cinema" className="film-club-btn film-club-btn-primary film-club-btn-wide" style={{ marginBottom: '1rem' }}>
           Cinema
@@ -546,7 +552,7 @@ function FilmClub() {
               <a href="/film-club-submit" className="film-club-btn film-club-btn-primary">
                 Submit a film for {monthAfterNextName}
               </a>
-              <a href={voteLink} className="film-club-btn film-club-btn-secondary">
+              <a href={voteLink} className="film-club-btn">
                 Vote for {monthAfterNextName}
               </a>
             </div>
@@ -557,12 +563,12 @@ function FilmClub() {
               <a href="/film-club-submit" className="film-club-btn film-club-btn-primary">
                 {userSubmissions.length > 0 ? 'Submit another film' : `Submit a film for ${nextMonthName}`}
               </a>
-              <a href="/film-club-vote" className="film-club-btn film-club-btn-primary">
+              <a href="/film-club-vote" className="film-club-btn">
                 Vote for {nextMonthName}
               </a>
             </div>
             {userSubmissions.length > 0 && (
-              <p className="normal-text" style={{ marginTop: '0.5rem' }}>
+              <p className="normal-text">
                 Your {nextMonthName} Film Club submission{userSubmissions.length > 1 ? 's' : ''}: <strong>{userSubmissions.map((s) => s.title).join(', ')}</strong>
               </p>
             )}
@@ -575,11 +581,11 @@ function FilmClub() {
 
       {/* Admin toggle */}
       {isAdmin && (
-        <div style={{ textAlign: 'right', marginBottom: '0.5rem' }}>
+        <div className="fc-admin-toggle-row">
           <button
             onClick={() => setShowAdminPanel((v) => !v)}
-            className="film-club-btn"
-            style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}
+            className="fc-act"
+            aria-expanded={showAdminPanel}
           >
             {showAdminPanel ? 'Hide admin' : 'Admin'}
           </button>
@@ -589,8 +595,8 @@ function FilmClub() {
       {/* Admin panel */}
       {isAdmin && showAdminPanel && (
         <div className="film-club-section film-club-admin">
-          <div style={{ marginBottom: '1.5rem' }}>
-            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Re-run IRV for {adminSubmissionsForMonth}</p>
+          <div className="fc-admin-block">
+            <p className="film-club-admin-label">Re-run IRV for {adminSubmissionsForMonth}</p>
             <button
               onClick={handleAdminRerunIRV}
               disabled={irvStatus === 'running'}
@@ -598,18 +604,18 @@ function FilmClub() {
             >
               {irvStatus === 'running' ? 'Calculating…' : 'Re-run winner calculation'}
             </button>
-            {irvStatus === 'done' && <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Done — winner updated.</p>}
-            {irvStatus === 'error' && <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Failed — no submissions, or IRV returned no result.</p>}
+            {irvStatus === 'done' && <p className="fc-msg fc-msg--good" role="status">done — winner updated.</p>}
+            {irvStatus === 'error' && <p className="fc-msg fc-msg--bad" role="status">failed — no submissions, or IRV returned no result.</p>}
           </div>
 
-          <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem', textAlign: 'center' }}>Next cinema showing</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="fc-admin-block">
+            <p className="film-club-admin-label">Next cinema showing</p>
+            <div className="fc-admin-row">
               <input
                 type="datetime-local"
                 value={nextShowingInput}
                 onChange={(e) => { setNextShowingInput(e.target.value); setNextShowingStatus('idle'); }}
-                style={{ padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                className="fc-admin-input"
               />
               <button
                 onClick={handleSaveNextShowing}
@@ -622,210 +628,204 @@ function FilmClub() {
                 <button
                   onClick={handleClearNextShowing}
                   disabled={nextShowingStatus === 'saving'}
-                  className="film-club-btn"
-                  style={{ backgroundColor: 'var(--colour3)', color: 'var(--colour4)', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
+                  className="film-club-btn film-club-btn-del"
                 >
                   Clear
                 </button>
               )}
             </div>
             {nextShowingAt && (
-              <p className="normal-text" style={{ marginTop: '0.5rem', fontSize: '0.85rem', textAlign: 'center' }}>
+              <p className="fc-note fc-note--quiet">
                 Currently set to: <strong>{new Date(nextShowingAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</strong>
               </p>
             )}
             {nextShowingStatus === 'saved' && (
-              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem', textAlign: 'center' }}>Saved.</p>
+              <p className="fc-msg fc-msg--good" role="status">saved.</p>
             )}
             {nextShowingStatus === 'error' && (
-              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem', textAlign: 'center' }}>Error saving.</p>
+              <p className="fc-msg fc-msg--bad" role="status">could not save.</p>
             )}
           </div>
 
           {allSubmissions.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Delete submissions for {adminSubmissionsForMonth}</p>
+            <div className="fc-admin-block">
+              <p className="film-club-admin-label">Delete submissions for {adminSubmissionsForMonth}</p>
+              <ul className="fc-admin-list">
               {allSubmissions.map((s) => (
-                <div key={s.docId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--colour5)' }}>
-                  <span className="normal-text" style={{ fontSize: '0.875rem' }}>
+                <li key={s.docId} className="fc-admin-list-row">
+                  <span className="fc-admin-list-name">
                     {s.title} ({s.releaseYear}) — {s.username}
                   </span>
+                  <span className="fc-admin-list-leader" aria-hidden="true"></span>
                   <button
                     onClick={() => handleAdminDeleteSubmission(s.docId)}
-                    className="film-club-btn"
-                    style={{ marginLeft: '1rem', padding: '0.25rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'var(--colour3)', color: 'var(--colour4)', border: 'none', borderRadius: '6px', cursor: 'pointer', flexShrink: 0 }}
+                    className="fc-act fc-act--del"
                   >
-                    Delete
+                    del
                   </button>
-                </div>
+                </li>
               ))}
+              </ul>
             </div>
           )}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Magnet links for current film</p>
+          <div className="fc-admin-block">
+            <p className="film-club-admin-label">Magnet links for current film</p>
             {adminDownloadLinks.map((link, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <div key={i} className="fc-admin-row">
                 <input
                   type="text"
                   value={link.label}
                   onChange={(e) => setAdminDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, label: e.target.value } : l))}
                   placeholder="Size (e.g. 1080p)"
-                  style={{ width: '8rem', flexShrink: 0, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                  className="fc-admin-input fc-admin-input--label"
                 />
                 <input
                   type="url"
                   value={link.url}
                   onChange={(e) => setAdminDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, url: e.target.value } : l))}
                   placeholder="https://…"
-                  style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                  className="fc-admin-input fc-admin-input--url"
                 />
                 <button
                   onClick={() => setAdminDownloadLinks((prev) => prev.filter((_, j) => j !== i))}
-                  className="film-club-btn"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', flexShrink: 0 }}
+                  className="film-club-btn film-club-btn-del fc-admin-drop"
+                  aria-label="Remove link"
                 >✕</button>
               </div>
             ))}
             <button
               onClick={() => setAdminDownloadLinks((prev) => [...prev, { label: '', url: '' }])}
               className="film-club-btn"
-              style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', marginBottom: '0.5rem' }}
-            >+ Add link</button>
+            >+ add link</button>
             <button
               onClick={handleAdminSaveDownloadLinks}
               disabled={downloadSaveStatus === 'saving'}
-              className="film-club-btn film-club-btn-primary"
-              style={{ marginTop: '0.5rem' }}
+              className="film-club-btn film-club-btn-primary fc-admin-save"
             >
               {downloadSaveStatus === 'saving' ? 'Saving…' : 'Save download links'}
             </button>
             {downloadSaveStatus === 'saved' && (
-              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+              <p className="fc-msg fc-msg--good" role="status">saved.</p>
             )}
             {downloadSaveStatus === 'error' && (
-              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+              <p className="fc-msg fc-msg--bad" role="status">could not save.</p>
             )}
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Direct download links for current film</p>
+          <div className="fc-admin-block">
+            <p className="film-club-admin-label">Direct download links for current film</p>
             {adminDirectDownloadLinks.map((link, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <div key={i} className="fc-admin-row">
                 <input
                   type="text"
                   value={link.label}
                   onChange={(e) => setAdminDirectDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, label: e.target.value } : l))}
                   placeholder="Label (e.g. 1080p)"
-                  style={{ width: '8rem', flexShrink: 0, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                  className="fc-admin-input fc-admin-input--label"
                 />
                 <input
                   type="url"
                   value={link.url}
                   onChange={(e) => setAdminDirectDownloadLinks((prev) => prev.map((l, j) => j === i ? { ...l, url: e.target.value } : l))}
                   placeholder="https://…"
-                  style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px' }}
+                  className="fc-admin-input fc-admin-input--url"
                 />
                 <button
                   onClick={() => setAdminDirectDownloadLinks((prev) => prev.filter((_, j) => j !== i))}
-                  className="film-club-btn"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', flexShrink: 0 }}
+                  className="film-club-btn film-club-btn-del fc-admin-drop"
+                  aria-label="Remove link"
                 >✕</button>
               </div>
             ))}
             <button
               onClick={() => setAdminDirectDownloadLinks((prev) => [...prev, { label: '', url: '' }])}
               className="film-club-btn"
-              style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', marginBottom: '0.5rem' }}
-            >+ Add link</button>
+            >+ add link</button>
             <button
               onClick={handleAdminSaveDirectDownloadLinks}
               disabled={directDownloadSaveStatus === 'saving'}
-              className="film-club-btn film-club-btn-primary"
-              style={{ marginTop: '0.5rem' }}
+              className="film-club-btn film-club-btn-primary fc-admin-save"
             >
               {directDownloadSaveStatus === 'saving' ? 'Saving…' : 'Save direct download links'}
             </button>
             {directDownloadSaveStatus === 'saved' && (
-              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+              <p className="fc-msg fc-msg--good" role="status">saved.</p>
             )}
             {directDownloadSaveStatus === 'error' && (
-              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+              <p className="fc-msg fc-msg--bad" role="status">could not save.</p>
             )}
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Description for current film</p>
+          <div className="fc-admin-block">
+            <p className="film-club-admin-label">Description for current film</p>
             <textarea
               value={adminDescription}
               onChange={(e) => { setAdminDescription(e.target.value); setDescriptionSaveStatus('idle'); }}
               placeholder="Add context or notes about this month's film…"
               rows={4}
-              style={{ width: '100%', padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px', resize: 'vertical', boxSizing: 'border-box' }}
+              className="fc-admin-input fc-admin-input--area"
             />
             <button
               onClick={handleAdminSaveDescription}
               disabled={descriptionSaveStatus === 'saving'}
-              className="film-club-btn film-club-btn-primary"
-              style={{ marginTop: '0.5rem' }}
+              className="film-club-btn film-club-btn-primary fc-admin-save"
             >
               {descriptionSaveStatus === 'saving' ? 'Saving…' : 'Save description'}
             </button>
             {descriptionSaveStatus === 'saved' && (
-              <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+              <p className="fc-msg fc-msg--good" role="status">saved.</p>
             )}
             {descriptionSaveStatus === 'error' && (
-              <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+              <p className="fc-msg fc-msg--bad" role="status">could not save.</p>
             )}
           </div>
 
           {isRevealPhase && monthData?.nextFilm && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Description for next month's film ({nextMonthName})</p>
+            <div className="fc-admin-block">
+              <p className="film-club-admin-label">Description for next month's film ({nextMonthName})</p>
               <textarea
                 value={adminNextDescription}
                 onChange={(e) => { setAdminNextDescription(e.target.value); setNextDescriptionSaveStatus('idle'); }}
                 placeholder={`Add context or notes about ${nextMonthName}'s film…`}
                 rows={4}
-                style={{ width: '100%', padding: '0.35rem 0.6rem', fontSize: '0.875rem', fontFamily: 'var(--font2)', background: 'var(--colour4)', color: 'var(--colour5)', border: '1px solid var(--colour5)', borderRadius: '6px', resize: 'vertical', boxSizing: 'border-box' }}
+                className="fc-admin-input fc-admin-input--area"
               />
               <button
                 onClick={handleAdminSaveNextDescription}
                 disabled={nextDescriptionSaveStatus === 'saving'}
-                className="film-club-btn film-club-btn-primary"
-                style={{ marginTop: '0.5rem' }}
+                className="film-club-btn film-club-btn-primary fc-admin-save"
               >
                 {nextDescriptionSaveStatus === 'saving' ? 'Saving…' : 'Save description'}
               </button>
               {nextDescriptionSaveStatus === 'saved' && (
-                <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+                <p className="fc-msg fc-msg--good" role="status">saved.</p>
               )}
               {nextDescriptionSaveStatus === 'error' && (
-                <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+                <p className="fc-msg fc-msg--bad" role="status">could not save.</p>
               )}
             </div>
           )}
 
           {monthData?.currentFilm && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Clear current film</p>
+            <div className="fc-admin-block">
+              <p className="film-club-admin-label">Clear current film</p>
               <button
                 onClick={handleAdminClearCurrentFilm}
                 disabled={clearFilmStatus === 'clearing'}
-                className="film-club-btn"
-                style={{ backgroundColor: 'var(--colour3)', color: 'var(--colour4)', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
+                className="film-club-btn film-club-btn-del"
               >
                 {clearFilmStatus === 'clearing' ? 'Clearing…' : 'Clear current film'}
               </button>
               {clearFilmStatus === 'error' && (
-                <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error clearing.</p>
+                <p className="fc-msg fc-msg--bad" role="status">could not clear.</p>
               )}
             </div>
           )}
 
-          <p className="film-club-admin-label" style={{ marginBottom: '0.5rem' }}>Set currently playing film</p>
+          <p className="film-club-admin-label">Set currently playing film</p>
           <FilmSearchBox onFilmSelect={handleAdminSetCurrentFilm} />
           {adminFilmSelection && (
-            <div style={{ marginTop: '1rem' }}>
+            <div className="fc-admin-preview">
               <FilmCard
                 posterPath={adminFilmSelection.posterPath}
                 title={adminFilmSelection.title}
@@ -834,16 +834,15 @@ function FilmClub() {
               <button
                 onClick={handleAdminSave}
                 disabled={adminSaveStatus === 'saving'}
-                className="film-club-btn film-club-btn-primary"
-                style={{ marginTop: '0.75rem' }}
+                className="film-club-btn film-club-btn-primary fc-admin-save"
               >
                 {adminSaveStatus === 'saving' ? 'Saving…' : 'Set as current film'}
               </button>
               {adminSaveStatus === 'saved' && (
-                <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>Saved!</p>
+                <p className="fc-msg fc-msg--good" role="status">saved.</p>
               )}
               {adminSaveStatus === 'error' && (
-                <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>Error saving.</p>
+                <p className="fc-msg fc-msg--bad" role="status">could not save.</p>
               )}
             </div>
           )}

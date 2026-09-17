@@ -9,6 +9,7 @@ import VisualiserDock from '../components/VisualiserDock';
 import Weather from '../components/weather-app';
 import { usePlayerState } from '../utils/usePlayer';
 import { scrollPageTo } from '../utils/pageScroll';
+import { SUBTITLES } from '../utils/straplines';
 import '../App.css';
 import '../components/basic/TextAnimations.css';
 import './Home.css';
@@ -16,57 +17,6 @@ import './Home.css';
 const Stats = lazy(() => import('../components/Stats'));
 const WeathrAnimation = lazy(() => import('../components/weathr/WeathrAnimation'));
 
-const SUBTITLES = [
-  "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Yes Sir, I Can Boogie 🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-  "We <3 you",
-  "Confirmed 2000% better than Spotify",
-  "Made in Britain, Paid in Britain",
-  "From Glasgow to the World",
-  "3000 watts of xenon strobe power!",
-  "They say Glasgow's full of speccy bams",
-  "Make Hardcore Happy Again",
-  "I just fucking love files",
-  "Built by community, for community",
-  "🇵🇸 Free Palestine!! 🇵🇸",
-  "Until Forever Fades Away",
-  "And if I asked you to stop me from falling, Would you save me?",
-  "Hardcore will never die, but you will",
-  "Don't be daft, take a half",
-  "Because steel is heavier than feathers",
-  "Benny Harvey RIP",
-  "Excellent value for money!",
-  "My face is the front of shop",
-  "Recommended by 9 out of 10 dentists",
-  "Final release moving fast!",
-  "Archival maintenence is a radical practice",
-  "Maximum Volume yields Maximum Results",
-  "Do Not Look Directly At The Strobe",
-  "for f in *.flac; do ffmpeg -i \"$f\" -b:a 320k \"${f%.flac}.mp3\"; done",
-  "Put a banging donk on it",
-  "Big Things Coming Soon",
-  "Home of the Business Techno Industrial Complex™",
-  "Big beats are the best, get high all the time",
-  "bida bup bup - oooh ooooh",
-  "Skeng",
-  "slowed and reverbed.....",
-  "On the charge with Minaj",
-  "One More Tune",
-  "chopped 'N' screwed",
-  "Keep Honking!! I'm Listening to Alice Coltranes 1971 Meteoric Sensation 'Universal Consciousness'.",
-  "Stay lossless",
-  "Soulseek for my Salvation",
-  "You Can't Hide Your Love (Hidden Love mix)",
-  "Scream if you want to go faster",
-  "Seed what you reap",
-  "Hard Drum 4ever",
-  "Deconstruct This!",
-  "You have to trust the future will be a little bit sexy",
-  "┌∩┐(◣_◢)┌∩┐",
-  "Ƹ̵̡Ӝ̵̨̄Ʒ",
-  "°º¤ø,¸¸,ø¤º°`°º¤ø,¸,ø¤°º¤ø,¸¸,ø¤º°`°º¤ø,¸",
-  "peer to peer, dust to dust",
-  "Did You Click The Boy? Did You Feel The Joy?",
-];
 
 /* Repeated to fill the bar's width and clipped by overflow. The wave comes from
    the glyphs' own heights rather than per-character transforms, so it costs one

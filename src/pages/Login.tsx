@@ -7,10 +7,15 @@ import {
 import { auth } from '../firebaseConfig';
 import { useRateLimit } from '../utils/useRateLimit.ts';
 import BackgroundStar from '../components/basic/Star';
+import AsciiTitle from '../components/basic/AsciiTitle';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Button from '../components/basic/Button';
+import { SUBTITLES } from '../utils/straplines';
+import './Login.css';
 
 const Login = () => {
+  // Picked once per mount, not per render, so it holds still while you type.
+  const [strapline] = useState(() => SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,7 +34,7 @@ const Login = () => {
     maxAttempts: 5,
     windowMs: 15 * 60 * 1000, // 15 minutes
   });
-  
+
   useEffect(() => {
     if (auth.currentUser) {
       navigate('/');
@@ -43,17 +48,14 @@ const Login = () => {
 
     // Check rate limit BEFORE attempting login
     if (!checkRateLimit()) {
-      const remaining = getRemainingAttempts();
-      setError(
-        `Too many login attempts. Please wait 15 minutes before trying again. `
-      );
+      setError('too many attempts — wait 15 minutes before trying again.');
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address.');
+      setError('that does not look like an email address.');
       return;
     }
 
@@ -62,30 +64,29 @@ const Login = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      console.log('User logged in successfully');
       reset();
       navigate('/');
     } catch (error) {
       console.error('Login failed:', error);
-      
-      // Show remaining attempts in error message
+
       const remaining = getRemainingAttempts();
-      
+
       if (error instanceof Error) {
-        // Customize error messages to be more user-friendly
-        let errorMessage = 'Login failed. ';
-        
+        let errorMessage: string;
+
         if (error.message.includes('wrong-password') || error.message.includes('user-not-found')) {
-          errorMessage += 'Invalid email or password. ';
+          errorMessage = 'wrong email or password.';
         } else if (error.message.includes('too-many-requests')) {
-          errorMessage += 'Too many failed attempts. Your account has been temporarily locked. ';
+          errorMessage = 'too many failed attempts — the account is locked for a while.';
         } else {
-          errorMessage += 'Please try again. ';
+          errorMessage = 'login failed — try again.';
         }
 
-        setError(errorMessage);
+        /* The count is this browser's own rate-limit budget, so saying it out
+           loud costs nothing and saves a locked-out guess. */
+        setError(remaining > 0 ? `${errorMessage} ${remaining} left before the wait.` : errorMessage);
       } else {
-        setError('An unknown error occurred. Please try again.');
+        setError('something went wrong — try again.');
       }
     } finally {
       setLoading(false);
@@ -94,7 +95,7 @@ const Login = () => {
 
   const handlePasswordReset = async () => {
     if (!resetEmail) {
-      setPasswordResetMessage('Please enter your email address.');
+      setPasswordResetMessage('enter your email address first.');
       setPasswordResetSuccess(false);
       return;
     }
@@ -105,14 +106,12 @@ const Login = () => {
     try {
       await sendPasswordResetEmail(auth, resetEmail);
       setPasswordResetMessage(
-        `If an account exists with ${resetEmail}, a password reset email has been sent.`
+        `if an account exists for ${resetEmail}, a reset email is on its way.`
       );
       setPasswordResetSuccess(true);
     } catch (error) {
       console.error('Error with password reset:', error);
-      setPasswordResetMessage(
-        'Failed to send password reset email. Please try again.'
-      );
+      setPasswordResetMessage('could not send the reset email — try again.');
       setPasswordResetSuccess(false);
     } finally {
       setPasswordResetLoading(false);
@@ -130,104 +129,114 @@ const Login = () => {
   if (user) return <Navigate to="/" replace />;
 
   return (
-    <div className="Page">
+    <div className="login-page">
       <BackgroundStar />
 
-      <h1 className="title1centred">Welcome to Yabbyville</h1>
-      <h2 className="header">Login</h2>
+      <div className="lg-sheet">
+        <h1 className="lg-sr">Yabbyville — log in</h1>
 
-      <form onSubmit={handleSubmit} className="login-form">
-        <div className="form-group" style={{ marginBottom: '20px' }}>
-          <div className="textbox-container">
-            <div className="input-area">
+        <div className="lg-mark" aria-hidden="true">
+          <AsciiTitle />
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <h2 className="lg-h">
+            <span className="lg-h-label">log in</span>
+            <span className="lg-h-rule" aria-hidden="true"></span>
+            <span className="lg-h-note">members only</span>
+          </h2>
+
+          <div className="lg-band">
+            <label className="lg-field">
+              <span className="lg-label">email</span>
               <input
                 type="email"
-                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 autoComplete="email"
-                className="text-input form-input"
+                className="lg-input"
               />
-            </div>
-          </div>
-        <div className="form-group" style={{ marginBottom: '20px' }}>
-          <div className="textbox-container">
-            <div className="input-area">
+            </label>
+
+            <label className="lg-field">
+              <span className="lg-label">password</span>
               <input
                 type="password"
-                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
-                className="text-input form-input"
+                autoComplete="current-password"
+                className="lg-input"
+              />
+            </label>
+
+            {error && (
+              <p className="lg-msg lg-msg--bad" role="alert">{error}</p>
+            )}
+
+            <div className="lg-actions">
+              <Button
+                htmlType="submit"
+                disabled={loading}
+                className="lg-submit basic-button--primary"
+                label={loading ? 'signing in…' : 'log in'}
               />
             </div>
-          </div>
-        </div>
-      </div>
 
-        {error && <div className="error-message">{error}</div>}
-
-        <Button
-          type="basic"
-          htmlType="submit"
-          disabled={loading}
-          className={`submit-button ${loading ? 'loading' : ''} center-button`}
-          label={loading ? 'Loading...' : 'Login'}
-        />
-
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <Button
-            type="basic"
-            onClick={togglePasswordReset}
-            className="link-button center-button"
-            label={
-              showPasswordReset ? 'Hide Password Reset' : 'Forgot Password?'
-            }
-          />
-        </div>
-      </form>
-
-      {showPasswordReset && (
-        <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #ddd', borderRadius: '4px' }}>
-          <h3 style={{ marginBottom: '15px', fontSize: '16px' }}>Reset Password</h3>
-          <div className="form-group" style={{ marginBottom: '20px' }}>
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              value={resetEmail}
-              onChange={(e) => setResetEmail(e.target.value)}
-              disabled={passwordResetLoading}
-              autoComplete="email"
-              className="form-input"
-            />
-          </div>
-          <Button
-            type="basic"
-            onClick={handlePasswordReset}
-            disabled={passwordResetLoading}
-            className="submit-button center-button"
-            label={passwordResetLoading ? 'Sending...' : 'Send Password Reset Email'}
-          />
-          {passwordResetMessage && (
-            <div
-              style={{
-                marginTop: '10px',
-                padding: '8px',
-                borderRadius: '4px',
-                backgroundColor: passwordResetSuccess ? '#d4edda' : '#f8d7da',
-                color: passwordResetSuccess ? '#155724' : '#721c24',
-                border: `1px solid ${
-                  passwordResetSuccess ? '#c3e6cb' : '#f5c6cb'
-                }`,
-              }}
-            >
-              {passwordResetMessage}
+            <div className="lg-tail">
+              <button
+                type="button"
+                className={`lg-link${showPasswordReset ? ' is-open' : ''}`}
+                onClick={togglePasswordReset}
+                aria-expanded={showPasswordReset}
+                aria-controls="lg-reset"
+              >
+                forgot your password?
+                <span className="lg-caret" aria-hidden="true">›</span>
+              </button>
             </div>
-          )}
-        </div>
-      )}
+
+            <div id="lg-reset" className={`lg-reset${showPasswordReset ? ' is-open' : ''}`}>
+              <div className="lg-reset-inner">
+                <div className="lg-reset-body">
+                  <h3 className="lg-reset-h">reset password</h3>
+
+                  <label className="lg-field">
+                    <span className="lg-label">email</span>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      disabled={passwordResetLoading}
+                      autoComplete="email"
+                      className="lg-input"
+                    />
+                  </label>
+
+                  <Button
+                    onClick={handlePasswordReset}
+                    disabled={passwordResetLoading}
+                    className="lg-reset-send"
+                    label={passwordResetLoading ? 'sending…' : 'send reset email'}
+                  />
+
+                  {passwordResetMessage && (
+                    <p
+                      className={`lg-msg ${passwordResetSuccess ? 'lg-msg--good' : 'lg-msg--bad'}`}
+                      role="status"
+                    >
+                      {passwordResetMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <p className="lg-sub">{strapline}</p>
+      </div>
     </div>
   );
 };

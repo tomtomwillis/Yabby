@@ -1,151 +1,228 @@
+/*
+ * A film — the poster in a gutter, everything known about it beside.
+ *
+ * The box is gone. What was a bordered card is now the same three tracks the
+ * board sets a post in: a picture, a dotted channel, and the type. The label
+ * over it ("now watching", "next month's film") is the section-heading idiom,
+ * with when the film leaves pinned to the far end of the rule.
+ *
+ * The --fc-* names are declared on .fc-page; the fallbacks keep the card
+ * standing wherever else it is used (the admin panel prints one as a preview).
+ */
+
 .film-card {
   width: 100%;
-  max-width: 600px;
   text-align: left;
 }
 
+/* ─── The label ───────────────────────────────────────── */
+
+/* A small mono label, a hairline filling what is left, and the leaving date
+   where the muted note goes. */
 .film-card-label-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.72vw, 0.84rem);
+  letter-spacing: 0.12em;
 }
 
 .film-card-label {
-  font-family: var(--font2);
-  font-size: 0.75rem;
-  color: var(--colour6);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  flex: 0 0 auto;
   margin: 0;
+  color: var(--fc-accent, #1a2ecc);
 }
+
+.film-card-label-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--fc-rule, #c9cee4);
+  transform: translateY(-0.25em);
+}
+
+/* Not a date so much as a warning, which is what the attention colour is for. */
+.film-card-label--leaving {
+  color: var(--colour3);
+}
+
+/* ─── The card ────────────────────────────────────────── */
 
 .film-card-inner {
-  display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
-  border: 1px solid var(--colour2);
-  border-radius: 12px;
-  padding: 1rem;
+  display: grid;
+  grid-template-columns: clamp(96px, 9vw, 132px) 9px minmax(0, 1fr);
+  gap: 0 1rem;
+  align-items: start;
+  padding: 0;
+  border: none;
+  border-radius: 0;
 }
 
-.film-card-poster {
-  width: 110px;
-  border-radius: 6px;
-  flex-shrink: 0;
-  display: block;
+.film-card-channel {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  width: 9px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    #c3c9e0 0 6px,
+    transparent 6px 13px
+  );
+  background-size: 1px 100%;
+  background-position: 50% 0;
+  background-repeat: no-repeat;
 }
 
+/* Square-cornered and unshadowed — a poster printed on the sheet, not a tile
+   laid on it. */
+.film-card-poster,
 .film-card-poster-placeholder {
-  width: 110px;
-  height: 165px;
-  background-color: var(--colour5);
-  opacity: 0.15;
-  border-radius: 6px;
-  flex-shrink: 0;
+  grid-column: 1;
+  display: block;
+  width: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Nothing to show: a plain sleeve at the poster's own proportion with a mark
+   in the middle, so a missing poster reads as a set member rather than a
+   fault. */
+.film-card-poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 2 / 3;
+  height: auto;
+  background: var(--fc-tint, #eef1fb);
+  opacity: 1;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  color: var(--fc-rule, #c9cee4);
+  user-select: none;
 }
 
 .film-card-info {
+  grid-column: 3;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
   min-width: 0;
 }
 
+/* ─── The type ────────────────────────────────────────── */
+
 .film-card-title {
-  font-family: var(--font1);
-  font-weight: bold;
-  color: var(--colour2);
-  font-size: 1.1rem;
   margin: 0;
+  font-family: var(--font1);
+  font-size: clamp(1.05rem, 1.2vw, 1.3rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fc-accent, #1a2ecc);
 }
 
 .film-card-year {
-  font-weight: normal;
-  color: var(--colour5);
-  font-size: 0.9rem;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--fc-mute, #8a90a8);
 }
 
-.film-card-pitch {
-  font-family: var(--font1);
-  font-size: 0.875rem;
-  color: var(--colour5);
+/* Whoever put it up, in their own words — the one line here a person wrote, so
+   it is set in the human face and marked the way a bio is. */
+.film-card-pitch,
+.film-card-description {
   margin: 0;
-  font-style: italic;
-  line-height: 1.5;
+  font-family: var(--font3);
+  font-size: clamp(1rem, 1.05vw, 1.15rem);
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--fc-voice, #8825e6);
+  white-space: pre-wrap;
 }
 
 .film-card-submitted-by {
-  font-family: var(--font2);
-  font-size: 0.75rem;
-  color: var(--colour6);
   margin: 0;
+  font-family: var(--font2);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--fc-dim, #5566c9);
 }
 
+/* TMDB's synopsis — the last thing you read on the card, set accordingly.
+   Long-form prose outside the board is font4. */
 .film-card-overview {
-  font-family: var(--font2);
-  font-size: 0.8rem;
-  color: var(--colour5);
-  opacity: 0.6;
-  margin: 0;
-  line-height: 1.5;
+  margin: 0.2rem 0 0;
+  max-width: 66ch;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--fc-rule-soft, #dfe3f0);
+  font-family: var(--font4);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--fc-ink, #2b2b2b);
+  opacity: 1;
 }
 
+/* ─── Controls on the card ────────────────────────────── */
+
+/* A bare word with a glyph, not a bordered pill — it sits on a line of type. */
 .film-card-trailer-link {
-  display: inline-block;
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
   font-family: var(--font2);
-  font-size: 0.75rem;
-  color: var(--colour2);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  color: var(--fc-dim, #5566c9);
   text-decoration: none;
-  border: 1px solid var(--colour2);
-  border-radius: 4px;
-  padding: 0.2rem 0.5rem;
-  margin-top: 0.1rem;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: color 0.15s ease;
 }
 
-.film-card-trailer-link:hover {
-  background-color: var(--colour2);
-  color: var(--colour4);
+.film-card-trailer-link:hover,
+.film-card-trailer-link:focus-visible {
+  background: none;
+  color: var(--colour3);
+  text-decoration: underline;
 }
 
 .film-card-leave-date {
-  font-family: var(--font2);
-  font-size: 0.8rem;
-  color: var(--colour3);
   margin: 0;
+  font-family: var(--font2);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  color: var(--colour3);
 }
+
+/* ─── Downloads ───────────────────────────────────────── */
 
 .film-card-download-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.4rem;
-  margin-top: 0.25rem;
-}
-
-.film-card-download-label {
-  font-family: var(--font2);
-  font-size: 0.8rem;
-  color: var(--colour5);
-}
-
-.film-card-description {
-  font-family: var(--font1);
-  font-size: 0.875rem;
-  color: var(--colour5);
-  margin: 0;
-  font-style: italic;
-  line-height: 1.5;
-  white-space: pre-wrap;
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--fc-rule-soft, #dfe3f0);
 }
 
 .film-card-download-label-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.4rem;
 }
 
+.film-card-download-label {
+  font-family: var(--font2);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--fc-dim, #5566c9);
+}
 
 .film-card-download-buttons {
   display: flex;
@@ -153,13 +230,19 @@
   gap: 0.5rem;
 }
 
-@media (max-width: 480px) {
-  .film-card-poster,
-  .film-card-poster-placeholder {
-    width: 80px;
+/* ─── Narrow ──────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .film-card-inner {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 0 0.8rem;
   }
 
-  .film-card-poster-placeholder {
-    height: 120px;
+  .film-card-channel {
+    display: none;
+  }
+
+  .film-card-info {
+    grid-column: 2;
   }
 }

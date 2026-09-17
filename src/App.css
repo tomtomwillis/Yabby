@@ -168,18 +168,21 @@ h1 {
   padding-left: 0; /* Remove left padding */
 }
 
-/* Link styling */
+/* A link on a line of type: small, mono, letterspaced, orange on the way to
+   being followed. The one hover colour, like every other control. */
 .links {
-  font-family: var(--font1);
-  color: var(--colour1);
-  font-size: 1.5rem;
+  font-family: var(--font2);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--colour2);
   text-decoration: none;
-  font-weight: 500;
-  transition: color 0.3s ease;
+  transition: color 0.15s ease;
 }
 
-.links:hover {
-  color: var(--colour2);
+.links:hover,
+.links:focus-visible {
+  color: var(--colour3);
   text-decoration: underline;
 }
 

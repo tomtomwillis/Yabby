@@ -1,0 +1,145 @@
+/*
+ * Stickers — the wall, and the one line of type that sorts it.
+ *
+ * Only the page's controls are this file's business: the grid itself is
+ * StickerGrid's. The sort is stated as `sort: newest / shuffle` with the chosen
+ * one underlined, the way the lists page and the travel filter state theirs,
+ * and the member filter is a bare select with a hairline round it.
+ */
+
+.st-page {
+  --st-rule: #c9cee4;
+  --st-accent: var(--colour2);
+  --st-dim: #5566c9;
+  --st-mute: #8a90a8;
+
+  text-align: left;
+}
+
+.st-place {
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 0 1.4rem;
+}
+
+/* The album search rounds its corners and centres itself by default; here it
+   is a plain field sitting flush above the bar, the same as on home. */
+.st-page .album-search-container {
+  max-width: none;
+  margin: 0;
+}
+
+.st-page .album-search-input-area {
+  padding: 0.5rem 0.65rem;
+  border-radius: 0;
+}
+
+.st-page .album-search-input {
+  font-size: 0.85rem;
+}
+
+.st-page .album-result-button {
+  border-radius: 0;
+}
+
+/* ─── The bar ─────────────────────────────────────────── */
+
+.st-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  width: 100%;
+  margin-bottom: 1.2rem;
+  padding-bottom: 0.5rem;
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.08em;
+}
+
+.st-bar-key {
+  flex: 0 0 auto;
+  color: var(--st-dim);
+}
+
+.st-bar-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--st-rule);
+  transform: translateY(-0.25em);
+}
+
+/* ─── The sort ────────────────────────────────────────── */
+
+/* Both orders on the line: at two values an index to open would cost more than
+   it saves. */
+.st-sort {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.st-opt {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--st-mute);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.st-opt.is-sel {
+  color: var(--st-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.st-opt:hover,
+.st-opt:focus-visible {
+  color: var(--colour3);
+}
+
+.st-opt:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.st-sep {
+  color: var(--st-rule);
+}
+
+/* ─── The filter ──────────────────────────────────────── */
+
+/* The one dropdown the page keeps: the list of people is as long as the
+   membership, so stating every name on the line is not an option. A hairline
+   box with no fill, like every other bordered control here. */
+.st-select {
+  flex: 0 0 auto;
+  max-width: 14rem;
+  padding: 0.2rem 0.4rem;
+  background: transparent;
+  color: var(--st-accent);
+  border: 1px solid var(--st-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: inherit;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.st-select:hover,
+.st-select:focus-visible {
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.st-select:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}

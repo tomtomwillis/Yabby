@@ -1,10 +1,10 @@
 import Header from '../components/basic/Header';
 import FilmClub from '../components/film/FilmClub';
-import '../App.css';
+import '../components/film/FilmClub.css';
 
 function FilmClubPage() {
   return (
-    <div className="app-container">
+    <div className="fc-page">
       <Header title="Film Club" subtitle="watch with yabbyville" />
       <FilmClub />
     </div>

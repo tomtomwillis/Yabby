@@ -1,0 +1,72 @@
+/*
+ * 404 — the same masthead and bar every other page has, saying there is
+ * nothing under them. Drawn in the language rather than left bare, because a
+ * page that looks broken reads as the site being broken.
+ */
+
+.nf-page {
+  --nf-rule: #c9cee4;
+  --nf-accent: var(--colour2);
+  --nf-dim: #5566c9;
+  --nf-mute: #8a90a8;
+
+  width: 100%;
+  text-align: left;
+}
+
+.nf-page > header.header {
+  margin: 0;
+  padding: 0 0 0.45rem;
+  border-bottom: 1px solid var(--nf-rule);
+}
+
+.nf-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--nf-rule);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.78vw, 0.92rem);
+  letter-spacing: 0.08em;
+  color: var(--nf-accent);
+}
+
+.nf-bar-label {
+  flex: 0 0 auto;
+}
+
+.nf-bar-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--nf-rule);
+  transform: translateY(-0.25em);
+}
+
+.nf-bar-note {
+  flex: 0 0 auto;
+  color: var(--nf-mute);
+}
+
+.nf-note {
+  margin: 1rem 0 0;
+  max-width: 62ch;
+  font-family: var(--font2);
+  font-size: clamp(0.76rem, 0.78vw, 0.9rem);
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--nf-dim);
+}
+
+.nf-note a {
+  color: var(--nf-accent);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.nf-note a:hover,
+.nf-note a:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}

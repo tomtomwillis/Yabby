@@ -223,7 +223,10 @@ body:has(.home-page) .star-path {
    as boxes laid on it. */
 .home-main .travel-page,
 .home-main .lists-page,
-.home-main .list-page {
+.home-main .list-page,
+.home-main .user-page,
+.home-main .me-page,
+.home-main .fc-page {
   width: auto;
   margin-inline: calc(-1 * var(--hp-main-pad));
 }

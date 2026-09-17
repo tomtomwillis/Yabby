@@ -1,4 +1,10 @@
-/* Film Search Container */
+/* The film search — a field, and an index of what it found.
+ *
+ * Used only inside the film club, whose bands supply the field's own skin; what
+ * is here is the shape. The results are rows on a hairline, each a small poster
+ * beside the title and year — not a stack of filled buttons.
+ */
+
 .film-search-container {
   display: flex;
   flex-direction: column;
@@ -8,55 +14,56 @@
   box-sizing: border-box;
 }
 
-/* Input Area Container */
 .film-search-input-area {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem;
-  border-radius: 12px;
+  padding: 0.5rem 0.6rem;
   background-color: transparent;
   border: 1px solid var(--colour2);
-  transition: border-color 0.3s ease;
+  border-radius: 0;
+  transition: border-color 0.15s ease;
 }
 
 .film-search-input-area:focus-within {
-  border-color: var(--colour5);
+  border-color: var(--colour3);
 }
 
-/* Input Styling */
 .film-search-input {
   flex: 1;
   min-height: 1.5rem;
   padding: 0;
+  background-color: transparent;
   border: none;
   outline: none;
   font-family: var(--font2);
-  font-size: 1rem;
+  font-size: 0.9rem;
   line-height: 1.5;
-  color: var(--colour2);
-  background-color: transparent;
+  color: var(--colour5);
 }
 
 .film-search-input::placeholder {
-  color: var(--colour2);
-  opacity: 0.6;
+  color: #8a90a8;
+  opacity: 1;
 }
 
-/* Search Status */
 .film-search-status {
-  margin-top: 0.5rem;
+  margin-top: 0.4rem;
   font-family: var(--font2);
-  font-size: 0.875rem;
-  color: var(--colour2);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: #8a90a8;
   text-align: left;
-  opacity: 0.8;
+  opacity: 1;
 }
 
-/* Search Results Container */
+/* ─── Results ─────────────────────────────────────────── */
+
+/* A ledger, not a dropdown: in flow under the field, rows a hairline apart. */
 .film-search-results {
   margin-top: 0.5rem;
   background-color: transparent;
+  border-top: 1px solid #dfe3f0;
 }
 
 .film-search-results ul {
@@ -68,63 +75,73 @@
 }
 
 .film-search-results li {
-  background-color: transparent !important;
-  padding: 2px 0 !important;
-  margin-bottom: 2px !important;
-  border-radius: 0 !important;
+  background-color: transparent;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  border-bottom: 1px solid #dfe3f0;
 }
 
-/* Film Result Button */
+/* A row you can press, with no fill of its own — hover moves the type, which
+   is the one thing hover ever moves here. */
 .film-result-button {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   width: 100%;
-  padding: 10px 12px;
-  background-color: var(--colour1) !important;
-  color: var(--colour4) !important;
+  padding: 0.4rem 0.2rem;
+  background-color: transparent;
+  color: var(--colour2);
   border: none;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   font-family: var(--font2);
   text-align: left;
-  transition: background-color 0.2s ease;
+  transition: color 0.15s ease;
 }
 
-.film-result-button:hover {
-  background-color: var(--colour2) !important;
+.film-result-button:hover,
+.film-result-button:focus-visible {
+  background-color: transparent;
+  color: var(--colour3);
 }
 
-.film-result-poster {
-  width: 36px;
-  height: 54px;
-  object-fit: cover;
-  border-radius: 2px;
+.film-result-button:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: -2px;
+}
+
+.film-result-poster,
+.film-result-poster-placeholder {
+  width: 32px;
+  height: 48px;
   flex-shrink: 0;
+  border-radius: 0;
+  object-fit: cover;
 }
 
 .film-result-poster-placeholder {
-  width: 36px;
-  height: 54px;
-  background-color: var(--colour4);
-  opacity: 0.2;
-  border-radius: 2px;
-  flex-shrink: 0;
+  background-color: #eef1fb;
+  opacity: 1;
 }
 
 .film-result-info {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .film-result-title {
-  font-weight: bold;
-  font-size: 1rem;
-  margin-bottom: 2px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
 .film-result-year {
-  font-size: 0.875rem;
-  opacity: 0.8;
+  font-size: 0.74rem;
+  color: #8a90a8;
+  opacity: 1;
 }

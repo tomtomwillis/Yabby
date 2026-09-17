@@ -178,8 +178,10 @@ function FilmClubVote() {
   if (votingClosed) {
     return (
       <div className="film-vote-container">
-        <p className="normal-text">Voting for this month has closed.</p>
-        <a href="/film-club" className="links" style={{ fontSize: '1rem' }}>← back to film club</a>
+        <div className="film-club-section fc-vote-head">
+          <a href="/film-club" className="links">← back to film club</a>
+          <p className="normal-text">Voting for this month has closed.</p>
+        </div>
       </div>
     );
   }
@@ -187,9 +189,11 @@ function FilmClubVote() {
   if (ranking.length === 0) {
     return (
       <div className="film-vote-container">
-        <a href="/film-club" className="links" style={{ fontSize: '1rem' }}>← back to film club</a>
-        <p className="normal-text">No films have been submitted yet. Be the first!</p>
-        <a href="/film-club-submit" className="links" style={{ fontSize: '1rem' }}>submit a film</a>
+        <div className="film-club-section fc-vote-head">
+          <a href="/film-club" className="links">← back to film club</a>
+          <p className="normal-text">No films have been submitted yet. Be the first!</p>
+          <a href="/film-club-submit" className="film-club-btn film-club-btn-primary">submit a film</a>
+        </div>
       </div>
     );
   }
@@ -198,34 +202,38 @@ function FilmClubVote() {
 
   return (
     <div className="film-vote-container">
-      <a href="/film-club" className="links" style={{ fontSize: '1rem' }}>← back to film club</a>
-      <p className="normal-text">
-        {isMobile
-          ? <>Use the arrows to rank the films for {nextMonthName}. Your top pick goes first. Voting closes <strong>{votingDeadline}</strong>.</>
-          : <>Drag to rank the films for {nextMonthName}. Your top pick goes first. Voting closes <strong>{votingDeadline}</strong>.</>
-        }
-      </p>
+      <div className="film-club-section fc-vote-head">
+        <a href="/film-club" className="links">← back to film club</a>
 
-      <a href="/film-club-submit" className="film-vote-save-btn">Submit a film</a>
-
-      <button
-        onClick={handleSave}
-        disabled={saveStatus === 'saving'}
-        className="film-vote-save-btn"
-      >
-        {saveStatus === 'saving' ? 'Saving...' : 'Save ranking'}
-      </button>
-
-      {saveStatus === 'saved' && (
-        <p className="normal-text" style={{ color: 'var(--colour1)', marginTop: '0.5rem' }}>
-          Ranking saved! You can update it any time before {votingDeadline}.
+        <p className="normal-text">
+          {isMobile
+            ? <>Use the arrows to rank the films for {nextMonthName}. Your top pick goes first. Voting closes <strong>{votingDeadline}</strong>.</>
+            : <>Drag to rank the films for {nextMonthName}. Your top pick goes first. Voting closes <strong>{votingDeadline}</strong>.</>
+          }
         </p>
-      )}
-      {saveStatus === 'error' && (
-        <p className="normal-text" style={{ color: 'var(--colour3)', marginTop: '0.5rem' }}>
-          Something went wrong. Please try again.
-        </p>
-      )}
+
+        <div className="fc-vote-controls">
+          <button
+            onClick={handleSave}
+            disabled={saveStatus === 'saving'}
+            className="film-club-btn film-club-btn-primary"
+          >
+            {saveStatus === 'saving' ? 'saving…' : 'save ranking'}
+          </button>
+          <a href="/film-club-submit" className="film-club-btn">submit a film</a>
+        </div>
+
+        {saveStatus === 'saved' && (
+          <p className="fc-msg fc-msg--good" role="status">
+            ranking saved — you can change it any time before {votingDeadline}.
+          </p>
+        )}
+        {saveStatus === 'error' && (
+          <p className="fc-msg fc-msg--bad" role="status">
+            something went wrong — try again.
+          </p>
+        )}
+      </div>
 
       <div className="film-vote-list">
         {ranking.map((submission, index) => (

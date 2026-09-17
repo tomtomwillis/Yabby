@@ -1,7 +1,24 @@
 /* ---------------------------------------------------------------------------
    Yabbyville Cinema — pure black backdrop, animated velvet curtains.
    The global Star (z-index -1) shines through on top of the black layer below.
+
+   Deliberately its own world: the rest of the site is a white printed sheet
+   and this is a dark room, so the ground, the gold frame and the velvet stay
+   as they are. What it shares with everywhere else is the *type* and the
+   *controls* — mono at a small letterspaced size, box characters doing real
+   structural work, nothing rounded, and every control a bare glyph or a
+   hairline square whose text and border move to orange on hover and whose
+   fill never moves at all.
 --------------------------------------------------------------------------- */
+
+.cinema-page {
+  /* The room's palette, named so the masthead and the controls can be written
+     against it the way every other page is written against --colourN. */
+  --cn-gold: #f1c75a;
+  --cn-gold-dim: rgba(241, 199, 90, 0.55);
+  --cn-gold-faint: rgba(241, 199, 90, 0.28);
+  --cn-ink: #e9d8a8;
+}
 
 /* Fixed black layer behind the global Star so the orange star sits on black. */
 .cinema-blackout {
@@ -10,6 +27,97 @@
   background: #000;
   z-index: -2;
   pointer-events: none;
+}
+
+/* ---- masthead ----
+   The shared Header is written for the white sheet: a blue title, a purple
+   strapline and hairlines in a pale blue-grey, none of which survive a black
+   ground. Same shapes, repainted in the room's own gold. */
+.cinema-page > header.header {
+  width: 100%;
+  margin-bottom: 0.4rem;
+  text-align: center;
+}
+
+.cinema-page .header h1 {
+  color: var(--cn-gold);
+  text-align: center;
+}
+
+.cinema-page .header .small-text {
+  color: var(--cn-ink);
+  text-align: center;
+  opacity: 0.85;
+}
+
+.cinema-page .header hr {
+  border-top-color: var(--cn-gold-faint);
+}
+
+/* The nav is the only way off this page, so it stays — centred with the rest
+   of the stage rather than ranged left. */
+.cinema-page .desktop-nav {
+  display: flex;
+  justify-content: center;
+}
+
+.cinema-page .nav-links,
+.cinema-page .nav-groups {
+  justify-content: center;
+}
+
+.cinema-page .nav-links a,
+.cinema-page .nav-group-btn {
+  color: var(--cn-gold-dim);
+}
+
+.cinema-page .nav-links a:hover,
+.cinema-page .nav-links a:focus-visible,
+.cinema-page .nav-group-btn:hover,
+.cinema-page .nav-group-btn:focus-visible {
+  color: var(--colour3);
+}
+
+.cinema-page .nav-group-btn.active {
+  color: var(--cn-gold);
+}
+
+.cinema-page .group-links {
+  border-top-color: var(--cn-gold-faint);
+}
+
+/* The drawer and its handle, for the width where the nav is hidden. */
+.cinema-page > .burger-menu {
+  background: #000;
+  color: var(--cn-gold-dim);
+  border-color: var(--cn-gold-faint);
+}
+
+.cinema-page > .burger-menu:hover,
+.cinema-page > .burger-menu:focus-visible {
+  background: #000;
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.cinema-page > .mobile-nav {
+  background-color: #0a0a0a;
+  border-right-color: var(--cn-gold-faint);
+}
+
+.cinema-page > .mobile-nav a {
+  color: var(--cn-gold-dim);
+  border-bottom-color: var(--cn-gold-faint);
+}
+
+.cinema-page > .mobile-nav a:hover,
+.cinema-page > .mobile-nav a:focus-visible {
+  color: var(--colour3);
+}
+
+.cinema-page > .mobile-nav .mobile-nav-group-header {
+  color: var(--cn-ink);
+  border-bottom-color: var(--cn-gold-faint);
 }
 
 .cinema-stage {
@@ -33,11 +141,13 @@
   aspect-ratio: 16 / 9;
 }
 
+/* The gold frame is the one ornament kept whole — it is the room, not chrome.
+   Square-cornered, though: a radius here was the last of the old vocabulary. */
 .cinema-screen {
   position: absolute;
   inset: 0;
   background: #000;
-  border-radius: 6px;
+  border-radius: 0;
   padding: 12px;
   background-image:
     linear-gradient(135deg, #d4af37 0%, #8b6f1f 35%, #f5d97a 50%, #8b6f1f 65%, #4a3a10 100%);
@@ -63,7 +173,7 @@
   height: 100%;
   display: block;
   background: #000;
-  border-radius: 2px;
+  border-radius: 0;
   box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.9);
 }
 
@@ -131,26 +241,38 @@
   width: 25%;
 }
 
-/* ---- tap-to-play overlay (autoplay was blocked) ---- */
+/* ---- tap-to-play overlay (autoplay was blocked) ----
+   A hairline square in the room's gold, not a pill: hover moves the text and
+   the border to the site's one hover colour and leaves the fill where it is.
+   The fill it does have is there to keep the words off the film behind them. */
 .cinema-play-prompt {
   position: absolute;
   left: 50%;
   bottom: 50px;
   transform: translateX(-50%);
-  padding: 0.6rem 1.2rem;
-  background: rgba(0, 0, 0, 0.75);
-  color: #f1c75a;
+  padding: 0.5rem 1.1rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--cn-gold, #f1c75a);
   border: 1px solid rgba(241, 199, 90, 0.6);
-  border-radius: 999px;
+  border-radius: 0;
   font-family: var(--font2), monospace;
-  font-size: 0.95rem;
-  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
   z-index: 4;
 }
 
-.cinema-play-prompt:hover {
-  background: rgba(0, 0, 0, 0.9);
+.cinema-play-prompt:hover,
+.cinema-play-prompt:focus-visible {
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.cinema-play-prompt:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
 }
 
 /* ---- ASCII divider between screen and plate ---- */
@@ -186,12 +308,17 @@
   text-shadow: 0 0 6px rgba(241, 199, 90, 0.4);
 }
 
+/* The marquee lights, as glyphs rather than as circles. Same pulse, same job,
+   but drawn the way the rest of the site draws its ornament: a character in
+   the mono, set in the plate's own line of type. The glow is the light, so
+   that is what the animation moves. */
 .cinema-plate__bulb {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff5c8 0%, #f1c75a 40%, #8b6f1f 100%);
-  box-shadow: 0 0 8px rgba(241, 199, 90, 0.7);
+  font-family: var(--font2), monospace;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: #fff5c8;
+  text-shadow: 0 0 8px rgba(241, 199, 90, 0.9);
+  user-select: none;
   animation: cinema-bulb 2.4s ease-in-out infinite;
 }
 
@@ -200,8 +327,14 @@
 }
 
 @keyframes cinema-bulb {
-  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(241, 199, 90, 0.7); }
-  50%      { opacity: 0.55; box-shadow: 0 0 3px rgba(241, 199, 90, 0.3); }
+  0%, 100% { opacity: 1; text-shadow: 0 0 8px rgba(241, 199, 90, 0.9); }
+  50%      { opacity: 0.5; text-shadow: 0 0 3px rgba(241, 199, 90, 0.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cinema-plate__bulb {
+    animation: none;
+  }
 }
 
 /* ---- mobile tweaks ---- */

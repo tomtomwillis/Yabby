@@ -38,10 +38,35 @@ const BOARDS: Board[] = [
   { key: 'filmclub', label: 'film club', href: '/filmclubmessage' },
 ];
 
-/* The board index, drawn the way the left-hand site nav is: a tree of links
-   with the one you are on marked. Each board is its own page and its own
-   collection; posts ticked through to the main board are read there. */
-const BoardsRail: React.FC<{ current: BoardKey }> = ({ current }) => {
+/** One line of the tree. A board is a page, so it is a link; the issues board's
+ *  two statuses are state on one page, so they are buttons instead. */
+export interface RailEntry {
+  key: string;
+  label: string;
+  href?: string;
+  onSelect?: () => void;
+}
+
+interface BoardsRailProps {
+  /** Which entry is the one being read. */
+  current: BoardKey | string;
+  /** What the tree lists. Defaults to the three conversation boards. */
+  entries?: RailEntry[];
+  /** The word over the tree — what the entries are a set of. */
+  heading?: string;
+}
+
+/* The board index, drawn the way the left-hand site nav is: a tree of entries
+   with the one you are on marked. For the conversation boards each is its own
+   page and its own collection; posts ticked through to the main board are read
+   there. Issues reuses the rail for its two statuses, which are the same thing
+   to read — one set, one of them current — even though they are state rather
+   than separate pages.
+
+   It also carries the density setting, which is why every board page mounts it:
+   the slider is what publishes --mb-t. */
+const BoardsRail: React.FC<BoardsRailProps> = ({ current, entries, heading = 'boards' }) => {
+  const items: RailEntry[] = entries ?? BOARDS;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sizeT, setSizeT] = useState(readStoredT);
 
@@ -66,23 +91,39 @@ const BoardsRail: React.FC<{ current: BoardKey }> = ({ current }) => {
   };
 
   return (
-    <aside className="mb-boards" aria-label="Boards">
-      <p className="mb-boards-heading">boards</p>
+    <aside className="mb-boards" aria-label={heading}>
+      <p className="mb-boards-heading">{heading}</p>
       <ul className="mb-boards-list">
-        {BOARDS.map((board, i) => (
-          <li key={board.key} className={board.key === current ? 'current' : undefined}>
-            <span className="mb-boards-tree" aria-hidden="true">
-              {i === BOARDS.length - 1 ? '└─' : '├─'}
-            </span>
-            <Link
-              to={board.href}
-              className="mb-boards-name"
-              aria-current={board.key === current ? 'page' : undefined}
-            >
-              {board.label}
-            </Link>
-          </li>
-        ))}
+        {items.map((entry, i) => {
+          const isCurrent = entry.key === current;
+          return (
+            <li key={entry.key} className={isCurrent ? 'current' : undefined}>
+              <span className="mb-boards-tree" aria-hidden="true">
+                {i === items.length - 1 ? '└─' : '├─'}
+              </span>
+              {entry.href ? (
+                <Link
+                  to={entry.href}
+                  className="mb-boards-name"
+                  aria-current={isCurrent ? 'page' : undefined}
+                >
+                  {entry.label}
+                </Link>
+              ) : (
+                /* State, not a destination: aria-pressed rather than
+                   aria-current, which would claim this is a different page. */
+                <button
+                  type="button"
+                  className="mb-boards-name"
+                  aria-pressed={isCurrent}
+                  onClick={entry.onSelect}
+                >
+                  {entry.label}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
 
       <div className="mb-boards-settings">

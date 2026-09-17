@@ -1,0 +1,774 @@
+/*
+ * Your profile — the settings sheet.
+ *
+ * Two states on one page. At rest it prints the same identity card the public
+ * page does, so what you see here is what everyone else sees. Editing turns
+ * that card into the one tinted band on the page — the board's composer idiom,
+ * used for the same reason: the tint is how this site says "you type here".
+ *
+ * Under both, the account itself: each setting a line of type with a dot leader
+ * running out to its value, which is a word or a bracketed mark and never a
+ * widget. The checkboxes are real inputs, drawn as `[x]` and `[ ]` — a mark in
+ * the mono rather than an OS control dropped into a printed page.
+ */
+
+.me-page {
+  --me-rule: #c9cee4;
+  --me-rule-soft: #dfe3f0;
+  --me-ink: var(--colour5);
+  --me-accent: var(--colour2);
+  --me-dim: #5566c9;
+  --me-mute: #8a90a8;
+  --me-voice: var(--colour6);
+  --me-red: #c0392b;
+
+  --me-sheet: rgba(251, 251, 253, 0.94);
+  --me-tint: rgba(238, 241, 251, 0.95);
+
+  --me-edge: clamp(14px, 2.4vw, 34px);
+  --me-gutter: clamp(120px, 12vw, 160px);
+  --me-channel: 9px;
+  --me-gap: 14px;
+  /* The line a field or a bio is held to — a measure, not the column. */
+  --me-measure: 46rem;
+
+  width: 100%;
+  text-align: left;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .me-page {
+    --me-sheet: #fbfbfd;
+    --me-tint: #eef1fb;
+  }
+}
+
+/* ─── Masthead ────────────────────────────────────────── */
+
+.me-page > header.header {
+  margin: 0;
+  padding: 0 var(--me-edge) 0.45rem;
+  border-bottom: 1px solid var(--me-rule);
+}
+
+.me-page > header.header .small-text {
+  margin: 0;
+  font-family: var(--font3);
+  font-size: clamp(1.125rem, 1.3vw, 1.4rem);
+  color: var(--me-voice);
+}
+
+/* ─── Bars and headings ───────────────────────────────── */
+
+/* The section-heading idiom, used both as the band's own bar and as the rule
+   between the profile and the account below it. */
+.me-bar,
+.me-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: clamp(0.4rem, 0.9vw, 0.9rem);
+  margin: 0;
+  padding: 0.6rem var(--me-edge);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.78vw, 0.92rem);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--me-accent);
+}
+
+.me-bar {
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--me-rule);
+}
+
+.me-h {
+  padding-top: 1.4rem;
+}
+
+.me-bar-label,
+.me-h-label {
+  flex: 0 0 auto;
+}
+
+.me-bar-rule,
+.me-h-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--me-rule);
+  transform: translateY(-0.25em);
+}
+
+.me-bar-note,
+.me-h-note {
+  flex: 0 0 auto;
+  color: var(--me-mute);
+}
+
+.me-sep {
+  flex: 0 0 auto;
+  color: var(--me-rule);
+}
+
+/* Bare words on the line — the page's controls, wherever they sit. */
+.me-act {
+  flex: 0 0 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--me-dim);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.me-act:hover,
+.me-act:focus-visible {
+  color: var(--colour3);
+}
+
+.me-act:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.me-act:disabled {
+  color: var(--me-mute);
+  cursor: default;
+}
+
+.me-act--del:hover:not(:disabled),
+.me-act--del:focus-visible {
+  color: var(--me-red);
+}
+
+/* ─── The card ────────────────────────────────────────── */
+
+/* Exactly the shape the public page draws, for the same reason the board draws
+   it: a picture in a gutter, a dotted channel, and what it has to say beside. */
+.me-card {
+  display: grid;
+  grid-template-columns: var(--me-gutter) var(--me-channel) minmax(0, 1fr);
+  gap: 0 var(--me-gap);
+  align-items: start;
+  padding: clamp(1rem, 2.2vh, 1.6rem) var(--me-edge) clamp(1.2rem, 2.6vh, 2rem);
+  background: var(--me-sheet);
+  border-bottom: 1px solid var(--me-rule);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .me-card {
+    background: #fbfbfd;
+  }
+}
+
+.me-channel {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  width: var(--me-channel);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    #c3c9e0 0 6px,
+    transparent 6px 13px
+  );
+  background-size: 1px 100%;
+  background-position: 50% 0;
+  background-repeat: no-repeat;
+}
+
+/* No frame, the way the board's gutter has none. */
+.me-avatar {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.me-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.me-avatar--none {
+  font-family: var(--font2);
+  font-size: clamp(2rem, 4.5vw, 3.4rem);
+  color: var(--me-rule);
+  user-select: none;
+}
+
+.me-body {
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.me-name {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.95rem, 1vw, 1.15rem);
+  letter-spacing: 0.04em;
+  color: var(--me-accent);
+  overflow-wrap: anywhere;
+}
+
+/* Their own line, in the human face, marked the way a comment in the margin
+   is — the one thing on the page nobody else wrote. */
+.me-bio {
+  margin: 0;
+  max-width: var(--me-measure);
+  font-family: var(--font3);
+  font-size: clamp(1.05rem, 1.15vw, 1.3rem);
+  line-height: 1.5;
+  color: var(--me-voice);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.me-bio::before {
+  content: '// ';
+  color: var(--me-mute);
+}
+
+.me-bio--none {
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.04em;
+  color: var(--me-mute);
+}
+
+/* What is saved against the account, on the same leaders the public page uses,
+   so the two read as the same object. Two grid tracks, so each term and its
+   value land on a row without needing a wrapper. */
+.me-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  margin: 0;
+  max-width: var(--me-measure);
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--me-rule-soft);
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.74vw, 0.88rem);
+  letter-spacing: 0.04em;
+}
+
+/* The leader lives inside the term rather than between the two, which is what
+   keeps the markup to a plain dt/dd pair. */
+.me-fact-key {
+  display: flex;
+  align-items: baseline;
+  padding: 0.2rem 0;
+  color: var(--me-dim);
+}
+
+.me-fact-leader {
+  flex: 1 1 auto;
+  min-width: 0.8rem;
+  height: 0;
+  margin: 0 0.45rem;
+  border-bottom: 1px dotted var(--me-rule);
+  transform: translateY(-0.3em);
+}
+
+.me-fact-val {
+  min-width: 0;
+  margin: 0;
+  padding: 0.2rem 0;
+  color: var(--me-ink);
+  overflow-wrap: anywhere;
+}
+
+.me-fact-val a {
+  color: var(--me-accent);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.me-fact-val a:hover,
+.me-fact-val a:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.me-flag-inline {
+  margin-right: 0.35em;
+}
+
+/* ─── The input band ──────────────────────────────────── */
+
+/* The one band on the page that is typed into rather than read. */
+.me-band {
+  padding: 1rem var(--me-edge) 1.2rem;
+  background: var(--me-tint);
+  border-bottom: 2px solid var(--me-accent);
+}
+
+.me-field {
+  max-width: var(--me-measure);
+  margin-bottom: 1rem;
+}
+
+.me-field:last-child {
+  margin-bottom: 0;
+}
+
+.me-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--me-dim);
+}
+
+/* MessageTextBox centres a rounded 600px box by default; in the band it is a
+   plain field the full width of the measure. */
+.me-band .textbox-container {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.me-band .input-area {
+  padding: 0.45rem 0.6rem;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--me-rule);
+  border-radius: 0;
+  transition: border-color 0.15s ease;
+}
+
+.me-band .input-area:focus-within {
+  border-color: var(--colour3);
+}
+
+.me-band .text-input,
+.me-band .text-input::placeholder {
+  color: var(--me-ink);
+  font-size: 0.88rem;
+}
+
+.me-band .text-input::placeholder {
+  color: var(--me-mute);
+}
+
+.me-band .word-counter {
+  margin-top: 0.25rem;
+  padding: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--me-mute);
+}
+
+/* ─── Sticker picker ──────────────────────────────────── */
+
+/* The shape and colour stated on a line with the sticker they make printed
+   under it — the selects are the only two dropdowns the site keeps, because
+   the set is long and both facets are orthogonal. */
+.me-band .avatar-preview-container {
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0;
+}
+
+/* The component ships its own "Choose Avatar:" label; the band supplies the
+   heading, so that one has nothing left to say. */
+.me-band .avatar-preview-container > label {
+  display: none;
+}
+
+.me-band .dropdown-container {
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.me-band .dropdown-container select {
+  padding: 0.4rem 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--me-accent);
+  border: 1px solid var(--me-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.me-band .dropdown-container select:hover,
+.me-band .dropdown-container select:focus-visible {
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.me-band .avatar-preview-window {
+  width: 104px;
+  height: 104px;
+  border-radius: 0;
+}
+
+/* ─── Flag picker ─────────────────────────────────────── */
+
+/* The travel filter's facet, doing the same job: `flag: Scotland ▸`, which
+   unrolls an index of the values on dot leaders rather than dropping a panel
+   over the page. In flow, so choosing one grows the band instead of covering
+   what is under it. */
+.me-flag {
+  max-width: var(--me-measure);
+}
+
+.me-facet {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--me-dim);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.me-facet-val {
+  color: var(--me-accent);
+}
+
+.me-facet:hover,
+.me-facet:hover .me-facet-val,
+.me-facet:focus-visible,
+.me-facet:focus-visible .me-facet-val {
+  color: var(--colour3);
+}
+
+.me-facet:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.me-facet-glyph {
+  font-size: 1.15em;
+}
+
+.me-facet-mark {
+  display: inline-block;
+  font-size: 0.85em;
+  transition: transform 0.28s ease;
+}
+
+.me-facet.is-open .me-facet-mark {
+  transform: rotate(90deg);
+}
+
+/* 0fr → 1fr animates to the content's own height without measuring it. */
+.me-flag-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0.28s;
+}
+
+.me-flag-panel.is-open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0s;
+}
+
+.me-flag-panel-inner {
+  overflow: hidden;
+}
+
+.me-flag-body {
+  padding-top: 0.55rem;
+  margin-top: 0.45rem;
+  border-top: 1px dotted var(--me-rule);
+}
+
+.me-flag-search {
+  display: block;
+  width: 100%;
+  max-width: 18rem;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--me-ink);
+  border: 1px solid var(--me-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+}
+
+.me-flag-search::placeholder {
+  color: var(--me-mute);
+}
+
+.me-flag-search:focus {
+  outline: none;
+  border-color: var(--colour3);
+}
+
+/* Newspaper columns, as the travel index is: a name has to read down the first
+   column before it spills into the second. A fixed height, because column-fill
+   only obeys a definite one. */
+.me-flag-opts {
+  columns: clamp(150px, 15vw, 210px);
+  column-gap: clamp(1rem, 2.2vw, 2.2rem);
+  column-fill: auto;
+  max-height: clamp(160px, 28vh, 300px);
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.me-flag-opts li {
+  break-inside: avoid;
+}
+
+.me-flag-opt {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.12rem 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  letter-spacing: 0.03em;
+  color: var(--me-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.me-flag-opt:hover,
+.me-flag-opt:focus-visible {
+  color: var(--colour3);
+}
+
+.me-flag-opt:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.me-flag-opt.is-sel {
+  color: var(--me-accent);
+  font-weight: 700;
+}
+
+.me-flag-opt-glyph {
+  flex: 0 0 auto;
+}
+
+.me-flag-opt-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.me-flag-opt-leader {
+  flex: 1 1 auto;
+  min-width: 0.6rem;
+  height: 0;
+  margin-left: 0.2rem;
+  border-bottom: 1px dotted var(--me-rule);
+  transform: translateY(-0.3em);
+}
+
+.me-flag-none {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: 0.74rem;
+  color: var(--me-mute);
+}
+
+/* ─── Band footer ─────────────────────────────────────── */
+
+/* Save is the page's one filled control while the band is open; cancel is a
+   word beside it. */
+.me-band-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.1rem;
+}
+
+.me-save.basic-button {
+  flex: 0 0 auto;
+  padding: 0.5em 1.4em;
+}
+
+/* ─── Settings rows ───────────────────────────────────── */
+
+/* `name .......... value`, the one shape the site uses for an index of facts,
+   with the value being the control. */
+.me-rows {
+  margin: 0;
+  padding: 0 0 1.5rem;
+  list-style: none;
+}
+
+.me-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  padding: 0.35rem var(--me-edge);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.04em;
+}
+
+.me-row-key {
+  flex: 0 0 auto;
+  color: var(--me-dim);
+}
+
+.me-row-leader {
+  flex: 1 1 auto;
+  min-width: 0.8rem;
+  height: 0;
+  margin: 0 0.45rem;
+  border-bottom: 1px dotted var(--me-rule);
+  transform: translateY(-0.3em);
+}
+
+.me-row-val {
+  flex: 0 0 auto;
+  color: var(--me-ink);
+}
+
+/* A real checkbox, drawn as a mark in the mono. The input is taken out of the
+   layout rather than hidden, so it keeps its place in the tab order and the
+   label still toggles it. */
+.me-check {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.me-check input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.me-check-mark {
+  color: var(--me-accent);
+  letter-spacing: 0.06em;
+  transition: color 0.15s ease;
+}
+
+.me-check input:not(:checked) + .me-check-mark {
+  color: var(--me-mute);
+}
+
+.me-check:hover .me-check-mark,
+.me-check input:focus-visible + .me-check-mark {
+  color: var(--colour3);
+}
+
+.me-check input:focus-visible + .me-check-mark {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+/* ─── Messages ────────────────────────────────────────── */
+
+/* A line of type, prefixed the way a note in the margin would be. */
+.me-msg {
+  margin: 0;
+  padding: 0.25rem var(--me-edge) 0.35rem;
+  font-family: var(--font2);
+  font-size: 0.74rem;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--me-dim);
+}
+
+.me-msg--in-band {
+  padding-inline: 0;
+  padding-top: 0.7rem;
+}
+
+.me-msg::before {
+  content: '// ';
+  color: var(--me-mute);
+}
+
+.me-msg--bad {
+  color: var(--me-red);
+}
+
+.me-msg--bad::before {
+  content: '!! ';
+  color: var(--me-red);
+}
+
+.me-msg--good::before {
+  content: 'ok ';
+  color: var(--me-accent);
+}
+
+.me-status {
+  margin: 0;
+  padding: 1rem var(--me-edge);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.04em;
+  color: var(--me-mute);
+  text-align: left;
+}
+
+/* ─── Narrow ──────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .me-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.8rem;
+  }
+
+  .me-channel {
+    display: none;
+  }
+
+  .me-avatar {
+    width: 84px;
+  }
+
+  .me-body {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .me-page > header.header h1 {
+    box-sizing: border-box;
+    padding-right: 4.5rem;
+  }
+}

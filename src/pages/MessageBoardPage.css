@@ -1513,12 +1513,22 @@
   user-select: none;
 }
 
+/* A link where the entry is a page, a button where it is state on this one.
+   Both are drawn as the same bare word on the line, so the reset is here
+   rather than in a second class. */
 .mb-boards-name {
   min-width: 0;
+  padding: 0;
   overflow: hidden;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
   color: var(--mb-accent);
   text-decoration: none;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 
 .mb-boards-name:hover,

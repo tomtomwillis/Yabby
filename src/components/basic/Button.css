@@ -1,109 +1,162 @@
-/* basic button styling */
+/*
+ * The site's buttons.
+ *
+ * Every control here is a hairline square: a 1px border, no radius, no fill,
+ * set in the mono at a small letterspaced size. Hover moves the text and the
+ * border to orange and leaves the fill alone, so a page at rest shows its
+ * structure and almost no colour. A view's single primary action takes
+ * .basic-button--primary and is the one filled thing on it.
+ *
+ * display: flex rather than inline-flex is inherited from the old filled pill:
+ * a fair number of callers rely on the button being block-level and taking the
+ * width of whatever contains it.
+ */
 
 .basic-button {
-  display: flex; /* Use flexbox */
-  align-items: center; /* Vertically center the text */
-  justify-content: center; /* Horizontally center the text */
-  padding: .8em 1.5em;
-  font-size: 1rem;
-  font-weight: 500;
-  font-family: var(--font1); /* Use font1 from App.css */
-  color: var(--colour4);
-  background-color: var(--colour2);
-  border: none;
-  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2em;
+  min-height: 2em;
+  padding: 0.5em 1.1em;
+  box-sizing: border-box;
+  background: transparent;
+  color: var(--colour2);
+  border: 1px solid var(--colour2);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.basic-button:hover {
-  background-color: var(--colour1);
-  color: var(--colour4);
+.basic-button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--colour3);
+  border-color: var(--colour3);
 }
 
+.basic-button:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+/* Greyed rather than filled: the disabled state has to read as "not yet" on a
+   control that has no fill to take away. */
 .basic-button:disabled {
-  background-color: #cccccc;
+  background: transparent;
+  color: #8a90a8;
+  border-color: #dfe3f0;
   cursor: not-allowed;
 }
 
-/* Close Button Styling */
+/* The one filled control a view is allowed — solid blue, white, uppercase.
+   Hover takes the fill to orange, which is the single place on the site where
+   hover touches a fill at all: there is no border here to move instead. */
+.basic-button--primary {
+  background: var(--colour2);
+  color: var(--colour4);
+  border-color: var(--colour2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.basic-button--primary:hover:not(:disabled) {
+  background: var(--colour3);
+  color: var(--colour4);
+  border-color: var(--colour3);
+}
+
+.basic-button--primary:disabled {
+  background: #eef1fb;
+  color: #8a90a8;
+  border-color: #dfe3f0;
+}
+
+/* Destructive actions are words, and they are red only on the way to being
+   pressed. */
+.basic-button--del:hover:not(:disabled),
+.basic-button--del:focus-visible {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+/* ─── Glyph buttons ───────────────────────────────────── */
+
+/* Close, and the two carousel arrows. Square like everything else — the icon
+   inside is the only thing that distinguishes them from a worded control.
+   Width and height come from the component's `size` prop as an inline style,
+   so the declarations here are the floor. */
+.close-button,
+.arrow-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2em;
+  height: 2em;
+  flex-shrink: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: transparent;
+  color: var(--colour2);
+  border: 1px solid var(--colour2);
+  border-radius: 0;
+  font-family: var(--font2);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
 
 .close-button {
-    display: flex; /* Use flexbox to center the icon */
-    align-items: center; /* Vertically center the icon */
-    justify-content: center; /* Horizontally center the icon */
-    padding: 0; /* Remove padding to ensure the button stays circular */
-    font-size: .5rem; /* Adjust font size for the icon */
-    font-family: var(--font1); /* Use font1 from App.css */
-    color: var(--colour4); /* Icon color */
-    background-color: var(--colour3); /* Background color */
-    border: none; /* Remove border */
-    border-radius: 50%; /* Make the button circular */
-    cursor: pointer; /* Pointer cursor for interactivity */
-    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transitions */
+  font-size: 0.55rem;
 }
-
-.close-button:hover {
-    background-color: var(--colour2); /* Change background on hover */
-    color: var(--colour4); /* Ensure icon color remains consistent */
-}
-
-/* Arrow Button Styling (for arrow-left and arrow-right) */
 
 .arrow-button {
-    display: flex; /* Use flexbox to center the icon */
-    align-items: center; /* Vertically center the icon */
-    justify-content: center; /* Horizontally center the icon */
-    padding: 0; /* Remove padding to ensure the button stays circular */
-    font-size: .8rem; /* Adjust font size for the icon */
-    font-family: var(--font1); /* Use font1 from App.css */
-    color: var(--colour4); /* Icon color */
-    background-color: var(--colour3); /* Background color */
-    border: none; /* Remove border */
-    border-radius: 50%; /* Make the button circular */
-    cursor: pointer; /* Pointer cursor for interactivity */
-    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transitions */
+  font-size: 0.8rem;
 }
 
-.arrow-button:hover {
-    background-color: var(--colour2); /* Change background on hover */
-    color: var(--colour4); /* Ensure icon color remains consistent */
+.close-button:hover,
+.close-button:focus-visible,
+.arrow-button:hover,
+.arrow-button:focus-visible {
+  background: transparent;
+  color: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.close-button:focus-visible,
+.arrow-button:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
 }
 
 .center-button {
-  width: 100%; /* Set width to auto */
-  margin: 0 auto; /* Center the button horizontally */
-  display: block; /* Ensure the button is treated as a block element */
-  font-family: var(--font1); /* Use font1 from App.css */
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
 }
 
-/* Fixed circular shape - use explicit width and height instead of auto */
-.close-button,
-.arrow-button {
-  width: 2em;
-  height: 2em; /* Explicit height instead of auto */
-  flex-shrink: 0; /* Prevent shrinking in flex containers */
-  box-sizing: border-box;
-}
+/* ─── Narrow ──────────────────────────────────────────── */
 
-/* Basic button min constraints */
-.basic-button {
-  min-width: 2em;
-  min-height: 2em;
-  box-sizing: border-box;
-}
-
-/* Adjust button sizes for smaller screens */
 @media (max-width: 768px) {
   .close-button,
   .arrow-button {
-    width: .8em;
-    height: .8em; /* Reduce size for smaller screens */
-    font-size: 0.6rem; /* Adjust icon size */
+    width: 1.6em;
+    height: 1.6em;
+  }
+
+  .close-button {
+    font-size: 0.5rem;
+  }
+
+  .arrow-button {
+    font-size: 0.7rem;
   }
 
   .basic-button {
-    font-size: 0.9rem; /* Slightly smaller text */
-    padding: 0.6em 1.2em; /* Adjust padding */
+    font-size: 0.74rem;
+    padding: 0.45em 0.9em;
   }
 }

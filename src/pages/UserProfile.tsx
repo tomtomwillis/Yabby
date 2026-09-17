@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { auth } from '../firebaseConfig';
+import { getUserProfile, type UserProfile as Profile } from '../utils/userCache';
 import Header from '../components/basic/Header';
-import Button from '../components/basic/Button';
 import SiteLink from '../components/basic/SiteLink';
+import './UserProfile.css';
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 const normalizeAvatarPath = (avatarPath: string): string => {
   if (!avatarPath) return '';
@@ -16,198 +18,145 @@ const normalizeAvatarPath = (avatarPath: string): string => {
 
 const UserProfile: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
-  const [username, setUsername] = useState('');
-  const [avatar, setAvatar] = useState('');
-  const [bio, setBio] = useState('');
-  const [siteUrl, setSiteUrl] = useState('');
-  const [locationFlag, setLocationFlag] = useState('');
-  const [locationText, setLocationText] = useState('');
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [error, setError] = useState('');
+  const [avatarBroken, setAvatarBroken] = useState(false);
 
+  /* Through the shared profile cache rather than its own read: the board, the
+     hover bubble on a username and this page all want the same document, and
+     the first of them to ask pays for it. */
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!userId) {
-        setError('No user specified.');
-        setLoading(false);
-        return;
-      }
+    if (!userId) {
+      setError('No user specified.');
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUsername(data.username || 'Anonymous');
-          setAvatar(data.avatar || '');
-          setBio(data.bio || '');
-          setSiteUrl(data.siteUrl || '');
-          setLocationFlag(data.locationFlag || '');
-          setLocationText(data.locationText || '');
-        } else {
-          setError('User not found.');
-        }
+    let live = true;
+    setAvatarBroken(false);
 
-        setIsOwnProfile(auth.currentUser?.uid === userId);
-      } catch (err) {
+    getUserProfile(userId)
+      .then((data) => {
+        if (!live) return;
+        /* The cache answers with its empty profile rather than throwing when
+           there is no document, so an absent member reads as one with no name
+           of their own. */
+        if (!data.hasUsername) setError('User not found.');
+        else setProfile(data);
+      })
+      .catch((err) => {
         console.error('Error fetching user profile:', err);
-        setError('Failed to load profile.');
-      } finally {
-        setLoading(false);
-      }
-    };
+        if (live) setError('Failed to load profile.');
+      })
+      .finally(() => {
+        if (live) setLoading(false);
+      });
 
+    setIsOwnProfile(auth.currentUser?.uid === userId);
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setIsOwnProfile(user.uid === userId);
-      }
+      if (user) setIsOwnProfile(user.uid === userId);
     });
 
-    fetchProfile();
-    return () => unsubscribe();
+    return () => {
+      live = false;
+      unsubscribe();
+    };
   }, [userId]);
 
   if (loading) {
     return (
-      <div className="Page">
-        <p style={{ textAlign: 'center', color: 'var(--colour2)', padding: '40px' }}>Loading...</p>
+      <div className="user-page">
+        <p className="up-status">loading…</p>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !profile) {
     return (
-      <div className="Page">
-        <Header title="Profile" subtitle="" />
-        <p style={{ textAlign: 'center', color: 'var(--colour2)', padding: '40px' }}>{error}</p>
+      <div className="user-page">
+        <Header title="Profile" subtitle="Public Profile" />
+        <p className="up-error">{error || 'Failed to load profile.'}</p>
       </div>
     );
   }
 
-  const normalizedAvatar = normalizeAvatarPath(avatar);
+  const normalizedAvatar = normalizeAvatarPath(profile.avatar);
+  const showAvatar = !!normalizedAvatar && !avatarBroken;
+  const joined = profile.joinedAt
+    ? `${MONTHS[profile.joinedAt.getMonth()]} ${profile.joinedAt.getFullYear()}`
+    : null;
+  /* When they joined is pinned to the bar rather than listed here — the bar is
+     where a page's note goes, and saying it twice is saying it twice. */
+  const hasFacts = !!profile.siteUrl || !!profile.locationFlag || !!profile.locationText;
 
   return (
-    <div className="Page">
-      <Header title={username} subtitle="Public Profile" />
+    <div className="user-page">
+      <Header title={profile.username} subtitle="Public Profile" />
 
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        maxWidth: '600px',
-        width: '100%',
-        margin: '0 auto',
-        padding: '20px',
-      }}>
-        {/* Avatar */}
-        <div style={{ marginBottom: '16px' }}>
-          {normalizedAvatar ? (
-            <img
-              src={normalizedAvatar}
-              alt={`${username}'s avatar`}
-              style={{ width: '120px', height: '120px', objectFit: 'cover' }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
-          ) : (
-            <div style={{
-              width: '120px',
-              height: '120px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--colour2)',
-              color: 'var(--colour4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '3em',
-              fontWeight: 'bold',
-            }}>
-              {username.charAt(0).toUpperCase()}
-            </div>
-          )}
+      <div className="up-bar">
+        <span className="up-bar-label">profile</span>
+        <span className="up-bar-rule" aria-hidden="true"></span>
+        <span className="up-bar-note">{joined ? `member since ${joined}` : 'member'}</span>
+        {isOwnProfile && (
+          <>
+            <span className="up-bar-sep" aria-hidden="true">·</span>
+            <Link to="/profile" className="up-bar-edit">edit</Link>
+          </>
+        )}
+      </div>
+
+      <div className="up-card">
+        <div className="up-gutter">
+          <div className={`up-avatar${showAvatar ? '' : ' up-avatar--none'}`}>
+            {showAvatar ? (
+              <img
+                src={normalizedAvatar}
+                alt={`${profile.username}'s sticker`}
+                onError={() => setAvatarBroken(true)}
+              />
+            ) : (
+              profile.username.charAt(0).toUpperCase()
+            )}
+          </div>
         </div>
 
-        {/* Bio + Location section */}
-        <div style={{ width: '100%', marginTop: '20px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              backgroundColor: 'var(--colour2)',
-              color: 'var(--colour4)',
-              borderRadius: '12px',
-              padding: '16px',
-              maxWidth: '600px',
-              margin: '0 auto',
-            }}>
-              {bio ? (
-                <p style={{
-                  fontFamily: 'var(--font2)',
-                  lineHeight: '1.6',
-                  whiteSpace: 'pre-wrap',
-                  margin: 0,
-                }}>
-                  {bio}
-                </p>
-              ) : (
-                <p style={{
-                  fontFamily: 'var(--font2)',
-                  fontStyle: 'italic',
-                  opacity: 0.6,
-                  margin: 0,
-                }}>
-                  This user hasn't written a bio yet.
-                </p>
-              )}
+        <span className="up-channel" aria-hidden="true"></span>
 
-              {siteUrl && (
-                <p style={{
-                  fontFamily: 'var(--font2)',
-                  fontSize: '0.95em',
-                  margin: '10px 0 0',
-                  wordBreak: 'break-all',
-                }}>
-                  <SiteLink
-                    url={siteUrl}
-                    style={{ color: 'var(--colour4)' }}
-                  />
-                </p>
-              )}
+        <div className="up-body">
+          {profile.bio ? (
+            <p className="up-bio">{profile.bio}</p>
+          ) : (
+            <p className="up-bio up-bio--none">no bio yet.</p>
+          )}
 
-              {(locationFlag || locationText) && (
+          {hasFacts && (
+            <dl className="up-facts">
+              {profile.siteUrl && (
                 <>
-                  {/* Dashed separator */}
-                  <div style={{
-                    borderBottom: '4px dashed var(--colour4)',
-                    width: '60%',
-                    margin: '12px auto',
-                    opacity: 0.4,
-                  }} />
-                  <p style={{
-                    fontFamily: 'var(--font2)',
-                    fontSize: '1em',
-                    margin: 0,
-                  }}>
-                    {locationFlag && <span style={{ fontSize: '1.4em', marginRight: '8px' }}>{locationFlag}</span>}
-                    {locationText}
-                  </p>
+                  <dt className="up-fact-key">
+                    site<span className="up-fact-leader" aria-hidden="true"></span>
+                  </dt>
+                  <dd className="up-fact-val"><SiteLink url={profile.siteUrl} /></dd>
                 </>
               )}
-            </div>
-          </div>
-        </div>
 
-        {/* Link to edit profile if own profile */}
-        {isOwnProfile && (
-          <div style={{ marginTop: '24px' }}>
-            <Link to="/profile">
-              <Button
-                type="basic"
-                label="Edit Profile"
-                onClick={() => {}}
-              />
-            </Link>
-          </div>
-        )}
+              {(profile.locationFlag || profile.locationText) && (
+                <>
+                  <dt className="up-fact-key">
+                    where<span className="up-fact-leader" aria-hidden="true"></span>
+                  </dt>
+                  <dd className="up-fact-val">
+                    {profile.locationFlag && <span className="up-flag">{profile.locationFlag}</span>}
+                    {profile.locationText}
+                  </dd>
+                </>
+              )}
+
+            </dl>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -175,7 +175,7 @@ function CinemaPage() {
   const plateText = curtainsOpen ? 'NOW SHOWING' : `NEXT SHOWING: ${nextShowingLabel}`;
 
   return (
-    <div className="app-container">
+    <div className="app-container cinema-page">
       <div className="cinema-blackout" aria-hidden="true" />
       <Header title="Cinema" subtitle="live screenings of this months Flim Club" />
 
@@ -229,9 +229,9 @@ function CinemaPage() {
 
         <div className="cinema-plate">
           <span className="cinema-plate__bracket">[</span>
-          <span className="cinema-plate__bulb" />
+          <span className="cinema-plate__bulb" aria-hidden="true">✦</span>
           <span className="cinema-plate__text">{plateText}</span>
-          <span className="cinema-plate__bulb" />
+          <span className="cinema-plate__bulb" aria-hidden="true">✦</span>
           <span className="cinema-plate__bracket">]</span>
         </div>
       </div>

@@ -1,30 +1,43 @@
-.film-vote-container {
-  width: 100%;
-  max-width: 640px;
-  padding: 0 1rem;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
+/*
+ * The ballot — a ledger you can reorder.
+ *
+ * The films print as rows a hairline apart with their position in a gutter of
+ * its own, the way a list's entries do. Dragging one moves the whole row;
+ * where there is no pointer to drag with, two bare arrows do the same job.
+ *
+ * The drop target is drawn as a rule above the row rather than a border round
+ * it: a border appearing would shift every row below it by two pixels, and the
+ * point of the gesture is that the set holds still while one thing moves.
+ */
 
 .film-vote-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0;
   width: 100%;
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
+  border-top: 1px solid var(--fc-rule, #c9cee4);
 }
 
+/* Two tracks: the position and the handle in the gutter, the film beside it.
+   The rules run edge to edge and only the content is inset. */
 .film-vote-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  transition: opacity 0.15s ease;
-  border-radius: 12px;
-  border: 2px solid transparent;
+  display: grid;
+  grid-template-columns: clamp(2.2rem, 3.4vw, 3rem) minmax(0, 1fr);
+  gap: 0 clamp(0.5rem, 1.2vw, 1rem);
+  align-items: start;
+  padding: clamp(0.8rem, 1.6vh, 1.2rem) var(--fc-edge, 1rem);
+  border: none;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid var(--fc-rule, #c9cee4);
+  border-radius: 0;
   cursor: grab;
   user-select: none;
+  transition: opacity 0.15s ease;
+}
+
+.film-vote-item:first-child {
+  border-top-color: transparent;
 }
 
 .film-vote-item:active {
@@ -32,90 +45,101 @@
 }
 
 .film-vote-item.dragging {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
+/* Where it would land, marked on the row's top edge in the attention colour.
+   The transparent border is always there, so nothing moves when it colours. */
 .film-vote-item.drag-over {
-  border-color: var(--colour2);
+  border-top-color: var(--colour3);
 }
 
 .film-vote-handle {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.25rem;
-  flex-shrink: 0;
-  min-width: 2rem;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0;
 }
 
 .film-vote-rank {
   font-family: var(--font2);
-  font-size: 0.85rem;
-  color: var(--colour2);
-  font-weight: bold;
+  font-size: clamp(0.8rem, 0.85vw, 0.98rem);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--fc-dim, #5566c9);
 }
 
+/* The braille-dot grip, quiet enough to read as an affordance rather than
+   content. */
 .film-vote-drag-icon {
-  font-size: 1.2rem;
-  color: var(--colour5);
-  opacity: 0.4;
+  font-family: var(--font2);
+  font-size: 1.1rem;
   line-height: 1;
+  color: var(--fc-rule, #c9cee4);
+  opacity: 1;
 }
 
 .film-vote-card {
-  flex: 1;
   min-width: 0;
 }
 
+/* ─── Arrows ──────────────────────────────────────────── */
+
+/* Bare glyphs, no box — they sit in the gutter under the position, which is
+   already a line of type. */
 .film-vote-arrow-buttons {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .film-vote-arrow-btn {
+  padding: 0.15rem 0.25rem;
   background: none;
-  border: 1px solid var(--colour2);
-  border-radius: 4px;
-  color: var(--colour2);
-  font-size: 0.65rem;
+  border: none;
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.72rem;
   line-height: 1;
-  padding: 0.2rem 0.35rem;
+  color: var(--fc-dim, #5566c9);
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease;
+}
+
+.film-vote-arrow-btn:hover:not(:disabled),
+.film-vote-arrow-btn:focus-visible {
+  color: var(--colour3);
+}
+
+.film-vote-arrow-btn:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
 }
 
 .film-vote-arrow-btn:disabled {
-  opacity: 0.2;
+  color: var(--fc-rule, #c9cee4);
+  opacity: 1;
   cursor: default;
 }
 
-.film-vote-arrow-btn:not(:disabled):active {
-  color: var(--colour2);
-  border-color: var(--colour2);
+/* ─── The ballot's own band ───────────────────────────── */
+
+/* The instructions, the way back, and the two controls — one line of type and
+   one filled button, ruled off above the ledger. */
+.fc-vote-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
 }
 
-.film-vote-save-btn {
-  margin-bottom: .5rem;
-  align-self: center;
-  padding: 0.6rem 1.4rem;
-  background-color: var(--colour2);
-  color: var(--colour4);
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: var(--font2);
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.film-vote-save-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.film-vote-save-btn:hover:not(:disabled) {
-  background-color: var(--colour1);
+.fc-vote-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
 }
