@@ -286,7 +286,7 @@ function FilmClub() {
         return true;
       });
       // A transaction drives the SDK directly, so the shadow hears about it here.
-      if (wrote) reportWrite('update', monthRef.path, result);
+      if (wrote) reportWrite('set', monthRef.path, result, { merge: true });
       await loadMonthData();
     };
 

@@ -166,7 +166,12 @@ function forShadow(data: WriteData): { data: DocumentData; remove: string[] } {
 // Reporting
 // ---------------------------------------------------------------------------
 
-type ShadowOp = 'create' | 'update' | 'delete';
+/** `set` is resolved by the API against what it holds — a create where
+ *  nothing exists, an update where something does — because that is how
+ *  Firestore picks the rule for setDoc, and the browser cannot know which. */
+type ShadowOp = 'create' | 'set' | 'update' | 'delete';
+
+type ReportOptions = { merge?: boolean };
 
 /**
  * Tell the API what was written. Never throws, never awaited by a caller, and
@@ -174,13 +179,20 @@ type ShadowOp = 'create' | 'update' | 'delete';
  * report that is allowed to fail, and forcing one would add a network round
  * trip to every write in the app.
  */
-function send(op: ShadowOp, path: string, data: WriteData | null, firestoreOk: boolean): void {
+function send(
+  op: ShadowOp,
+  path: string,
+  data: WriteData | null,
+  firestoreOk: boolean,
+  options: ReportOptions = {},
+): void {
   void (async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
       const body: Record<string, unknown> = { op, path, firestoreOk };
+      if (op === 'set') body.merge = options.merge === true;
       if (data) {
         const { data: payload, remove } = forShadow(data);
         body.data = payload;
@@ -204,7 +216,8 @@ function send(op: ShadowOp, path: string, data: WriteData | null, firestoreOk: b
   })();
 }
 
-const report = (op: ShadowOp, path: string, data: WriteData | null) => send(op, path, data, true);
+const report = (op: ShadowOp, path: string, data: WriteData | null, options?: ReportOptions) =>
+  send(op, path, data, true, options);
 
 /**
  * Report a write Firestore refused. The wrappers below call this themselves
@@ -214,8 +227,13 @@ const report = (op: ShadowOp, path: string, data: WriteData | null) => send(op, 
  * something Firestore denied is the divergence that matters most, and without
  * this the API only ever sees writes that succeeded.
  */
-export function reportDenied(op: ShadowOp, path: string, data: WriteData | null): void {
-  send(op, path, data, false);
+export function reportDenied(
+  op: ShadowOp,
+  path: string,
+  data: WriteData | null,
+  options?: ReportOptions,
+): void {
+  send(op, path, data, false, options);
 }
 
 /**
@@ -223,8 +241,13 @@ export function reportDenied(op: ShadowOp, path: string, data: WriteData | null)
  * that has to drive the SDK directly. The caller is responsible for having
  * written Firestore first and for describing the write exactly as made.
  */
-export function reportWrite(op: ShadowOp, path: string, data: WriteData | null): void {
-  report(op, path, data);
+export function reportWrite(
+  op: ShadowOp,
+  path: string,
+  data: WriteData | null,
+  options?: ReportOptions,
+): void {
+  report(op, path, data, options);
 }
 
 function isPermissionDenied(error: unknown): boolean {
@@ -253,21 +276,20 @@ export async function addDocShadowed(
   return created;
 }
 
-/** setDoc on a known id. `merge` is passed through to Firestore; a merging
- *  write is reported as an update, since that is what it is. */
+/** setDoc on a known id. `merge` is passed through to Firestore and to the
+ *  API, which resolves the write against the document it holds. */
 export async function setDocShadowed(
   reference: DocumentReference,
   data: WriteData,
   options?: { merge?: boolean },
 ): Promise<void> {
-  const op: ShadowOp = options?.merge ? 'update' : 'create';
   try {
     await trackedSetDoc(reference, forFirestore(data), options);
   } catch (error) {
-    if (isPermissionDenied(error)) reportDenied(op, reference.path, data);
+    if (isPermissionDenied(error)) reportDenied('set', reference.path, data, options);
     throw error;
   }
-  report(op, reference.path, data);
+  report('set', reference.path, data, options);
 }
 
 /** updateDoc. The patch is reported as written — the API merges it onto the
@@ -297,7 +319,7 @@ export async function deleteDocShadowed(reference: DocumentReference): Promise<v
   report('delete', reference.path, null);
 }
 
-type BatchEntry = { op: ShadowOp; path: string; data: WriteData | null };
+type BatchEntry = { op: ShadowOp; path: string; data: WriteData | null; options?: ReportOptions };
 
 export interface ShadowedWriteBatch {
   set(reference: DocumentReference, data: WriteData, options?: { merge?: boolean }): ShadowedWriteBatch;
@@ -318,7 +340,7 @@ export function writeBatchShadowed(firestore: Firestore): ShadowedWriteBatch {
   const shadowed: ShadowedWriteBatch = {
     set(reference, data, options) {
       batch.set(reference, forFirestore(data), options ?? {});
-      entries.push({ op: options?.merge ? 'update' : 'create', path: reference.path, data });
+      entries.push({ op: 'set', path: reference.path, data, options });
       return shadowed;
     },
     update(reference, data) {
@@ -336,11 +358,11 @@ export function writeBatchShadowed(firestore: Firestore): ShadowedWriteBatch {
         await batch.commitTracked();
       } catch (error) {
         if (isPermissionDenied(error)) {
-          for (const entry of entries) reportDenied(entry.op, entry.path, entry.data);
+          for (const entry of entries) reportDenied(entry.op, entry.path, entry.data, entry.options);
         }
         throw error;
       }
-      for (const entry of entries) report(entry.op, entry.path, entry.data);
+      for (const entry of entries) report(entry.op, entry.path, entry.data, entry.options);
     },
   };
 
