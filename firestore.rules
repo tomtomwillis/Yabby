@@ -60,6 +60,24 @@ service cloud.firestore {
         || (removed == [request.auth.uid].toSet() && added.size() == 0 && newCount == oldCount - 1);
     }
 
+    /* The bump a reply puts on the post it was written under. replyCount moves
+       by ±1 on its own — deleting a reply drops the count and leaves the bump
+       where the last surviving reply put it — but lastActivityAt may only move
+       to the server clock, and only alongside the reply that earns it: a count
+       going up by exactly one. Without that pairing any member could push a
+       post to the top of the board with nothing under it to explain why. */
+    function isValidReplyBump(before, after) {
+      let affected = after.diff(before).affectedKeys();
+      let oldCount = before.get('replyCount', 0);
+      let newCount = after.get('replyCount', 0);
+      return affected.hasOnly(['lastActivityAt', 'replyCount'])
+        && (!affected.hasAny(['lastActivityAt'])
+          || (after.lastActivityAt == request.time && newCount == oldCount + 1))
+        && (!affected.hasAny(['replyCount'])
+          || newCount == oldCount + 1
+          || newCount == oldCount - 1);
+    }
+
     // reactedBy/reactionCount may be present at creation only as empty/zero
     function hasNoPriorReactions(data) {
       return (!('reactedBy' in data) || data.reactedBy == [])
@@ -323,13 +341,9 @@ service cloud.firestore {
           resource.data.pollMultiple
         );
 
-      // Reply-count bump on reply create/delete: ±1 only
+      // Reply-count bump on reply create/delete: ±1 only, and no bump without one
       allow update: if isBoardCollection(board) && isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+        && isValidReplyBump(resource.data, request.resource.data);
 
       allow delete: if isBoardCollection(board) && (isOwner(resource.data.userId) || isAdmin());
 
@@ -433,13 +447,9 @@ service cloud.firestore {
           resource.data.pollMultiple
         );
 
-      // Reply-count bump on reply create/delete: ±1 only
+      // Reply-count bump on reply create/delete: ±1 only, and no bump without one
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+        && isValidReplyBump(resource.data, request.resource.data);
 
       allow delete: if isOwner(resource.data.userId) || isAdmin();
 
@@ -525,13 +535,9 @@ service cloud.firestore {
           request.resource.data.reactionCount
         );
 
-      // Reply-count bump on reply create/delete: ±1 only
+      // Reply-count bump on reply create/delete: ±1 only, and no bump without one
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+        && isValidReplyBump(resource.data, request.resource.data);
 
       // Status toggle: admin only
       allow update: if isAdmin()
@@ -660,13 +666,9 @@ service cloud.firestore {
           request.resource.data.reactionCount
         );
 
-      // Reply-count bump on reply create/delete: ±1 only
+      // Reply-count bump on reply create/delete: ±1 only, and no bump without one
       allow update: if isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt', 'replyCount'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastActivityAt']) || request.resource.data.lastActivityAt == request.time)
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['replyCount'])
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) + 1
-          || request.resource.data.replyCount == resource.data.get('replyCount', 0) - 1);
+        && isValidReplyBump(resource.data, request.resource.data);
 
       allow delete: if isAdmin();
 
