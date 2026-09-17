@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import parse from 'html-react-parser';
 import { marked } from 'marked';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { setDocShadowed, SERVER_TIME } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import Tips from '../components/basic/Tips';
@@ -129,9 +130,9 @@ const Wiki: React.FC = () => {
     if (!uid) return;
     setSaving(true);
     try {
-      await setDoc(doc(db, 'wiki', 'content'), {
+      await setDocShadowed(doc(db, 'wiki', 'content'), {
         text: editText,
-        updatedAt: serverTimestamp(),
+        updatedAt: SERVER_TIME,
         updatedBy: uid,
       });
       setWikiText(editText);

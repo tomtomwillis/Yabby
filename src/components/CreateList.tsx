@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, doc, serverTimestamp, getDoc, updateDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { addDocShadowed, updateDocShadowed, deleteDocShadowed, SERVER_TIME } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import './CreateList.css';
@@ -462,22 +463,22 @@ const CreateList: React.FC<CreateListProps> = ({
 
         if (isCollaborativeEdit) {
           // Non-owner: only update fields allowed by Firestore rules
-          await updateDoc(doc(db, 'lists', existingListId), {
+          await updateDocShadowed(doc(db, 'lists', existingListId), {
             title: listTitle.trim(),
             itemCount: items.length,
-            lastUpdated: serverTimestamp(),
+            lastUpdated: SERVER_TIME,
             lastItemImage: lastItemMeta.lastItemImage,
             lastItemLink: lastItemMeta.lastItemLink,
             lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
           });
         } else {
           // Owner: update everything
-          await updateDoc(doc(db, 'lists', existingListId), {
+          await updateDocShadowed(doc(db, 'lists', existingListId), {
             title: listTitle.trim(),
             itemCount: items.length,
             isPublic: isPublic,
             isCollaborative: isCollaborative,
-            lastUpdated: serverTimestamp(),
+            lastUpdated: SERVER_TIME,
             lastItemImage: lastItemMeta.lastItemImage,
             lastItemLink: lastItemMeta.lastItemLink,
             lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
@@ -489,7 +490,7 @@ const CreateList: React.FC<CreateListProps> = ({
         const existingItemsSnapshot = await getDocs(existingItemsQuery);
         
         for (const itemDoc of existingItemsSnapshot.docs) {
-          await deleteDoc(itemDoc.ref);
+          await deleteDocShadowed(itemDoc.ref);
         }
 
         // Add updated items
@@ -500,7 +501,7 @@ const CreateList: React.FC<CreateListProps> = ({
             type: item.type,
             userText: item.userText,
             order: item.order,
-            timestamp: serverTimestamp(),
+            timestamp: SERVER_TIME,
             ...(item.addedByUserId && { addedByUserId: item.addedByUserId }),
             ...(item.addedByUsername && { addedByUsername: item.addedByUsername }),
             ...(item.addedByAvatar && { addedByAvatar: item.addedByAvatar })
@@ -521,7 +522,7 @@ const CreateList: React.FC<CreateListProps> = ({
             }
           }
 
-          await addDoc(itemsCollection, cleanItemData);
+          await addDocShadowed(itemsCollection, cleanItemData);
         }
       } else {
         // Fetch username from user profile (same pattern as MessageBoard)
@@ -548,15 +549,15 @@ const CreateList: React.FC<CreateListProps> = ({
         const lastItemMeta = computeLastItemMetadata(items);
 
         // Create main list document
-        const listDocRef = await addDoc(collection(db, 'lists'), {
+        const listDocRef = await addDocShadowed(collection(db, 'lists'), {
           title: listTitle.trim(),
           userId: auth.currentUser.uid,
           username: username,
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
           itemCount: items.length,
           isPublic: isPublic,
           isCollaborative: isCollaborative,
-          lastUpdated: serverTimestamp(),
+          lastUpdated: SERVER_TIME,
           lastItemImage: lastItemMeta.lastItemImage,
           lastItemLink: lastItemMeta.lastItemLink,
           lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
@@ -571,7 +572,7 @@ const CreateList: React.FC<CreateListProps> = ({
           type: item.type,
           userText: item.userText,
           order: item.order,
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
           ...(item.addedByUserId && { addedByUserId: item.addedByUserId }),
           ...(item.addedByUsername && { addedByUsername: item.addedByUsername }),
           ...(item.addedByAvatar && { addedByAvatar: item.addedByAvatar })
@@ -594,7 +595,7 @@ const CreateList: React.FC<CreateListProps> = ({
           }
         }
 
-        await addDoc(itemsCollection, cleanItemData);
+        await addDocShadowed(itemsCollection, cleanItemData);
       }
 
         // Reset form

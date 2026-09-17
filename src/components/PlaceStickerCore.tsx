@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './PlaceStickerCore.css';
 import { db, auth } from '../firebaseConfig';
-import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { addDocShadowed, SERVER_TIME } from '../api/shadow';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
 
@@ -333,7 +334,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
           y: stickerPos.y,
         },
         sticker: userSticker,
-        timestamp: serverTimestamp(),
+        timestamp: SERVER_TIME,
       };
 
       // Add favorite track if selected
@@ -342,7 +343,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         stickerData.favoriteTrackTitle = selectedTrack.title;
       }
 
-      const docRef = await addDoc(collection(db, 'stickers'), stickerData);
+      const docRef = await addDocShadowed(collection(db, 'stickers'), stickerData);
 
       if (onSuccess) {
         onSuccess({

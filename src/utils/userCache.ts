@@ -1,7 +1,8 @@
 import type { User } from 'firebase/auth';
-import { doc, increment, Timestamp } from 'firebase/firestore';
+import { doc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { trackedGetDoc, trackedUpdateDoc } from './firestoreMetrics';
+import { trackedGetDoc } from './firestoreMetrics';
+import { updateDocShadowed, incrementBy } from '../api/shadow';
 
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
@@ -184,7 +185,7 @@ export async function ensureJoinedAt(user: User): Promise<void> {
   if (!creationTime) return;
 
   try {
-    await trackedUpdateDoc(doc(db, 'users', user.uid), {
+    await updateDocShadowed(doc(db, 'users', user.uid), {
       joinedAt: Timestamp.fromDate(new Date(creationTime)),
     });
     clearUserCache(user.uid);
@@ -198,7 +199,7 @@ export async function ensureJoinedAt(user: User): Promise<void> {
     should not be reported as failed because its counter did not move. */
 export async function bumpPostCount(userId: string): Promise<void> {
   try {
-    await trackedUpdateDoc(doc(db, 'users', userId), { postCount: increment(1) });
+    await updateDocShadowed(doc(db, 'users', userId), { postCount: incrementBy(1) });
     clearUserCache(userId);
   } catch (error) {
     console.error('Failed to update post count:', error);

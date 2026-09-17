@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, orderBy, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { deleteDocShadowed } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import ListItem from '../components/ListItem';
@@ -125,11 +126,11 @@ const ListDetailPage: React.FC = () => {
       const itemsSnapshot = await getDocs(itemsQuery);
 
       for (const itemDoc of itemsSnapshot.docs) {
-        await deleteDoc(itemDoc.ref);
+        await deleteDocShadowed(itemDoc.ref);
       }
 
       // Delete the main list document
-      await deleteDoc(doc(db, 'lists', list.id));
+      await deleteDocShadowed(doc(db, 'lists', list.id));
 
       navigate('/lists');
     } catch (error) {

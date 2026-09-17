@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { setDocShadowed, SERVER_TIME } from '../../api/shadow';
 import { db, auth } from '../../firebaseConfig';
 import { getCurrentMonthId } from '../../utils/useFilmClub';
 import FilmCard from './FilmCard';
@@ -152,9 +153,9 @@ function FilmClubVote() {
     if (!userId) return;
     setSaveStatus('saving');
     try {
-      await setDoc(doc(db, 'filmClub', monthId, 'votes', userId), {
+      await setDocShadowed(doc(db, 'filmClub', monthId, 'votes', userId), {
         ranking: ranking.map((s) => s.submissionId),
-        updatedAt: serverTimestamp(),
+        updatedAt: SERVER_TIME,
       });
       setSaveStatus('saved');
     } catch (err) {

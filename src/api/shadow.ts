@@ -42,9 +42,11 @@ import {
   doc,
   increment,
   serverTimestamp,
+  Timestamp,
   type CollectionReference,
   type DocumentData,
   type DocumentReference,
+  type Firestore,
 } from 'firebase/firestore';
 
 // The tracked variants, not the raw SDK — every write in the app is counted
@@ -55,6 +57,7 @@ import {
   trackedDeleteDoc,
   trackedSetDoc,
   trackedUpdateDoc,
+  trackedWriteBatch,
 } from '../utils/firestoreMetrics';
 
 import { auth } from '../firebaseConfig';
@@ -123,6 +126,28 @@ function forFirestore(data: WriteData): DocumentData {
   return out;
 }
 
+/**
+ * A Timestamp in the wire form the export uses, so mapping.js reads both the
+ * same way. Left to JSON.stringify a Timestamp would arrive as
+ * {seconds, nanoseconds} and a Date as an ISO string, neither of which the
+ * server's coercions recognise.
+ */
+function tagValue(value: unknown): unknown {
+  if (value instanceof Timestamp) {
+    return { __t: 'ts', ms: value.toMillis(), iso: value.toDate().toISOString() };
+  }
+  if (value instanceof Date) {
+    return { __t: 'ts', ms: value.getTime(), iso: value.toISOString() };
+  }
+  if (Array.isArray(value)) return value.map(tagValue);
+  if (value !== null && typeof value === 'object' && !isTransform(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value)) out[key] = tagValue(nested);
+    return out;
+  }
+  return value;
+}
+
 /** The body sent to the API: transforms go over as-is for the server to resolve
  *  against its own copy, and deletions are split into their own list. */
 function forShadow(data: WriteData): { data: DocumentData; remove: string[] } {
@@ -131,7 +156,7 @@ function forShadow(data: WriteData): { data: DocumentData; remove: string[] } {
 
   for (const [key, value] of Object.entries(data)) {
     if (isTransform(value) && value.__op === 'deleteField') remove.push(key);
-    else out[key] = value;
+    else out[key] = tagValue(value);
   }
 
   return { data: out, remove };
@@ -182,14 +207,28 @@ function send(op: ShadowOp, path: string, data: WriteData | null, firestoreOk: b
 const report = (op: ShadowOp, path: string, data: WriteData | null) => send(op, path, data, true);
 
 /**
- * Report a write Firestore refused. Not called on the happy path — it exists so
- * a caller that catches a permission error can hand the API the one piece of
- * evidence it cannot get any other way: a write the rules denied. The policy
- * port allowing something Firestore denied is the divergence that matters most,
- * and without this the API only ever sees writes that succeeded.
+ * Report a write Firestore refused. The wrappers below call this themselves
+ * when the rules answer permission-denied, so every denied write in the app —
+ * including the deliberate ones the /test suites make — hands the API the one
+ * piece of evidence it cannot get any other way. The policy port allowing
+ * something Firestore denied is the divergence that matters most, and without
+ * this the API only ever sees writes that succeeded.
  */
 export function reportDenied(op: ShadowOp, path: string, data: WriteData | null): void {
   send(op, path, data, false);
+}
+
+/**
+ * Report a write made outside the wrappers — a transaction, or anything else
+ * that has to drive the SDK directly. The caller is responsible for having
+ * written Firestore first and for describing the write exactly as made.
+ */
+export function reportWrite(op: ShadowOp, path: string, data: WriteData | null): void {
+  report(op, path, data);
+}
+
+function isPermissionDenied(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === 'permission-denied';
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +240,15 @@ export async function addDocShadowed(
   reference: CollectionReference,
   data: WriteData,
 ): Promise<DocumentReference> {
-  const created = await trackedAddDoc(reference, forFirestore(data));
+  let created: DocumentReference;
+  try {
+    created = await trackedAddDoc(reference, forFirestore(data));
+  } catch (error) {
+    // No id was assigned, so a fresh one stands in — the rules never depend
+    // on the id of a document being created.
+    if (isPermissionDenied(error)) reportDenied('create', doc(reference).path, data);
+    throw error;
+  }
   report('create', created.path, data);
   return created;
 }
@@ -213,8 +260,14 @@ export async function setDocShadowed(
   data: WriteData,
   options?: { merge?: boolean },
 ): Promise<void> {
-  await trackedSetDoc(reference, forFirestore(data), options);
-  report(options?.merge ? 'update' : 'create', reference.path, data);
+  const op: ShadowOp = options?.merge ? 'update' : 'create';
+  try {
+    await trackedSetDoc(reference, forFirestore(data), options);
+  } catch (error) {
+    if (isPermissionDenied(error)) reportDenied(op, reference.path, data);
+    throw error;
+  }
+  report(op, reference.path, data);
 }
 
 /** updateDoc. The patch is reported as written — the API merges it onto the
@@ -223,15 +276,75 @@ export async function updateDocShadowed(
   reference: DocumentReference,
   data: WriteData,
 ): Promise<void> {
-  await trackedUpdateDoc(reference, forFirestore(data));
+  try {
+    await trackedUpdateDoc(reference, forFirestore(data));
+  } catch (error) {
+    if (isPermissionDenied(error)) reportDenied('update', reference.path, data);
+    throw error;
+  }
   report('update', reference.path, data);
 }
 
 /** deleteDoc. The API writes the whole document to the audit log before the
  *  row goes, so the record outlives the row. */
 export async function deleteDocShadowed(reference: DocumentReference): Promise<void> {
-  await trackedDeleteDoc(reference);
+  try {
+    await trackedDeleteDoc(reference);
+  } catch (error) {
+    if (isPermissionDenied(error)) reportDenied('delete', reference.path, null);
+    throw error;
+  }
   report('delete', reference.path, null);
+}
+
+type BatchEntry = { op: ShadowOp; path: string; data: WriteData | null };
+
+export interface ShadowedWriteBatch {
+  set(reference: DocumentReference, data: WriteData, options?: { merge?: boolean }): ShadowedWriteBatch;
+  update(reference: DocumentReference, data: WriteData): ShadowedWriteBatch;
+  delete(reference: DocumentReference): ShadowedWriteBatch;
+  commit(): Promise<void>;
+}
+
+/**
+ * writeBatch. Each write is reported after the commit succeeds, in the order
+ * it was queued — a batch is atomic in Firestore, so a denial means none of
+ * them happened and all are reported as denied.
+ */
+export function writeBatchShadowed(firestore: Firestore): ShadowedWriteBatch {
+  const batch = trackedWriteBatch(firestore);
+  const entries: BatchEntry[] = [];
+
+  const shadowed: ShadowedWriteBatch = {
+    set(reference, data, options) {
+      batch.set(reference, forFirestore(data), options ?? {});
+      entries.push({ op: options?.merge ? 'update' : 'create', path: reference.path, data });
+      return shadowed;
+    },
+    update(reference, data) {
+      batch.update(reference, forFirestore(data));
+      entries.push({ op: 'update', path: reference.path, data });
+      return shadowed;
+    },
+    delete(reference) {
+      batch.delete(reference);
+      entries.push({ op: 'delete', path: reference.path, data: null });
+      return shadowed;
+    },
+    async commit() {
+      try {
+        await batch.commitTracked();
+      } catch (error) {
+        if (isPermissionDenied(error)) {
+          for (const entry of entries) reportDenied(entry.op, entry.path, entry.data);
+        }
+        throw error;
+      }
+      for (const entry of entries) report(entry.op, entry.path, entry.data);
+    },
+  };
+
+  return shadowed;
 }
 
 /** Re-exported so a call site needs one import rather than two. */

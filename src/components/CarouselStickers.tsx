@@ -17,10 +17,8 @@ import {
   where,
 } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import {
-  trackedGetDocs as getDocs,
-  trackedDeleteDoc as deleteDoc,
-} from '../utils/firestoreMetrics';
+import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
+import { deleteDocShadowed } from '../api/shadow';
 import { useAdmin } from '../utils/useAdmin';
 import { getUserData } from '../utils/userCache';
 
@@ -401,7 +399,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     if (!window.confirm('Are you sure you want to delete this sticker? This cannot be undone.')) return;
 
     try {
-      await deleteDoc(doc(db, 'stickers', stickerId));
+      await deleteDocShadowed(doc(db, 'stickers', stickerId));
       setPopup((prev) => ({
         ...prev,
         stickers: prev.stickers.filter((s) => s.stickerId !== stickerId),

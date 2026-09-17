@@ -5,21 +5,27 @@ import {
   orderBy,
   limit,
   doc,
-  serverTimestamp,
-  increment,
-  arrayUnion,
-  arrayRemove,
   Timestamp,
   type DocumentReference,
 } from 'firebase/firestore';
 import {
   trackedGetDoc as getDoc,
   trackedGetDocs as getDocs,
-  trackedAddDoc as addDoc,
-  trackedSetDoc as setDoc,
-  trackedUpdateDoc as updateDoc,
-  trackedDeleteDoc as deleteDoc,
 } from '../utils/firestoreMetrics';
+// The shadowed writers report every write — and every rules denial — to the
+// API, so the suites double as the richest source of policy-divergence
+// evidence the migration has: each rejection here is a write the port must
+// also refuse.
+import {
+  addDocShadowed as addDoc,
+  setDocShadowed as setDoc,
+  updateDocShadowed as updateDoc,
+  deleteDocShadowed as deleteDoc,
+  SERVER_TIME,
+  incrementBy,
+  arrayUnionOf,
+  arrayRemoveOf,
+} from '../api/shadow';
 import { db } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
 import { placeIdFor } from '../utils/geocode';
@@ -159,8 +165,8 @@ const messagesSuite: TestSuite = {
         const ref = await addDoc(collection(db, SANDBOX_MESSAGES), {
           text,
           userId: ctx.uid,
-          timestamp: serverTimestamp(),
-          lastActivityAt: serverTimestamp(),
+          timestamp: SERVER_TIME,
+          lastActivityAt: SERVER_TIME,
           username: ctx.username,
           avatar: ctx.avatar,
           reactedBy: [],
@@ -180,7 +186,7 @@ const messagesSuite: TestSuite = {
       run: async () => {
         const ref = doc(db, SANDBOX_MESSAGES, requireId(msgState.messageId, 'message'));
         const text = sanitizeHtml(stamp('edit test'));
-        await updateDoc(ref, { text, editedAt: serverTimestamp() });
+        await updateDoc(ref, { text, editedAt: SERVER_TIME });
 
         const snap = await getDoc(ref);
         assert(snap.data()?.text === text, 'The edit did not save.');
@@ -193,12 +199,12 @@ const messagesSuite: TestSuite = {
       run: async (ctx) => {
         const ref = doc(db, SANDBOX_MESSAGES, requireId(msgState.messageId, 'message'));
 
-        await updateDoc(ref, { reactedBy: arrayUnion(ctx.uid), reactionCount: increment(1) });
+        await updateDoc(ref, { reactedBy: arrayUnionOf(ctx.uid), reactionCount: incrementBy(1) });
         let data = (await getDoc(ref)).data();
         assert(data?.reactedBy?.includes(ctx.uid), 'Your id was not added to reactedBy.');
         assert(data?.reactionCount === 1, `Count should be 1, it is ${data?.reactionCount}.`);
 
-        await updateDoc(ref, { reactedBy: arrayRemove(ctx.uid), reactionCount: increment(-1) });
+        await updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) });
         data = (await getDoc(ref)).data();
         assert(!(data?.reactedBy ?? []).includes(ctx.uid), 'Your id was not removed from reactedBy.');
         assert(data?.reactionCount === 0, `Count should be back to 0, it is ${data?.reactionCount}.`);
@@ -209,13 +215,13 @@ const messagesSuite: TestSuite = {
       name: 'rules stop a like being counted twice',
       run: async (ctx) => {
         const ref = doc(db, SANDBOX_MESSAGES, requireId(msgState.messageId, 'message'));
-        await updateDoc(ref, { reactedBy: arrayUnion(ctx.uid), reactionCount: increment(1) });
+        await updateDoc(ref, { reactedBy: arrayUnionOf(ctx.uid), reactionCount: incrementBy(1) });
         try {
           return await expectDenied('raising the count without joining reactedBy', () =>
-            updateDoc(ref, { reactionCount: increment(1) }),
+            updateDoc(ref, { reactionCount: incrementBy(1) }),
           );
         } finally {
-          await updateDoc(ref, { reactedBy: arrayRemove(ctx.uid), reactionCount: increment(-1) });
+          await updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) });
         }
       },
     },
@@ -228,7 +234,7 @@ const messagesSuite: TestSuite = {
         const replyRef = await addDoc(collection(db, SANDBOX_MESSAGES, messageId, 'replies'), {
           text: sanitizeHtml(stamp('reply test')),
           userId: ctx.uid,
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
           username: ctx.username,
           avatar: ctx.avatar,
           reactedBy: [],
@@ -240,7 +246,7 @@ const messagesSuite: TestSuite = {
           () => deleteDoc(replyRef),
         );
 
-        await updateDoc(parent, { lastActivityAt: serverTimestamp(), replyCount: increment(1) });
+        await updateDoc(parent, { lastActivityAt: SERVER_TIME, replyCount: incrementBy(1) });
 
         assert((await getDoc(replyRef)).exists(), 'The reply was written but cannot be read back.');
         const parentData = (await getDoc(parent)).data();
@@ -256,13 +262,13 @@ const messagesSuite: TestSuite = {
         const ref = doc(db, SANDBOX_MESSAGES, messageId, 'replies', replyId);
 
         const text = sanitizeHtml(stamp('reply edit test'));
-        await updateDoc(ref, { text, editedAt: serverTimestamp() });
+        await updateDoc(ref, { text, editedAt: SERVER_TIME });
         assert((await getDoc(ref)).data()?.text === text, 'The reply edit did not save.');
 
-        await updateDoc(ref, { reactedBy: arrayUnion(ctx.uid), reactionCount: increment(1) });
+        await updateDoc(ref, { reactedBy: arrayUnionOf(ctx.uid), reactionCount: incrementBy(1) });
         assert((await getDoc(ref)).data()?.reactionCount === 1, 'The reply like was not counted.');
 
-        await updateDoc(ref, { reactedBy: arrayRemove(ctx.uid), reactionCount: increment(-1) });
+        await updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) });
         assert((await getDoc(ref)).data()?.reactionCount === 0, 'The reply like was not removed.');
         return 'edited, liked, unliked';
       },
@@ -276,7 +282,7 @@ const messagesSuite: TestSuite = {
 
         await deleteDoc(ref);
         msgState.disposeReply?.();
-        await updateDoc(doc(db, SANDBOX_MESSAGES, messageId), { replyCount: increment(-1) });
+        await updateDoc(doc(db, SANDBOX_MESSAGES, messageId), { replyCount: incrementBy(-1) });
         msgState.replyId = undefined;
 
         assert(!(await getDoc(ref)).exists(), 'The reply is still there after deleting it.');
@@ -291,8 +297,8 @@ const messagesSuite: TestSuite = {
         const ref = await addDoc(collection(db, SANDBOX_MESSAGES), {
           text: sanitizeHtml(stamp('poll test')),
           userId: ctx.uid,
-          timestamp: serverTimestamp(),
-          lastActivityAt: serverTimestamp(),
+          timestamp: SERVER_TIME,
+          lastActivityAt: SERVER_TIME,
           username: ctx.username,
           avatar: ctx.avatar,
           reactedBy: [],
@@ -325,8 +331,8 @@ const messagesSuite: TestSuite = {
             addDoc(collection(db, SANDBOX_MESSAGES), {
               text: sanitizeHtml(stamp('should not exist')),
               userId: 'not-my-uid',
-              timestamp: serverTimestamp(),
-              lastActivityAt: serverTimestamp(),
+              timestamp: SERVER_TIME,
+              lastActivityAt: SERVER_TIME,
               username: ctx.username,
               avatar: ctx.avatar,
               reactedBy: [],
@@ -354,8 +360,8 @@ const messagesSuite: TestSuite = {
           addDoc(collection(db, SANDBOX_MESSAGES), {
             text: sanitizeHtml(stamp('bot flag test')),
             userId: ctx.uid,
-            timestamp: serverTimestamp(),
-            lastActivityAt: serverTimestamp(),
+            timestamp: SERVER_TIME,
+            lastActivityAt: SERVER_TIME,
             username: ctx.username,
             avatar: ctx.avatar,
             reactedBy: [],
@@ -382,8 +388,8 @@ const messagesSuite: TestSuite = {
             addDoc(collection(db, SANDBOX_MESSAGES), {
               text: sanitizeHtml(stamp('should not exist')),
               userId: ctx.uid,
-              timestamp: serverTimestamp(),
-              lastActivityAt: serverTimestamp(),
+              timestamp: SERVER_TIME,
+              lastActivityAt: SERVER_TIME,
               username: ctx.username,
               avatar: ctx.avatar,
               reactedBy: [],
@@ -467,11 +473,11 @@ const listsSuite: TestSuite = {
           title: `${MARKER} list`,
           userId: ctx.uid,
           username: ctx.username,
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
           itemCount: 0,
           isPublic: false,
           isCollaborative: false,
-          lastUpdated: serverTimestamp(),
+          lastUpdated: SERVER_TIME,
           lastItemImage: '',
           lastItemLink: '',
           lastItemAddedByAvatar: '',
@@ -495,7 +501,7 @@ const listsSuite: TestSuite = {
           type: 'album',
           userText: `${MARKER} album entry`,
           order: 0,
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
           albumId: 'yabby-test-album',
           albumTitle: 'Test Album',
           albumArtist: 'Test Artist',
@@ -510,7 +516,7 @@ const listsSuite: TestSuite = {
           type: 'custom',
           userText: `${MARKER} custom entry`,
           order: 1,
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
           title: 'Test entry',
           linkUrl: 'https://example.com',
           addedByUserId: ctx.uid,
@@ -544,7 +550,7 @@ const listsSuite: TestSuite = {
         const ref = doc(db, SANDBOX_LISTS, listId);
         const title = `${MARKER} list (edited)`;
 
-        await updateDoc(ref, { title, itemCount: 2, isPublic: true, lastUpdated: serverTimestamp() });
+        await updateDoc(ref, { title, itemCount: 2, isPublic: true, lastUpdated: SERVER_TIME });
         const data = (await getDoc(ref)).data();
         assert(data?.title === title, 'The title change did not save.');
         assert(data?.itemCount === 2, 'itemCount did not update.');
@@ -576,7 +582,7 @@ const listsSuite: TestSuite = {
               type: 'not-a-real-type',
               userText: 'nope',
               order: 99,
-              timestamp: serverTimestamp(),
+              timestamp: SERVER_TIME,
             }),
           ctx,
         );
@@ -592,11 +598,11 @@ const listsSuite: TestSuite = {
               title: `${MARKER} should not exist`,
               userId: 'not-my-uid',
               username: ctx.username,
-              timestamp: serverTimestamp(),
+              timestamp: SERVER_TIME,
               itemCount: 0,
               isPublic: false,
               isCollaborative: false,
-              lastUpdated: serverTimestamp(),
+              lastUpdated: SERVER_TIME,
             }),
           ctx,
         ),
@@ -674,7 +680,7 @@ const stickersSuite: TestSuite = {
           text,
           position: { x: 42.5, y: 17.25 },
           sticker: ctx.avatar || 'avatar_astro_blue.webp',
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
         });
         stickerState.stickerId = ref.id;
         stickerState.dispose = ctx.cleanup(`${SANDBOX_STICKERS}/${ref.id}`, () => deleteDoc(ref));
@@ -694,7 +700,7 @@ const stickersSuite: TestSuite = {
       run: async () => {
         const ref = doc(db, SANDBOX_STICKERS, requireId(stickerState.stickerId, 'sticker'));
         const text = `${MARKER} sticker edit test`;
-        await updateDoc(ref, { text, editedAt: serverTimestamp() });
+        await updateDoc(ref, { text, editedAt: SERVER_TIME });
         assert((await getDoc(ref)).data()?.text === text, 'The sticker edit did not save.');
         return 'text saved';
       },
@@ -719,7 +725,7 @@ const stickersSuite: TestSuite = {
               albumId: 'yabby-test-invalid',
               text: `${MARKER} should not exist`,
               sticker: ctx.avatar || 'avatar_astro_blue.webp',
-              timestamp: serverTimestamp(),
+              timestamp: SERVER_TIME,
             }),
           ctx,
         ),
@@ -737,7 +743,7 @@ const stickersSuite: TestSuite = {
               text: `${MARKER} should not exist`,
               position: { x: 1, y: 1 },
               sticker: ctx.avatar || 'avatar_astro_blue.webp',
-              timestamp: serverTimestamp(),
+              timestamp: SERVER_TIME,
             }),
           ctx,
         ),
@@ -754,7 +760,7 @@ const stickersSuite: TestSuite = {
               text: `${MARKER} should not exist`,
               position: { x: 1, y: 1 },
               sticker: ctx.avatar || 'avatar_astro_blue.webp',
-              timestamp: serverTimestamp(),
+              timestamp: SERVER_TIME,
             }),
           ctx,
         ),
@@ -852,7 +858,7 @@ const profileSuite: TestSuite = {
         // Once set it is immutable, which is the only thing that makes it a
         // join date rather than a last-seen date.
         return expectDenied('moving a join date that is already set', () =>
-          updateDoc(ref, { joinedAt: serverTimestamp() }),
+          updateDoc(ref, { joinedAt: SERVER_TIME }),
         );
       },
     },
@@ -868,7 +874,7 @@ const profileSuite: TestSuite = {
       run: async (ctx) => {
         const ref = doc(db, 'users', ctx.uid);
         const before = (await getDoc(ref)).data()?.postCount ?? 0;
-        await updateDoc(ref, { postCount: increment(1) });
+        await updateDoc(ref, { postCount: incrementBy(1) });
         const after = (await getDoc(ref)).data()?.postCount;
         assert(after === before + 1, `postCount went from ${before} to ${after}, expected ${before + 1}.`);
         return `${before} → ${after}`;
@@ -878,7 +884,7 @@ const profileSuite: TestSuite = {
       name: 'rules stop inflating the post count',
       run: async (ctx) =>
         expectDenied('advancing the post count by more than one', () =>
-          updateDoc(doc(db, 'users', ctx.uid), { postCount: increment(5) }),
+          updateDoc(doc(db, 'users', ctx.uid), { postCount: incrementBy(5) }),
         ),
     },
     {
@@ -1115,8 +1121,8 @@ const newsSuite: TestSuite = {
             addDoc(collection(db, 'news'), {
               text: sanitizeHtml(stamp('news post test')),
               userId: ctx.uid,
-              timestamp: serverTimestamp(),
-              lastActivityAt: serverTimestamp(),
+              timestamp: SERVER_TIME,
+              lastActivityAt: SERVER_TIME,
               username: ctx.username,
               avatar: ctx.avatar,
               reactedBy: [],
@@ -1135,7 +1141,7 @@ const newsSuite: TestSuite = {
         const ref = doc(db, 'news', requireId(newsState.postId, 'news post'));
         const text = (await getDoc(ref)).data()?.text ?? '';
         return expectDenied('editing a news post as a member', () =>
-          updateDoc(ref, { text, editedAt: serverTimestamp() }),
+          updateDoc(ref, { text, editedAt: SERVER_TIME }),
         );
       },
     },
@@ -1157,15 +1163,15 @@ const newsSuite: TestSuite = {
         const ref = doc(db, 'news', requireId(newsState.postId, 'news post'));
         const before = (await getDoc(ref)).data()?.reactionCount ?? 0;
         const undo = ctx.cleanup(`news like on ${ref.id}`, () =>
-          updateDoc(ref, { reactedBy: arrayRemove(ctx.uid), reactionCount: increment(-1) }),
+          updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) }),
         );
 
-        await updateDoc(ref, { reactedBy: arrayUnion(ctx.uid), reactionCount: increment(1) });
+        await updateDoc(ref, { reactedBy: arrayUnionOf(ctx.uid), reactionCount: incrementBy(1) });
         let data = (await getDoc(ref)).data();
         assert(data?.reactedBy?.includes(ctx.uid), 'Your id was not added to reactedBy.');
         assert(data?.reactionCount === before + 1, `Count should be ${before + 1}, it is ${data?.reactionCount}.`);
 
-        await updateDoc(ref, { reactedBy: arrayRemove(ctx.uid), reactionCount: increment(-1) });
+        await updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) });
         undo();
         data = (await getDoc(ref)).data();
         assert(!(data?.reactedBy ?? []).includes(ctx.uid), 'Your id was not removed from reactedBy.');
@@ -1190,7 +1196,7 @@ const newsSuite: TestSuite = {
         const replyRef = await addDoc(collection(db, 'news', postId, 'replies'), {
           text: sanitizeHtml(stamp('news reply test')),
           userId: ctx.uid,
-          timestamp: serverTimestamp(),
+          timestamp: SERVER_TIME,
           username: ctx.username,
           avatar: ctx.avatar,
           reactedBy: [],
@@ -1199,10 +1205,10 @@ const newsSuite: TestSuite = {
         newsState.replyId = replyRef.id;
         newsState.disposeReply = ctx.cleanup(`news/${postId}/replies/${replyRef.id}`, async () => {
           await deleteDoc(replyRef);
-          await updateDoc(parent, { replyCount: increment(-1) });
+          await updateDoc(parent, { replyCount: incrementBy(-1) });
         });
 
-        await updateDoc(parent, { replyCount: increment(1) });
+        await updateDoc(parent, { replyCount: incrementBy(1) });
 
         assert((await getDoc(replyRef)).exists(), 'The reply was written but cannot be read back.');
         const count = (await getDoc(parent)).data()?.replyCount;
@@ -1237,7 +1243,7 @@ const newsSuite: TestSuite = {
         const before = (await getDoc(parent)).data()?.replyCount ?? 0;
 
         await deleteDoc(ref);
-        await updateDoc(parent, { replyCount: increment(-1) });
+        await updateDoc(parent, { replyCount: incrementBy(-1) });
         newsState.disposeReply?.();
         newsState.replyId = undefined;
 

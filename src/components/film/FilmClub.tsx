@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { doc, getDoc, collection, getDocs, runTransaction } from 'firebase/firestore';
 import {
-  doc, getDoc, collection, getDocs,
-  setDoc, runTransaction, deleteDoc, deleteField, updateDoc,
-} from 'firebase/firestore';
+  setDocShadowed, updateDocShadowed, deleteDocShadowed, reportWrite, DELETE_FIELD,
+} from '../../api/shadow';
 import { db, auth } from '../../firebaseConfig';
 import { getUserData } from '../../utils/userCache';
 import { useAdmin } from '../../utils/useAdmin';
@@ -224,7 +224,7 @@ function FilmClub() {
 
     const promotion: Partial<MonthDoc> = { currentFilm: prevMonthData.nextFilm };
     if (prevMonthData.nextFilmDescription) promotion.currentFilmDescription = prevMonthData.nextFilmDescription;
-    setDoc(doc(db, 'filmClub', monthId), promotion, { merge: true })
+    setDocShadowed(doc(db, 'filmClub', monthId), promotion, { merge: true })
       .then(() => loadMonthData())
       .catch(console.error);
   }, [isAdmin, loading, monthData, prevMonthData, monthId, loadMonthData]);
@@ -278,11 +278,15 @@ function FilmClub() {
       };
 
       const monthRef = doc(db, 'filmClub', monthId);
-      await runTransaction(db, async (tx) => {
+      const result = { nextFilm, winnerCalculated: true };
+      const wrote = await runTransaction(db, async (tx) => {
         const snap = await tx.get(monthRef);
-        if (snap.data()?.winnerCalculated) return;
-        tx.set(monthRef, { nextFilm, winnerCalculated: true }, { merge: true });
+        if (snap.data()?.winnerCalculated) return false;
+        tx.set(monthRef, result, { merge: true });
+        return true;
       });
+      // A transaction drives the SDK directly, so the shadow hears about it here.
+      if (wrote) reportWrite('update', monthRef.path, result);
       await loadMonthData();
     };
 
@@ -309,7 +313,7 @@ function FilmClub() {
         pitch: '',
         submittedByUsername: username,
       };
-      await setDoc(doc(db, 'filmClub', monthId), { currentFilm }, { merge: true });
+      await setDocShadowed(doc(db, 'filmClub', monthId), { currentFilm }, { merge: true });
       await loadMonthData();
       setAdminSaveStatus('saved');
       setAdminFilmSelection(null);
@@ -324,7 +328,7 @@ function FilmClub() {
     setDownloadSaveStatus('saving');
     try {
       const links = adminDownloadLinks.filter((l) => l.url.trim());
-      await setDoc(doc(db, 'filmClub', monthId), { downloadLinks: links }, { merge: true });
+      await setDocShadowed(doc(db, 'filmClub', monthId), { downloadLinks: links }, { merge: true });
       await loadMonthData();
       setDownloadSaveStatus('saved');
     } catch (err) {
@@ -338,7 +342,7 @@ function FilmClub() {
     setDirectDownloadSaveStatus('saving');
     try {
       const links = adminDirectDownloadLinks.filter((l) => l.url.trim());
-      await setDoc(doc(db, 'filmClub', monthId), { directDownloadLinks: links }, { merge: true });
+      await setDocShadowed(doc(db, 'filmClub', monthId), { directDownloadLinks: links }, { merge: true });
       await loadMonthData();
       setDirectDownloadSaveStatus('saved');
     } catch (err) {
@@ -351,7 +355,7 @@ function FilmClub() {
   const handleAdminSaveDescription = async () => {
     setDescriptionSaveStatus('saving');
     try {
-      await setDoc(doc(db, 'filmClub', monthId), { currentFilmDescription: adminDescription }, { merge: true });
+      await setDocShadowed(doc(db, 'filmClub', monthId), { currentFilmDescription: adminDescription }, { merge: true });
       await loadMonthData();
       setDescriptionSaveStatus('saved');
     } catch (err) {
@@ -364,7 +368,7 @@ function FilmClub() {
   const handleAdminSaveNextDescription = async () => {
     setNextDescriptionSaveStatus('saving');
     try {
-      await setDoc(doc(db, 'filmClub', monthId), { nextFilmDescription: adminNextDescription }, { merge: true });
+      await setDocShadowed(doc(db, 'filmClub', monthId), { nextFilmDescription: adminNextDescription }, { merge: true });
       await loadMonthData();
       setNextDescriptionSaveStatus('saved');
     } catch (err) {
@@ -378,7 +382,7 @@ function FilmClub() {
     if (!nextShowingInput) return;
     setNextShowingStatus('saving');
     try {
-      await setDoc(doc(db, 'cinema', 'state'), { nextShowingAt: nextShowingInput }, { merge: true });
+      await setDocShadowed(doc(db, 'cinema', 'state'), { nextShowingAt: nextShowingInput }, { merge: true });
       setNextShowingAt(nextShowingInput);
       setNextShowingStatus('saved');
     } catch (err) {
@@ -390,7 +394,7 @@ function FilmClub() {
   const handleClearNextShowing = async () => {
     setNextShowingStatus('saving');
     try {
-      await updateDoc(doc(db, 'cinema', 'state'), { nextShowingAt: deleteField() });
+      await updateDocShadowed(doc(db, 'cinema', 'state'), { nextShowingAt: DELETE_FIELD });
       setNextShowingAt('');
       setNextShowingInput('');
       setNextShowingStatus('saved');
@@ -404,9 +408,9 @@ function FilmClub() {
   const handleAdminClearCurrentFilm = async () => {
     setClearFilmStatus('clearing');
     try {
-      await updateDoc(doc(db, 'filmClub', monthId), {
-        currentFilm: deleteField(),
-        currentFilmDescription: deleteField(),
+      await updateDocShadowed(doc(db, 'filmClub', monthId), {
+        currentFilm: DELETE_FIELD,
+        currentFilmDescription: DELETE_FIELD,
       });
       await loadMonthData();
       setClearFilmStatus('idle');
@@ -453,7 +457,7 @@ function FilmClub() {
         submittedByUsername: winner.username,
       };
 
-      await setDoc(doc(db, 'filmClub', adminMonthId), { nextFilm, winnerCalculated: true }, { merge: true });
+      await setDocShadowed(doc(db, 'filmClub', adminMonthId), { nextFilm, winnerCalculated: true }, { merge: true });
       if (adminMonthId === monthId) await loadMonthData();
       setIrvStatus('done');
     } catch (err) {
@@ -465,7 +469,7 @@ function FilmClub() {
   // ── Admin: delete submission ─────────────────────────────────────────────
   const handleAdminDeleteSubmission = async (docId: string) => {
     try {
-      await deleteDoc(doc(db, 'filmClub', adminMonthId, 'submissions', docId));
+      await deleteDocShadowed(doc(db, 'filmClub', adminMonthId, 'submissions', docId));
       setAllSubmissions((prev) => prev.filter((s) => s.docId !== docId));
     } catch (err) {
       console.error('Delete submission error:', err);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { updateDocShadowed, writeBatchShadowed } from '../api/shadow';
 import { db } from '../firebaseConfig';
 import { clearUserCache } from '../utils/userCache';
 import { sanitizeHtml, sanitizeText } from '../utils/sanitise';
@@ -226,7 +227,7 @@ const Profile: React.FC = () => {
       // is already taken the create fails and the profile keeps its old name.
       const oldKey = username ? username.toLowerCase() : null;
       const newKey = newUsername.toLowerCase();
-      const batch = writeBatch(db);
+      const batch = writeBatchShadowed(db);
 
       if (newKey !== oldKey) {
         // The batch would fail on its own if the name were taken, but only
@@ -342,7 +343,7 @@ const Profile: React.FC = () => {
     window.dispatchEvent(new CustomEvent('oneko-toggle', { detail: newValue }));
 
     try {
-      await updateDoc(doc(db, 'users', user.uid), { nekoEnabled: newValue });
+      await updateDocShadowed(doc(db, 'users', user.uid), { nekoEnabled: newValue });
       clearUserCache(user.uid);
     } catch {
       // Revert on failure
@@ -360,7 +361,7 @@ const Profile: React.FC = () => {
     window.dispatchEvent(new CustomEvent('design-tool-toggle', { detail: newValue }));
 
     try {
-      await updateDoc(doc(db, 'users', user.uid), { designToolEnabled: newValue });
+      await updateDocShadowed(doc(db, 'users', user.uid), { designToolEnabled: newValue });
       clearUserCache(user.uid);
     } catch {
       setDesignToolEnabled(!newValue);

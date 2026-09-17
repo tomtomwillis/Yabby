@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
+import { setDocShadowed, SERVER_TIME } from '../../api/shadow';
 import { db, auth } from '../../firebaseConfig';
 import { getUserData } from '../../utils/userCache';
 import { useAdmin } from '../../utils/useAdmin';
@@ -58,10 +59,10 @@ function FilmClubSubmit() {
         overview: selectedFilm.overview,
         pitch: pitch.trim(),
         tmdbId: selectedFilm.id,
-        timestamp: serverTimestamp(),
+        timestamp: SERVER_TIME,
       };
       const docId = `${user.uid}_${selectedFilm.id}`;
-      await setDoc(doc(db, 'filmClub', submitMonthId, 'submissions', docId), data);
+      await setDocShadowed(doc(db, 'filmClub', submitMonthId, 'submissions', docId), data);
       setSelectedFilm(null);
       setPitch('');
       window.location.href = '/film-club';
