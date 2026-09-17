@@ -9,6 +9,7 @@ import {
   increment,
   arrayUnion,
   arrayRemove,
+  Timestamp,
   type DocumentReference,
 } from 'firebase/firestore';
 import {
@@ -1072,7 +1073,7 @@ const newsSuite: TestSuite = {
   id: 'news',
   name: 'News',
   description:
-    'News is a board like the others bar one thing: only an admin may write a post, while any member may react and reply to one. There is no sandbox twin, because seeding one would need an admin, so these run against the real news board — but nothing lasting is written. The like is put back, the reply is deleted, and the edit attempt writes the text already there.',
+    'News is a board like the others bar one thing: only an admin may write a post, while any member may react and reply to one. There is no sandbox twin, because seeding one would need an admin, so these run against the real news board — but nothing lasting is written. The like is put back, the reply is deleted and its count with it, the edit attempt writes the text already there, and nothing here bumps a post: lastActivityAt cannot be restored once moved.',
   tests: [
     {
       name: 'reads the live news board',
@@ -1173,7 +1174,14 @@ const newsSuite: TestSuite = {
       },
     },
     {
-      name: 'replies to a news post and bumps it',
+      // Deliberately does not write lastActivityAt, even though a real reply
+      // does: a bump is the one write here that cannot be undone afterwards —
+      // the rules only accept request.time, so there is no putting the old
+      // value back — and it would leave the post sitting at the top of the
+      // main board with no reply under it to explain why. The rule that admits
+      // the bump is still covered: replyCount alone goes through the same
+      // clause, and the check below holds it to the server clock.
+      name: 'replies to a news post',
       run: async (ctx) => {
         const postId = requireId(newsState.postId, 'news post');
         const parent = doc(db, 'news', postId);
@@ -1194,12 +1202,29 @@ const newsSuite: TestSuite = {
           await updateDoc(parent, { replyCount: increment(-1) });
         });
 
-        await updateDoc(parent, { lastActivityAt: serverTimestamp(), replyCount: increment(1) });
+        await updateDoc(parent, { replyCount: increment(1) });
 
         assert((await getDoc(replyRef)).exists(), 'The reply was written but cannot be read back.');
         const count = (await getDoc(parent)).data()?.replyCount;
         assert(count === before + 1, `Parent replyCount should be ${before + 1}, it is ${count}.`);
-        return 'reply saved, post bumped';
+        return 'reply saved, count up';
+      },
+    },
+    {
+      // A second before the value already there: different enough that the rule
+      // has to judge it — writing the same value back changes no key at all, so
+      // the rule never sees it — and pointed down the list rather than up, so a
+      // rules hole that let it through could not put the post anywhere it has
+      // not already been.
+      name: 'rules stop a post being bumped to an invented time',
+      run: async () => {
+        const ref = doc(db, 'news', requireId(newsState.postId, 'news post'));
+        const current = (await getDoc(ref)).data()?.lastActivityAt as Timestamp | undefined;
+        assert(current, 'The news post has no lastActivityAt to move.');
+        const earlier = Timestamp.fromMillis(current.toMillis() - 1000);
+        return expectDenied('bumping a news post to a client-chosen time', () =>
+          updateDoc(ref, { lastActivityAt: earlier }),
+        );
       },
     },
     {
