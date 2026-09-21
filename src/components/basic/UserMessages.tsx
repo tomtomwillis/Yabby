@@ -408,7 +408,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
         </div>
       )}
 
-      {/* Admin only, issues board. Never on a reply. */}
+      {/* Issues board: admins and the poster. Never on a reply. */}
       {onToggleStatus && !isReply && !isEditing && (
         <div
           className="user-message-status-button"

@@ -539,8 +539,8 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && isValidReplyBump(resource.data, request.resource.data);
 
-      // Status toggle: admin only
-      allow update: if isAdmin()
+      // Status toggle: admin or the poster
+      allow update: if (isAdmin() || isOwner(resource.data.userId))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && request.resource.data.status in ['inprogress', 'complete'];
 

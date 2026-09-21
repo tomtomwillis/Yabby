@@ -1186,7 +1186,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
             replyingToUsername={message.username}
             enableReplies={canReply}
             status={message.status as 'inprogress' | 'complete' | undefined}
-            onToggleStatus={isAdmin && statusFilter && !message.sourceBoard ? () => handleToggleStatus(message.id) : undefined}
+            onToggleStatus={statusFilter && !message.sourceBoard && (isAdmin || message.userId === auth.currentUser?.uid) ? () => handleToggleStatus(message.id) : undefined}
           />
           </div>
           );

@@ -1043,7 +1043,8 @@
 .mb-board .user-message-heart-button:focus-visible,
 .mb-board .user-message-reply-icon-button:focus-visible,
 .mb-board .user-message-edit-button:focus-visible,
-.mb-board .user-message-delete-button:focus-visible {
+.mb-board .user-message-delete-button:focus-visible,
+.mb-board .user-message-status-button:focus-visible {
   outline: 2px solid var(--colour3);
   outline-offset: 1px;
 }
@@ -1116,8 +1117,11 @@
 
 .mb-board .user-message-header-controls .user-message-edit-button::after { content: 'edit'; }
 .mb-board .user-message-header-controls .user-message-delete-button::after { content: 'del'; }
+.mb-board .user-message-header-controls .user-message-status-button::after { content: 'resolve'; }
+.mb-board .user-message-header-controls .user-message-status-button[aria-label="Reopen issue"]::after { content: 'reopen'; }
 
-.mb-board .user-message-header-controls .user-message-edit-button:hover {
+.mb-board .user-message-header-controls .user-message-edit-button:hover,
+.mb-board .user-message-header-controls .user-message-status-button:hover {
   color: var(--colour3);
   text-decoration: underline;
   transform: none;
