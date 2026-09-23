@@ -59,13 +59,14 @@ Firestore is still authoritative and the only store the app reads. Every write i
 
 - **All Firestore writes go through `src/api/shadow.ts`.** Use `addDocShadowed`, `setDocShadowed`, `updateDocShadowed`, `deleteDocShadowed`, `writeBatchShadowed`, and the markers `SERVER_TIME`, `incrementBy`, `arrayUnionOf`, `arrayRemoveOf` and `DELETE_FIELD` (top level only) instead of the Firestore sentinels. ESLint rejects the raw write functions elsewhere. A transaction must call `reportWrite` after it commits (see `FilmClub.tsx`).
 - Backend-side Admin SDK writes must call `data/mirror.js`; see `backend_server/CLAUDE.md`.
+- `npm run test:policy` checks the backend's port of the rules (`backend_server/data/policy.js`) against the real `firestore.rules` in the Firestore emulator, over about 1,400 valid and mutated writes. Run it after changing either. It needs Java and the backend's dependencies (`cd backend_server && npm ci`), and it never touches the real Firestore.
 - Current phase, next steps and history: `_backend_plan/STATUS.md` (local, gitignored).
 
 ### Security Model
 
 - All authorization enforced server-side via Firestore security rules, not client-side UI checks
 - Client-side `useAdmin` hook is UI-only; always validate permissions on read/write operations
-- After editing `firestore.rules`, deploy then run the affected `/test` suites — they assert both the allowed and the denied paths
+- After editing `firestore.rules`, deploy then run the affected `/test` suites — they assert both the allowed and the denied paths — and run `npm run test:policy`, which fails until `policy.js` matches
 
 ### External Integrations
 
