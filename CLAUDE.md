@@ -53,6 +53,14 @@ Free tier (50k reads/day) — minimising reads is critical:
 - Optimistic UI updates for reactions — update local state immediately, write in background
 - Use shared caches (`userCache.ts`, `useAdmin.ts`) — never create component-local duplicates
 
+### Data Migration (Firestore → SQLite, in progress)
+
+Firestore is still authoritative and the only store the app reads. Every write is also reported to a SQLite shadow on the backend (`POST /api/data/shadow`), which will eventually take over.
+
+- **All Firestore writes go through `src/api/shadow.ts`.** Use `addDocShadowed`, `setDocShadowed`, `updateDocShadowed`, `deleteDocShadowed`, `writeBatchShadowed`, and the markers `SERVER_TIME`, `incrementBy`, `arrayUnionOf`, `arrayRemoveOf` and `DELETE_FIELD` (top level only) instead of the Firestore sentinels. ESLint rejects the raw write functions elsewhere. A transaction must call `reportWrite` after it commits (see `FilmClub.tsx`).
+- Backend-side Admin SDK writes must call `data/mirror.js`; see `backend_server/CLAUDE.md`.
+- Current phase, next steps and history: `_backend_plan/STATUS.md` (local, gitignored).
+
 ### Security Model
 
 - All authorization enforced server-side via Firestore security rules, not client-side UI checks

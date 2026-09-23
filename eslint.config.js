@@ -38,4 +38,25 @@ export default tseslint.config([
       'react-hooks/gating': 'off',
     },
   },
+  {
+    // Every Firestore write must also reach the SQLite shadow, so writes go
+    // through src/api/shadow.ts. A raw write is silent drift in the migration.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/api/shadow.ts', 'src/utils/firestoreMetrics.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'firebase/firestore',
+          importNames: ['addDoc', 'setDoc', 'updateDoc', 'deleteDoc', 'writeBatch', 'runTransaction',
+            'serverTimestamp', 'increment', 'arrayUnion', 'arrayRemove', 'deleteField'],
+          message: 'Write through src/api/shadow.ts (*Shadowed wrappers, SERVER_TIME/incrementBy/… markers) so the SQLite shadow sees it.',
+        }],
+        patterns: [{
+          group: ['**/firestoreMetrics'],
+          importNames: ['trackedAddDoc', 'trackedSetDoc', 'trackedUpdateDoc', 'trackedDeleteDoc', 'trackedWriteBatch'],
+          message: 'Write through src/api/shadow.ts so the SQLite shadow sees it.',
+        }],
+      }],
+    },
+  },
 ])

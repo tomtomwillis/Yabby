@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+// runTransaction has no shadowed wrapper; the one transaction below reports
+// itself with reportWrite once it commits.
+// eslint-disable-next-line no-restricted-imports
 import { doc, getDoc, collection, getDocs, runTransaction } from 'firebase/firestore';
 import {
   setDocShadowed, updateDocShadowed, deleteDocShadowed, reportWrite, DELETE_FIELD,

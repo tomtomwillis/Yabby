@@ -117,11 +117,39 @@ function toSentinel(transform: Transform): unknown {
   }
 }
 
-/** The object handed to Firestore: markers become real FieldValue sentinels. */
-function forFirestore(data: WriteData): DocumentData {
+/** A literal `{...}` map — not a Timestamp, Date, DocumentReference or array,
+ *  which Firestore stores as values and must be passed through untouched. */
+function isPlainMap(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.getPrototypeOf(value) === Object.prototype &&
+    !isTransform(value)
+  );
+}
+
+/**
+ * The object handed to Firestore: markers become real FieldValue sentinels,
+ * at any depth — a marker left untranslated inside a map would be stored in
+ * Firestore as a literal `{__op: …}` object.
+ *
+ * DELETE_FIELD is only accepted at the top level. The shadow carries removals
+ * as a list of top-level keys, so a nested one could not be reported; failing
+ * here, before the write, is louder than a shadow that silently disagrees.
+ */
+function forFirestore(data: WriteData, depth = 0): DocumentData {
   const out: DocumentData = {};
   for (const [key, value] of Object.entries(data)) {
-    out[key] = isTransform(value) ? toSentinel(value) : value;
+    if (isTransform(value)) {
+      if (value.__op === 'deleteField' && depth > 0) {
+        throw new Error(`DELETE_FIELD is only supported at the top level (found under "${key}")`);
+      }
+      out[key] = toSentinel(value);
+    } else if (isPlainMap(value)) {
+      out[key] = forFirestore(value, depth + 1);
+    } else {
+      out[key] = value;
+    }
   }
   return out;
 }
@@ -174,30 +202,38 @@ type ShadowOp = 'create' | 'set' | 'update' | 'delete';
 type ReportOptions = { merge?: boolean };
 
 /**
- * Tell the API what was written. Never throws, never awaited by a caller, and
+ * Browsers refuse a keepalive request whose body, together with every other
+ * keepalive request still in flight, exceeds 64 KiB — the fetch rejects and
+ * the report is lost. Large bodies (a long wiki page) go without keepalive,
+ * which only matters if the tab closes in the same instant.
+ */
+const KEEPALIVE_MAX_BYTES = 60_000;
+
+/** One write as the API reads it. */
+function describe(op: ShadowOp, path: string, data: WriteData | null, options: ReportOptions = {}) {
+  const entry: Record<string, unknown> = { op, path };
+  if (op === 'set') entry.merge = options.merge === true;
+  if (data) {
+    const { data: payload, remove } = forShadow(data);
+    entry.data = payload;
+    if (remove.length) entry.remove = remove;
+  }
+  return entry;
+}
+
+/**
+ * Hand a report to the API. Never throws, never awaited by a caller, and
  * deliberately does not force a token refresh — a cached token is fine for a
  * report that is allowed to fail, and forcing one would add a network round
  * trip to every write in the app.
  */
-function send(
-  op: ShadowOp,
-  path: string,
-  data: WriteData | null,
-  firestoreOk: boolean,
-  options: ReportOptions = {},
-): void {
+function post(build: () => Record<string, unknown>): void {
   void (async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
-      const body: Record<string, unknown> = { op, path, firestoreOk };
-      if (op === 'set') body.merge = options.merge === true;
-      if (data) {
-        const { data: payload, remove } = forShadow(data);
-        body.data = payload;
-        if (remove.length) body.remove = remove;
-      }
+      const body = JSON.stringify(build());
 
       await fetch(`${DATA_API_URL}/shadow`, {
         method: 'POST',
@@ -205,15 +241,25 @@ function send(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${await user.getIdToken()}`,
         },
-        body: JSON.stringify(body),
+        body,
         // Survives the tab closing straight after a post.
-        keepalive: true,
+        keepalive: new TextEncoder().encode(body).length < KEEPALIVE_MAX_BYTES,
       });
     } catch {
-      // The Firestore write already succeeded, and reconcile.js repairs
-      // whatever the shadow missed. Nothing here is worth a user-visible error.
+      // The Firestore write already succeeded, and the differ finds whatever
+      // the shadow missed. Nothing here is worth a user-visible error.
     }
   })();
+}
+
+function send(
+  op: ShadowOp,
+  path: string,
+  data: WriteData | null,
+  firestoreOk: boolean,
+  options?: ReportOptions,
+): void {
+  post(() => ({ ...describe(op, path, data, options), firestoreOk }));
 }
 
 const report = (op: ShadowOp, path: string, data: WriteData | null, options?: ReportOptions) =>
@@ -329,9 +375,12 @@ export interface ShadowedWriteBatch {
 }
 
 /**
- * writeBatch. Each write is reported after the commit succeeds, in the order
- * it was queued — a batch is atomic in Firestore, so a denial means none of
- * them happened and all are reported as denied.
+ * writeBatch. The whole batch is reported as one request once the commit
+ * settles, in the order it was queued, so the API applies it in that order
+ * inside one transaction — the rules judge a rename's profile write against
+ * the reservation created in the same batch, and separate requests could
+ * arrive the other way round. A batch is atomic in Firestore, so a denial
+ * means none of it happened and it is reported as denied.
  */
 export function writeBatchShadowed(firestore: Firestore): ShadowedWriteBatch {
   const batch = trackedWriteBatch(firestore);
@@ -354,15 +403,19 @@ export function writeBatchShadowed(firestore: Firestore): ShadowedWriteBatch {
       return shadowed;
     },
     async commit() {
+      const reportBatch = (firestoreOk: boolean) =>
+        post(() => ({
+          batch: entries.map((entry) => describe(entry.op, entry.path, entry.data, entry.options)),
+          firestoreOk,
+        }));
+
       try {
         await batch.commitTracked();
       } catch (error) {
-        if (isPermissionDenied(error)) {
-          for (const entry of entries) reportDenied(entry.op, entry.path, entry.data, entry.options);
-        }
+        if (isPermissionDenied(error) && entries.length) reportBatch(false);
         throw error;
       }
-      for (const entry of entries) report(entry.op, entry.path, entry.data, entry.options);
+      if (entries.length) reportBatch(true);
     },
   };
 
