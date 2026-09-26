@@ -1,9 +1,14 @@
-/* Relative: the album bubble is placed against this box. */
+/* Relative: the album bubble is placed against this box. The bubble is
+   rendered as a DOM child of this element, so the rhythm variable set here
+   reaches every rule below that reads it. */
 .sticker-album-carousel {
     position: relative;
     margin: 0 auto;
     padding-bottom: 0.5rem;
     width: 100%;
+    /* One gap used for every vertical space in the sticker bubble's message
+       list — see the comment above .ab .user-message for why. */
+    --sb-gap: 0.4rem;
 }
 
 .loading-container,
@@ -131,8 +136,16 @@
     transform: none;
 }
 
+/* One rhythm value (--sb-gap) used for every vertical gap from here down —
+   line to username, username to timestamp, timestamp to text, text to a
+   favourite track, and the space either side of the line between two
+   messages — so the line always falls dead centre between what's above it
+   and what's below, and no gap in the stack reads as bigger than another.
+   Each gap has exactly one source: stacking a margin AND a gap on the same
+   edge is what threw this off before. */
 .ab .user-message {
-    padding: 0.4rem 0;
+    padding: var(--sb-gap, 0.4rem) 0 0;
+    margin: 0;
     background: transparent;
     border: none;
     border-top: 1px solid var(--hp-rule, #c9cee4);
@@ -151,11 +164,39 @@
 }
 
 .ab .user-message-username {
+    margin-bottom: var(--sb-gap, 0.4rem);
     font-size: 0.95em;
 }
 
 .ab .user-message-timestamp {
+    margin-bottom: var(--sb-gap, 0.4rem);
     font-size: 0.7em;
+}
+
+/* The shared separator is a dashed white rule meant to show against the
+   messageboard's blue card — invisible on this bubble's white background, but
+   still taking up its box-model space, which read as unexplained white space
+   above the text. Zeroed out rather than coloured in: the bubble already has
+   its own top rule setting off each message, and a second one between the
+   byline and the text was one too many. */
+.ab .user-message-separator {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+/* Text to favourite track, when there is one — the only gap inside a single
+   message that isn't a margin, since the track sits outside .user-message
+   entirely. */
+.ab .sticker-message-item {
+    gap: var(--sb-gap, 0.4rem);
+}
+
+/* Message to message — the last paragraph of one (text, or its favourite
+   track if it has one) to the top-rule of the next. Same value as every gap
+   above, and the only source of it: .user-message carries no bottom margin
+   or padding of its own to add a second helping. */
+.ab .sticker-messages-list {
+    gap: var(--sb-gap, 0.4rem);
 }
 
 /* 80px of avatar next to 0.7rem type is all avatar. */

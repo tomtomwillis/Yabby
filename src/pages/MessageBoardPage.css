@@ -161,7 +161,9 @@
      them — which is what would push the thread below them down the page. */
   --mb-icon: calc(1.3rem * var(--mb-k-type));
   --mb-btn: calc(var(--mb-icon) + 1.25rem * var(--mb-k-control));
-  --mb-btn-gap: calc(0px * var(--mb-k-control));
+  /* Kept clear of the heart's own box: at two-figure counts the number runs
+     past its edge, and with no gap here it landed flush on the reply glyph. */
+  --mb-btn-gap: calc(0.3rem * var(--mb-k-control));
   --mb-actions: calc(var(--mb-btn) * 2 + var(--mb-btn-gap));
 
   /* The header line a message carries: when it was said at one end, and what
@@ -1155,10 +1157,13 @@
 
 /* Beside the control rather than under it, opening towards the words: dropped
    below, it landed on the button it belongs to — on a reply, where the two are
-   the same height, it covered it outright and read as a see-through box. Level
-   with the button's top, so it points at the count it is listing. */
+   the same height, it covered it outright and read as a see-through box.
+   Centred on the button's own centre rather than its top: the button is a
+   bigger tap target than the heart drawn inside it, so lining up with its top
+   edge left the tooltip sitting above the glyph instead of beside it. */
 .mb-board .user-message-reaction-tooltip {
-  top: 0;
+  top: 50%;
+  transform: translateY(-50%);
   right: calc(100% + 0.4rem * var(--mb-k-space));
   margin-top: 0;
   padding: calc(0.3rem * var(--mb-k-control)) calc(0.5rem * var(--mb-k-control));
@@ -1823,7 +1828,7 @@
     --mb-post-pad: calc(0.25rem * var(--mb-k-space));
     --mb-body-leading: 1.36;
     --mb-text-gap: calc(0.45rem * var(--mb-k-space));
-    --mb-btn-gap: calc(0px * var(--mb-k-control));
+    --mb-btn-gap: calc(0.3rem * var(--mb-k-control));
     --mb-poster-gap: calc(0.15rem * var(--mb-k-space));
     --mb-poster-gap-x: calc(0.1rem * var(--mb-k-space));
     --mb-poster-stats-gap: calc(0rem * var(--mb-k-space));
