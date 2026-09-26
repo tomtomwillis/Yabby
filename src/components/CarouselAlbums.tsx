@@ -100,9 +100,148 @@ const CarouselAlbums: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const frameRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<OpenTile | null>(null);
 
+  // Read by the animation loop, which must not re-run when the bubble opens.
+  const pausedRef = useRef(false);
+  // Set once a pointer has travelled far enough to count as a throw rather than
+  // a tap, so the tile underneath does not open its bubble on release.
+  const draggedRef = useRef(false);
+
   const closeBubble = useCallback(() => setOpen(null), []);
+
+  useEffect(() => { pausedRef.current = open !== null; }, [open]);
+
+  // The marquee: a rAF loop owns the offset so a drag can take it over
+  // mid-flight. Momentum is modelled as an excess on top of the base drift, and
+  // decays towards it — so a throw in either direction settles back into the
+  // original leftward crawl at the original rate.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    if (!viewport || !track || albums.length === 0) return;
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const BASE = reduced ? 0 : -0.018; // px per ms, leftward
+    const DECAY = 0.0035;              // excess velocity halves roughly every 200ms
+    const DRAG_THRESHOLD = 6;          // px before a press becomes a drag
+
+    let offset = 0;
+    let velocity = BASE;
+    let copyWidth = track.scrollWidth / 3;
+    let hovering = false;
+    let dragging = false;
+    let coasting = false; // ignore hover-pause until a throw has settled
+    let pointerId: number | null = null;
+    let lastX = 0;
+    let lastMoveAt = 0;
+    let frame = 0;
+    let previous = performance.now();
+
+    const measure = () => { copyWidth = track.scrollWidth / 3; };
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+
+    const apply = () => {
+      if (copyWidth > 0) {
+        // Keep the offset inside one copy's width; three copies in the markup
+        // mean the seam is always off-screen.
+        offset = ((offset % copyWidth) + copyWidth) % copyWidth - copyWidth;
+      }
+      track.style.transform = `translate3d(${offset}px, 0, 0)`;
+    };
+
+    const tick = (now: number) => {
+      const dt = Math.min(now - previous, 50);
+      previous = now;
+
+      if (!dragging) {
+        const excess = velocity - BASE;
+        if (Math.abs(excess) > 0.002) {
+          velocity = BASE + excess * Math.exp(-DECAY * dt);
+        } else {
+          velocity = BASE;
+          coasting = false;
+        }
+        if (!pausedRef.current && !(hovering && !coasting)) {
+          offset += velocity * dt;
+          apply();
+        }
+      }
+
+      frame = requestAnimationFrame(tick);
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (pointerId !== null || e.button !== 0) return;
+      pointerId = e.pointerId;
+      dragging = true;
+      coasting = false;
+      draggedRef.current = false;
+      lastX = e.clientX;
+      lastMoveAt = performance.now();
+      velocity = 0;
+      viewport.setPointerCapture(e.pointerId);
+      viewport.classList.add('is-dragging');
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      const now = performance.now();
+      const dx = e.clientX - lastX;
+      const dt = now - lastMoveAt;
+      if (Math.abs(dx) >= DRAG_THRESHOLD) draggedRef.current = true;
+      if (dt > 0) {
+        const instant = dx / dt;
+        // Smoothed, so one stuttering frame cannot dominate the throw.
+        velocity = velocity * 0.6 + instant * 0.4;
+      }
+      offset += dx;
+      lastX = e.clientX;
+      lastMoveAt = now;
+      apply();
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      pointerId = null;
+      dragging = false;
+      viewport.classList.remove('is-dragging');
+      // A pointer held still before release should not fling.
+      if (performance.now() - lastMoveAt > 80) velocity = BASE;
+      velocity = Math.max(-4, Math.min(4, velocity));
+      coasting = Math.abs(velocity - BASE) > 0.002;
+      previous = performance.now();
+    };
+
+    const onEnter = () => { hovering = true; };
+    const onLeave = () => { hovering = false; };
+
+    viewport.addEventListener('pointerdown', onPointerDown);
+    viewport.addEventListener('pointermove', onPointerMove);
+    viewport.addEventListener('pointerup', onPointerUp);
+    viewport.addEventListener('pointercancel', onPointerUp);
+    viewport.addEventListener('pointerenter', onEnter);
+    viewport.addEventListener('pointerleave', onLeave);
+    // Dragging counts as interaction, so the browser's own image drag is noise.
+    viewport.addEventListener('dragstart', (e) => e.preventDefault());
+
+    apply();
+    frame = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      viewport.removeEventListener('pointerdown', onPointerDown);
+      viewport.removeEventListener('pointermove', onPointerMove);
+      viewport.removeEventListener('pointerup', onPointerUp);
+      viewport.removeEventListener('pointercancel', onPointerUp);
+      viewport.removeEventListener('pointerenter', onEnter);
+      viewport.removeEventListener('pointerleave', onLeave);
+    };
+  }, [albums]);
 
   useEffect(() => {
     const fetchAlbums = async () => {
@@ -176,7 +315,10 @@ const CarouselAlbums: React.FC = () => {
       key={`${album.id}-${i}`}
       type="button"
       className="albums-marquee__tile"
-      onClick={(e) => setOpen({ key: `${album.id}-${i}`, album, anchor: e.currentTarget })}
+      onClick={(e) => {
+        if (draggedRef.current) return;
+        setOpen({ key: `${album.id}-${i}`, album, anchor: e.currentTarget });
+      }}
       title={`${album.name} — ${album.artist}${album.year ? ` (${album.year})` : ''}`}
     >
       <img
@@ -199,10 +341,10 @@ const CarouselAlbums: React.FC = () => {
 
   return (
     <div className="albums-marquee-frame" ref={frameRef}>
-      {/* Frozen while a bubble is open, otherwise the tile it points at slides
-          out from under it. */}
-      <div className={`albums-marquee${open ? ' is-frozen' : ''}`}>
-        <div className="albums-marquee__track">
+      {/* Position is driven from the effect above, not CSS — frozen there while a
+          bubble is open, otherwise the tile it points at slides out from under it. */}
+      <div className="albums-marquee" ref={viewportRef}>
+        <div className="albums-marquee__track" ref={trackRef}>
           {ticker.map((album, i) => renderTile(album, i))}
         </div>
       </div>

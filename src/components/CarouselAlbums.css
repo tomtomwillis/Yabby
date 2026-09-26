@@ -1,6 +1,7 @@
 /* Recently Added — a horizontal ticker of small album covers.
-   Pure CSS @keyframes loop; the album list is repeated three times in markup so
-   the one-copy cycle joins seamlessly however wide the frame is. */
+   The drift is driven from CarouselAlbums.tsx so a drag can grab it mid-flight;
+   the album list is repeated three times in markup so the one-copy cycle joins
+   seamlessly however wide the frame is. */
 
 /* Relative, and outside .albums-marquee, so the album bubble is placed against
    the frame rather than clipped by the ticker's overflow and mask. */
@@ -23,6 +24,11 @@
     width: 100%;
     overflow: hidden;
     position: relative;
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+    /* Horizontal drags come to us; vertical page scrolling still works on touch. */
+    touch-action: pan-y;
     /* Soft fade at both edges so tiles enter/exit gracefully. */
     -webkit-mask-image: linear-gradient(
         to right,
@@ -44,13 +50,17 @@
     display: flex;
     gap: 10px;
     width: max-content;
-    animation: albums-marquee-scroll 120s linear infinite;
     padding: 6px 0;
+    will-change: transform;
 }
 
-.albums-marquee:hover .albums-marquee__track,
-.albums-marquee.is-frozen .albums-marquee__track {
-    animation-play-state: paused;
+.albums-marquee.is-dragging {
+    cursor: grabbing;
+}
+
+/* No hover lift mid-drag — the pointer sweeps across every tile it passes. */
+.albums-marquee.is-dragging .albums-marquee__tile {
+    transform: none;
 }
 
 .albums-marquee__tile {
@@ -80,6 +90,9 @@
     object-fit: cover;
     border-radius: 4px;
     display: block;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
@@ -145,21 +158,9 @@
     text-decoration: underline;
 }
 
-/* One third — the track holds three copies of the list, so a third of it is
-   exactly one copy and the jump back to 0 is invisible. */
-@keyframes albums-marquee-scroll {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-33.3333%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .albums-marquee__track { animation: none; }
-}
-
 @media (max-width: 600px) {
     .albums-marquee__tile,
     .albums-marquee__img,
     .albums-marquee__caption { width: 80px; }
     .albums-marquee__img { height: 80px; }
-    .albums-marquee__track { animation-duration: 80s; }
 }
