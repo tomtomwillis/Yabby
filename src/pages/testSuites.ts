@@ -25,6 +25,7 @@ import {
   incrementBy,
   arrayUnionOf,
   arrayRemoveOf,
+  DELETE_FIELD,
 } from '../api/shadow';
 import { db } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
@@ -828,7 +829,7 @@ const profileSuite: TestSuite = {
   id: 'profile',
   name: 'Profile stats',
   description:
-    'The join date, post count and site url behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one. Your site url is written over and put back.',
+    'The join date, post and sticker counts and site url behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one. Your site url is written over and put back.',
   tests: [
     {
       name: 'reads your own profile',
@@ -839,6 +840,14 @@ const profileSuite: TestSuite = {
         assert(typeof data.username === 'string', 'Your profile has no username field.');
         const joined = data.joinedAt ? 'joined set' : 'no join date yet';
         return `${joined}, postCount ${data.postCount ?? 'unset'}`;
+      },
+    },
+    {
+      name: 'lists every profile for the directory',
+      run: async () => {
+        const snap = await getDocs(collection(db, 'users'));
+        assert(snap.size > 0, 'The users collection came back empty.');
+        return `${snap.size} profiles`;
       },
     },
     {
@@ -895,6 +904,34 @@ const profileSuite: TestSuite = {
         ),
     },
     {
+      name: 'counts a sticker, then takes it back off',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const before = (await getDoc(ref)).data()?.stickerCount ?? 0;
+        await updateDoc(ref, { stickerCount: incrementBy(1) });
+        const up = (await getDoc(ref)).data()?.stickerCount;
+        await updateDoc(ref, { stickerCount: incrementBy(-1) });
+        const down = (await getDoc(ref)).data()?.stickerCount;
+        assert(up === before + 1, `stickerCount went from ${before} to ${up}, expected ${before + 1}.`);
+        assert(down === before, `stickerCount went back to ${down}, expected ${before}.`);
+        return `${before} → ${up} → ${down}`;
+      },
+    },
+    {
+      name: 'rules stop the sticker count jumping',
+      run: async (ctx) =>
+        expectDenied('moving the sticker count by more than one', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { stickerCount: incrementBy(2) }),
+        ),
+    },
+    {
+      name: 'rules stop a negative sticker count',
+      run: async (ctx) =>
+        expectDenied('setting a negative sticker count', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { stickerCount: -1 }),
+        ),
+    },
+    {
       name: 'saves a site url, then puts yours back',
       run: async (ctx) => {
         const ref = doc(db, 'users', ctx.uid);
@@ -915,6 +952,36 @@ const profileSuite: TestSuite = {
         expectDenied('a site url past the 200 character cap', () =>
           updateDoc(doc(db, 'users', ctx.uid), { siteUrl: 'x'.repeat(201) }),
         ),
+    },
+    {
+      name: 'saves social handles, then puts yours back',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const before = (await getDoc(ref)).data()?.socials;
+        const test = { instagram: 'yab.by', signal: 'yabby.01', bandcampArtist: 'yabby-band' };
+
+        await updateDoc(ref, { socials: test });
+        const after = (await getDoc(ref)).data()?.socials;
+        await updateDoc(ref, { socials: before ?? DELETE_FIELD });
+
+        assert(after?.instagram === 'yab.by' && after?.bandcampArtist === 'yabby-band', 'socials did not read back.');
+        return before ? 'restored yours' : 'removed again';
+      },
+    },
+    {
+      name: 'rules reject socials that are not handles',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        await expectDenied('a pasted link stored as a handle', () =>
+          updateDoc(ref, { socials: { instagram: 'https://evil.example/x' } }),
+        );
+        await expectDenied('a bandcamp subdomain that leaves bandcamp', () =>
+          updateDoc(ref, { socials: { bandcampArtist: 'evil.example' } }),
+        );
+        return expectDenied('a platform the schema does not know', () =>
+          updateDoc(ref, { socials: { myspace: 'tom' } }),
+        );
+      },
     },
     {
       name: 'rules still reject unknown profile fields',

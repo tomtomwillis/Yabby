@@ -5,6 +5,7 @@ import './PlaceStickerCore.css';
 import { db, auth } from '../firebaseConfig';
 import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { addDocShadowed, SERVER_TIME } from '../api/shadow';
+import { bumpStickerCount } from '../utils/userCache';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
 
@@ -344,6 +345,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       }
 
       const docRef = await addDocShadowed(collection(db, 'stickers'), stickerData);
+      void bumpStickerCount(auth.currentUser.uid, 1);
 
       if (onSuccess) {
         onSuccess({

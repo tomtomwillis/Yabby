@@ -1,0 +1,26 @@
+.social-handle {
+  overflow-wrap: anywhere;
+}
+
+.social-handle-copy {
+  margin-left: 0.5em;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.9em;
+  color: #8a90a8;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.social-handle-copy:hover,
+.social-handle-copy:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.social-handle-copy:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}

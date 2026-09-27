@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Header from '../components/basic/Header';
 import StickerGrid from '../components/StickerGrid';
 import type { StickerUser } from '../components/StickerGrid';
@@ -9,7 +10,11 @@ import './Stickers.css';
 const Stickers: React.FC = () => {
   const [sortMode, setSortMode] = useState<'chronological' | 'shuffle'>('chronological');
   const [shuffleKey, setShuffleKey] = useState<number>(0);
-  const [filterUserId, setFilterUserId] = useState<string>('');
+  // Held in the URL so the directory can link straight to one member's stickers.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterUserId = searchParams.get('user') ?? '';
+  const setFilterUserId = (userId: string) =>
+    setSearchParams(userId ? { user: userId } : {}, { replace: true });
   const [availableUsers, setAvailableUsers] = useState<StickerUser[]>([]);
 
   const handleNewestFirst = () => {

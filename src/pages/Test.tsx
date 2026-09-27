@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebaseConfig';
-import { getUserData } from '../utils/userCache';
+import { getUserData, recountStickers } from '../utils/userCache';
+import { useAdmin } from '../utils/useAdmin';
 import { testSuites, MARKER, SANDBOX_MESSAGES, type TestContext, type TestSuite } from './testSuites';
 import { quickChecks } from './testChecks';
 import Header from '../components/basic/Header';
@@ -209,6 +210,8 @@ export default function Test() {
           );
         })}
 
+        <StickerRecount />
+
         <div className="test-suite">
           <h3 className="test-suite__title">What these do not cover</h3>
           <ul className="test-manual">
@@ -289,6 +292,46 @@ export default function Test() {
 
 /** Runs on load so the state of the site's dependencies is visible without
  *  running anything. */
+
+/** Admin only. Sets every member's sticker count on their profile from the
+    stickers that actually exist — for backfilling, or if the counts drift. */
+const StickerRecount = () => {
+  const { isAdmin } = useAdmin();
+  const [running, setRunning] = useState(false);
+  const [note, setNote] = useState('');
+
+  if (!isAdmin) return null;
+
+  const run = async () => {
+    setRunning(true);
+    setNote('');
+    try {
+      const { stickers, changed } = await recountStickers();
+      setNote(`Counted ${stickers} stickers. Updated ${changed} profile${changed === 1 ? '' : 's'}.`);
+    } catch (err) {
+      setNote(`Recount failed: ${errorMessage(err)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="test-suite">
+      <div className="test-suite__head">
+        <div>
+          <h3 className="test-suite__title">Recount stickers</h3>
+          <p className="test-suite__desc">
+            Admin only. Sets every member's sticker count from the stickers that exist, writing only the counts
+            that are wrong. Costs one read per sticker and per profile.
+          </p>
+        </div>
+        <Button type="basic" label={running ? 'Counting…' : 'Recount'} onClick={run} disabled={running} />
+      </div>
+      {note && <p className="test-suite__note">{note}</p>}
+    </div>
+  );
+};
+
 function QuickChecks() {
   const [user] = useAuthState(auth);
   const [results, setResults] = useState<Record<string, { ok: boolean; detail: string } | null>>({});

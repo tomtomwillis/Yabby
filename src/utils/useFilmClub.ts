@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 
+export const MAX_SUBMISSIONS_PER_MONTH = 3;
+
 export interface Submission {
   userId: string;
   title: string;

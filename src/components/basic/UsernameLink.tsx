@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { getUserProfile, type UserProfile } from '../../utils/userCache';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import SiteLink from './SiteLink';
-import './UsernameLink.css';
+import './UserCardBody.css';
 
 interface UsernameLinkProps {
   userId?: string;

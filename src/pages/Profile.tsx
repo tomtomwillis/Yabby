@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -9,6 +9,15 @@ import { sanitizeHtml, sanitizeText } from '../utils/sanitise';
 import Header from '../components/basic/Header';
 import Button from '../components/basic/Button';
 import SiteLink from '../components/basic/SiteLink';
+import SocialHandle from '../components/basic/SocialHandle';
+import {
+  SOCIAL_PLATFORMS,
+  SOCIAL_ORDER,
+  parseSocial,
+  readSocials,
+  type SocialPlatform,
+  type Socials,
+} from '../utils/socials';
 import { useAdmin } from '../utils/useAdmin';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
@@ -17,6 +26,15 @@ import './Profile.css';
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 20;
 const USERNAME_PATTERN = /^[a-zA-Z0-9]+([ ._-][a-zA-Z0-9]+)*$/;
+
+interface SocialRow {
+  id: number;
+  platform: SocialPlatform | '';
+  value: string;
+}
+
+const sameSocials = (a: Socials, b: Socials): boolean =>
+  SOCIAL_ORDER.every((platform) => a[platform] === b[platform]);
 
 /** Usernames are reserved case-insensitively, so "alice " and "al  ice" must
  *  not be able to stand in for "alice" on a post. */
@@ -103,6 +121,7 @@ const Profile: React.FC = () => {
   const [siteUrl, setSiteUrl] = useState('');
   const [locationFlag, setLocationFlag] = useState('');
   const [locationText, setLocationText] = useState('');
+  const [socials, setSocials] = useState<Socials>({});
 
   const [isEditing, setIsEditing] = useState(false);
   const [editUsername, setEditUsername] = useState('');
@@ -113,6 +132,8 @@ const Profile: React.FC = () => {
   const [editSiteUrl, setEditSiteUrl] = useState('');
   const [editLocationFlag, setEditLocationFlag] = useState('');
   const [editLocationText, setEditLocationText] = useState('');
+  const [editSocials, setEditSocials] = useState<SocialRow[]>([]);
+  const nextSocialId = useRef(0);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -147,6 +168,7 @@ const Profile: React.FC = () => {
             setSiteUrl(data.siteUrl || '');
             setLocationFlag(data.locationFlag || '');
             setLocationText(data.locationText || '');
+            setSocials(readSocials(data.socials));
             setNekoEnabled(data.nekoEnabled === true);
             setDesignToolEnabled(data.designToolEnabled === true);
           }
@@ -178,6 +200,13 @@ const Profile: React.FC = () => {
     setEditSiteUrl(siteUrl);
     setEditLocationFlag(locationFlag);
     setEditLocationText(locationText);
+    setEditSocials(
+      SOCIAL_ORDER.filter((platform) => socials[platform]).map((platform) => ({
+        id: nextSocialId.current++,
+        platform,
+        value: socials[platform]!,
+      })),
+    );
     setIsEditing(true);
     setSaveMessage('');
     setLimitError('');
@@ -208,6 +237,20 @@ const Profile: React.FC = () => {
       );
       setSaveSuccess(false);
       return;
+    }
+
+    // Rows left without a platform or a value are dropped rather than refused —
+    // an "add" clicked and then thought better of.
+    const newSocials: Socials = {};
+    for (const row of editSocials) {
+      if (!row.platform || !row.value.trim()) continue;
+      const parsed = parseSocial(row.platform, row.value);
+      if ('error' in parsed) {
+        setSaveMessage(parsed.error);
+        setSaveSuccess(false);
+        return;
+      }
+      newSocials[row.platform] = parsed.handle;
     }
 
     setSaving(true);
@@ -264,6 +307,13 @@ const Profile: React.FC = () => {
 
       await batch.commit();
 
+      // Apart from the batch because a merging set merges nested maps key by
+      // key, so a removed account would survive it. An update replaces the
+      // field whole.
+      if (!sameSocials(newSocials, socials)) {
+        await updateDocShadowed(userDoc, { socials: newSocials });
+      }
+
       setUsername(newUsername);
       setEditUsername(newUsername);
       setSelectedColor(editColor);
@@ -274,6 +324,7 @@ const Profile: React.FC = () => {
       setSiteUrl(sanitizedSiteUrl);
       setLocationFlag(editLocationFlag);
       setLocationText(sanitizedLocationText);
+      setSocials(newSocials);
       setIsEditing(false);
       setFlagDropdownOpen(false);
       setFlagSearch('');
@@ -302,6 +353,18 @@ const Profile: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const addSocialRow = () => {
+    setEditSocials((rows) => [...rows, { id: nextSocialId.current++, platform: '', value: '' }]);
+  };
+
+  const updateSocialRow = (id: number, patch: Partial<SocialRow>) => {
+    setEditSocials((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const removeSocialRow = (id: number) => {
+    setEditSocials((rows) => rows.filter((row) => row.id !== id));
   };
 
   const handlePasswordReset = async () => {
@@ -394,6 +457,7 @@ const Profile: React.FC = () => {
   }
 
   const hasLocation = locationFlag || locationText;
+  const hasSocials = SOCIAL_ORDER.some((platform) => socials[platform]);
   const flagLabel = FLAG_OPTIONS.find((opt) => opt.flag === editLocationFlag)?.label ?? 'none';
 
   return (
@@ -548,6 +612,49 @@ const Profile: React.FC = () => {
             />
           </div>
 
+          <div className="me-field">
+            <span className="me-label">socials</span>
+            {editSocials.map((row) => {
+              const taken = new Set(editSocials.filter((r) => r.id !== row.id).map((r) => r.platform));
+              return (
+                <div key={row.id} className="me-social-row">
+                  <select
+                    className="me-social-select"
+                    value={row.platform}
+                    onChange={(e) => updateSocialRow(row.id, { platform: e.target.value as SocialPlatform })}
+                    aria-label="Platform"
+                  >
+                    <option value="" disabled>choose…</option>
+                    {SOCIAL_ORDER.filter((platform) => !taken.has(platform)).map((platform) => (
+                      <option key={platform} value={platform}>{SOCIAL_PLATFORMS[platform].label}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    className="me-social-input"
+                    value={row.value}
+                    onChange={(e) => updateSocialRow(row.id, { value: e.target.value })}
+                    placeholder={row.platform ? SOCIAL_PLATFORMS[row.platform].placeholder : 'username or link'}
+                    disabled={!row.platform}
+                    maxLength={200}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    aria-label={row.platform ? `${SOCIAL_PLATFORMS[row.platform].label} username or link` : 'Username or link'}
+                  />
+                  <button type="button" className="me-act me-act--del" onClick={() => removeSocialRow(row.id)}>
+                    remove
+                  </button>
+                </div>
+              );
+            })}
+            {editSocials.length < SOCIAL_ORDER.length && (
+              <button type="button" className="me-act me-social-add" onClick={addSocialRow}>
+                + add social media
+              </button>
+            )}
+          </div>
+
           {limitError && (
             <p className="me-msg me-msg--bad me-msg--in-band" role="alert">{limitError}</p>
           )}
@@ -597,7 +704,7 @@ const Profile: React.FC = () => {
                 <p className="me-bio me-bio--none">no bio yet.</p>
               )}
 
-              {(siteUrl || hasLocation) && (
+              {(siteUrl || hasLocation || hasSocials) && (
                 <dl className="me-facts">
                   {siteUrl && (
                     <>
@@ -619,6 +726,18 @@ const Profile: React.FC = () => {
                       </dd>
                     </>
                   )}
+
+                  {SOCIAL_ORDER.filter((platform) => socials[platform]).map((platform) => (
+                    <React.Fragment key={platform}>
+                      <dt className="me-fact-key">
+                        {SOCIAL_PLATFORMS[platform].label}
+                        <span className="me-fact-leader" aria-hidden="true"></span>
+                      </dt>
+                      <dd className="me-fact-val">
+                        <SocialHandle platform={platform} handle={socials[platform]!} />
+                      </dd>
+                    </React.Fragment>
+                  ))}
                 </dl>
               )}
             </div>

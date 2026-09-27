@@ -249,6 +249,24 @@ service cloud.firestore {
         && name.matches("\\p{L}[\\p{L} .'’-]*");
     }
 
+    // Profile social accounts, one handle per platform. Only the handle is
+    // stored — the client builds each link from a fixed template — so the
+    // patterns are what keep a handle from steering a link off the platform.
+    // Mirrored in src/utils/socials.ts and backend_server/data/policy.js.
+    function isValidSocials(s) {
+      return s is map
+        && s.keys().hasOnly(['instagram', 'twitter', 'signal', 'discord', 'playstation', 'bandcampArtist', 'bandcampFan', 'soundcloud', 'mixcloud'])
+        && (!('instagram' in s) || (s.instagram is string && s.instagram.matches('[A-Za-z0-9._]{1,30}')))
+        && (!('twitter' in s) || (s.twitter is string && s.twitter.matches('[A-Za-z0-9_]{1,15}')))
+        && (!('signal' in s) || (s.signal is string && s.signal.matches('[A-Za-z0-9_]{3,32}[.][0-9]{2,10}')))
+        && (!('discord' in s) || (s.discord is string && s.discord.matches('[a-z0-9_.]{2,32}')))
+        && (!('playstation' in s) || (s.playstation is string && s.playstation.matches('[A-Za-z][A-Za-z0-9_-]{2,15}')))
+        && (!('bandcampArtist' in s) || (s.bandcampArtist is string && s.bandcampArtist.matches('[a-z0-9][a-z0-9-]{0,62}')))
+        && (!('bandcampFan' in s) || (s.bandcampFan is string && s.bandcampFan.matches('[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')))
+        && (!('soundcloud' in s) || (s.soundcloud is string && s.soundcloud.matches('[A-Za-z0-9_-]{1,64}')))
+        && (!('mixcloud' in s) || (s.mixcloud is string && s.mixcloud.matches('[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')));
+    }
+
     // One act on a bill: a name, and the Navidrome artist id when the act is
     // in the library.
     function isValidLineupAct(act) {
@@ -352,7 +370,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
         && isValidUsername(request.resource.data.username)
         && ownsUsername(userId, request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
@@ -364,14 +382,16 @@ service cloud.firestore {
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
+        && (!('socials' in request.resource.data) || isValidSocials(request.resource.data.socials))
         // joinedAt carries the account's creation time in Auth, which is always
         // at or before the write that copies it across; a future date is not a
         // join date. A new profile starts on zero posts.
         && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt <= request.time)
-        && (!('postCount' in request.resource.data) || request.resource.data.postCount == 0);
+        && (!('postCount' in request.resource.data) || request.resource.data.postCount == 0)
+        && (!('stickerCount' in request.resource.data) || request.resource.data.stickerCount == 0);
 
       allow update: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
         && isValidUsername(request.resource.data.username)
         // Only a rename pays for the reservation lookup — every other profile
         // write, including the post count increment on each post, keeps the
@@ -387,6 +407,7 @@ service cloud.firestore {
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
+        && (!('socials' in request.resource.data) || isValidSocials(request.resource.data.socials))
         // Join date is written once, on first login, and is never rewritten
         // after that — otherwise it is not a join date. The value copied across
         // is the account's Auth creation time, so it may sit in the past, but
@@ -402,7 +423,25 @@ service cloud.firestore {
               && (!('postCount' in resource.data)
                   || request.resource.data.postCount == resource.data.postCount
                   || request.resource.data.postCount == resource.data.postCount + 1)
+            ))
+        // Sticker count follows the member's stickers, which they can both
+        // place and delete, so it may hold or move by one either way. Unlike
+        // postCount, a missing count is zero rather than a free first write.
+        && (!('stickerCount' in request.resource.data) || (
+              request.resource.data.stickerCount is int
+              && request.resource.data.stickerCount >= 0
+              && (request.resource.data.stickerCount == resource.data.get('stickerCount', 0)
+                  || request.resource.data.stickerCount == resource.data.get('stickerCount', 0) + 1
+                  || request.resource.data.stickerCount == resource.data.get('stickerCount', 0) - 1)
             ));
+
+      // An admin may set anyone's sticker count and nothing else on the
+      // profile: deleting someone else's sticker takes one off, and the recount
+      // on /test sets it from the stickers that actually exist.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stickerCount'])
+        && request.resource.data.stickerCount is int
+        && request.resource.data.stickerCount >= 0;
 
       allow delete: if false;
     }

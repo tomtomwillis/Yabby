@@ -1,0 +1,323 @@
+/*
+ * Everyone, one line each — the user profile's gutter and body at list size,
+ * so a row reads as the same object as the page it links to.
+ */
+
+.directory-page {
+  --dir-rule: #c9cee4;
+  --dir-rule-soft: #dfe3f0;
+  --dir-ink: var(--colour5);
+  --dir-accent: var(--colour2);
+  --dir-dim: #5566c9;
+  --dir-mute: #8a90a8;
+  --dir-voice: var(--colour6);
+  --dir-sheet: rgba(251, 251, 253, 0.94);
+  --dir-edge: clamp(14px, 2.4vw, 34px);
+  --dir-avatar: clamp(56px, 5vw, 72px);
+
+  width: 100%;
+  text-align: left;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .directory-page {
+    --dir-sheet: #fbfbfd;
+  }
+}
+
+.directory-page > header.header {
+  margin: 0;
+  padding: 0 var(--dir-edge) 0.45rem;
+  border-bottom: 1px solid var(--dir-rule);
+}
+
+.directory-page > header.header .small-text {
+  margin: 0;
+  font-family: var(--font3);
+  font-size: clamp(1.125rem, 1.3vw, 1.4rem);
+  color: var(--dir-voice);
+}
+
+/* ─── The bar ─────────────────────────────────────────── */
+
+.dir-bar {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(0.4rem, 0.9vw, 0.9rem);
+  padding: 0.6rem var(--dir-edge);
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--dir-rule);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.78vw, 0.92rem);
+  letter-spacing: 0.08em;
+}
+
+.dir-bar-label {
+  flex: 0 0 auto;
+  color: var(--dir-accent);
+}
+
+.dir-bar-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--dir-rule);
+  transform: translateY(-0.25em);
+}
+
+.dir-bar-note {
+  flex: 0 0 auto;
+  color: var(--dir-mute);
+}
+
+/* ─── Alphabet ────────────────────────────────────────── */
+
+/* Letters nobody is filed under stay in place but go quiet, so the row keeps
+   its shape whoever has joined. */
+.dir-alphabet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.1rem;
+  padding: 0.45rem var(--dir-edge);
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--dir-rule);
+}
+
+.dir-letter {
+  min-width: 1.7em;
+  padding: 0.2rem 0.25rem;
+  border: 0;
+  background: none;
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.78vw, 0.92rem);
+  letter-spacing: 0.04em;
+  color: var(--dir-dim);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.dir-letter:hover:not(:disabled),
+.dir-letter:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.dir-letter:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.dir-letter:disabled {
+  color: var(--dir-rule);
+  cursor: default;
+}
+
+/* ─── Rows ────────────────────────────────────────────── */
+
+.dir-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--dir-sheet);
+}
+
+.dir-row {
+  display: grid;
+  grid-template-columns: var(--dir-avatar) minmax(0, 1fr);
+  gap: 0 clamp(0.8rem, 1.4vw, 1.2rem);
+  align-items: start;
+  padding: 0.9rem var(--dir-edge);
+  border-bottom: 1px solid var(--dir-rule-soft);
+  scroll-margin-top: 1rem;
+}
+
+.dir-avatar-link {
+  display: block;
+}
+
+.dir-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--dir-avatar);
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.dir-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dir-avatar--none {
+  font-family: var(--font2);
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  letter-spacing: 0.06em;
+  color: var(--dir-rule);
+  user-select: none;
+}
+
+.dir-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.dir-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.8rem;
+}
+
+.dir-name {
+  font-family: var(--font2);
+  font-size: clamp(0.9rem, 0.95vw, 1.08rem);
+  letter-spacing: 0.04em;
+  color: var(--dir-accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color 0.15s ease;
+}
+
+.dir-name:hover,
+.dir-name:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.dir-joined {
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.7vw, 0.82rem);
+  letter-spacing: 0.04em;
+  color: var(--dir-mute);
+}
+
+/* Held to three lines — the full bio is one click away on their profile. */
+.dir-bio {
+  margin: 0;
+  max-width: 62ch;
+  font-family: var(--font3);
+  font-size: clamp(0.98rem, 1.05vw, 1.15rem);
+  line-height: 1.45;
+  color: var(--dir-voice);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dir-bio--none {
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.72vw, 0.84rem);
+  letter-spacing: 0.04em;
+  color: var(--dir-mute);
+}
+
+.dir-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0;
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.72vw, 0.84rem);
+  letter-spacing: 0.04em;
+  color: var(--dir-ink);
+}
+
+.dir-fact {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dir-fact + .dir-fact::before {
+  content: '·';
+  margin: 0 0.6em;
+  color: var(--dir-rule);
+}
+
+.dir-count + .dir-count::before {
+  content: '·';
+  margin: 0 0.6em;
+  color: var(--dir-rule);
+}
+
+/* On a phone the counts drop to a line of their own, together, rather than
+   wrapping wherever the location happens to run out. */
+@media (max-width: 700px) {
+  .dir-counts {
+    flex-basis: 100%;
+  }
+
+  .dir-fact.dir-counts::before {
+    content: none;
+  }
+}
+
+.dir-fact a {
+  color: var(--dir-dim);
+  text-decoration: none;
+}
+
+.dir-fact a:hover,
+.dir-fact a:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+/* One account per line, the platform names in their own column so the
+   handles line up. */
+.dir-socials {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.15rem 0.8rem;
+  margin: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.72vw, 0.84rem);
+  letter-spacing: 0.04em;
+}
+
+.dir-social-label {
+  color: var(--dir-mute);
+}
+
+.dir-social-handle {
+  min-width: 0;
+  margin: 0;
+  color: var(--dir-ink);
+  overflow-wrap: anywhere;
+}
+
+.dir-social-handle a {
+  color: var(--dir-dim);
+  text-decoration: none;
+}
+
+.dir-social-handle a:hover,
+.dir-social-handle a:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.dir-flag {
+  margin-right: 0.35em;
+}
+
+/* ─── Notes ───────────────────────────────────────────── */
+
+.dir-status {
+  margin: 0;
+  padding: 1rem var(--dir-edge);
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
+  letter-spacing: 0.04em;
+  color: var(--dir-mute);
+}
+
+.dir-status--error {
+  color: #c0392b;
+}

@@ -9,7 +9,7 @@ import {
 import { db, auth } from '../../firebaseConfig';
 import { getUserData } from '../../utils/userCache';
 import { useAdmin } from '../../utils/useAdmin';
-import { useFilmClub, type Submission } from '../../utils/useFilmClub';
+import { useFilmClub, MAX_SUBMISSIONS_PER_MONTH, type Submission } from '../../utils/useFilmClub';
 import FilmCard from './FilmCard';
 import FilmSearchBox from '../basic/FilmSearchBox';
 import type { FilmResult } from '../basic/FilmSearchBox';
@@ -567,9 +567,15 @@ function FilmClub() {
         ) : (
           <>
             <div className="film-club-action-row">
-              <a href="/film-club-submit" className="film-club-btn film-club-btn-primary">
-                {userSubmissions.length > 0 ? 'Submit another film' : `Submit a film for ${nextMonthName}`}
-              </a>
+              {!isAdmin && userSubmissions.length >= MAX_SUBMISSIONS_PER_MONTH ? (
+                <button type="button" className="film-club-btn film-club-btn-primary" disabled>
+                  You can't submit any more films this month
+                </button>
+              ) : (
+                <a href="/film-club-submit" className="film-club-btn film-club-btn-primary">
+                  {userSubmissions.length > 0 ? 'Submit another film' : `Submit a film for ${nextMonthName}`}
+                </a>
+              )}
               <a href="/film-club-vote" className="film-club-btn">
                 Vote for {nextMonthName}
               </a>

@@ -4,7 +4,7 @@ import { setDocShadowed, SERVER_TIME } from '../../api/shadow';
 import { db, auth } from '../../firebaseConfig';
 import { getUserData } from '../../utils/userCache';
 import { useAdmin } from '../../utils/useAdmin';
-import { useFilmClub } from '../../utils/useFilmClub';
+import { useFilmClub, MAX_SUBMISSIONS_PER_MONTH } from '../../utils/useFilmClub';
 import FilmSearchBox from '../basic/FilmSearchBox';
 import type { FilmResult } from '../basic/FilmSearchBox';
 import FilmCard from './FilmCard';
@@ -73,7 +73,7 @@ function FilmClubSubmit() {
     }
   };
 
-  const canSubmit = !hasSubmissions || isAdmin;
+  const canSubmit = isAdmin || userSubmissions.length < MAX_SUBMISSIONS_PER_MONTH;
 
   return (
     <div className="film-club-container">

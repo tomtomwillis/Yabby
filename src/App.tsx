@@ -35,6 +35,7 @@ const MediaManager = lazy(() => import('./pages/MediaManager'));
 const TravelPage = lazy(() => import('./pages/TravelPage'));
 const CinemaPage = lazy(() => import('./pages/CinemaPage'));
 const IssuesPage = lazy(() => import('./pages/IssuesPage'));
+const DirectoryPage = lazy(() => import('./pages/DirectoryPage'));
 // Admin tool for dialling in the message board's spacing.
 const SpacingLab = lazy(() => import('./pages/SpacingLab'));
 
@@ -84,6 +85,7 @@ function App() {
                   <Route path="/media" element={<MediaManager />} />
                   <Route path="/travel" element={<TravelPage />} />
                   <Route path="/issues" element={<IssuesPage />} />
+                  <Route path="/directory" element={<DirectoryPage />} />
 
                   {/* Inside the shell rather than beside it: an unknown URL
                       still gets the rail and the player to leave by. */}

@@ -495,6 +495,67 @@
   border-top: 1px dotted var(--me-rule);
 }
 
+/* ─── Socials ─────────────────────────────────────────── */
+
+/* A platform, the handle, and a way out — one line per account, the same
+   plain field the flag search draws. */
+.me-social-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin-bottom: 0.45rem;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+}
+
+.me-social-select,
+.me-social-input {
+  box-sizing: border-box;
+  padding: 0.35rem 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--me-ink);
+  border: 1px solid var(--me-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+}
+
+.me-social-select {
+  flex: 0 0 11rem;
+}
+
+.me-social-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.me-social-input::placeholder {
+  color: var(--me-mute);
+}
+
+.me-social-input:disabled {
+  opacity: 0.6;
+}
+
+.me-social-select:focus,
+.me-social-input:focus {
+  outline: 2px solid var(--colour3);
+  outline-offset: -1px;
+}
+
+.me-social-add {
+  font-family: var(--font2);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 500px) {
+  .me-social-select {
+    flex-basis: 100%;
+  }
+}
+
 .me-flag-search {
   display: block;
   width: 100%;

@@ -20,7 +20,7 @@ import { db, auth } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
 import { deleteDocShadowed } from '../api/shadow';
 import { useAdmin } from '../utils/useAdmin';
-import { getUserData } from '../utils/userCache';
+import { getUserData, bumpStickerCount } from '../utils/userCache';
 
 interface Sticker {
   stickerId: string;
@@ -395,11 +395,12 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     });
   };
 
-  const handleDeleteSticker = async (stickerId: string) => {
+  const handleDeleteSticker = async (stickerId: string, ownerId: string) => {
     if (!window.confirm('Are you sure you want to delete this sticker? This cannot be undone.')) return;
 
     try {
       await deleteDocShadowed(doc(db, 'stickers', stickerId));
+      void bumpStickerCount(ownerId, -1);
       setPopup((prev) => ({
         ...prev,
         stickers: prev.stickers.filter((s) => s.stickerId !== stickerId),
@@ -586,7 +587,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
                   isAdmin={isAdmin}
                   onDelete={
                     (sticker.userId === auth.currentUser?.uid || isAdmin)
-                      ? () => handleDeleteSticker(sticker.stickerId)
+                      ? () => handleDeleteSticker(sticker.stickerId, sticker.userId)
                       : undefined
                   }
                   onClose={() => {}}

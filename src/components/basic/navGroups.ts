@@ -68,6 +68,7 @@ export function useNavGroups(): NavGroup[] {
         { label: 'lists', href: '/lists' },
         { label: 'film club', href: '/film-club' },
         { label: 'stickers', href: '/stickers' },
+        { label: 'directory', href: '/directory' },
       ],
     },
     {

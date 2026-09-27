@@ -4,6 +4,8 @@ import { auth } from '../firebaseConfig';
 import { getUserProfile, type UserProfile as Profile } from '../utils/userCache';
 import Header from '../components/basic/Header';
 import SiteLink from '../components/basic/SiteLink';
+import SocialHandle from '../components/basic/SocialHandle';
+import { SOCIAL_PLATFORMS, SOCIAL_ORDER } from '../utils/socials';
 import './UserProfile.css';
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -89,7 +91,9 @@ const UserProfile: React.FC = () => {
     : null;
   /* When they joined is pinned to the bar rather than listed here — the bar is
      where a page's note goes, and saying it twice is saying it twice. */
-  const hasFacts = !!profile.siteUrl || !!profile.locationFlag || !!profile.locationText;
+  const socialPlatforms = SOCIAL_ORDER.filter((platform) => profile.socials[platform]);
+  const hasFacts =
+    !!profile.siteUrl || !!profile.locationFlag || !!profile.locationText || socialPlatforms.length > 0;
 
   return (
     <div className="user-page">
@@ -153,6 +157,18 @@ const UserProfile: React.FC = () => {
                   </dd>
                 </>
               )}
+
+              {socialPlatforms.map((platform) => (
+                <React.Fragment key={platform}>
+                  <dt className="up-fact-key">
+                    {SOCIAL_PLATFORMS[platform].label}
+                    <span className="up-fact-leader" aria-hidden="true"></span>
+                  </dt>
+                  <dd className="up-fact-val">
+                    <SocialHandle platform={platform} handle={profile.socials[platform]!} />
+                  </dd>
+                </React.Fragment>
+              ))}
 
             </dl>
           )}

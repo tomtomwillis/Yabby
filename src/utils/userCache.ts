@@ -1,8 +1,9 @@
 import type { User } from 'firebase/auth';
-import { doc, Timestamp } from 'firebase/firestore';
+import { collection, doc, Timestamp, type DocumentData } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { trackedGetDoc } from './firestoreMetrics';
+import { trackedGetDoc, trackedGetDocs } from './firestoreMetrics';
 import { updateDocShadowed, incrementBy } from '../api/shadow';
+import { readSocials, type Socials } from './socials';
 
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
@@ -20,10 +21,12 @@ export interface UserProfile {
   siteUrl: string;
   locationFlag: string;
   locationText: string;
+  socials: Socials;
   /** The account's creation time in Firebase Auth. Null for anyone with no
       profile document to carry it, and for bots, which were never created. */
   joinedAt: Date | null;
   postCount: number;
+  stickerCount: number;
   nekoEnabled: boolean;
   designToolEnabled: boolean;
 }
@@ -36,18 +39,38 @@ const EMPTY: UserProfile = {
   siteUrl: '',
   locationFlag: '',
   locationText: '',
+  socials: {},
   joinedAt: null,
   postCount: 0,
+  stickerCount: 0,
   nekoEnabled: false,
   designToolEnabled: false,
 };
+
+function toProfile(data: DocumentData): UserProfile {
+  return {
+    username: data.username || 'Anonymous',
+    hasUsername: typeof data.username === 'string' && data.username.trim().length > 0,
+    avatar: data.avatar || '',
+    bio: data.bio || '',
+    siteUrl: data.siteUrl || '',
+    locationFlag: data.locationFlag || '',
+    locationText: data.locationText || '',
+    socials: readSocials(data.socials),
+    joinedAt: data.joinedAt?.toDate?.() ?? null,
+    postCount: typeof data.postCount === 'number' ? data.postCount : 0,
+    stickerCount: typeof data.stickerCount === 'number' ? data.stickerCount : 0,
+    nekoEnabled: data.nekoEnabled === true,
+    designToolEnabled: data.designToolEnabled === true,
+  };
+}
 
 type CacheEntry = UserProfile & { timestamp: number };
 
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<UserProfile>>();
 
-const STORAGE_KEY = 'yabbyville.userCache.v1';
+const STORAGE_KEY = 'yabbyville.userCache.v3';
 const FLUSH_DELAY = 200;
 
 /* Session storage rather than local: a profile that outlived the browser could
@@ -131,22 +154,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
   const promise = (async () => {
     try {
       const userDoc = await trackedGetDoc(doc(db, 'users', userId));
-      const data = userDoc.exists() ? userDoc.data() : null;
-      const userData: UserProfile = data
-        ? {
-            username: data.username || 'Anonymous',
-            hasUsername: typeof data.username === 'string' && data.username.trim().length > 0,
-            avatar: data.avatar || '',
-            bio: data.bio || '',
-            siteUrl: data.siteUrl || '',
-            locationFlag: data.locationFlag || '',
-            locationText: data.locationText || '',
-            joinedAt: data.joinedAt?.toDate?.() ?? null,
-            postCount: typeof data.postCount === 'number' ? data.postCount : 0,
-            nekoEnabled: data.nekoEnabled === true,
-            designToolEnabled: data.designToolEnabled === true,
-          }
-        : EMPTY;
+      const userData = userDoc.exists() ? toProfile(userDoc.data()) : EMPTY;
 
       cache.set(userId, { ...userData, timestamp: Date.now() });
       persist();
@@ -162,6 +170,38 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
 
   inFlight.set(userId, promise);
   return promise;
+}
+
+export type DirectoryEntry = UserProfile & { userId: string };
+
+let directory: { entries: Promise<DirectoryEntry[]>; timestamp: number } | null = null;
+
+/** Every member with a name of their own, alphabetised. One read per member, so
+    it is held for as long as a single profile is, and each result primes the
+    per-user cache — anyone opening a profile or hovering a name from the
+    directory costs nothing further. */
+export function getAllUserProfiles(): Promise<DirectoryEntry[]> {
+  if (directory && Date.now() - directory.timestamp < CACHE_DURATION) {
+    return directory.entries;
+  }
+
+  const entries = trackedGetDocs(collection(db, 'users')).then((snap) => {
+    const now = Date.now();
+    const list: DirectoryEntry[] = [];
+    snap.forEach((userDoc) => {
+      const profile = toProfile(userDoc.data());
+      cache.set(userDoc.id, { ...profile, timestamp: now });
+      if (profile.hasUsername) list.push({ ...profile, userId: userDoc.id });
+    });
+    persist();
+    return list.sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: 'base' }));
+  });
+
+  directory = { entries, timestamp: Date.now() };
+  entries.catch(() => {
+    directory = null;
+  });
+  return entries;
 }
 
 export async function getUserData(
@@ -204,4 +244,47 @@ export async function bumpPostCount(userId: string): Promise<void> {
   } catch (error) {
     console.error('Failed to update post count:', error);
   }
+}
+
+/** Moves a member's sticker tally by one as a sticker is placed or deleted.
+    Fire-and-forget, like bumpPostCount. The rules also let an admin take one
+    off when deleting someone else's sticker. */
+export async function bumpStickerCount(userId: string, delta: 1 | -1): Promise<void> {
+  try {
+    await updateDocShadowed(doc(db, 'users', userId), { stickerCount: incrementBy(delta) });
+    clearUserCache(userId);
+  } catch (error) {
+    console.error('Failed to update sticker count:', error);
+  }
+}
+
+/** Admin only: sets every member's stickerCount from the stickers that exist.
+    One read per sticker and per profile, so this is a repair tool for /test,
+    not something to run on a page load. Writes only the counts that are wrong,
+    and returns how many that was. */
+export async function recountStickers(): Promise<{ stickers: number; changed: number }> {
+  const [stickerSnap, userSnap] = await Promise.all([
+    trackedGetDocs(collection(db, 'stickers')),
+    trackedGetDocs(collection(db, 'users')),
+  ]);
+
+  const counts = new Map<string, number>();
+  stickerSnap.forEach((sticker) => {
+    const userId = sticker.data().userId;
+    if (typeof userId === 'string') counts.set(userId, (counts.get(userId) ?? 0) + 1);
+  });
+
+  let changed = 0;
+  for (const userDoc of userSnap.docs) {
+    const actual = counts.get(userDoc.id) ?? 0;
+    const stored = userDoc.data().stickerCount;
+    if (stored === actual || (stored === undefined && actual === 0)) continue;
+    await updateDocShadowed(userDoc.ref, { stickerCount: actual });
+    cache.delete(userDoc.id);
+    changed += 1;
+  }
+
+  directory = null;
+  persist();
+  return { stickers: stickerSnap.size, changed };
 }
