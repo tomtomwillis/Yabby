@@ -202,10 +202,13 @@ service cloud.firestore {
       return t is string && t.matches('([01][0-9]|2[0-3]):[0-5][0-9]');
     }
 
-    // Where an event's times are: an IANA name, so summer time follows the
-    // event's own date. Mirrors EVENT_TIME_ZONES in eventTypes.ts.
+    // Where an event's times are: an IANA zone name, so summer time follows
+    // the event's own date. Only the shape can be checked here; the page offers
+    // only zones the browser knows, and the feed reads one it does not know as
+    // UK time.
     function isValidEventTimeZone(z) {
-      return z in ['Europe/London', 'Europe/Paris', 'Europe/Athens', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
+      return validString(z, 1, 64)
+        && z.matches('UTC|[A-Za-z]+(/[A-Za-z0-9_+-]+){1,2}');
     }
 
     // http(s) only, so a link can never be a javascript: or data: URL.
