@@ -192,6 +192,116 @@ service cloud.firestore {
       return c in ['stickers', 'testStickers'];
     }
 
+    function isEventCollection(c) {
+      return c in ['events', 'testEvents'];
+    }
+
+    // Wall-clock "HH:MM" at the venue. No timezone: a gig at eight is at
+    // eight wherever you read it from.
+    function isValidEventTime(t) {
+      return t is string && t.matches('([01][0-9]|2[0-3]):[0-5][0-9]');
+    }
+
+    // Where an event's times are: an IANA name, so summer time follows the
+    // event's own date. Mirrors EVENT_TIME_ZONES in eventTypes.ts.
+    function isValidEventTimeZone(z) {
+      return z in ['Europe/London', 'Europe/Paris', 'Europe/Athens', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
+    }
+
+    // http(s) only, so a link can never be a javascript: or data: URL.
+    function isValidEventUrl(u) {
+      return validString(u, 1, 500) && u.matches('https?://.+');
+    }
+
+    // Up to five links. Unrolled like isValidPollOptions — rules have no loops.
+    function isValidEventUrls(urls) {
+      return urls is list
+        && urls.size() <= 5
+        && (urls.size() < 1 || isValidEventUrl(urls[0]))
+        && (urls.size() < 2 || isValidEventUrl(urls[1]))
+        && (urls.size() < 3 || isValidEventUrl(urls[2]))
+        && (urls.size() < 4 || isValidEventUrl(urls[3]))
+        && (urls.size() < 5 || isValidEventUrl(urls[4]));
+    }
+
+    function isEventCityCollection(c) {
+      return c in ['eventCities', 'testEventCities'];
+    }
+
+    function isEventInterestCollection(c) {
+      return c in ['eventInterests', 'testEventInterests'];
+    }
+
+    // The items are not checked: rules cannot loop over a list this long, and
+    // the calendar feed skips anything that is not an event id.
+    function isValidEventIds(ids) {
+      return ids is list && ids.size() <= 200;
+    }
+
+    // A place name in any script: letters, with spaces, full stops, hyphens and
+    // apostrophes between them. Lowercased, it is also the city's document id,
+    // so it can never be "." or ".." or contain a slash.
+    function isValidCityName(name) {
+      return validString(name, 1, 60)
+        && name.matches("\\p{L}[\\p{L} .'’-]*");
+    }
+
+    // One act on a bill: a name, and the Navidrome artist id when the act is
+    // in the library.
+    function isValidLineupAct(act) {
+      return act is map
+        && act.keys().hasOnly(['name', 'artistId'])
+        && validString(act.name, 1, 100)
+        && (!('artistId' in act) || (act.artistId is string && act.artistId.matches('[A-Za-z0-9_-]{1,64}')));
+    }
+
+    // Up to twenty acts, unrolled like isValidEventUrls.
+    function isValidLineup(acts) {
+      return acts is list
+        && acts.size() <= 20
+        && (acts.size() < 1 || isValidLineupAct(acts[0]))
+        && (acts.size() < 2 || isValidLineupAct(acts[1]))
+        && (acts.size() < 3 || isValidLineupAct(acts[2]))
+        && (acts.size() < 4 || isValidLineupAct(acts[3]))
+        && (acts.size() < 5 || isValidLineupAct(acts[4]))
+        && (acts.size() < 6 || isValidLineupAct(acts[5]))
+        && (acts.size() < 7 || isValidLineupAct(acts[6]))
+        && (acts.size() < 8 || isValidLineupAct(acts[7]))
+        && (acts.size() < 9 || isValidLineupAct(acts[8]))
+        && (acts.size() < 10 || isValidLineupAct(acts[9]))
+        && (acts.size() < 11 || isValidLineupAct(acts[10]))
+        && (acts.size() < 12 || isValidLineupAct(acts[11]))
+        && (acts.size() < 13 || isValidLineupAct(acts[12]))
+        && (acts.size() < 14 || isValidLineupAct(acts[13]))
+        && (acts.size() < 15 || isValidLineupAct(acts[14]))
+        && (acts.size() < 16 || isValidLineupAct(acts[15]))
+        && (acts.size() < 17 || isValidLineupAct(acts[16]))
+        && (acts.size() < 18 || isValidLineupAct(acts[17]))
+        && (acts.size() < 19 || isValidLineupAct(acts[18]))
+        && (acts.size() < 20 || isValidLineupAct(acts[19]));
+    }
+
+    // Everything an event holds, checked the same way on create and after an
+    // edit. The image id is held to the upload endpoint's UUID shape, not just
+    // its length, because the page builds an image path out of it.
+    function isValidEventFields(data) {
+      return validString(data.title, 1, 120)
+        && data.date is string
+        && data.date.matches('20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])')
+        && data.category in ['radio', 'club', 'gig', 'release']
+        && (!('time' in data) || isValidEventTime(data.time))
+        && (!('endTime' in data) || ('time' in data && isValidEventTime(data.endTime)))
+        && (!('timeZone' in data) || ('time' in data && isValidEventTimeZone(data.timeZone)))
+        && (!('description' in data) || validString(data.description, 0, 2000))
+        && (!('location' in data) || validString(data.location, 0, 200))
+        && (!('city' in data) || isValidCityName(data.city))
+        && (!('lineup' in data) || isValidLineup(data.lineup))
+        && (!('cost' in data) || validString(data.cost, 0, 60))
+        && (!('urls' in data) || isValidEventUrls(data.urls))
+        && (!('imageId' in data) || (data.imageId is string
+            && data.imageId.matches('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')));
+    }
+
     // Admin collection - managed via Firebase Console only
     match /admins/{userId} {
       allow read: if isSignedIn();
@@ -744,6 +854,78 @@ service cloud.firestore {
         && isValidMessage(request.resource.data.text);
 
       allow delete: if isStickerCollection(stickerCollection) && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // Calendar events, plus the /test sandbox twin. Any member may add one; only
+    // its author edits it, and the author or an admin deletes it. The author's
+    // name must be the one on their profile — no admin exemption, since no bot
+    // writes here.
+    match /{eventCollection}/{eventId} {
+      allow read: if isEventCollection(eventCollection) && isSignedIn();
+
+      allow create: if isEventCollection(eventCollection) && isSignedIn()
+        && request.resource.data.keys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'userId', 'username', 'createdAt'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.username == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
+        && request.resource.data.createdAt == request.time
+        && isValidEventFields(request.resource.data);
+
+      // Author, date and creation time are fixed once written.
+      allow update: if isEventCollection(eventCollection) && isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && isValidEventFields(request.resource.data);
+
+      allow delete: if isEventCollection(eventCollection) && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // The cities offered when adding an event, plus the /test sandbox twin.
+    // One document per city, id = the lowercased name, so the collection is
+    // its own uniqueness check. Any member may add one; nobody may rename one,
+    // and only whoever added it or an admin may take it away.
+    match /{cityCollection}/{cityId} {
+      allow read: if isEventCityCollection(cityCollection) && isSignedIn();
+
+      allow create: if isEventCityCollection(cityCollection) && isSignedIn()
+        && request.resource.data.keys().hasOnly(['name', 'createdBy', 'createdAt'])
+        && isValidCityName(request.resource.data.name)
+        && request.resource.data.name.lower() == cityId
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if false;
+
+      allow delete: if isEventCityCollection(cityCollection)
+        && (isOwner(resource.data.createdBy) || isAdmin());
+    }
+
+    // The events a member has ticked "interested?" on, plus the /test sandbox
+    // twin. One document per member, id = their uid, and nobody else may read
+    // it — who is interested in what is never shown. The backend's calendar
+    // feed reads it with the Admin SDK.
+    //
+    // feedVersion is signed into the member's feed link, so raising it by one
+    // retires every link given out before. It never goes back, and the live
+    // document is never deleted, since recreating it would start the version
+    // over and revive an old link.
+    match /{interestCollection}/{userId} {
+      allow read: if isEventInterestCollection(interestCollection) && isOwner(userId);
+
+      allow create: if isEventInterestCollection(interestCollection) && isOwner(userId)
+        && request.resource.data.keys().hasOnly(['eventIds', 'feedVersion', 'updatedAt'])
+        && isValidEventIds(request.resource.data.eventIds)
+        && request.resource.data.feedVersion is int
+        && request.resource.data.feedVersion >= 1
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isEventInterestCollection(interestCollection) && isOwner(userId)
+        && request.resource.data.keys().hasOnly(['eventIds', 'feedVersion', 'updatedAt'])
+        && isValidEventIds(request.resource.data.eventIds)
+        && (request.resource.data.feedVersion == resource.data.feedVersion
+          || request.resource.data.feedVersion == resource.data.feedVersion + 1)
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if interestCollection == 'testEventInterests' && isOwner(userId);
     }
 
     // Film Club collection
