@@ -113,6 +113,21 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
+// A profile link, as the composer's @ member tag writes it. Matched on the
+// live host only, so a look-alike domain is never drawn as an in-app link.
+const profileIdFromHref = (href: string): string | null => {
+  try {
+    const url = new URL(href);
+    if (url.hostname !== 'yabbyville.xyz' || url.search || url.hash) return null;
+    return url.pathname.match(/^\/user\/([A-Za-z0-9_-]{1,128})\/?$/)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const textOf = (nodes: DOMNode[]): string =>
+  nodes.map((n) => ('data' in n ? String(n.data) : n instanceof Element ? textOf(n.children as DOMNode[]) : '')).join('');
+
 // Utility function to format message text for display.
 // Handles both legacy HTML messages (with <a>, <br> tags) and new plain text messages.
 export const parseMessageHTML = (htmlString: string): React.ReactNode => {
@@ -138,6 +153,17 @@ export const parseMessageHTML = (htmlString: string): React.ReactNode => {
           const href = attribs?.href;
           if (!href || !isValidUrl(href)) {
             return <span>{domToReact(children as DOMNode[], options)}</span>;
+          }
+          // @-tagged members open their profile in-app, with the profile card on hover.
+          const profileId = profileIdFromHref(href);
+          if (profileId) {
+            return (
+              <UsernameLink
+                userId={profileId}
+                username={textOf(children as DOMNode[])}
+                className="user-message-link user-mention"
+              />
+            );
           }
           // @-tagged albums and artists get a hover card instead of a bare link.
           const navidromeTarget = parseNavidromeLink(href);

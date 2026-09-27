@@ -6,12 +6,13 @@ import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
+import { getAllUserProfiles } from '../../utils/userCache';
 import PollComposeModal, { type PollDraft } from './PollComposeModal';
 
 interface Result {
   id: string;
   name: string;
-  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll' | 'issue';
+  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll' | 'issue' | 'user';
 }
 
 type SearchCommand = 'list' | 'playlist' | 'travel' | 'city' | 'issueresolved';
@@ -103,6 +104,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [artistResults, setArtistResults] = useState<Result[]>([]);
   const [albumResults, setAlbumResults] = useState<Result[]>([]);
+  const [userResults, setUserResults] = useState<Result[]>([]);
+  const [allUsers, setAllUsers] = useState<Result[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState(initialValue);
@@ -132,6 +135,23 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const placesFetchPromiseRef = useRef<Promise<void> | null>(null);
   const playlistsFetchPromiseRef = useRef<Promise<void> | null>(null);
   const issuesFetchPromiseRef = useRef<Promise<void> | null>(null);
+  const usersFetchPromiseRef = useRef<Promise<void> | null>(null);
+
+  // The shared directory read, so a session that has already opened the
+  // directory — or tagged someone before — pays nothing more.
+  const ensureUsersLoaded = (): Promise<void> => {
+    if (usersFetchPromiseRef.current) return usersFetchPromiseRef.current;
+    const p = getAllUserProfiles()
+      .then((entries) => {
+        setAllUsers(entries.map((u) => ({ id: u.userId, name: u.username, type: 'user' as const })));
+      })
+      .catch((error) => {
+        console.error('Error fetching members:', error);
+        usersFetchPromiseRef.current = null;
+      });
+    usersFetchPromiseRef.current = p;
+    return p;
+  };
 
   const ensureListsLoaded = (): Promise<void> => {
     if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
@@ -281,8 +301,25 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     } else {
       setAlbumResults([]);
       setArtistResults([]);
+      setSearchStatus('');
     }
   }, [searchQuery]);
+
+  // Members match from the first letter — names are short, and the list is
+  // already in memory, unlike the library search above.
+  useEffect(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!isSearching || !term) {
+      setUserResults([]);
+      return;
+    }
+    setUserResults(
+      allUsers
+        .filter((u) => u.name.toLowerCase().includes(term))
+        .sort((a, b) => Number(!a.name.toLowerCase().startsWith(term)) - Number(!b.name.toLowerCase().startsWith(term)))
+        .slice(0, 5),
+    );
+  }, [searchQuery, isSearching, allUsers]);
 
   // Reactive slash search filtering — runs when mode, term, or loaded data changes
   useEffect(() => {
@@ -390,6 +427,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       const queryText = textBeforeCursor.slice(atIndex + 1);
       if (!/\n/.test(queryText)) {
         triggerPositionRef.current = atIndex;
+        ensureUsersLoaded();
         setSearchQuery(queryText);
         setIsSearching(true);
         setSlashMode(null);
@@ -503,9 +541,15 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     }
 
     let link: string;
-    const linkText = result.type === 'instant' ? INSTANT_COMMANDS[result.id].label : result.name;
+    const linkText =
+      result.type === 'instant' ? INSTANT_COMMANDS[result.id].label
+      : result.type === 'user' ? `@${result.name}`
+      : result.name;
 
-    if (result.type === 'instant') {
+    if (result.type === 'user') {
+      link = `${SITE_ORIGIN}/user/${result.id}`;
+      window.umami?.track('user_mention');
+    } else if (result.type === 'instant') {
       link = `${SITE_ORIGIN}${INSTANT_COMMANDS[result.id].path}`;
     } else if (result.type === 'playlist') {
       link = `${NAVIDROME_SERVER_URL}/app/#/playlist/${result.id}/show`;
@@ -829,6 +873,18 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
       {isSearching && <p>{searchStatus}</p>}
 
+      {userResults.length > 0 && (
+        <figure>
+          <figcaption>Members</figcaption>
+          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
+            {userResults.map((result) => (
+              <li key={result.id}>
+                <button onClick={() => selectResult(result)}>@{result.name}</button>
+              </li>
+            ))}
+          </ul>
+        </figure>
+      )}
       {artistResults.length > 0 && (
         <figure>
           <figcaption>Artists</figcaption>

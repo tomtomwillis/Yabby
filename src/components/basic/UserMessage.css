@@ -189,6 +189,13 @@
   transition: color 0.3s ease, text-decoration-color 0.3s ease;
 }
 
+/* A name, not a URL: keep it whole on one line. */
+.user-mention {
+  text-decoration: none;
+  word-break: normal;
+  white-space: nowrap;
+}
+
 .user-message-link:hover {
   color: var(--colour1);
   text-decoration-color: var(--colour1);
