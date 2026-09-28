@@ -12,6 +12,12 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 
 const ALPHABET = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
+/* Test and system accounts, kept out of the repo rather than listed here.
+   Cosmetic only — their profiles are still readable by any member. */
+const HIDDEN_UIDS = new Set(
+  (import.meta.env.VITE_DIRECTORY_HIDDEN_UIDS ?? '').split(',').map((uid: string) => uid.trim()).filter(Boolean),
+);
+
 /** The letter a member is filed under — accents folded away so é sits with e,
     and anything that is not a letter after that goes under #. */
 const letterFor = (username: string): string => {
@@ -59,7 +65,7 @@ const DirectoryPage: React.FC = () => {
     let live = true;
     getAllUserProfiles()
       .then((list) => {
-        if (live) setMembers(list);
+        if (live) setMembers(list.filter((member) => !HIDDEN_UIDS.has(member.userId)));
       })
       .catch((err) => {
         console.error('Error fetching directory:', err);
