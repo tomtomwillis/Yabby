@@ -126,6 +126,12 @@
   white-space: nowrap;
 }
 
+/* Mid-scroll the ellipsis would sit over the text it is scrolling into view. */
+.pb-meta-title.is-scrolling,
+.pb-meta-sub.is-scrolling {
+  text-overflow: clip;
+}
+
 /* em against .pb-meta's own 0.82em, so the pair keeps its ratio at any size. */
 .pb-meta-sub {
   color: var(--pb-accent-dim);
@@ -194,8 +200,12 @@
   margin-left: auto;
 }
 
+/* width as well as the basis: Firefox sizes the row from the slider's content
+   width rather than its basis, so the row came up short and the buttons spilled
+   out of it leftwards over the track name. */
 .pb-row .sp-vol {
   flex: 0 0 5.5em;
+  width: 5.5em;
   /* Much shorter than the buttons; flex-end would glue it to the very
      bottom of the row instead of sitting level with their middle. */
   align-self: center;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import BlockRange, {
   SEEK_CELL_PX,
   SEEK_MIN_BLOCKS,
@@ -51,14 +51,68 @@ const PlayerLinks: React.FC = () => {
   );
 };
 
+const SCROLL_PX_PER_S = 40;
+const SCROLL_PAUSE_MS = 700;
+
+/** One ellipsised metadata line that, while hovered, scrolls back and forth
+ *  through whatever the ellipsis hid. Scrolls the element itself rather than
+ *  translating its content, so the ellipsis and the links inside keep working. */
+const MetaLine: React.FC<{ className: string; children: React.ReactNode }> = ({ className, children }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const frame = useRef(0);
+  const [scrolling, setScrolling] = useState(false);
+
+  const stop = () => {
+    cancelAnimationFrame(frame.current);
+    if (ref.current) ref.current.scrollLeft = 0;
+    setScrolling(false);
+  };
+
+  const start = () => {
+    const el = ref.current;
+    if (!el) return;
+    const dist = el.scrollWidth - el.clientWidth;
+    if (dist <= 0) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.title = el.textContent ?? '';
+      return;
+    }
+    setScrolling(true);
+    const travelMs = (dist / SCROLL_PX_PER_S) * 1000;
+    const cycleMs = 2 * (travelMs + SCROLL_PAUSE_MS);
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const t = (now - t0) % cycleMs;
+      const out = Math.min(Math.max(t - SCROLL_PAUSE_MS, 0) / travelMs, 1);
+      const back = Math.min(Math.max(t - 2 * SCROLL_PAUSE_MS - travelMs, 0) / travelMs, 1);
+      el.scrollLeft = (out - back) * dist;
+      frame.current = requestAnimationFrame(tick);
+    };
+    frame.current = requestAnimationFrame(tick);
+  };
+
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+
+  return (
+    <span
+      ref={ref}
+      className={`${className}${scrolling ? ' is-scrolling' : ''}`}
+      onMouseEnter={start}
+      onMouseLeave={stop}
+    >
+      {children}
+    </span>
+  );
+};
+
 /** The metadata line and the mode links. Shared by both modes so switching one
  *  for the other cannot rearrange the top of the bar. */
 const MetaRow: React.FC<{ title: React.ReactNode; sub: React.ReactNode }> = ({ title, sub }) => (
   <div className="pb-mid">
     <PlayerLinks />
     <div className="pb-meta">
-      <span className="pb-meta-title">{title}</span>
-      <span className="pb-meta-sub">{sub}</span>
+      <MetaLine className="pb-meta-title">{title}</MetaLine>
+      <MetaLine className="pb-meta-sub">{sub}</MetaLine>
     </div>
   </div>
 );
