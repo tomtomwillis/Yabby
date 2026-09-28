@@ -1836,7 +1836,6 @@
     --mb-poster-meta-gap-x: calc(0.5rem * var(--mb-k-space));
     --mb-poster-meta-pad: calc(0.25rem * var(--mb-k-space));
     --mb-replies-top: calc(1.55rem * var(--mb-k-space));
-    --mb-reply-measure: 112%;
     --mb-reply-gap: calc(1.1rem * var(--mb-k-space));
     --mb-reply-indent: calc(0.4rem * var(--mb-k-space));
     --mb-reply-cols-gap: calc(0.35rem * var(--mb-k-space));
