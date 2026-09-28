@@ -1,15 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import AnchoredBubble from "./basic/AnchoredBubble";
-import { coverArtUrl, fetchSubsonicXml, NAVIDROME_SERVER_URL } from "../utils/navidrome";
-import {
-  formatTime,
-  loadAlbumTracks,
-  usePlayerActions,
-  usePlayerState,
-  type PlayerTrack,
-} from "../utils/usePlayer";
-// The bubble's track list reuses the sticker player's sp- rows.
-import "./stickerPlayer.css";
+import React, { useEffect, useRef, useState } from "react";
+import { coverArtUrl, fetchSubsonicXml } from "../utils/navidrome";
+import { useNavidromeCard } from "../utils/useNavidromeCard";
 import "./CarouselAlbums.css";
 
 interface Album {
@@ -21,98 +12,18 @@ interface Album {
   genre?: string;
 }
 
-/** What the open bubble is showing. Keyed by tile rather than album id — the
- *  list repeats for the marquee loop, so the same album appears more than once. */
-interface OpenTile {
-  key: string;
-  album: Album;
-  anchor: HTMLElement;
-}
-
-/** The bubble's contents. Separate from the ticker so the player subscription —
- *  which updates several times a second while a track runs — cannot re-render
- *  the marquee underneath it. */
-const AlbumBubbleBody: React.FC<{ album: Album }> = ({ album }) => {
-  const [tracks, setTracks] = useState<PlayerTrack[]>([]);
-  const [failed, setFailed] = useState(false);
-  const { album: playingAlbum, index: playingIndex } = usePlayerState();
-  const { playAlbum } = usePlayerActions();
-
-  // Re-requesting hits navidromeCards' promise cache, so an album already
-  // opened once costs nothing.
-  useEffect(() => {
-    let cancelled = false;
-    setTracks([]);
-    setFailed(false);
-    loadAlbumTracks(album.id)
-      .then((loaded) => { if (!cancelled) setTracks(loaded); })
-      .catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
-  }, [album.id]);
-
-  const playingHere = playingAlbum?.id === album.id;
-
-  return (
-    <>
-      <h3 className="am-bubble__title">{album.name}</h3>
-      <p className="am-bubble__artist">{album.artist}</p>
-
-      {failed && <p className="sp-status">Could not load tracks</p>}
-      {!failed && tracks.length === 0 && <p className="sp-status">loading tracks…</p>}
-
-      <ol className="sp-tracks">
-        {tracks.map((track, i) => {
-          const isCurrent = playingHere && playingIndex === i;
-          return (
-            <li key={track.id}>
-              <button
-                className={isCurrent ? 'sp-track is-current' : 'sp-track'}
-                aria-current={isCurrent || undefined}
-                onClick={() =>
-                  playAlbum({ id: album.id, title: album.name, artist: album.artist }, track.id)
-                }
-              >
-                <span className="sp-track-cue" aria-hidden="true">{isCurrent ? '▶' : ' '}</span>
-                <span className="sp-track-num">{String(i + 1).padStart(2, '0')}</span>
-                <span className="sp-track-title">{track.title}</span>
-                <span className="sp-track-dur">{formatTime(track.duration ?? 0)}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-
-      <a
-        className="am-bubble__link"
-        href={`${NAVIDROME_SERVER_URL}/app/#/album/${album.id}/show`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        [ Open in Navidrome ]
-      </a>
-    </>
-  );
-};
-
 const CarouselAlbums: React.FC = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { open } = useNavidromeCard();
 
-  const frameRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState<OpenTile | null>(null);
 
-  // Read by the animation loop, which must not re-run when the bubble opens.
-  const pausedRef = useRef(false);
   // Set once a pointer has travelled far enough to count as a throw rather than
-  // a tap, so the tile underneath does not open its bubble on release.
+  // a tap, so the tile underneath does not open its card on release.
   const draggedRef = useRef(false);
-
-  const closeBubble = useCallback(() => setOpen(null), []);
-
-  useEffect(() => { pausedRef.current = open !== null; }, [open]);
 
   // The marquee: a rAF loop owns the offset so a drag can take it over
   // mid-flight. Momentum is modelled as an excess on top of the base drift, and
@@ -135,6 +46,7 @@ const CarouselAlbums: React.FC = () => {
     let dragging = false;
     let coasting = false; // ignore hover-pause until a throw has settled
     let pointerId: number | null = null;
+    let startX = 0;
     let lastX = 0;
     let lastMoveAt = 0;
     let frame = 0;
@@ -165,7 +77,7 @@ const CarouselAlbums: React.FC = () => {
           velocity = BASE;
           coasting = false;
         }
-        if (!pausedRef.current && !(hovering && !coasting)) {
+        if (!(hovering && !coasting)) {
           offset += velocity * dt;
           apply();
         }
@@ -180,11 +92,10 @@ const CarouselAlbums: React.FC = () => {
       dragging = true;
       coasting = false;
       draggedRef.current = false;
+      startX = e.clientX;
       lastX = e.clientX;
       lastMoveAt = performance.now();
       velocity = 0;
-      viewport.setPointerCapture(e.pointerId);
-      viewport.classList.add('is-dragging');
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -192,7 +103,13 @@ const CarouselAlbums: React.FC = () => {
       const now = performance.now();
       const dx = e.clientX - lastX;
       const dt = now - lastMoveAt;
-      if (Math.abs(dx) >= DRAG_THRESHOLD) draggedRef.current = true;
+      // Capture only once it is a drag: a captured pointer's click lands on the
+      // viewport, not the tile, so capturing on press would swallow every tap.
+      if (!draggedRef.current && Math.abs(e.clientX - startX) >= DRAG_THRESHOLD) {
+        draggedRef.current = true;
+        viewport.setPointerCapture(e.pointerId);
+        viewport.classList.add('is-dragging');
+      }
       if (dt > 0) {
         const instant = dx / dt;
         // Smoothed, so one stuttering frame cannot dominate the throw.
@@ -221,8 +138,10 @@ const CarouselAlbums: React.FC = () => {
 
     viewport.addEventListener('pointerdown', onPointerDown);
     viewport.addEventListener('pointermove', onPointerMove);
-    viewport.addEventListener('pointerup', onPointerUp);
-    viewport.addEventListener('pointercancel', onPointerUp);
+    // On window: before the drag threshold the pointer is not captured, so a
+    // press released outside the viewport would otherwise leave it stuck.
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
     viewport.addEventListener('pointerenter', onEnter);
     viewport.addEventListener('pointerleave', onLeave);
     // Dragging counts as interaction, so the browser's own image drag is noise.
@@ -236,8 +155,8 @@ const CarouselAlbums: React.FC = () => {
       observer.disconnect();
       viewport.removeEventListener('pointerdown', onPointerDown);
       viewport.removeEventListener('pointermove', onPointerMove);
-      viewport.removeEventListener('pointerup', onPointerUp);
-      viewport.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
       viewport.removeEventListener('pointerenter', onEnter);
       viewport.removeEventListener('pointerleave', onLeave);
     };
@@ -316,8 +235,14 @@ const CarouselAlbums: React.FC = () => {
       type="button"
       className="albums-marquee__tile"
       onClick={(e) => {
-        if (draggedRef.current) return;
-        setOpen({ key: `${album.id}-${i}`, album, anchor: e.currentTarget });
+        // detail 0 is a keyboard activation, which a stale drag must not block.
+        const keyboard = e.detail === 0;
+        if (draggedRef.current && !keyboard) return;
+        window.umami?.track('navidrome_card_open', { type: 'album', id: album.id, source: 'carousel' });
+        // No cursor to open beside for a keyboard press, so anchor to the tile.
+        const rect = e.currentTarget.getBoundingClientRect();
+        const at = keyboard ? { x: rect.left, y: rect.bottom } : { x: e.clientX, y: e.clientY };
+        open({ target: { type: 'album', id: album.id }, at, pinned: true, follow: false });
       }}
       title={`${album.name} — ${album.artist}${album.year ? ` (${album.year})` : ''}`}
     >
@@ -340,25 +265,12 @@ const CarouselAlbums: React.FC = () => {
   );
 
   return (
-    <div className="albums-marquee-frame" ref={frameRef}>
-      {/* Position is driven from the effect above, not CSS — frozen there while a
-          bubble is open, otherwise the tile it points at slides out from under it. */}
+    <div className="albums-marquee-frame">
       <div className="albums-marquee" ref={viewportRef}>
         <div className="albums-marquee__track" ref={trackRef}>
           {ticker.map((album, i) => renderTile(album, i))}
         </div>
       </div>
-
-      {open && (
-        <AnchoredBubble
-          anchor={open.anchor}
-          container={frameRef.current}
-          placement="above"
-          onClose={closeBubble}
-        >
-          <AlbumBubbleBody album={open.album} />
-        </AnchoredBubble>
-      )}
     </div>
   );
 };

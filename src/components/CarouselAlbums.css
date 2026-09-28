@@ -3,14 +3,10 @@
    the album list is repeated three times in markup so the one-copy cycle joins
    seamlessly however wide the frame is. */
 
-/* Relative, and outside .albums-marquee, so the album bubble is placed against
-   the frame rather than clipped by the ticker's overflow and mask. */
 .albums-marquee-frame {
-    position: relative;
     width: 100%;
 }
 
-/* Direct child only — the status lines, not the bubble's own paragraphs. */
 .albums-marquee-frame > p {
     text-align: center;
     padding: 1rem;
@@ -124,38 +120,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
-}
-
-/* ── The album bubble ──────────────────────────────────── */
-
-.am-bubble__title {
-    margin: 0;
-    font-family: var(--font2);
-    font-size: 0.85rem;
-    font-weight: 400;
-    color: var(--colour2);
-}
-
-.am-bubble__artist {
-    margin: 0 0 0.6rem;
-    font-family: var(--font2);
-    font-size: 0.72rem;
-    color: var(--colour5);
-}
-
-.am-bubble__link {
-    display: inline-block;
-    margin-top: 0.5rem;
-    font-family: var(--font2);
-    font-size: 0.7rem;
-    color: var(--hp-dim, #5566c9);
-    text-decoration: none;
-}
-
-.am-bubble__link:hover,
-.am-bubble__link:focus-visible {
-    color: var(--colour3);
-    text-decoration: underline;
 }
 
 @media (max-width: 600px) {
