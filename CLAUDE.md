@@ -59,7 +59,8 @@ Firestore is still authoritative and the only store the app reads. Every write i
 
 - **All Firestore writes go through `src/api/shadow.ts`.** Use `addDocShadowed`, `setDocShadowed`, `updateDocShadowed`, `deleteDocShadowed`, `writeBatchShadowed`, and the markers `SERVER_TIME`, `incrementBy`, `arrayUnionOf`, `arrayRemoveOf` and `DELETE_FIELD` (top level only) instead of the Firestore sentinels. ESLint rejects the raw write functions elsewhere. A transaction must call `reportWrite` after it commits (see `FilmClub.tsx`).
 - Backend-side Admin SDK writes must call `data/mirror.js`; see `backend_server/CLAUDE.md`.
-- `npm run test:policy` checks the backend's port of the rules (`backend_server/data/policy.js`) against the real `firestore.rules` in the Firestore emulator, over about 1,400 valid and mutated writes. Run it after changing either. It needs Java and the backend's dependencies (`cd backend_server && npm ci`), and it never touches the real Firestore.
+- **Keep the SQLite side in lockstep with Firestore.** Any new write path, collection or profile field must be dual-written, and any `firestore.rules` change must be ported to `backend_server/data/policy.js` in the same change. A field added only to the rules makes the shadow reject writes the app allows.
+- `npm run test:policy` checks the backend's port of the rules (`backend_server/data/policy.js`) against the real `firestore.rules` in the Firestore emulator, over about 2,000 valid and mutated writes. Run it after changing either. It needs Java and the backend's dependencies (`cd backend_server && npm ci`), and it never touches the real Firestore.
 - Current phase, next steps and history: `_backend_plan/STATUS.md` (local, gitignored).
 
 ### Security Model
