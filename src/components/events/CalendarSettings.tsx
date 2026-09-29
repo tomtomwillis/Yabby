@@ -104,6 +104,12 @@ export default function CalendarSettings({
             ))}
           </div>
 
+          <div className="cal-set-reset">
+            <button type="button" className="cal-word" disabled={active.length === 0} onClick={onClear}>
+              reset filters
+            </button>
+          </div>
+
           {signedIn && opened && <CalendarMine onShowMine={onShowMine} />}
         </div>
       </div>
