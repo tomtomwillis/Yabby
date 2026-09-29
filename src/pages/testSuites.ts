@@ -1406,10 +1406,12 @@ const profileSuite: TestSuite = {
     },
     {
       name: 'rules stop the sticker count jumping',
-      run: async (ctx) =>
-        expectDenied('moving the sticker count by more than one', () =>
+      run: async (ctx) => {
+        if (await runnerIsAdmin(ctx)) return 'skipped: you are an admin, and admins may set any sticker count';
+        return expectDenied('moving the sticker count by more than one', () =>
           updateDoc(doc(db, 'users', ctx.uid), { stickerCount: incrementBy(2) }),
-        ),
+        );
+      },
     },
     {
       name: 'rules stop a negative sticker count',
@@ -1756,22 +1758,30 @@ const newsSuite: TestSuite = {
       name: 'likes and unlikes a news post',
       run: async (ctx) => {
         const ref = doc(db, 'news', requireId(newsState.postId, 'news post'));
-        const before = (await getDoc(ref)).data()?.reactionCount ?? 0;
-        const undo = ctx.cleanup(`news like on ${ref.id}`, () =>
-          updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) }),
-        );
+        const start = (await getDoc(ref)).data();
+        const before = start?.reactionCount ?? 0;
+        // This is a real post, so a like already on it is the runner's own and
+        // must survive: run the cycle the other way round and restore it.
+        const alreadyLiked = (start?.reactedBy ?? []).includes(ctx.uid);
+        const like = () => updateDoc(ref, { reactedBy: arrayUnionOf(ctx.uid), reactionCount: incrementBy(1) });
+        const unlike = () => updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) });
+        const undo = ctx.cleanup(`news like on ${ref.id}`, alreadyLiked ? like : unlike);
 
-        await updateDoc(ref, { reactedBy: arrayUnionOf(ctx.uid), reactionCount: incrementBy(1) });
+        await (alreadyLiked ? unlike() : like());
         let data = (await getDoc(ref)).data();
-        assert(data?.reactedBy?.includes(ctx.uid), 'Your id was not added to reactedBy.');
-        assert(data?.reactionCount === before + 1, `Count should be ${before + 1}, it is ${data?.reactionCount}.`);
+        const step = alreadyLiked ? -1 : 1;
+        assert(
+          (data?.reactedBy ?? []).includes(ctx.uid) === !alreadyLiked,
+          `Your id was not ${alreadyLiked ? 'removed from' : 'added to'} reactedBy.`,
+        );
+        assert(data?.reactionCount === before + step, `Count should be ${before + step}, it is ${data?.reactionCount}.`);
 
-        await updateDoc(ref, { reactedBy: arrayRemoveOf(ctx.uid), reactionCount: incrementBy(-1) });
+        await (alreadyLiked ? like() : unlike());
         undo();
         data = (await getDoc(ref)).data();
-        assert(!(data?.reactedBy ?? []).includes(ctx.uid), 'Your id was not removed from reactedBy.');
+        assert((data?.reactedBy ?? []).includes(ctx.uid) === alreadyLiked, 'Your like was not put back how it was.');
         assert(data?.reactionCount === before, `Count should be back to ${before}, it is ${data?.reactionCount}.`);
-        return 'liked, then unliked';
+        return alreadyLiked ? 'unliked, then liked again (you had already liked it)' : 'liked, then unliked';
       },
     },
     {
