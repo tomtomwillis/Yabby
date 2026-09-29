@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SOCIAL_PLATFORMS, type SocialPlatform } from '../../utils/socials';
+import { isSteamId64, steamPersonaName } from '../../utils/steamName';
 import './SocialHandle.css';
 
 interface SocialHandleProps {
@@ -12,7 +13,20 @@ interface SocialHandleProps {
     PlayStation only find people by name. */
 const SocialHandle: React.FC<SocialHandleProps> = ({ platform, handle }) => {
   const [copied, setCopied] = useState(false);
+  const [steamName, setSteamName] = useState<string | null>(null);
   const def = SOCIAL_PLATFORMS[platform];
+
+  useEffect(() => {
+    if (platform !== 'steam' || !isSteamId64(handle)) return;
+    let cancelled = false;
+    steamPersonaName(handle).then((name) => {
+      if (!cancelled) setSteamName(name);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [platform, handle]);
+
   // The radio handle is the full link itself, which is too long to show
   // in-line — the domain it points to is what a visitor actually wants to see.
   const shown =
@@ -20,7 +34,9 @@ const SocialHandle: React.FC<SocialHandleProps> = ({ platform, handle }) => {
       ? `@${handle}`
       : platform === 'radio'
         ? handle.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')
-        : handle;
+        : platform === 'steam' && steamName
+          ? steamName
+          : handle;
 
   if (def.url) {
     return (
