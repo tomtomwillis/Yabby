@@ -1,0 +1,614 @@
+/* Adding or editing an event. Renders in flow inside the page's tinted input
+   band, the way the travel form does: a gutter carrying the image, a body
+   carrying the fields. Below 700px they stack. */
+
+.ev-form {
+  padding: 0 var(--cal-edge, 1rem) 0.9rem;
+  font-family: var(--font2);
+  color: var(--cal-ink, var(--colour5));
+}
+
+/* ─── Head ────────────────────────────────────────────── */
+
+.ev-form-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.5rem 0 0.7rem;
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.08em;
+  color: var(--cal-accent, var(--colour2));
+}
+
+.ev-form-head-label,
+.ev-form-cancel {
+  flex: 0 0 auto;
+}
+
+.ev-form-head-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-bottom: 1px solid var(--cal-rule, #c9cee4);
+  transform: translateY(-0.25em);
+}
+
+.ev-form-cancel {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--cal-dim, #5566c9);
+  cursor: pointer;
+}
+
+.ev-form-cancel:hover:not(:disabled),
+.ev-form-cancel:focus-visible {
+  color: var(--colour3);
+}
+
+.ev-form-cancel:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ─── Tracks ──────────────────────────────────────────── */
+
+.ev-form-grid {
+  display: grid;
+  grid-template-columns: clamp(130px, 14vw, 190px) minmax(0, 1fr);
+  gap: clamp(0.8rem, 1.6vw, 1.5rem);
+  align-items: start;
+}
+
+.ev-form-side {
+  min-width: 0;
+}
+
+.ev-form-image-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  background: var(--colour4);
+  border: 1px dashed var(--cal-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-dim, #5566c9);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ev-form-image-add:hover:not(:disabled),
+.ev-form-image-add:focus-visible {
+  border-color: var(--colour3);
+  color: var(--colour3);
+}
+
+.ev-form-image-add:disabled {
+  cursor: default;
+}
+
+.ev-form-image {
+  position: relative;
+  border: 1px solid var(--cal-rule, #c9cee4);
+  line-height: 0;
+}
+
+.ev-form-image img {
+  width: 100%;
+  max-height: 16rem;
+  object-fit: cover;
+}
+
+/* Sits on the image, so it keeps a fill — no hairline reads against a photo. */
+.ev-form-image-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: var(--cal-accent, var(--colour2));
+  border: none;
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 13px;
+  line-height: 1;
+  color: #fff;
+  cursor: pointer;
+}
+
+.ev-form-image-remove:hover,
+.ev-form-image-remove:focus-visible {
+  background: #c0392b;
+}
+
+.ev-form-file {
+  display: none;
+}
+
+.ev-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+  max-width: 66ch;
+}
+
+/* ─── Fields ──────────────────────────────────────────── */
+
+.ev-field {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ev-field-wide {
+  flex-grow: 2.4;
+}
+
+.ev-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ev-row .ev-field {
+  min-width: 7.5rem;
+}
+
+.ev-row .ev-zone {
+  min-width: 13rem;
+}
+
+.ev-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--cal-dim, #5566c9);
+}
+
+.ev-req {
+  color: var(--cal-mute, #8a90a8);
+}
+
+.ev-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  background: var(--colour4);
+  border: 1px solid var(--cal-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.86rem);
+  line-height: 1.4;
+  color: var(--cal-ink, var(--colour5));
+  transition: border-color 0.15s ease;
+}
+
+.ev-input:focus {
+  outline: none;
+  border-color: var(--cal-accent, var(--colour2));
+}
+
+.ev-input::placeholder {
+  color: var(--cal-mute, #8a90a8);
+}
+
+.ev-input:disabled {
+  opacity: 0.45;
+}
+
+.ev-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+/* A run of words rather than a dropdown, as the travel form sets its
+   categories — each with the dot it will carry on the calendar. */
+.ev-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 1rem;
+}
+
+.ev-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.68vw, 0.84rem);
+  letter-spacing: 0.03em;
+  color: var(--cal-mute, #8a90a8);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ev-cat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ec-c);
+  opacity: 0.45;
+}
+
+.ev-cat:hover,
+.ev-cat:focus-visible {
+  color: var(--colour3);
+}
+
+.ev-cat:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.ev-cat.is-sel {
+  color: var(--cal-accent, var(--colour2));
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.ev-cat.is-sel .ev-cat-dot {
+  opacity: 1;
+}
+
+/* ─── Links ───────────────────────────────────────────── */
+
+.ev-url {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+
+.ev-url-remove {
+  flex: 0 0 auto;
+  width: 2rem;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--cal-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  color: var(--cal-dim, #5566c9);
+  cursor: pointer;
+}
+
+.ev-url-remove:hover,
+.ev-url-remove:focus-visible {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.ev-url-add {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.04em;
+  color: var(--cal-dim, #5566c9);
+  cursor: pointer;
+}
+
+.ev-url-add:hover,
+.ev-url-add:focus-visible {
+  color: var(--colour3);
+}
+
+/* ─── Suggestion lists ────────────────────────────────── */
+
+/* A field with a list that opens under it: the @-tags in the description, the
+   lineup search and the city box. The list lies over what follows, so it is
+   opaque and hairlined like the travel filter's index. */
+.ev-combo {
+  position: relative;
+}
+
+.ev-suggest {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 30;
+  max-height: 15rem;
+  margin: -1px 0 0;
+  padding: 0.2rem 0;
+  overflow-y: auto;
+  background: #fbfbfd;
+  border: 1px solid var(--cal-accent, var(--colour2));
+  list-style: none;
+}
+
+.ev-suggest-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.25rem 0.55rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.68vw, 0.82rem);
+  text-align: left;
+  color: var(--cal-ink, var(--colour5));
+  cursor: pointer;
+}
+
+.ev-suggest-item.is-active {
+  background: var(--cal-tint, #eef1fb);
+  color: var(--colour3);
+}
+
+.ev-suggest-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev-suggest-kind {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--cal-mute, #8a90a8);
+}
+
+/* "+ add … without a link" / "+ add … as a new city" — the way out of the list. */
+.ev-suggest-add {
+  border-top: 1px dotted var(--cal-rule, #c9cee4);
+  color: var(--cal-dim, #5566c9);
+}
+
+.ev-suggest-note {
+  padding: 0.25rem 0.55rem;
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  color: var(--cal-mute, #8a90a8);
+}
+
+/* The city box's ▾, sat inside the right-hand end of the input. */
+.ev-city .ev-input {
+  padding-right: 1.8rem;
+}
+
+.ev-city-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.8rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  color: var(--cal-dim, #5566c9);
+  cursor: pointer;
+}
+
+.ev-city-toggle:hover {
+  color: var(--colour3);
+}
+
+/* ─── Lineup ──────────────────────────────────────────── */
+
+.ev-lineup-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ev-lineup-edit .ev-combo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ev-acts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--cal-rule-soft, #dfe3f0);
+}
+
+.ev-act {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto 2rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--cal-rule-soft, #dfe3f0);
+  font-family: var(--font2);
+  font-size: clamp(0.7rem, 0.68vw, 0.84rem);
+}
+
+.ev-act-n {
+  color: var(--cal-mute, #8a90a8);
+}
+
+.ev-act-name {
+  overflow-wrap: anywhere;
+  color: var(--cal-accent, var(--colour2));
+}
+
+.ev-act-kind {
+  font-size: 0.85em;
+  color: var(--cal-mute, #8a90a8);
+}
+
+.ev-act .ev-url-remove {
+  height: 1.5rem;
+}
+
+/* ─── Actions ─────────────────────────────────────────── */
+
+.ev-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ev-btn {
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  border: 1px solid var(--cal-rule, #c9cee4);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-accent, var(--colour2));
+  cursor: pointer;
+}
+
+/* The page's one filled control. */
+.ev-btn-primary {
+  background: var(--cal-accent, var(--colour2));
+  border-color: var(--cal-accent, var(--colour2));
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ev-btn-primary:hover:not(:disabled),
+.ev-btn-primary:focus-visible {
+  background: var(--colour3);
+  border-color: var(--colour3);
+}
+
+.ev-btn:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.ev-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ev-error {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #c0392b;
+}
+
+/* ─── Import ──────────────────────────────────────────── */
+
+/* Under the links, set off by a dashed rule: the one field that fills the rest. */
+.ev-import {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--cal-rule, #c9cee4);
+}
+
+.ev-import-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--cal-dim, #5566c9);
+}
+
+/* Outlined, so "add event" stays the form's one filled control. */
+.ev-import-go {
+  flex: 0 0 auto;
+  padding: 0 0.8rem;
+  background: none;
+  border: 1px solid var(--cal-accent, var(--colour2));
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-accent, var(--colour2));
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ev-import-go:hover:not(:disabled),
+.ev-import-go:focus-visible {
+  border-color: var(--colour3);
+  color: var(--colour3);
+}
+
+.ev-import-go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ev-import-note {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--cal-dim, #5566c9);
+}
+
+.ev-cost {
+  max-width: 16rem;
+}
+
+/* ─── This is my event ────────────────────────────────── */
+
+/* The calendar's [x] / [ ] box, as the interested tick draws it. */
+.ev-own {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.45rem;
+  font-size: clamp(0.7rem, 0.68vw, 0.84rem);
+  letter-spacing: 0.04em;
+  color: var(--cal-ink, var(--colour5));
+  cursor: pointer;
+}
+
+.ev-own input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ev-own-mark {
+  color: var(--cal-accent, var(--colour2));
+}
+
+.ev-own input:not(:checked) + .ev-own-mark {
+  color: var(--cal-mute, #8a90a8);
+}
+
+.ev-own input:focus-visible + .ev-own-mark {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.ev-own-note {
+  flex-basis: 100%;
+  padding-left: 2.2em;
+  font-size: 0.66rem;
+  color: var(--cal-mute, #8a90a8);
+}
+
+@media (max-width: 700px) {
+  .ev-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ev-form-image-add {
+    aspect-ratio: auto;
+    padding: 0.6rem;
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Lightbox from './basic/Lightbox';
 import { NAVIDROME_SERVER_URL, coverArtUrl } from '../utils/navidrome';
@@ -11,7 +11,10 @@ import {
   type CardTrack,
 } from '../utils/navidromeCards';
 import { formatTime, usePlayerActions, usePlayerState } from '../utils/usePlayer';
-import type { CardPoint, CardRequest } from '../utils/useNavidromeCard';
+import { useNavidromeCard, type CardPoint, type CardRequest } from '../utils/useNavidromeCard';
+import { CardHostContext, type CardHost } from '../utils/cardHost';
+import EventCardBody from './events/EventCardBody';
+import UserCardBody from './basic/UserCardBody';
 import './stickerPlayer.css';
 import './navidromeCard.css';
 
@@ -24,7 +27,15 @@ const ALBUM_MAX_H = 560;
 // Sized around two large covers per row — the artwork is the point of this card,
 // so the grid is two wide and the rest is scrolled to.
 const ARTIST_SIZE = { w: 576, h: 520 };
+// Starting height only, like the album card: fitted to the event once loaded.
+const EVENT_SIZE = { w: 480, h: 300 };
+const EVENT_MIN_H = 160;
+const EVENT_MAX_H = 560;
+// A profile: fitted the same way, and narrower, since it is a name and a bio.
+const USER_SIZE = { w: 320, h: 220 };
 const MIN_SIZE = { w: 300, h: 200 };
+
+const CARD_LABELS = { album: 'Album', artist: 'Artist', event: 'Event', user: 'Profile' } as const;
 const CURSOR_GAP = 14;
 const VIEWPORT_MARGIN = 4;
 
@@ -53,6 +64,19 @@ function contentHeight(el: Element | null): number {
   return bottom - top + el.scrollTop;
 }
 
+/** Scroll the nearest scrolling box around `el` so `el` sits at its top. Not
+ *  scrollIntoView, which would also move the page under a docked card. */
+function scrollToTopOf(el: HTMLElement) {
+  for (let box = el.parentElement; box; box = box.parentElement) {
+    const { overflowY } = getComputedStyle(box);
+    if ((overflowY !== 'auto' && overflowY !== 'scroll') || box.scrollHeight <= box.clientHeight) continue;
+    const top = box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top;
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    box.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    return;
+  }
+}
+
 const albumLink = (id: string) => `${NAVIDROME_SERVER_URL}/app/#/album/${id}/show`;
 const artistLink = (id: string) => `${NAVIDROME_SERVER_URL}/app/#/artist/${id}/show`;
 
@@ -66,6 +90,14 @@ function place(el: HTMLElement, at: CardPoint) {
   if (y + h > window.innerHeight) y = at.y - CURSOR_GAP - h;
   el.style.left = `${clamp(x, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, window.innerWidth - w - VIEWPORT_MARGIN))}px`;
   el.style.top = `${clamp(y, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, window.innerHeight - h - VIEWPORT_MARGIN))}px`;
+}
+
+/** Put the card's top-left exactly at `at`, kept on screen — for a card taking
+ *  another's place rather than opening beside the cursor. */
+function placeAt(el: HTMLElement, at: CardPoint) {
+  const { offsetWidth: w, offsetHeight: h } = el;
+  el.style.left = `${clamp(at.x, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, window.innerWidth - w - VIEWPORT_MARGIN))}px`;
+  el.style.top = `${clamp(at.y, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, window.innerHeight - h - VIEWPORT_MARGIN))}px`;
 }
 
 interface MetaProps {
@@ -150,9 +182,12 @@ interface AlbumBodyProps {
   onLightbox: (url: string) => void;
   /** Reports the height the track list wants, so the frame can fit itself to it. */
   onTrackPaneHeight: (pane: HTMLElement, wanted: number) => void;
+  /** Opens the artist's card in this one's place. Absent on a hover card, which
+   *  takes no clicks. */
+  onArtist?: (artistId: string) => void;
 }
 
-const AlbumCardBody: React.FC<AlbumBodyProps> = ({ albumId, onLightbox, onTrackPaneHeight }) => {
+const AlbumCardBody: React.FC<AlbumBodyProps> = ({ albumId, onLightbox, onTrackPaneHeight, onArtist }) => {
   const [album, setAlbum] = useState<CardAlbumDetail | null>(null);
   const [error, setError] = useState(false);
   const [paneRef, columns] = useTrackColumns(album?.tracks.length ?? 0);
@@ -192,7 +227,18 @@ const AlbumCardBody: React.FC<AlbumBodyProps> = ({ albumId, onLightbox, onTrackP
           {album.name}
         </a>
         {album.artistId ? (
-          <a className="nc-artist" href={artistLink(album.artistId)} target="_blank" rel="noopener noreferrer">
+          <a
+            className="nc-artist"
+            href={artistLink(album.artistId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              // Modified clicks still go to Navidrome in a new tab or window.
+              if (!onArtist || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              onArtist(album.artistId!);
+            }}
+          >
             {album.artist}
           </a>
         ) : (
@@ -224,6 +270,7 @@ interface ReleaseTracksProps {
 const ReleaseTracks: React.FC<ReleaseTracksProps> = ({ release, onCollapse }) => {
   const [tracks, setTracks] = useState<CardTrack[] | null>(null);
   const [error, setError] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,8 +280,15 @@ const ReleaseTracks: React.FC<ReleaseTracksProps> = ({ release, onCollapse }) =>
     return () => { cancelled = true; };
   }, [release.id]);
 
+  // Scroll the card, not the page, to bring the opened list up to the top —
+  // on opening, then again once the tracks have given it its height.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel) scrollToTopOf(panel);
+  }, [tracks, error]);
+
   return (
-    <div className="nc-accordion">
+    <div className="nc-accordion" ref={panelRef}>
       <div className="nc-accordion-head">
         <span className="nc-accordion-title">{release.name}</span>
         <a className="nc-accordion-link" href={albumLink(release.id)} target="_blank" rel="noopener noreferrer">
@@ -347,18 +401,25 @@ interface NavidromeCardProps {
   hasPinned?: boolean;
 }
 
-/** Frame for the album/artist hover cards: ASCII border, drag, resize, close.
+/** Frame for the album, artist and event hover cards: ASCII border, drag, resize, close.
  *  Unpinned it follows the cursor and takes no pointer events, so it can never
  *  swallow the mouseleave or click on the tag that opened it. */
 const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinned }) => {
-  const { target, pinned, follow } = request;
+  const { target, pinned, follow, exact, back } = request;
+  const { open } = useNavidromeCard();
   const cardRef = useRef<HTMLDivElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
+  // Where the card was last put: the opening point, then the cursor it follows.
   const atRef = useRef(request.at);
   const sizedRef = useRef(false);
   const resizedRef = useRef(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [isSheet, setIsSheet] = useState(() => window.matchMedia(SHEET_QUERY).matches);
+  // An event or profile card is held back until its content has been measured
+  // and the frame fitted to it, so it never shows at the starting size and then
+  // jumps. Album and artist cards size as their track lists arrive, as they always have.
+  const fitsContent = target.type === 'event' || target.type === 'user';
+  const [ready, setReady] = useState(!fitsContent);
 
   useEffect(() => {
     const mql = window.matchMedia(SHEET_QUERY);
@@ -367,18 +428,24 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
     return () => mql.removeEventListener('change', onChange);
   }, []);
 
-  const size = target.type === 'album' ? ALBUM_SIZE : ARTIST_SIZE;
+  const size = { album: ALBUM_SIZE, artist: ARTIST_SIZE, event: EVENT_SIZE, user: USER_SIZE }[target.type];
+
+  const placeCard = useCallback((el: HTMLElement, at: CardPoint) => {
+    if (exact) placeAt(el, at);
+    else place(el, at);
+  }, [exact]);
 
   // The hint rides just above the cursor while the card sits below-right of it.
   const positionAll = useCallback((at: CardPoint) => {
-    if (cardRef.current) place(cardRef.current, at);
+    atRef.current = at;
+    if (cardRef.current) placeCard(cardRef.current, at);
     const hint = hintRef.current;
     if (hint) {
       const { offsetWidth: w, offsetHeight: h } = hint;
       hint.style.left = `${clamp(at.x + 16, VIEWPORT_MARGIN, window.innerWidth - w - VIEWPORT_MARGIN)}px`;
       hint.style.top = `${clamp(at.y - h - 10, VIEWPORT_MARGIN, window.innerHeight - h - VIEWPORT_MARGIN)}px`;
     }
-  }, []);
+  }, [placeCard]);
 
   // Mount-only: the provider remounts the card on a real target change, so `at`
   // is always fresh here. Pinning must not re-place a card the user has dragged.
@@ -387,6 +454,11 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
     positionAll(atRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The hint is only drawn once the card is, so it is placed then.
+  useLayoutEffect(() => {
+    if (ready && !isSheet) positionAll(atRef.current);
+  }, [ready, isSheet, positionAll]);
 
   useEffect(() => {
     if (isSheet || pinned || !follow) return;
@@ -425,8 +497,67 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
     );
     el.style.height = `${height}px`;
     // Re-place, or a card that grew near the bottom edge would hang off it.
-    place(el, atRef.current);
-  }, [isSheet]);
+    placeCard(el, atRef.current);
+  }, [isSheet, placeCard]);
+
+  // The event and profile cards' version: the whole body is the content to fit.
+  // Called from a layout effect, so the fitted card is what gets painted first.
+  const sizeBodyToContent = useCallback((content: HTMLElement) => {
+    const el = cardRef.current;
+    const body = el?.querySelector('.nc-body');
+    if (el && body && !isSheet && !sizedRef.current && !resizedRef.current) {
+      sizedRef.current = true;
+      const chrome = el.getBoundingClientRect().height - body.clientHeight;
+      const height = clamp(
+        Math.round(content.getBoundingClientRect().height + chrome),
+        EVENT_MIN_H,
+        Math.min(EVENT_MAX_H, window.innerHeight - VIEWPORT_MARGIN * 2),
+      );
+      el.style.height = `${height}px`;
+      placeCard(el, atRef.current);
+    }
+    setReady(true);
+  }, [isSheet, placeCard]);
+
+  // Tags inside an event card open their own card in this one's place.
+  const host = useMemo<CardHost | null>(
+    () =>
+      target.type === 'event'
+        ? {
+            back: target,
+            origin: () => {
+              const rect = cardRef.current?.getBoundingClientRect();
+              return rect ? { x: rect.left, y: rect.top } : null;
+            },
+          }
+        : null,
+    [target],
+  );
+
+  const openArtist = (artistId: string) => {
+    window.umami?.track('navidrome_card_open', { type: 'artist', id: artistId, source: 'album_card' });
+    const rect = cardRef.current?.getBoundingClientRect();
+    open({
+      target: { type: 'artist', id: artistId },
+      at: rect ? { x: rect.left, y: rect.top } : atRef.current,
+      exact: true,
+      back: target,
+      pinned: true,
+      follow: false,
+    });
+  };
+
+  const goBack = () => {
+    if (!back) return;
+    const rect = cardRef.current?.getBoundingClientRect();
+    open({
+      target: back,
+      at: rect ? { x: rect.left, y: rect.top } : atRef.current,
+      exact: true,
+      pinned: true,
+      follow: false,
+    });
+  };
 
   const startGesture = useCallback((
     e: React.PointerEvent<HTMLElement>,
@@ -474,7 +605,7 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
     });
   }, [startGesture]);
 
-  const label = target.type === 'album' ? 'Album' : 'Artist';
+  const label = CARD_LABELS[target.type];
   const draggable = pinned && !isSheet;
   // Grabbing the top border is the obvious way to move a window, so the edge strip
   // and its corners drag as well as the title bar under them.
@@ -486,7 +617,9 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
     <>
       <div
         ref={cardRef}
-        className={pinned ? 'nc-card is-pinned' : 'nc-card'}
+        className={['nc-card', pinned && 'is-pinned', !ready && 'is-waiting', fitsContent && ready && 'is-revealed']
+          .filter(Boolean)
+          .join(' ')}
         style={isSheet ? undefined : { width: size.w, height: size.h }}
         role={pinned ? 'dialog' : 'tooltip'}
         aria-label={`${label} details`}
@@ -496,6 +629,11 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
         <span className="nc-corner nc-corner-tr" aria-hidden="true" {...dragProps}>╮</span>
 
         <div className="nc-bar" {...dragProps}>
+          {pinned && back && (
+            <button className="nc-btn nc-back" onClick={goBack}>
+              ‹ back to {back.type}
+            </button>
+          )}
           <span className="nc-bar-title">✿ {label} ✿</span>
           {/* Always rendered, only hidden: swapping it for text changed the bar's
               height, so the card resized the moment it was pinned. */}
@@ -512,9 +650,21 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
         </div>
 
         <div className="nc-body">
-          {target.type === 'album'
-            ? <AlbumCardBody albumId={target.id} onLightbox={setLightbox} onTrackPaneHeight={sizeToContent} />
-            : <ArtistCardBody artistId={target.id} />}
+          {target.type === 'album' && (
+            <AlbumCardBody
+              albumId={target.id}
+              onLightbox={setLightbox}
+              onTrackPaneHeight={sizeToContent}
+              onArtist={pinned ? openArtist : undefined}
+            />
+          )}
+          {target.type === 'artist' && <ArtistCardBody artistId={target.id} />}
+          {target.type === 'event' && (
+            <CardHostContext.Provider value={pinned ? host : null}>
+              <EventCardBody eventId={target.id} onLightbox={setLightbox} onContent={sizeBodyToContent} onClose={onClose} />
+            </CardHostContext.Provider>
+          )}
+          {target.type === 'user' && <UserCardBody userId={target.id} onContent={sizeBodyToContent} onClose={onClose} />}
         </div>
 
         <span className="nc-edge nc-edge-bottom" aria-hidden="true">{EDGE}</span>
@@ -532,7 +682,7 @@ const NavidromeCard: React.FC<NavidromeCardProps> = ({ request, onClose, hasPinn
         )}
       </div>
 
-      {!pinned && !hasPinned && !isSheet && (
+      {ready && !pinned && !hasPinned && !isSheet && (
         <div className="nc-pin-hint" ref={hintRef} aria-hidden="true">
           <span className="nc-edge nc-edge-top">{EDGE}</span>
           <span className="nc-corner nc-corner-tl">╭</span>

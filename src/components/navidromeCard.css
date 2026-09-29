@@ -48,6 +48,29 @@
   z-index: 1600;
 }
 
+/* An event card is laid out and measured before it is shown, so the frame is
+   never seen at its starting size. Hidden rather than removed, so it can be
+   measured. */
+.nc-card.is-waiting {
+  visibility: hidden;
+}
+
+.nc-card.is-revealed {
+  animation: nc-reveal 0.12s ease-out;
+}
+
+@keyframes nc-reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-card.is-revealed {
+    animation: none;
+  }
+}
+
 /* ── Floating "click to pin" hint ──────────────────────── */
 
 .nc-pin-hint {
@@ -184,6 +207,13 @@
 .nc-close {
   min-width: 44px;
   min-height: 32px;
+}
+
+/* ‹ back to event — on a card opened from a tag inside an event card. */
+.nc-back {
+  padding-left: 0;
+  letter-spacing: 0.04em;
+  color: var(--nc-accent);
 }
 
 /* A scroll container even when nothing overflows, so a wheel anywhere over the

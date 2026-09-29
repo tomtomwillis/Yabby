@@ -67,6 +67,7 @@ rule fills the remaining width:
 |---|---|---|
 | ✦ stickers | `CarouselStickers` | Header carries an `add your own` toggle revealing `PlaceSticker` in `inline-url` mode, plus a recent/random order switch |
 | ♫ recently added | `CarouselAlbums` | Title links out to Navidrome's recently-added view |
+| ☷ this week / next week / etc. | `HomeEvents` | Title text comes from `weekTitle()`; the section's `end` slot carries `HomeEventsNav` (‹ prev/next week ›). Links out to `/calendar`. See [HomeEvents](Components-HomeEvents) |
 | ≡ recent lists | `RecentLists` | Shares a `.home-row2` flex row with travel |
 | ⚑ travel | `HomeTravel` | Lazy-loaded to keep leaflet out of the eager home chunk |
 
@@ -97,5 +98,5 @@ mount. Rendered twice — in the mobile masthead and at the foot of the rail.
 **Shell:** `Header`, `AsciiTitle`, `HomeIndex`, `Stats` (lazy), `Weather`,
 `WeathrAnimation` (lazy), `VisualiserDock`, `PlayerBar`, `AsciiMan`
 
-**Dashboard:** `CarouselStickers`, `PlaceSticker`, `CarouselAlbums`, `RecentLists`,
-`HomeTravel` (lazy)
+**Dashboard:** `CarouselStickers`, `PlaceSticker`, `CarouselAlbums`, `HomeEvents`,
+`HomeEventsNav`, `RecentLists`, `HomeTravel` (lazy)

@@ -7,8 +7,10 @@ A community forum where users can post messages, reply to each other, and react 
 
 ## Features
 
-- Messages with `@` tagging for artists/albums (links to Navidrome) and `/` slash commands for linking to lists, playlists, travel recs, cities, and community pages
-- Image attachments (paste or file select, max 5 MB)
+- Messages with `@` tagging for members and artists/albums (links to a profile or Navidrome card) and `/` slash commands for linking to lists, playlists, travel recs, cities, issues, and community pages
+- Image attachments (paste, file select, or drag-and-drop, max 8 MB)
+- Polls (`/poll`)
+- Admin bot commands: `/filmannounce1`/`2`/`3` (Film Club), `/eventbot` (posts the calendar's weekly round-up — see [Calendar Page](Pages-CalendarPage))
 - Threaded replies on each message
 - Heart reactions (click to react, long-press on mobile / hover on desktop to see who reacted)
 - Message editing and deletion (own messages, or any message for admins)

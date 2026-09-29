@@ -1,0 +1,122 @@
+/* The calendar's [x] / [ ] tick box, used in the list and in the hover card.
+   Reads the calendar's colours where it sits in the calendar and the card
+   frame's where it sits in a card. The input is clipped rather than hidden so
+   it keeps its place in the tab order. */
+
+.int-check {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-dim, var(--nc-accent-dim, #5566c9));
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.int-check input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.int-check-mark {
+  color: var(--cal-accent, var(--nc-accent, #1a2ecc));
+}
+
+.int-check input:not(:checked) + .int-check-mark {
+  color: var(--cal-mute, #8a90a8);
+}
+
+.int-check:hover,
+.int-check:hover .int-check-mark,
+.int-check input:focus-visible + .int-check-mark {
+  color: var(--colour3);
+}
+
+.int-check input:focus-visible + .int-check-mark {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.int-check:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.int-check-error {
+  color: #c0392b;
+}
+
+/* The marker on an event already ticked, wherever events are listed. */
+.int-mark {
+  flex: 0 0 auto;
+  color: var(--cal-accent, var(--nc-accent, var(--hp-accent, #1a2ecc)));
+  font-weight: 700;
+}
+
+/* The tick and its count on one line; the names hang off the count. */
+.int-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.6rem;
+}
+
+.int-count-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.int-count {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-accent, var(--nc-accent, #1a2ecc));
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.int-count:hover,
+.int-count:focus-visible {
+  color: var(--colour3);
+}
+
+/* Beside the count rather than under it, so it never covers the tick box —
+   the board's likes tooltip, in the calendar's type. Drawn on the body and
+   placed from the count's position, since the row it belongs to clips. */
+.int-names {
+  position: fixed;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  max-width: min(220px, 50vw);
+  padding: 0.3rem 0.5rem;
+  background: var(--colour4);
+  border: 1px solid var(--cal-dim, var(--nc-accent-dim, #5566c9));
+  color: var(--cal-accent, var(--nc-accent, #1a2ecc));
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.int-names > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

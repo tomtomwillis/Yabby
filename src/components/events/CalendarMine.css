@@ -1,0 +1,104 @@
+/* The member's own calendar — a tinted band unrolled under the filter line,
+   set like the add band: an input on the page rather than content. */
+
+.cal-sub {
+  padding: 0.6rem var(--cal-edge, 1rem) 0.75rem;
+  background: var(--cal-tint, #eef1fb);
+  border-bottom: 2px solid var(--cal-accent, #1a2ecc);
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.04em;
+  /* Clear of the pinned line when scrolled to. */
+  scroll-margin-top: 3rem;
+}
+
+.cal-sub-text,
+.cal-sub-error {
+  margin: 0.5rem 0 0;
+  max-width: 60rem;
+  line-height: 1.55;
+  color: var(--cal-dim, #5566c9);
+}
+
+.cal-sub-text b {
+  color: var(--cal-accent, #1a2ecc);
+}
+
+.cal-sub-mute {
+  color: var(--cal-mute, #8a90a8);
+}
+
+.cal-sub-error {
+  color: #c0392b;
+}
+
+.cal-sub-text a {
+  color: var(--cal-accent, #1a2ecc);
+}
+
+.cal-sub-text a:hover,
+.cal-sub-text a:focus-visible {
+  color: var(--colour3);
+}
+
+.cal-sub-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+  max-width: 60rem;
+}
+
+.cal-sub-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  background: #fbfbfd;
+  border: 1px solid var(--cal-rule, #c9cee4);
+  border-radius: 0;
+  font: inherit;
+  color: var(--cal-ink, #2b2b2b);
+}
+
+.cal-sub-url:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.cal-sub-copy {
+  flex: 0 0 auto;
+  color: var(--cal-accent, #1a2ecc);
+}
+
+.cal-sub .cal-inline:disabled {
+  color: var(--cal-mute, #8a90a8);
+  cursor: default;
+}
+
+/* The two sharing ticks, one to a line, each with a note under it. */
+.cal-sub-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+}
+
+.cal-sub-opts .cal-check {
+  flex-wrap: wrap;
+  row-gap: 0.1rem;
+}
+
+.cal-sub-hint {
+  flex-basis: 100%;
+  padding-left: 2.3em;
+  font-size: 0.92em;
+  color: var(--cal-mute, #8a90a8);
+}
+
+.cal-sub-h {
+  margin: 0.9rem 0 0;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cal-accent, #1a2ecc);
+}

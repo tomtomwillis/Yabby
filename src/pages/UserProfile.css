@@ -289,6 +289,37 @@
   margin-right: 0.35em;
 }
 
+/* A word on the line like the links beside it, not a box. */
+.up-cal-sub {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--up-accent);
+  cursor: pointer;
+}
+
+.up-cal-sub:hover,
+.up-cal-sub:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.up-cal-url {
+  width: min(100%, 22rem);
+  margin-top: 0.3rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--up-rule);
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.85em;
+  color: var(--up-ink);
+}
+
+.up-cal-error {
+  color: #c0392b;
+}
+
 /* ─── Notes ───────────────────────────────────────────── */
 
 .up-status,

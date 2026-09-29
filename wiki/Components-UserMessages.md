@@ -61,13 +61,22 @@ Displays a single user message with avatar, username, timestamp, and content. Su
 
 ## Message Rendering
 
-The `parseMessageHTML` helper (exported from this file) processes message content in order:
+The `parseMessageHTML` helper — now in `src/components/basic/messageText.tsx`, shared by `UserMessages`, `ListItem`, and the calendar's `EventCardBody`/`EventList` — processes message content in order:
 
 1. Sanitises HTML via `sanitizeHtml` (DOMPurify)
 2. Converts `\n` newlines to `<br>` elements
 3. Converts Markdown-style `[text](url)` links via `parseMarkdownLinks`
 4. Auto-detects bare URLs and wraps them in `<a>` tags via `linkifyText`
 5. Renders through `html-react-parser` with a safe allowlist — only `<a>` (validated `http`/`https` URLs) and `<br>` pass through; all other tags are stripped to their text content
+
+Within an `<a>`, the link's `href` is matched against four patterns to decide what it renders as:
+
+- a `yabbyville.xyz/user/:id` link → `UsernameLink` (an `@`-tagged member)
+- a Navidrome album/artist link → `NavidromeTagLink` (an `@`-tagged album/artist)
+- a `/calendar?event=:id` link → `EventTagLink` (a calendar event, as the Event Bot's round-up posts them)
+- anything else that passes `validateUrl` → a plain `target="_blank"` link
+
+All four open the shared [NavidromeCard](Components-NavidromeCard) hover/pin frame on click or hover.
 
 ## Customising
 

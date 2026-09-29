@@ -1,8 +1,10 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import NavidromeCard from '../components/NavidromeCard';
 
+/** Album and artist cards come from Navidrome; event cards are calendar events
+ *  linked from the board, and user cards members' profiles, drawn in the same frame. */
 export interface CardTarget {
-  type: 'album' | 'artist';
+  type: 'album' | 'artist' | 'event' | 'user';
   id: string;
 }
 
@@ -18,6 +20,11 @@ export interface CardRequest {
   pinned: boolean;
   /** Track the cursor after opening. False for keyboard focus, where there is no cursor to track. */
   follow: boolean;
+  /** `at` is the card's own top-left rather than a cursor to sit beside — for
+   *  a card replacing another in the same spot. */
+  exact?: boolean;
+  /** The card this one replaced, which its bar offers a way back to. */
+  back?: CardTarget;
 }
 
 interface NavidromeCardValue {

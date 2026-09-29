@@ -222,6 +222,7 @@ body:has(.home-page) .star-path {
    same reason — the map and the list read as printed on the sheet rather than
    as boxes laid on it. */
 .home-main .travel-page,
+.home-main .calendar-page,
 .home-main .lists-page,
 .home-main .list-page,
 .home-main .user-page,
@@ -236,6 +237,7 @@ body:has(.home-page) .star-path {
    with the top of the window. Cancelled at the mobile breakpoint, where the
    window is the scroller instead. */
 .home-main .tv-filter,
+.home-main .cal-bar,
 .home-main .ls-bar {
   top: calc(-1 * var(--hp-main-pad-top));
 }
@@ -799,8 +801,6 @@ body:has(.home-page) .star-path {
   display: none;
 }
 
-/* The whole transport folds onto a single row, hugging the right edge. */
-.home-bottom--min .pb-body {
 /* The expanded player's width cap is sized for its stacked rows; side by side
    with the transport it would leave the metadata an ellipsis, so it takes the
    whole column instead and the metadata gets its own cap. */
@@ -816,6 +816,8 @@ body:has(.home-page) .star-path {
   min-height: 2.25rem;
 }
 
+/* The whole transport folds onto a single row, hugging the right edge. */
+.home-bottom--min .pb-body {
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
@@ -1038,11 +1040,13 @@ body:has(.home-page) .star-path {
      inset is the burger's footprint — it is fixed at z-index 1001 and the
      pinned line would otherwise run under it. */
   .home-main .tv-filter,
+  .home-main .cal-bar,
   .home-main .ls-bar {
     top: 0;
   }
 
   .home-main .tv-filter-bar,
+  .home-main .cal-bar,
   .home-main .ls-bar {
     padding-right: 3.6rem;
   }

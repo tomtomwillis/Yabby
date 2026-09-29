@@ -8,6 +8,8 @@ import CarouselStickers, {
 import PlaceSticker from '../components/PlaceSticker';
 import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import RecentLists from '../components/RecentLists';
+import HomeEvents, { HomeEventsNav } from '../components/events/HomeEvents';
+import { addDays, startOfWeek, todayISO, weekTitle } from '../components/events/eventTypes';
 import './Home.css';
 
 // Keeps leaflet out of the eagerly loaded home chunk.
@@ -24,11 +26,13 @@ interface SectionProps {
   external?: boolean;
   /** Optional control sitting in the heading itself, before the rule. */
   extra?: React.ReactNode;
+  /** Optional control at the heading's far end, after the rule. */
+  end?: React.ReactNode;
   children: React.ReactNode;
 }
 
 /** A heading whose title links onward and whose rule fills the remaining width. */
-const Section: React.FC<SectionProps> = ({ title, to, external, extra, children }) => (
+const Section: React.FC<SectionProps> = ({ title, to, external, extra, end, children }) => (
   <section className="hp-sec">
     <h2 className="hp-h">
       {external ? (
@@ -38,6 +42,7 @@ const Section: React.FC<SectionProps> = ({ title, to, external, extra, children 
       )}
       {extra}
       <span className="hp-h-rule" aria-hidden="true" />
+      {end}
     </h2>
     {children}
   </section>
@@ -49,6 +54,8 @@ function HomeDashboard() {
   const [stickerFormOpen, setStickerFormOpen] = useState(false);
   const [stickerOrder, setStickerOrder] = useState<StickerOrder>('recent');
   const stickersRef = useRef<CarouselStickersHandle>(null);
+  const [today] = useState(todayISO);
+  const [eventWeek, setEventWeek] = useState(() => startOfWeek(today));
 
   const handleStickerPlaced = (payload: PlacedStickerPayload) => {
     stickersRef.current?.injectSticker(payload);
@@ -109,6 +116,19 @@ function HomeDashboard() {
 
       <Section title="♫ recently added" to={RECENTLY_ADDED_URL} external>
         <CarouselAlbums />
+      </Section>
+
+      <Section
+        title={`☷ ${weekTitle(eventWeek, today)}`}
+        to="/calendar"
+        end={
+          <HomeEventsNav
+            weekStart={eventWeek}
+            onStep={(direction) => setEventWeek((week) => addDays(week, direction * 7))}
+          />
+        }
+      >
+        <HomeEvents weekStart={eventWeek} />
       </Section>
 
       <div className="home-row2">

@@ -5,6 +5,7 @@ import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
+import { searchLibrary } from '../../utils/navidromeSearch';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import { getAllUserProfiles } from '../../utils/userCache';
 import PollComposeModal, { type PollDraft } from './PollComposeModal';
@@ -49,6 +50,8 @@ const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
   issueresolved: 'Issues',
 };
 
+const EVENT_BOT_COMMAND = 'eventbot';
+
 // Matches MAX_FILE_SIZE in backend_server/routes/messageImages.js
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -63,6 +66,9 @@ interface ForumMessageBoxProps {
   initialValue?: string;
   onImageAttach?: (file: File | null) => void;
   onFilmAnnounce?: (variant: 1 | 2 | 3) => Promise<void>;
+  /** Admins on the main board and the /test sandbox: `/eventbot` posts this
+      week's calendar round-up. */
+  onEventAnnounce?: () => Promise<void>;
   onPollAttach?: (poll: PollDraft | null) => void;
   /** The signed-in user's avatar, drawn beside the field on boards that lay
       the composer out as a post. Omitted everywhere else, so nothing changes
@@ -95,6 +101,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   initialValue = '',
   onImageAttach,
   onFilmAnnounce,
+  onEventAnnounce,
   onPollAttach,
   avatar,
   avatarName,
@@ -261,22 +268,9 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
 
   const fetchResults = async (queryStr: string): Promise<Result[][]> => {
     setSearchStatus("Searching...");
-    const xmlDoc = await fetchSubsonicXml('search3', { query: queryStr, artistCount: 5, albumCount: 5 });
-
-    const artistEls = Array.from(xmlDoc.getElementsByTagName('artist'));
-    const albumEls = Array.from(xmlDoc.getElementsByTagName('album'));
-
-    const albums: Result[] = albumEls.map((album) => ({
-      id: album.getAttribute('id') || '',
-      name: album.getAttribute('name') || 'Unknown Album',
-      type: 'album' as const,
-    })).slice(0, 3);
-
-    const artists: Result[] = artistEls.map((artist) => ({
-      id: artist.getAttribute('id') || '',
-      name: artist.getAttribute('name') || 'Unknown Artist',
-      type: 'artist' as const,
-    })).slice(0, 3);
+    const items = await searchLibrary(queryStr, { artists: 3, albums: 3 });
+    const albums: Result[] = items.filter((i) => i.type === 'album').map(({ id, name, type }) => ({ id, name, type }));
+    const artists: Result[] = items.filter((i) => i.type === 'artist').map(({ id, name, type }) => ({ id, name, type }));
 
     if (albums.length === 0 && artists.length === 0) {
       setSearchStatus("No results :(");
@@ -470,6 +464,9 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
               }
             });
           }
+          if (onEventAnnounce && EVENT_BOT_COMMAND.startsWith(command)) {
+            actionMatches.push({ id: EVENT_BOT_COMMAND, name: `/${EVENT_BOT_COMMAND} — post this week's events`, type: 'action' });
+          }
           if (onPollAttach && 'poll'.startsWith(command)) {
             actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
           }
@@ -482,7 +479,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           if (command === 'travel' || command === 'city') ensurePlacesLoaded();
           if (command === 'playlist') ensurePlaylistsLoaded();
           if (command === 'issueresolved') ensureIssuesLoaded();
-        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command))) || (onPollAttach && 'poll'.startsWith(command))) {
+        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command))) || (onEventAnnounce && EVENT_BOT_COMMAND.startsWith(command)) || (onPollAttach && 'poll'.startsWith(command))) {
           // Instant or action command typed with a trailing space
           const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
             .filter(([k]) => k.startsWith(command))
@@ -499,6 +496,9 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
                 actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
               }
             });
+          }
+          if (onEventAnnounce && EVENT_BOT_COMMAND.startsWith(command)) {
+            actionMatches.push({ id: EVENT_BOT_COMMAND, name: `/${EVENT_BOT_COMMAND} — post this week's events`, type: 'action' });
           }
           if (onPollAttach && 'poll'.startsWith(command)) {
             actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
@@ -526,6 +526,17 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       clearSearch();
       const variant = parseInt(result.id.slice(-1)) as 1 | 2 | 3;
       onFilmAnnounce?.(variant);
+      return;
+    }
+
+    if (result.type === 'action' && result.id === EVENT_BOT_COMMAND) {
+      const triggerPos = triggerPositionRef.current;
+      if (triggerPos !== -1) {
+        const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
+        setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
+      }
+      clearSearch();
+      onEventAnnounce?.();
       return;
     }
 

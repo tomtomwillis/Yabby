@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useNavidromeCard, type CardTarget } from '../../utils/useNavidromeCard';
+import { CardHostContext } from '../../utils/cardHost';
 
 interface NavidromeTagLinkProps {
   target: CardTarget;
@@ -12,12 +13,20 @@ interface NavidromeTagLinkProps {
  *  address" keep working. */
 const NavidromeTagLink: React.FC<NavidromeTagLinkProps> = ({ target, href, children }) => {
   const { open, close } = useNavidromeCard();
+  // Inside a pinned card (an event's lineup or description), the tag's card
+  // takes that card's place and offers a way back to it.
+  const host = useContext(CardHostContext);
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Let cmd/ctrl/shift-click through to Navidrome in a new tab or window.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
     window.umami?.track('navidrome_card_open', { type: target.type, id: target.id });
+    const origin = host?.origin();
+    if (host && origin) {
+      open({ target, at: origin, exact: true, back: host.back, pinned: true, follow: false });
+      return;
+    }
     open({ target, at: { x: e.clientX, y: e.clientY }, pinned: true, follow: false });
   };
 

@@ -1,57 +1,14 @@
-/* Profile bubble shown when hovering a username. Borrows the ASCII frame from
-   navidromeCard.css — clipped edge strips with opaque corner glyphs over them —
-   so hover surfaces read the same wherever they appear. */
+/* A member's profile inside the album/artist card frame, opened by hovering a
+   username. The frame draws the border; this is only what sits inside it. */
 
-.ul-card {
+.ul-body {
   --ul-accent: var(--colour2);
   --ul-dim: #5566c9;
 
-  position: fixed;
-  /* Above the sticker popup overlay (1000) and the bottom bar (1002), below the
-     navidrome cards (1500) that can be pinned over the same page. */
-  z-index: 1400;
-  box-sizing: border-box;
-  padding: 0.7rem 0.75rem 0.85rem;
-  background: var(--colour4);
-  border-left: 1px solid var(--ul-dim);
-  border-right: 1px solid var(--ul-dim);
+  padding: 0.2rem 0.1rem 0.3rem;
   color: var(--ul-accent);
   font-family: var(--font2);
-  /* Never take the pointer: the username underneath is a live link, and the
-     bubble opens directly over it. */
-  pointer-events: none;
 }
-
-.ul-edge {
-  position: absolute;
-  left: 0;
-  right: 0;
-  overflow: hidden;
-  color: var(--ul-dim);
-  font-size: 0.8rem;
-  line-height: 1;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.ul-edge-top { top: 0; }
-.ul-edge-bottom { bottom: 0; }
-
-/* Opaque, so each corner covers the edge strip running under it. */
-.ul-corner {
-  position: absolute;
-  padding: 0 0.1rem;
-  background: var(--colour4);
-  color: var(--ul-dim);
-  font-size: 0.8rem;
-  line-height: 1;
-  user-select: none;
-}
-
-.ul-corner-tl { top: 0; left: 0; }
-.ul-corner-tr { top: 0; right: 0; }
-.ul-corner-bl { bottom: 0; left: 0; }
-.ul-corner-br { bottom: 0; right: 0; }
 
 .ul-head {
   display: flex;
@@ -62,7 +19,7 @@
   border-bottom: 1px dashed var(--ul-dim);
 }
 
-/* The picture is the point of the bubble as much as the bio is — sized to be
+/* The picture is the point of the card as much as the bio is — sized to be
    read as a portrait rather than a favicon beside the name. */
 .ul-avatar {
   flex: 0 0 auto;
@@ -94,9 +51,9 @@
   letter-spacing: 0.04em;
 }
 
-/* Set in the body serif, like the posts the bubble opens over. */
+/* Set in the body serif, like the posts the card opens over. */
 .ul-bio {
-  /* Four lines then ellipsis — the bubble is a preview, the profile is the page. */
+  /* Four lines then ellipsis — the card is a preview, the profile is the page. */
   display: -webkit-box;
   overflow: hidden;
   margin: 0 0 0.55rem;
@@ -114,8 +71,6 @@
   font-style: italic;
 }
 
-/* One line, clipped — the card is pointer-events: none, so this reads rather
-   than clicks; the profile page is where the link is live. */
 .ul-site {
   display: block;
   overflow: hidden;
@@ -127,9 +82,16 @@
   white-space: nowrap;
 }
 
-.ul-hint {
-  display: block;
+.ul-open {
+  display: inline-block;
   color: var(--ul-dim);
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   letter-spacing: 0.08em;
+  text-decoration: none;
+}
+
+.ul-open:hover,
+.ul-open:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
 }

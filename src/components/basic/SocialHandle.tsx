@@ -13,7 +13,14 @@ interface SocialHandleProps {
 const SocialHandle: React.FC<SocialHandleProps> = ({ platform, handle }) => {
   const [copied, setCopied] = useState(false);
   const def = SOCIAL_PLATFORMS[platform];
-  const shown = platform === 'twitter' || platform === 'instagram' ? `@${handle}` : handle;
+  // The radio handle is the full link itself, which is too long to show
+  // in-line — the domain it points to is what a visitor actually wants to see.
+  const shown =
+    platform === 'twitter' || platform === 'instagram'
+      ? `@${handle}`
+      : platform === 'radio'
+        ? handle.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')
+        : handle;
 
   if (def.url) {
     return (

@@ -13,7 +13,9 @@ export type SocialPlatform =
   | 'bandcampArtist'
   | 'bandcampFan'
   | 'soundcloud'
-  | 'mixcloud';
+  | 'mixcloud'
+  | 'steam'
+  | 'radio';
 
 export type Socials = Partial<Record<SocialPlatform, string>>;
 
@@ -29,6 +31,8 @@ interface PlatformDef {
   /** Pulls the handle out of a pasted profile link. */
   fromUrl?: (url: URL) => string | null;
 }
+
+const STEAMID64_PATTERN = /^7656119[0-9]{10}$/;
 
 const firstSegment = (hosts: string[]) => (url: URL): string | null => {
   const host = url.hostname.toLowerCase().replace(/^(www|m|mobile)\./, '');
@@ -108,6 +112,30 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatform, PlatformDef> = {
     hint: 'the part after mixcloud.com/',
     url: (h) => `https://www.mixcloud.com/${h}/`,
     fromUrl: firstSegment(['mixcloud.com']),
+  },
+  steam: {
+    label: 'steam',
+    placeholder: 'profile link, SteamID64 or custom URL name',
+    pattern: /^(7656119[0-9]{10}|[A-Za-z0-9_-]{2,32})$/,
+    hint: 'a steamcommunity.com profile link, your custom URL name, or a 17-digit SteamID64',
+    url: (h) => (STEAMID64_PATTERN.test(h) ? `https://steamcommunity.com/profiles/${h}/` : `https://steamcommunity.com/id/${h}/`),
+    fromUrl: (url) => {
+      const host = url.hostname.toLowerCase().replace(/^(www|m|mobile)\./, '');
+      if (host !== 'steamcommunity.com') return null;
+      const [kind, value] = url.pathname.split('/').filter(Boolean);
+      return (kind === 'id' || kind === 'profiles') && value ? decodeURIComponent(value) : null;
+    },
+  },
+  radio: {
+    label: 'radio show',
+    placeholder: 'link to your show',
+    // The 200-character cap on the social value input, minus "https://".
+    pattern: /^https?:\/\/\S{1,192}$/,
+    hint: 'a full link to your show, like https://…',
+    // The handle *is* the URL here — there is no fixed template to rebuild it
+    // from, so it is stored and linked exactly as pasted.
+    url: (h) => h,
+    fromUrl: (url) => url.href,
   },
 };
 

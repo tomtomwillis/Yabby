@@ -1,6 +1,6 @@
 # Yabbyville
 
-A private music community web app built with React, Firebase, and Navidrome. Members can browse albums, place stickers on album covers, post on a message board, create shareable lists, listen to community radio, and upload files.
+A private music community web app built with React, Firebase, and Navidrome. Members can browse albums, place stickers on album covers, post on a message board, create shareable lists, add and follow community events on a shared calendar, listen to community radio, and upload files.
 
 Built as a Progressive Web App (PWA) so it can be installed on phones and desktops.
 
@@ -96,6 +96,14 @@ VITE_MEDIA_WS_URL=           # WebSocket URL for the beets terminal (defaults to
    VITE_TMDB_API_KEY=
    ```
 
+### Directory (optional - hide test/system accounts)
+
+Comma-separated Firebase Auth UIDs to hide from the `/directory` member list. Cosmetic only — hidden profiles are still reachable directly.
+
+```
+VITE_DIRECTORY_HIDDEN_UIDS=
+```
+
 ## Firestore Collections
 
 The app uses these Firestore collections. They are created automatically when users interact with the app:
@@ -110,6 +118,9 @@ The app uses these Firestore collections. They are created automatically when us
 | `lists` | User-created album lists (with `items` subcollection) |
 | `news` | Admin-only news posts |
 | `places` | Travel recommendations (with `contributions` subcollection per place) |
+| `events` | Calendar events (gigs, club nights, radio shows, releases) |
+| `eventCities` | Cities used on calendar events, for autocomplete |
+| `eventInterests` | Per-member private list of events ticked "interested?" |
 | `wiki` | Wiki content — single document `wiki/content` with a `text` field (Markdown) |
 | `admins` | Admin user IDs (manage via Firebase Console) |
 | `mediaManagers` | Media manager user IDs (manage via Firebase Console) |
@@ -120,9 +131,10 @@ Security rules are in `firestore.rules` - deploy them to your Firebase project t
 
 ```
 src/
-  pages/           # Route pages (Home, Profile, Stickers, Travel, Wiki, FilmClub, etc.)
+  pages/           # Route pages (Home, Profile, Stickers, Travel, CalendarPage, Wiki, FilmClub, etc.)
   components/
     basic/         # Reusable UI components (Button, Header, Carousel, ForumMessageBox, HelpLink, etc.)
+    events/        # Calendar feature components (CalendarMonth/Week, EventForm, EventList, HomeEvents, etc.)
     film/          # Film Club feature components (FilmClub, NowWatching, FilmCard, etc.)
     media/         # Media manager tools (CoverArtTool, BeetsTerminal)
     travel/        # Travel feature components (TravelMap, TravelRecommendationList, etc.)
@@ -134,7 +146,7 @@ src/
   App.css          # Global styles and colour/font variables
   firebaseConfig.ts
 public/
-  Stickers/        # Avatar images (webp), including avatar_filmbot.webp
+  Stickers/        # Avatar images (webp), including avatar_filmbot.webp and avatar_eventbot.webp
   icons/           # PWA icons
 ```
 

@@ -39,6 +39,7 @@ import { useRateLimit } from '../utils/useRateLimit';
 import { useAdmin } from '../utils/useAdmin';
 import { getUserData, bumpPostCount } from '../utils/userCache';
 import { getCurrentMonthId, getPrevMonthId } from '../utils/useFilmClub';
+import { postEventBotNow, EVENT_BOT_BOARDS } from '../utils/eventsApi';
 
 interface Reaction {
   userId: string;
@@ -848,6 +849,27 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     }
   };
 
+  /* The Event Bot's round-up is written by the API, not from here — the same
+     post the Monday schedule makes, under the same one-per-week guard. */
+  const handleEventAnnounce = async () => {
+    setLoading(true);
+    try {
+      const result = await postEventBotNow(collectionName);
+      if (result.status === 'exists') {
+        alert("This week's events are already posted. Delete that post to post them again.");
+      } else if (result.status === 'skipped') {
+        alert('Nothing on the calendar this week, so nothing was posted.');
+      } else {
+        await loadInitialMessages();
+      }
+    } catch (error) {
+      console.error('Event announce failed:', error);
+      alert((error as Error).message || "Could not post this week's events.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleToggleReaction = async (message: Message) => {
     if (!auth.currentUser) {
       alert('You must be logged in to react to messages.');
@@ -1131,7 +1153,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
   return (
     <div className="message-board-container">
       {showComposer && (
-        <ForumBox onSend={handleSendMessage} disabled={loading} placeholder={composerPlaceholder} maxWords={postMaxWords} maxChars={postMaxChars} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} avatar={showComposerAvatar ? composerAvatar : undefined} avatarName={showComposerAvatar ? composerName : undefined} outsideControls={ledger} crossPost={enableCrossPost ? { label: 'also post to the message board', checked: crossPostChecked, onChange: setCrossPostChecked } : undefined} />
+        <ForumBox onSend={handleSendMessage} disabled={loading} placeholder={composerPlaceholder} maxWords={postMaxWords} maxChars={postMaxChars} onImageAttach={setPendingImage} onFilmAnnounce={isAdmin && enableFilmAnnounce ? handleFilmAnnounce : undefined} onEventAnnounce={isAdmin && EVENT_BOT_BOARDS.includes(collectionName) ? handleEventAnnounce : undefined} onPollAttach={enablePolls ? setPendingPoll : undefined} avatar={showComposerAvatar ? composerAvatar : undefined} avatarName={showComposerAvatar ? composerName : undefined} outsideControls={ledger} crossPost={enableCrossPost ? { label: 'also post to the message board', checked: crossPostChecked, onChange: setCrossPostChecked } : undefined} />
       )}
       {listHeader}
       <div className="messages-container">

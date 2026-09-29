@@ -29,6 +29,10 @@ export interface UserProfile {
   stickerCount: number;
   nekoEnabled: boolean;
   designToolEnabled: boolean;
+  /** Others may pick this member in the calendar's "calendar:" filter. */
+  calendarPublic: boolean;
+  /** This member's calendar feed link is offered on their profile. */
+  calendarFeedPublic: boolean;
 }
 
 const EMPTY: UserProfile = {
@@ -45,6 +49,8 @@ const EMPTY: UserProfile = {
   stickerCount: 0,
   nekoEnabled: false,
   designToolEnabled: false,
+  calendarPublic: false,
+  calendarFeedPublic: false,
 };
 
 function toProfile(data: DocumentData): UserProfile {
@@ -62,6 +68,8 @@ function toProfile(data: DocumentData): UserProfile {
     stickerCount: typeof data.stickerCount === 'number' ? data.stickerCount : 0,
     nekoEnabled: data.nekoEnabled === true,
     designToolEnabled: data.designToolEnabled === true,
+    calendarPublic: data.calendarPublic === true,
+    calendarFeedPublic: data.calendarFeedPublic === true,
   };
 }
 
@@ -70,7 +78,7 @@ type CacheEntry = UserProfile & { timestamp: number };
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<UserProfile>>();
 
-const STORAGE_KEY = 'yabbyville.userCache.v3';
+const STORAGE_KEY = 'yabbyville.userCache.v4';
 const FLUSH_DELAY = 200;
 
 /* Session storage rather than local: a profile that outlived the browser could

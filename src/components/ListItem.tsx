@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import './ListItem.css';
-import { parseMessageHTML } from './basic/UserMessages';
+import { parseMessageHTML } from './basic/messageText';
 import { normalizeAvatarPath } from '../utils/avatarPath';
 
 interface BaseListItemProps {

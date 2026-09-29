@@ -33,6 +33,7 @@ const FilmClubVote = lazy(() => import('./pages/FilmClubVote'));
 const FilmClubMessagePage = lazy(() => import('./pages/FilmClubMessagePage'));
 const MediaManager = lazy(() => import('./pages/MediaManager'));
 const TravelPage = lazy(() => import('./pages/TravelPage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const CinemaPage = lazy(() => import('./pages/CinemaPage'));
 const IssuesPage = lazy(() => import('./pages/IssuesPage'));
 const DirectoryPage = lazy(() => import('./pages/DirectoryPage'));
@@ -44,8 +45,9 @@ function App() {
 
   return (
     <PlayerProvider>
-      <NavidromeCardProvider>
-        <Router>
+      <Router>
+        {/* Inside the router: the event card links through to the calendar. */}
+        <NavidromeCardProvider>
           <div className="app-container">
             <PullToRefresh />
             <Star />
@@ -84,6 +86,7 @@ function App() {
                   <Route path="/test" element={<Test />} />
                   <Route path="/media" element={<MediaManager />} />
                   <Route path="/travel" element={<TravelPage />} />
+                  <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/issues" element={<IssuesPage />} />
                   <Route path="/directory" element={<DirectoryPage />} />
 
@@ -94,8 +97,8 @@ function App() {
               </Routes>
             </Suspense>
           </div>
-        </Router>
-      </NavidromeCardProvider>
+        </NavidromeCardProvider>
+      </Router>
     </PlayerProvider>
   );
 }

@@ -5,6 +5,7 @@ import { getUserProfile, type UserProfile as Profile } from '../utils/userCache'
 import Header from '../components/basic/Header';
 import SiteLink from '../components/basic/SiteLink';
 import SocialHandle from '../components/basic/SocialHandle';
+import ProfileCalendar from '../components/events/ProfileCalendar';
 import { SOCIAL_PLATFORMS, SOCIAL_ORDER } from '../utils/socials';
 import './UserProfile.css';
 
@@ -92,8 +93,9 @@ const UserProfile: React.FC = () => {
   /* When they joined is pinned to the bar rather than listed here — the bar is
      where a page's note goes, and saying it twice is saying it twice. */
   const socialPlatforms = SOCIAL_ORDER.filter((platform) => profile.socials[platform]);
+  const hasCalendar = profile.calendarPublic || profile.calendarFeedPublic;
   const hasFacts =
-    !!profile.siteUrl || !!profile.locationFlag || !!profile.locationText || socialPlatforms.length > 0;
+    !!profile.siteUrl || !!profile.locationFlag || !!profile.locationText || socialPlatforms.length > 0 || hasCalendar;
 
   return (
     <div className="user-page">
@@ -170,6 +172,20 @@ const UserProfile: React.FC = () => {
                 </React.Fragment>
               ))}
 
+              {hasCalendar && userId && (
+                <>
+                  <dt className="up-fact-key">
+                    calendar<span className="up-fact-leader" aria-hidden="true"></span>
+                  </dt>
+                  <dd className="up-fact-val">
+                    <ProfileCalendar
+                      userId={userId}
+                      viewable={profile.calendarPublic}
+                      subscribable={profile.calendarFeedPublic}
+                    />
+                  </dd>
+                </>
+              )}
             </dl>
           )}
         </div>

@@ -1,0 +1,187 @@
+/* A calendar event inside the album/artist card frame (navidromeCard.css). The
+   frame, bar and cover button are shared; the ec- classes are the event's own
+   layout, set in the frame's --nc- colours so the two read as one family. */
+
+/* The tag in a message. Inherits the dotted underline of .navidrome-tag. */
+.event-tag {
+  cursor: pointer;
+}
+
+.ec {
+  display: flex;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Doubled class: .nc-cover is square and full width for album art, and which
+   stylesheet loads first is up to the bundler. */
+.nc-cover.ec-cover {
+  flex: 0 0 8rem;
+  align-self: flex-start;
+  width: 8rem;
+}
+
+.nc-cover.ec-cover img {
+  aspect-ratio: auto;
+  max-height: 12rem;
+  object-fit: cover;
+}
+
+.ec-info {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ec-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--nc-accent-dim);
+}
+
+.ec-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--ec-c, var(--nc-accent-dim));
+}
+
+.ec-title {
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.ec-title:hover,
+.ec-title:focus-visible {
+  text-decoration: underline;
+}
+
+/* name ........ value — the site's one shape for an index of facts. */
+.ec-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.1rem 0.5rem;
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+}
+
+.ec-facts dt {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  color: var(--nc-accent-dim);
+}
+
+.ec-facts dt::after {
+  content: '';
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  border-bottom: 1px dotted var(--nc-accent-dim);
+  transform: translateY(-0.2em);
+}
+
+.ec-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--colour5);
+}
+
+.ec-desc {
+  margin: 0.3rem 0 0;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--nc-accent-dim);
+  font-family: var(--font4);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--colour5);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ec-desc a,
+.ec .ev-lineup a,
+.ec .ec-author {
+  color: var(--nc-accent);
+}
+
+.ec-desc a:hover,
+.ec-desc a:focus-visible,
+.ec .ev-lineup a:hover,
+.ec .ev-lineup a:focus-visible,
+.ec .ec-author:hover,
+.ec .ec-author:focus-visible {
+  color: var(--colour3);
+}
+
+.ec .ev-lineup-sep {
+  color: var(--nc-accent-dim);
+}
+
+.ec-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.7rem;
+}
+
+.ec-links a {
+  display: block;
+  overflow: hidden;
+  color: var(--nc-accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ec-links a::before {
+  content: '↗ ';
+  color: var(--nc-accent-dim);
+}
+
+.ec-links a:hover,
+.ec-links a:focus-visible,
+.ec-open:hover,
+.ec-open:focus-visible {
+  color: var(--colour3);
+}
+
+.int-wrap.ec-interest {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+}
+
+.ec-interest .int-check,
+.ec-interest .int-count,
+.ec-interest .int-names {
+  font-size: 0.68rem;
+}
+
+.ec-open {
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--nc-accent-dim);
+  text-decoration: none;
+}
+
+/* Too narrow for the image beside the facts — stack them. */
+@media (max-width: 600px) {
+  .ec {
+    flex-direction: column;
+  }
+
+  .nc-cover.ec-cover {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .nc-cover.ec-cover img {
+    max-height: 10rem;
+  }
+}

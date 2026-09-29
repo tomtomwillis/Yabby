@@ -64,6 +64,7 @@ export function useNavGroups(): NavGroup[] {
       name: 'Social',
       links: [
         { label: 'message board', href: '/messageboard' },
+        { label: 'calendar', href: '/calendar' },
         { label: 'travel', href: '/travel' },
         { label: 'lists', href: '/lists' },
         { label: 'film club', href: '/film-club' },

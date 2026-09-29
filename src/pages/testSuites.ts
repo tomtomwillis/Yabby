@@ -30,6 +30,8 @@ import {
 import { db } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
 import { placeIdFor } from '../utils/geocode';
+import { addDays, parseEventLink, todayISO } from '../components/events/eventTypes';
+import { getFeedLink } from '../utils/eventInterests';
 
 /**
  * End-to-end checks for the site's Firestore features.
@@ -50,6 +52,9 @@ export const MARKER = '[yabby-test]';
 export const SANDBOX_MESSAGES = 'testMessages';
 const SANDBOX_LISTS = 'testLists';
 const SANDBOX_STICKERS = 'testStickers';
+const SANDBOX_EVENTS = 'testEvents';
+const SANDBOX_CITIES = 'testEventCities';
+const SANDBOX_INTERESTS = 'testEventInterests';
 
 /** The throwaway account, keyed the way /usernames keys its documents. Tests
     that need a member who is not the person running them aim here, so a rule
@@ -781,6 +786,488 @@ const stickersSuite: TestSuite = {
 };
 
 // ---------------------------------------------------------------------------
+// Calendar events
+// ---------------------------------------------------------------------------
+
+const eventState: {
+  eventId?: string;
+  dispose?: () => void;
+  cityId?: string;
+  disposeCity?: () => void;
+} = {};
+
+/** A throwaway city name — letters only, as the rules want, and new each run so
+ *  a leftover from a failed run cannot block the next. */
+function testCityName(): string {
+  const letters = Array.from({ length: 6 }, () => 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]);
+  return `Yabbytest ${letters.join('')}`;
+}
+
+/** A valid sandbox event by the person running the suite. */
+function eventDoc(ctx: TestContext, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    title: `${MARKER} event test`,
+    date: todayISO(),
+    category: 'gig',
+    userId: ctx.uid,
+    username: ctx.username,
+    createdAt: SERVER_TIME,
+    ...overrides,
+  };
+}
+
+/** An event create the rules should refuse. */
+function expectEventDenied(ctx: TestContext, what: string, data: Record<string, unknown>) {
+  return expectDenied(what, () => addDoc(collection(db, SANDBOX_EVENTS), data), ctx);
+}
+
+const eventsSuite: TestSuite = {
+  id: 'events',
+  name: 'Calendar',
+  description:
+    'Reads the live week ahead, then adds a sandbox event with every field, edits it, clears its time, counts you in as interested and out again, and deletes it, and adds and removes a sandbox city. Also checks the rules hold an event to its shape: a date, one of six categories, a yes-or-no hosted flag, http links only, at most five, a real image id, a lineup of named acts, a real place name, an interest count that moves only you by one, and nobody writing as someone else.',
+  tests: [
+    {
+      name: 'reads the week ahead',
+      run: async () => {
+        const today = todayISO();
+        const snap = await getDocs(
+          query(
+            collection(db, 'events'),
+            where('date', '>=', today),
+            where('date', '<=', addDays(today, 6)),
+            orderBy('date'),
+            limit(20),
+          ),
+        );
+        if (snap.empty) return 'query works, nothing on this week';
+        const first = snap.docs[0].data();
+        assert(typeof first.title === 'string' && typeof first.date === 'string', 'An event has no title or date.');
+        return `${snap.size} read, first "${first.title}" on ${first.date}`;
+      },
+    },
+    {
+      name: 'recognises calendar links and nothing else',
+      run: async () => {
+        assert(parseEventLink('https://yabbyville.xyz/calendar?event=abc123') === 'abc123', 'A calendar link was not recognised.');
+        assert(parseEventLink('https://evil.example/calendar?event=abc123') === null, 'A link to another site was taken for an event.');
+        assert(parseEventLink('https://yabbyville.xyz/calendar?event=../x') === null, 'A malformed event id was accepted.');
+        assert(parseEventLink('https://yabbyville.xyz/travel?event=abc123') === null, 'A link to another page was taken for an event.');
+        return 'site calendar links only';
+      },
+    },
+    {
+      name: 'adds an event with every field',
+      run: async (ctx) => {
+        eventState.eventId = undefined;
+        const ref = await addDoc(
+          collection(db, SANDBOX_EVENTS),
+          eventDoc(ctx, {
+            category: 'club',
+            time: '22:00',
+            endTime: '03:00',
+            timeZone: 'America/Argentina/Buenos_Aires',
+            description: `${MARKER} description`,
+            location: 'the basement',
+            city: 'Glasgow',
+            lineup: [{ name: 'Djrum', artistId: 'abc123' }, { name: 'Support act' }],
+            cost: '£5',
+            urls: ['https://example.org/tickets', 'http://example.org'],
+            imageId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+            hosted: true,
+          }),
+        );
+        eventState.eventId = ref.id;
+        eventState.dispose = ctx.cleanup(`${SANDBOX_EVENTS}/${ref.id}`, () => deleteDoc(ref));
+
+        const data = (await getDoc(ref)).data();
+        assert(data?.time === '22:00' && data?.endTime === '03:00', 'The times did not save.');
+        assert(data?.timeZone === 'America/Argentina/Buenos_Aires', 'The time zone did not save.');
+        assert(Array.isArray(data?.urls) && data.urls.length === 2, 'The links did not save.');
+        assert(data?.username === ctx.username, 'The author name did not save.');
+        assert(data?.city === 'Glasgow', 'The city did not save.');
+        assert(data?.lineup?.[0]?.artistId === 'abc123' && !('artistId' in data.lineup[1]), 'The lineup did not save as written.');
+        return `${SANDBOX_EVENTS}/${ref.id}`;
+      },
+    },
+    {
+      name: 'edits the event and clears its times',
+      run: async () => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        await updateDoc(ref, {
+          title: `${MARKER} event edit test`,
+          category: 'event',
+          hosted: false,
+          time: DELETE_FIELD,
+          endTime: DELETE_FIELD,
+          timeZone: DELETE_FIELD,
+          updatedAt: SERVER_TIME,
+        });
+        const data = (await getDoc(ref)).data();
+        assert(data?.category === 'event' && data?.hosted === false, 'The edit did not save.');
+        assert(!('time' in (data ?? {})) && !('endTime' in (data ?? {})), 'The times are still there.');
+        return 'edited, now all day';
+      },
+    },
+    {
+      name: 'counts you in as interested, then out',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        await updateDoc(ref, { interestedBy: arrayUnionOf(ctx.uid), interestCount: incrementBy(1) });
+        const ticked = (await getDoc(ref)).data();
+        await updateDoc(ref, { interestedBy: arrayRemoveOf(ctx.uid), interestCount: incrementBy(-1) });
+        const unticked = (await getDoc(ref)).data();
+        assert(ticked?.interestCount === 1 && ticked?.interestedBy?.includes(ctx.uid), 'The tick was not counted.');
+        assert(unticked?.interestCount === 0 && unticked?.interestedBy?.length === 0, 'The untick was not counted off.');
+        return 'counted 1, then 0';
+      },
+    },
+    {
+      name: 'rules stop counting someone else in',
+      run: async () => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('adding another uid to interestedBy', () =>
+          updateDoc(ref, { interestedBy: arrayUnionOf('not-my-uid'), interestCount: incrementBy(1) }),
+        );
+      },
+    },
+    {
+      name: 'rules stop an interest count that does not match',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('ticking once and counting two', () =>
+          updateDoc(ref, { interestedBy: arrayUnionOf(ctx.uid), interestCount: incrementBy(2) }),
+        );
+      },
+    },
+    {
+      name: 'rules stop an interest tick that edits the event',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('ticking interested and retitling in one write', () =>
+          updateDoc(ref, { interestedBy: arrayUnionOf(ctx.uid), interestCount: incrementBy(1), title: 'mine now' }),
+        );
+      },
+    },
+    {
+      name: 'rules reject hosted that is not a yes or no',
+      run: async (ctx) => expectEventDenied(ctx, 'adding an event hosted "yes"', eventDoc(ctx, { hosted: 'yes' })),
+    },
+    {
+      name: 'rules stop an event made with interest already on it',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an event with a count', eventDoc(ctx, { interestedBy: [ctx.uid], interestCount: 1 })),
+    },
+    {
+      name: 'rules stop an edit without a timestamp',
+      run: async () => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('editing an event without stamping updatedAt', () =>
+          updateDoc(ref, { title: `${MARKER} unstamped` }),
+        );
+      },
+    },
+    {
+      name: 'rules stop handing the event to someone else',
+      run: async () => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('changing the author of an event', () =>
+          updateDoc(ref, { userId: 'not-my-uid', updatedAt: SERVER_TIME }),
+        );
+      },
+    },
+    {
+      name: 'rules require a date',
+      run: async (ctx) => {
+        const noDate = eventDoc(ctx);
+        delete noDate.date;
+        return expectEventDenied(ctx, 'adding an event with no date', noDate);
+      },
+    },
+    {
+      name: 'rules reject a time zone that is not a zone name',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an event in "../etc"', eventDoc(ctx, { time: '20:00', timeZone: '../etc' })),
+    },
+    {
+      name: 'rules stop a time zone with no time',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an all-day event with a time zone', eventDoc(ctx, { timeZone: 'Europe/London' })),
+    },
+    {
+      name: 'rules reject an unknown category',
+      run: async (ctx) => expectEventDenied(ctx, 'adding a "party" event', eventDoc(ctx, { category: 'party' })),
+    },
+    {
+      name: 'rules reject a javascript link',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an event with a javascript: link', eventDoc(ctx, { urls: ['javascript:alert(1)'] })),
+    },
+    {
+      name: 'rules cap links at five',
+      run: async (ctx) =>
+        expectEventDenied(
+          ctx,
+          'adding an event with six links',
+          eventDoc(ctx, { urls: Array.from({ length: 6 }, (_, i) => `https://example.org/${i}`) }),
+        ),
+    },
+    {
+      name: 'rules reject a made-up image id',
+      run: async (ctx) =>
+        expectEventDenied(
+          ctx,
+          'adding an event whose image id is a path',
+          eventDoc(ctx, { imageId: '../../travel/contributions/xxxxxxxxxx' }),
+        ),
+    },
+    {
+      name: 'rules stop an end time with no start',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an event with only an end time', eventDoc(ctx, { endTime: '23:00' })),
+    },
+    {
+      name: 'rules reject an act with anything but a name and an artist',
+      run: async (ctx) =>
+        expectEventDenied(
+          ctx,
+          'adding an act with a link of its own',
+          eventDoc(ctx, { lineup: [{ name: 'x', href: 'javascript:alert(1)' }] }),
+        ),
+    },
+    {
+      name: 'rules cap the lineup at twenty acts',
+      run: async (ctx) =>
+        expectEventDenied(
+          ctx,
+          'adding an event with twenty-one acts',
+          eventDoc(ctx, { lineup: Array.from({ length: 21 }, (_, i) => ({ name: `act ${i}` })) }),
+        ),
+    },
+    {
+      name: 'rules reject a city that is not a place name',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an event in "Glas/gow"', eventDoc(ctx, { city: 'Glas/gow' })),
+    },
+    {
+      name: 'rules stop adding an event as someone else',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an event under another user id', eventDoc(ctx, { userId: 'not-my-uid' })),
+    },
+    {
+      name: 'rules stop adding an event under another name',
+      run: async (ctx) =>
+        expectEventDenied(ctx, 'adding an event as "Event Bot"', eventDoc(ctx, { username: 'Event Bot' })),
+    },
+    {
+      name: 'adds a city to the list',
+      run: async (ctx) => {
+        const name = testCityName();
+        const ref = doc(db, SANDBOX_CITIES, name.toLowerCase());
+        await setDoc(ref, { name, createdBy: ctx.uid, createdAt: SERVER_TIME });
+        eventState.cityId = ref.id;
+        eventState.disposeCity = ctx.cleanup(`${SANDBOX_CITIES}/${ref.id}`, () => deleteDoc(ref));
+        assert((await getDoc(ref)).data()?.name === name, 'The city did not save.');
+        return `${SANDBOX_CITIES}/${ref.id}`;
+      },
+    },
+    {
+      name: 'rules stop renaming a city',
+      run: async () => {
+        const ref = doc(db, SANDBOX_CITIES, requireId(eventState.cityId, 'city'));
+        return expectDenied('renaming a city', () => updateDoc(ref, { name: 'Somewhere else' }));
+      },
+    },
+    {
+      name: 'rules stop filing a city under another name',
+      run: async (ctx) =>
+        expectDenied(
+          'adding "Glasgow" under the id of another city',
+          () => setDoc(doc(db, SANDBOX_CITIES, 'edinburgh'), { name: 'Glasgow', createdBy: ctx.uid, createdAt: SERVER_TIME }),
+          ctx,
+        ),
+    },
+    {
+      name: 'removes the city',
+      run: async () => {
+        const id = requireId(eventState.cityId, 'city');
+        await deleteDoc(doc(db, SANDBOX_CITIES, id));
+        eventState.disposeCity?.();
+        eventState.cityId = undefined;
+        assert(!(await getDoc(doc(db, SANDBOX_CITIES, id))).exists(), 'The test city is still there.');
+        return 'gone';
+      },
+    },
+    {
+      name: 'deletes the event',
+      run: async () => {
+        const id = requireId(eventState.eventId, 'event');
+        await deleteDoc(doc(db, SANDBOX_EVENTS, id));
+        eventState.dispose?.();
+        assert(!(await getDoc(doc(db, SANDBOX_EVENTS, id))).exists(), 'The test event is still there.');
+        eventState.eventId = undefined;
+        return 'gone';
+      },
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Calendar interests and the feed
+// ---------------------------------------------------------------------------
+
+const interestState: { dispose?: () => void } = {};
+
+const interestsSuite: TestSuite = {
+  id: 'eventInterests',
+  name: 'Calendar interests',
+  description:
+    'Ticks and unticks events in a sandbox copy of your interests and retires its feed link, then checks the rules keep them private and the link one-way: nobody else may read or write them, the feed version only ever steps up by one, the live copy is never deleted, and the list holds at most 200. Last, asks the backend for your real feed link and fetches it — read only, your ticks are untouched.',
+  tests: [
+    {
+      name: 'starts from an empty sandbox',
+      run: async (ctx) => {
+        await deleteDoc(doc(db, SANDBOX_INTERESTS, ctx.uid));
+        return `${SANDBOX_INTERESTS}/${ctx.uid} cleared`;
+      },
+    },
+    {
+      name: 'the first tick creates your interests',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_INTERESTS, ctx.uid);
+        await setDoc(ref, { eventIds: ['yabbytestA'], feedVersion: 1, updatedAt: SERVER_TIME });
+        interestState.dispose = ctx.cleanup(`${SANDBOX_INTERESTS}/${ctx.uid}`, () => deleteDoc(ref));
+        const data = (await getDoc(ref)).data();
+        assert(data?.eventIds?.[0] === 'yabbytestA' && data?.feedVersion === 1, 'The interests did not save.');
+        return `${SANDBOX_INTERESTS}/${ctx.uid}`;
+      },
+    },
+    {
+      name: 'ticks and unticks events',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_INTERESTS, ctx.uid);
+        await updateDoc(ref, { eventIds: arrayUnionOf('yabbytestB'), updatedAt: SERVER_TIME });
+        await updateDoc(ref, { eventIds: arrayRemoveOf('yabbytestA'), updatedAt: SERVER_TIME });
+        const ids = (await getDoc(ref)).data()?.eventIds;
+        assert(Array.isArray(ids) && ids.length === 1 && ids[0] === 'yabbytestB', `Expected [yabbytestB], got ${JSON.stringify(ids)}.`);
+        return 'one ticked, one unticked';
+      },
+    },
+    {
+      name: 'a new link moves the feed version up one',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_INTERESTS, ctx.uid);
+        await updateDoc(ref, { feedVersion: incrementBy(1), updatedAt: SERVER_TIME });
+        assert((await getDoc(ref)).data()?.feedVersion === 2, 'The feed version did not move to 2.');
+        return 'version 2';
+      },
+    },
+    {
+      name: 'rules stop skipping a feed version',
+      run: async (ctx) =>
+        expectDenied('moving the feed version up by two', () =>
+          updateDoc(doc(db, SANDBOX_INTERESTS, ctx.uid), { feedVersion: incrementBy(2), updatedAt: SERVER_TIME }),
+        ),
+    },
+    {
+      name: 'rules stop reviving an old feed link',
+      run: async (ctx) =>
+        expectDenied('putting the feed version back to 1', () =>
+          updateDoc(doc(db, SANDBOX_INTERESTS, ctx.uid), { feedVersion: 1, updatedAt: SERVER_TIME }),
+        ),
+    },
+    {
+      name: 'rules stop a tick without a timestamp',
+      run: async (ctx) =>
+        expectDenied('ticking without stamping updatedAt', () =>
+          updateDoc(doc(db, SANDBOX_INTERESTS, ctx.uid), { eventIds: arrayUnionOf('yabbytestC') }),
+        ),
+    },
+    {
+      name: 'rules reject anything but ticks and the feed version',
+      run: async (ctx) =>
+        expectDenied('adding a "public" flag to your interests', () =>
+          updateDoc(doc(db, SANDBOX_INTERESTS, ctx.uid), { public: true, updatedAt: SERVER_TIME }),
+        ),
+    },
+    {
+      name: 'rules cap ticks at 200',
+      run: async (ctx) =>
+        expectDenied('ticking 201 events', () =>
+          updateDoc(doc(db, SANDBOX_INTERESTS, ctx.uid), {
+            eventIds: Array.from({ length: 201 }, (_, i) => `yabbytest${i}`),
+            updatedAt: SERVER_TIME,
+          }),
+        ),
+    },
+    {
+      name: 'rules want the ticks as a list',
+      run: async (ctx) =>
+        expectDenied('storing the ticks as text', () =>
+          updateDoc(doc(db, SANDBOX_INTERESTS, ctx.uid), { eventIds: 'yabbytestB', updatedAt: SERVER_TIME }),
+        ),
+    },
+    {
+      name: "rules stop writing someone else's interests",
+      run: async (ctx) =>
+        expectDenied(
+          'creating interests under another uid',
+          () => setDoc(doc(db, SANDBOX_INTERESTS, 'not-my-uid'), { eventIds: [], feedVersion: 1, updatedAt: SERVER_TIME }),
+          ctx,
+        ),
+    },
+    {
+      name: "rules stop reading someone else's interests",
+      run: async () =>
+        expectDenied("reading another member's live interests", () => getDoc(doc(db, 'eventInterests', 'not-my-uid'))),
+    },
+    {
+      name: 'rules never delete the live interests',
+      run: async (ctx) =>
+        expectDenied('deleting your live interests', () => deleteDoc(doc(db, 'eventInterests', ctx.uid))),
+    },
+    {
+      name: 'reads your own live interests',
+      run: async (ctx) => {
+        const snap = await getDoc(doc(db, 'eventInterests', ctx.uid));
+        if (!snap.exists()) return 'nothing ticked yet';
+        const ids = snap.data().eventIds;
+        assert(Array.isArray(ids), 'eventIds is not a list.');
+        return `${ids.length} ticked, feed version ${snap.data().feedVersion}`;
+      },
+    },
+    {
+      name: 'the backend hands out a feed that works, and refuses an altered one',
+      run: async () => {
+        const link = await getFeedLink();
+        const response = await fetch(link);
+        assert(response.ok, `The feed answered ${response.status}.`);
+        const body = await response.text();
+        assert(body.startsWith('BEGIN:VCALENDAR'), 'The feed is not a calendar.');
+        const events = (body.match(/^BEGIN:VEVENT/gm) ?? []).length;
+
+        // The version bumped by one: signed for another version, so refused.
+        const altered = link.replace(/\.([0-9]+)\./, (_, version: string) => `.${Number(version) + 1}.`);
+        assert(altered !== link, 'Could not alter the link to test it.');
+        const refused = await fetch(altered);
+        assert(refused.status === 404, `An altered link answered ${refused.status}, expected 404.`);
+        return `${events} event${events === 1 ? '' : 's'} in the feed; altered link refused`;
+      },
+    },
+    {
+      name: 'deletes the sandbox interests',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_INTERESTS, ctx.uid);
+        await deleteDoc(ref);
+        interestState.dispose?.();
+        assert(!(await getDoc(ref)).exists(), 'The sandbox interests are still there.');
+        return 'gone';
+      },
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Travel
 // ---------------------------------------------------------------------------
 
@@ -829,7 +1316,7 @@ const profileSuite: TestSuite = {
   id: 'profile',
   name: 'Profile stats',
   description:
-    'The join date, post and sticker counts and site url behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one. Your site url is written over and put back.',
+    'The join date, post and sticker counts and site url behind the message board poster column. There is no sandbox twin for users, so these run against your own profile document — the only lasting effect is that the post count goes up by one each time the suite runs, and a join date is stamped if you did not have one. Your site url and calendar sharing are written over and put back.',
   tests: [
     {
       name: 'reads your own profile',
@@ -958,13 +1445,23 @@ const profileSuite: TestSuite = {
       run: async (ctx) => {
         const ref = doc(db, 'users', ctx.uid);
         const before = (await getDoc(ref)).data()?.socials;
-        const test = { instagram: 'yab.by', signal: 'yabby.01', bandcampArtist: 'yabby-band' };
+        const test = {
+          instagram: 'yab.by',
+          signal: 'yabby.01',
+          bandcampArtist: 'yabby-band',
+          steam: '76561198012345678',
+          radio: 'https://mixcloud.com/yabby/show-1',
+        };
 
         await updateDoc(ref, { socials: test });
         const after = (await getDoc(ref)).data()?.socials;
         await updateDoc(ref, { socials: before ?? DELETE_FIELD });
 
-        assert(after?.instagram === 'yab.by' && after?.bandcampArtist === 'yabby-band', 'socials did not read back.');
+        assert(
+          after?.instagram === 'yab.by' && after?.bandcampArtist === 'yabby-band'
+            && after?.steam === '76561198012345678' && after?.radio === 'https://mixcloud.com/yabby/show-1',
+          'socials did not read back.',
+        );
         return before ? 'restored yours' : 'removed again';
       },
     },
@@ -978,10 +1475,41 @@ const profileSuite: TestSuite = {
         await expectDenied('a bandcamp subdomain that leaves bandcamp', () =>
           updateDoc(ref, { socials: { bandcampArtist: 'evil.example' } }),
         );
+        await expectDenied('a full steam profile link stored as the handle', () =>
+          updateDoc(ref, { socials: { steam: 'https://steamcommunity.com/id/yabby' } }),
+        );
+        await expectDenied('a javascript: link in the radio field', () =>
+          updateDoc(ref, { socials: { radio: 'javascript:alert(1)' } }),
+        );
         return expectDenied('a platform the schema does not know', () =>
           updateDoc(ref, { socials: { myspace: 'tom' } }),
         );
       },
+    },
+    {
+      name: 'saves calendar sharing, then puts yours back',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const data = (await getDoc(ref)).data() ?? {};
+        const restore = {
+          calendarPublic: 'calendarPublic' in data ? data.calendarPublic : DELETE_FIELD,
+          calendarFeedPublic: 'calendarFeedPublic' in data ? data.calendarFeedPublic : DELETE_FIELD,
+        };
+
+        await updateDoc(ref, { calendarPublic: true, calendarFeedPublic: false });
+        const after = (await getDoc(ref)).data();
+        await updateDoc(ref, restore);
+
+        assert(after?.calendarPublic === true && after?.calendarFeedPublic === false, 'The sharing flags did not read back.');
+        return 'restored yours';
+      },
+    },
+    {
+      name: 'rules reject calendar sharing that is not a yes or no',
+      run: async (ctx) =>
+        expectDenied('calendarPublic set to text', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { calendarPublic: 'yes' }),
+        ),
     },
     {
       name: 'rules still reject unknown profile fields',
@@ -1323,4 +1851,4 @@ const newsSuite: TestSuite = {
   ],
 };
 
-export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, travelSuite, profileSuite, usernameSuite, newsSuite];
+export const testSuites: TestSuite[] = [messagesSuite, listsSuite, stickersSuite, eventsSuite, interestsSuite, travelSuite, profileSuite, usernameSuite, newsSuite];

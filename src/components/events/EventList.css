@@ -1,0 +1,325 @@
+/* A day's events as ledger rows: hairlines between rows running edge to edge,
+   content inset by --cal-edge. A row opens in place with the 0fr → 1fr
+   disclosure the rest of the site uses. */
+
+.ev-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font2);
+}
+
+/* Scrolled to after a link or a save: clear of the pinned line above and the
+   player bar below. */
+.ev-row {
+  border-bottom: 1px solid var(--cal-rule-soft, #dfe3f0);
+  scroll-margin: 3.5rem 0 calc(var(--hp-title-clear, 5rem) + 1rem);
+}
+
+.ev-row:last-child {
+  border-bottom: none;
+}
+
+/* dot · time · title · category and place · caret */
+.ev-row-head {
+  display: grid;
+  grid-template-columns: auto clamp(4.5rem, 7vw, 6.5rem) minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.55rem var(--cal-edge, 1rem);
+  background: none;
+  border: none;
+  border-radius: 0;
+  font: inherit;
+  font-size: clamp(0.72rem, 0.7vw, 0.86rem);
+  text-align: left;
+  color: var(--cal-ink, #2b2b2b);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.ev-row-head:hover {
+  background: var(--cal-sheet-hover, #fff);
+}
+
+.ev-row-head:hover .ev-row-title,
+.ev-row-head:focus-visible .ev-row-title {
+  color: var(--colour3);
+}
+
+.ev-row-head:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: -2px;
+}
+
+.ev-row-dot {
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ec-c, #5566c9);
+}
+
+.ev-row-time {
+  font-size: 0.9em;
+  color: var(--cal-dim, #5566c9);
+  white-space: nowrap;
+}
+
+.ev-row-title {
+  overflow: hidden;
+  color: var(--cal-accent, #1a2ecc);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.ev-row.is-open .ev-row-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ev-row-where {
+  max-width: 22ch;
+  overflow: hidden;
+  font-size: 0.88em;
+  color: var(--cal-mute, #8a90a8);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Says what a click will do, in words, boxed so it reads as the row's control
+   rather than as more of its text. */
+.ev-row-toggle {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--cal-rule, #c9cee4);
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  color: var(--cal-dim, #5566c9);
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ev-row-head:hover .ev-row-toggle,
+.ev-row-head:focus-visible .ev-row-toggle {
+  border-color: var(--colour3);
+  color: var(--colour3);
+}
+
+/* The event just linked to, saved or picked on the grid. */
+.ev-row.is-focus {
+  background: var(--cal-tint, #eef1fb);
+}
+
+/* ─── Detail ──────────────────────────────────────────── */
+
+.ev-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+
+.ev-row.is-open .ev-detail {
+  grid-template-rows: 1fr;
+}
+
+.ev-detail-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ev-detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(0.8rem, 1.6vw, 1.4rem);
+  padding: 0.2rem var(--cal-edge, 1rem) 0.9rem calc(var(--cal-edge, 1rem) + 8px + 0.7rem);
+}
+
+.ev-detail-body.has-image {
+  grid-template-columns: clamp(120px, 14vw, 200px) minmax(0, 1fr);
+}
+
+.ev-detail-image {
+  align-self: start;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--cal-rule, #c9cee4);
+  border-radius: 0;
+  line-height: 0;
+  cursor: zoom-in;
+}
+
+.ev-detail-image img {
+  width: 100%;
+  max-height: 16rem;
+  object-fit: cover;
+}
+
+.ev-detail-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 66ch;
+}
+
+/* name ........ value */
+.ev-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.15rem 0.6rem;
+  margin: 0;
+  font-size: clamp(0.7rem, 0.68vw, 0.82rem);
+}
+
+.ev-facts dt {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: var(--cal-dim, #5566c9);
+}
+
+.ev-facts dt::after {
+  content: '';
+  flex: 1 1 auto;
+  min-width: 2rem;
+  border-bottom: 1px dotted var(--cal-rule, #c9cee4);
+  transform: translateY(-0.2em);
+}
+
+.ev-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--cal-ink, #2b2b2b);
+}
+
+.ev-desc {
+  margin: 0;
+  font-family: var(--font4);
+  font-size: clamp(0.76rem, 0.74vw, 0.9rem);
+  line-height: 1.6;
+  color: var(--cal-ink, #2b2b2b);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ev-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: clamp(0.7rem, 0.68vw, 0.82rem);
+}
+
+.ev-links a {
+  display: block;
+  overflow: hidden;
+  color: var(--cal-accent, #1a2ecc);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev-links a::before {
+  content: '↗ ';
+  color: var(--cal-dim, #5566c9);
+}
+
+.ev-links a:hover,
+.ev-links a:focus-visible {
+  color: var(--colour3);
+}
+
+.ev-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 1rem;
+}
+
+.ev-lineup a {
+  color: var(--cal-accent, #1a2ecc);
+}
+
+.ev-lineup a:hover,
+.ev-lineup a:focus-visible {
+  color: var(--colour3);
+}
+
+.ev-lineup-sep {
+  color: var(--cal-mute, #8a90a8);
+}
+
+/* Tags and links inside a description, drawn like the rest of the page's. */
+.ev-desc a {
+  color: var(--cal-accent, #1a2ecc);
+}
+
+.ev-desc a:hover,
+.ev-desc a:focus-visible {
+  color: var(--colour3);
+}
+
+.ev-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.ev-author-avatar {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.ev-author-name {
+  overflow-wrap: anywhere;
+}
+
+/* Words, not icons; the destructive one turns red on hover only. */
+.ev-word {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-dim, #5566c9);
+  cursor: pointer;
+}
+
+.ev-word:hover,
+.ev-word:focus-visible {
+  color: var(--colour3);
+}
+
+.ev-word-del:hover,
+.ev-word-del:focus-visible {
+  color: #c0392b;
+}
+
+.ev-word:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+@media (max-width: 700px) {
+  .ev-row-head {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    gap: 0.5rem;
+  }
+
+  .ev-row-where {
+    display: none;
+  }
+
+  .ev-detail-body,
+  .ev-detail-body.has-image {
+    grid-template-columns: minmax(0, 1fr);
+    padding-left: var(--cal-edge, 1rem);
+  }
+}

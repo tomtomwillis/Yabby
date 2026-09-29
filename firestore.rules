@@ -255,7 +255,7 @@ service cloud.firestore {
     // Mirrored in src/utils/socials.ts and backend_server/data/policy.js.
     function isValidSocials(s) {
       return s is map
-        && s.keys().hasOnly(['instagram', 'twitter', 'signal', 'discord', 'playstation', 'bandcampArtist', 'bandcampFan', 'soundcloud', 'mixcloud'])
+        && s.keys().hasOnly(['instagram', 'twitter', 'signal', 'discord', 'playstation', 'bandcampArtist', 'bandcampFan', 'soundcloud', 'mixcloud', 'steam', 'radio'])
         && (!('instagram' in s) || (s.instagram is string && s.instagram.matches('[A-Za-z0-9._]{1,30}')))
         && (!('twitter' in s) || (s.twitter is string && s.twitter.matches('[A-Za-z0-9_]{1,15}')))
         && (!('signal' in s) || (s.signal is string && s.signal.matches('[A-Za-z0-9_]{3,32}[.][0-9]{2,10}')))
@@ -264,7 +264,14 @@ service cloud.firestore {
         && (!('bandcampArtist' in s) || (s.bandcampArtist is string && s.bandcampArtist.matches('[a-z0-9][a-z0-9-]{0,62}')))
         && (!('bandcampFan' in s) || (s.bandcampFan is string && s.bandcampFan.matches('[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')))
         && (!('soundcloud' in s) || (s.soundcloud is string && s.soundcloud.matches('[A-Za-z0-9_-]{1,64}')))
-        && (!('mixcloud' in s) || (s.mixcloud is string && s.mixcloud.matches('[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')));
+        && (!('mixcloud' in s) || (s.mixcloud is string && s.mixcloud.matches('[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')))
+        // Either a 17-digit SteamID64 or a custom URL name — never a full
+        // steamcommunity.com link, which the client builds from whichever
+        // one is stored.
+        && (!('steam' in s) || (s.steam is string && s.steam.matches('7656119[0-9]{10}|[A-Za-z0-9_-]{2,32}')))
+        // The one platform with no fixed template: the handle is the whole
+        // link, so http(s) is all that is enforced here.
+        && (!('radio' in s) || (s.radio is string && s.radio.matches('https?://\\S{1,192}')));
     }
 
     // One act on a bill: a name, and the Navidrome artist id when the act is
@@ -309,7 +316,7 @@ service cloud.firestore {
       return validString(data.title, 1, 120)
         && data.date is string
         && data.date.matches('20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])')
-        && data.category in ['radio', 'club', 'gig', 'release']
+        && data.category in ['radio', 'club', 'gig', 'release', 'event', 'other']
         && (!('time' in data) || isValidEventTime(data.time))
         && (!('endTime' in data) || ('time' in data && isValidEventTime(data.endTime)))
         && (!('timeZone' in data) || ('time' in data && isValidEventTimeZone(data.timeZone)))
@@ -319,6 +326,7 @@ service cloud.firestore {
         && (!('lineup' in data) || isValidLineup(data.lineup))
         && (!('cost' in data) || validString(data.cost, 0, 60))
         && (!('urls' in data) || isValidEventUrls(data.urls))
+        && (!('hosted' in data) || data.hosted is bool)
         && (!('imageId' in data) || (data.imageId is string
             && data.imageId.matches('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')));
     }
@@ -370,7 +378,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'calendarPublic', 'calendarFeedPublic', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
         && isValidUsername(request.resource.data.username)
         && ownsUsername(userId, request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
@@ -382,6 +390,8 @@ service cloud.firestore {
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
+        && (!('calendarPublic' in request.resource.data) || request.resource.data.calendarPublic is bool)
+        && (!('calendarFeedPublic' in request.resource.data) || request.resource.data.calendarFeedPublic is bool)
         && (!('socials' in request.resource.data) || isValidSocials(request.resource.data.socials))
         // joinedAt carries the account's creation time in Auth, which is always
         // at or before the write that copies it across; a future date is not a
@@ -391,7 +401,7 @@ service cloud.firestore {
         && (!('stickerCount' in request.resource.data) || request.resource.data.stickerCount == 0);
 
       allow update: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'calendarPublic', 'calendarFeedPublic', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
         && isValidUsername(request.resource.data.username)
         // Only a rename pays for the reservation lookup — every other profile
         // write, including the post count increment on each post, keeps the
@@ -407,6 +417,8 @@ service cloud.firestore {
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
+        && (!('calendarPublic' in request.resource.data) || request.resource.data.calendarPublic is bool)
+        && (!('calendarFeedPublic' in request.resource.data) || request.resource.data.calendarFeedPublic is bool)
         && (!('socials' in request.resource.data) || isValidSocials(request.resource.data.socials))
         // Join date is written once, on first login, and is never rewritten
         // after that — otherwise it is not a join date. The value copied across
@@ -901,12 +913,14 @@ service cloud.firestore {
     // Calendar events, plus the /test sandbox twin. Any member may add one; only
     // its author edits it, and the author or an admin deletes it. The author's
     // name must be the one on their profile — no admin exemption, since no bot
-    // writes here.
+    // writes here. `hosted` is the author saying the event is theirs; an event
+    // saved before it existed counts as hosted. interestedBy/interestCount are
+    // who ticked "interested?", public like a post's likes.
     match /{eventCollection}/{eventId} {
       allow read: if isEventCollection(eventCollection) && isSignedIn();
 
       allow create: if isEventCollection(eventCollection) && isSignedIn()
-        && request.resource.data.keys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'userId', 'username', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'hosted', 'userId', 'username', 'createdAt'])
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.username == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
         && request.resource.data.createdAt == request.time
@@ -914,9 +928,19 @@ service cloud.firestore {
 
       // Author, date and creation time are fixed once written.
       allow update: if isEventCollection(eventCollection) && isOwner(resource.data.userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'updatedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'hosted', 'updatedAt'])
         && request.resource.data.updatedAt == request.time
         && isValidEventFields(request.resource.data);
+
+      // Interest toggle: own uid in/out of interestedBy, count kept in sync
+      allow update: if isEventCollection(eventCollection) && isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['interestedBy', 'interestCount'])
+        && isValidReactionToggle(
+          resource.data.get('interestedBy', []).toSet(),
+          request.resource.data.interestedBy.toSet(),
+          resource.data.get('interestCount', 0),
+          request.resource.data.interestCount
+        );
 
       allow delete: if isEventCollection(eventCollection) && (isOwner(resource.data.userId) || isAdmin());
     }
@@ -943,8 +967,9 @@ service cloud.firestore {
 
     // The events a member has ticked "interested?" on, plus the /test sandbox
     // twin. One document per member, id = their uid, and nobody else may read
-    // it — who is interested in what is never shown. The backend's calendar
-    // feed reads it with the Admin SDK.
+    // it. Each tick is also counted in public on the event (interestedBy); this
+    // list is the member's own copy, which the backend's calendar feed reads
+    // with the Admin SDK.
     //
     // feedVersion is signed into the member's feed link, so raising it by one
     // retires every link given out before. It never goes back, and the live

@@ -1,0 +1,190 @@
+/* Settings + filters — one line under the grid that unrolls into every facet
+   side by side, each a short column that scrolls on its own, with the
+   member's calendar settings beneath them. */
+
+.cal-set {
+  background: #fbfbfd;
+  border-bottom: 1px solid var(--cal-rule, #c9cee4);
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.08em;
+}
+
+.cal-set-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem clamp(0.5rem, 1vw, 0.9rem);
+  padding: 0.5rem var(--cal-edge, 1rem);
+}
+
+.cal-set-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--cal-accent, #1a2ecc);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.cal-set-toggle:hover,
+.cal-set-toggle:focus-visible {
+  color: var(--colour3);
+}
+
+.cal-set-toggle:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.cal-set-mark {
+  display: inline-block;
+  font-size: 0.85em;
+  transition: transform 0.28s ease;
+}
+
+.cal-set.is-open .cal-set-mark {
+  transform: rotate(90deg);
+}
+
+.cal-set-chip {
+  flex: 0 0 auto;
+  color: var(--cal-dim, #5566c9);
+}
+
+.cal-set-chip b {
+  font-weight: 400;
+  color: var(--cal-accent, #1a2ecc);
+}
+
+.cal-set-rule {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  height: 0;
+  border-bottom: 1px solid var(--cal-rule, #c9cee4);
+  transform: translateY(-0.25em);
+}
+
+.cal-set-note {
+  flex: 0 0 auto;
+  color: var(--cal-mute, #8a90a8);
+}
+
+/* 0fr → 1fr rolls to the content's own height without measuring it; hidden
+   once closed so the options leave the tab order. */
+.cal-set-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  background: var(--cal-tint, #eef1fb);
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0.28s;
+}
+
+.cal-set.is-open .cal-set-panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.28s ease, visibility 0s linear 0s;
+}
+
+.cal-set-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Side by side while they fit, wrapping to fewer columns on a phone. */
+.cal-set-facets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.6rem clamp(1rem, 2.2vw, 2.4rem);
+  padding: 0.55rem var(--cal-edge, 1rem) 0.75rem;
+}
+
+.cal-set-facet {
+  min-width: 0;
+}
+
+.cal-set-facet-h {
+  margin: 0 0 0.2rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--cal-rule, #c9cee4);
+  font: inherit;
+  color: var(--cal-dim, #5566c9);
+}
+
+.cal-set-opts {
+  max-height: clamp(7.5rem, 22vh, 12rem);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.cal-set-opt {
+  display: block;
+  width: 100%;
+  padding: 0.12rem 0;
+  overflow: hidden;
+  background: none;
+  border: none;
+  font: inherit;
+  line-height: 1.55;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  color: var(--cal-ink, #2b2b2b);
+  cursor: pointer;
+}
+
+.cal-set-opt:hover,
+.cal-set-opt:focus-visible {
+  color: var(--colour3);
+}
+
+.cal-set-opt:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: -2px;
+}
+
+.cal-set-opt.is-sel {
+  color: var(--cal-accent, #1a2ecc);
+  font-weight: 700;
+}
+
+/* Ruled out by the other facets. Left in place so nothing reshuffles under
+   the pointer. */
+.cal-set-opt.is-empty:not(.is-sel) {
+  color: var(--cal-mute, #8a90a8);
+}
+
+/* The member's calendar, already on the panel's tint — just a hairline above. */
+.cal-set .cal-sub {
+  background: none;
+  border-top: 1px solid var(--cal-rule, #c9cee4);
+  border-bottom: none;
+}
+
+@media (max-width: 700px) {
+  .cal-set-rule {
+    display: none;
+  }
+
+  .cal-set-note {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-set-panel,
+  .cal-set-mark {
+    transition: none;
+  }
+}
