@@ -9,6 +9,7 @@ import PlaceSticker from '../components/PlaceSticker';
 import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import RecentLists from '../components/RecentLists';
 import Weather from '../components/weather-app';
+import HomeFilmClub from '../components/film/HomeFilmClub';
 import HomeEvents, { HomeEventsNav } from '../components/events/HomeEvents';
 import { addDays, startOfWeek, todayISO, weekTitle } from '../components/events/eventTypes';
 import './Home.css';
@@ -162,11 +163,17 @@ function HomeDashboard() {
         </div>
       </div>
 
-      <Section icon="⚑" title="travel" to="/travel">
-        <Suspense fallback={<p className="hp-note">loading map…</p>}>
-          <HomeTravel />
-        </Suspense>
-      </Section>
+      <div className="home-row2">
+        <Section icon="⚑" title="travel" to="/travel">
+          <Suspense fallback={<p className="hp-note">loading map…</p>}>
+            <HomeTravel />
+          </Suspense>
+        </Section>
+
+        <Section icon="▶" title="film club" to="/film-club">
+          <HomeFilmClub />
+        </Section>
+      </div>
     </>
   );
 }

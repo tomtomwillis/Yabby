@@ -1,0 +1,90 @@
+/* The current-film widget on the home page, sitting beside travel. */
+
+.home-film {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-family: var(--font2);
+}
+
+.hf-film {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.hf-poster {
+  flex: 0 0 auto;
+  width: clamp(90px, 8vw, 130px);
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border: 1px solid var(--hp-rule);
+}
+
+.hf-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.hf-title {
+  font-size: clamp(0.8rem, 0.8vw, 0.95rem);
+  color: var(--hp-accent);
+  text-decoration: none;
+}
+
+.hf-title:hover,
+.hf-title:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}
+
+.hf-year,
+.hf-meta {
+  color: var(--hp-dim);
+}
+
+.hf-meta {
+  margin: 0;
+  font-size: clamp(0.68rem, 0.6vw, 0.8rem);
+}
+
+.hf-pitch {
+  margin: 0;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--hp-rule);
+  font-size: clamp(0.7rem, 0.65vw, 0.85rem);
+  font-style: italic;
+  color: var(--hp-ink);
+}
+
+/* Clamped so a long synopsis can't push the row taller than the map beside it. */
+.hf-overview {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  font-size: clamp(0.68rem, 0.6vw, 0.8rem);
+  line-height: 1.45;
+  color: var(--hp-ink);
+}
+
+.hf-links {
+  margin: 0;
+  font-size: clamp(0.68rem, 0.6vw, 0.8rem);
+  color: var(--hp-dim);
+}
+
+.hf-link {
+  color: var(--hp-accent);
+  text-decoration: none;
+}
+
+.hf-link:hover,
+.hf-link:focus-visible {
+  color: var(--colour3);
+  text-decoration: underline;
+}

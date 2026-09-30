@@ -13,6 +13,7 @@ import './TravelMap.css';
 import './HomeTravel.css';
 
 const PLACE_LIMIT = 5;
+const RECENT_LIMIT = 3;
 
 /** New identity on every click, so re-picking the same place re-fires the fly. */
 interface Focus {
@@ -193,7 +194,8 @@ const HomeTravel: React.FC = () => {
       </div>
 
       <p className="ht-list">
-        {places.map((place, i) => (
+        <span className="ht-list-label">Recently added: </span>
+        {places.slice(0, RECENT_LIMIT).map((place, i, recent) => (
           <Fragment key={place.id}>
             <button
               type="button"
@@ -204,9 +206,9 @@ const HomeTravel: React.FC = () => {
               }}
             >
               {shortName(place)}
-              {place.city ? `, ${place.city}` : ''}
+              {place.city ? ` (${place.city})` : ''}
             </button>
-            {i < places.length - 1 && <span aria-hidden="true">; </span>}
+            {i < recent.length - 1 && <span aria-hidden="true">, </span>}
           </Fragment>
         ))}
       </p>

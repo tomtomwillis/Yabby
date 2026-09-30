@@ -33,6 +33,10 @@
   color: var(--hp-dim);
 }
 
+.ht-list-label {
+  color: var(--hp-ink);
+}
+
 .ht-link {
   padding: 0;
   background: none;
