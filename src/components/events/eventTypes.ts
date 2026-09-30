@@ -37,6 +37,8 @@ export interface CalendarEvent {
   timeZone?: string;
   /** May carry @-tags — [Artist](navidrome link) — rendered like a post. */
   description?: string;
+  /** The author's own word on why they are interested. Plain text. */
+  comment?: string;
   location?: string;
   city?: string;
   lineup?: LineupAct[];
@@ -46,35 +48,66 @@ export interface CalendarEvent {
   /** The author says it is their own event. Absent on events saved before the
    *  flag existed, when only hosts could add one — see isHosted. */
   hosted?: boolean;
-  /** Who ticked "interested?", public like a post's likes. */
+  /** Who ticked "interested?" and "going", public like a post's likes. A
+   *  member is in one list or neither, never both. */
   interestedBy: string[];
   interestCount: number;
+  goingBy: string[];
+  goingCount: number;
   userId: string;
   username: string;
 }
 
 export const isHosted = (event: Pick<CalendarEvent, 'hosted'>) => event.hosted !== false;
 
+export type EventStatus = 'interested' | 'going';
+
+/** Everyone with the event in their calendar, interested or going. */
+export const attendeesOf = (event: Pick<CalendarEvent, 'interestedBy' | 'goingBy'>) => [
+  ...event.interestedBy,
+  ...event.goingBy,
+];
+
+/** The member's status from their private lists: `ids` is every event in their
+ *  calendar, `going` the ones they have a ticket for. */
+export function statusFrom(id: string, ids: ReadonlySet<string>, going: ReadonlySet<string>): EventStatus | null {
+  if (going.has(id)) return 'going';
+  return ids.has(id) ? 'interested' : null;
+}
+
 /**
- * Who is interested in an event, with the member's own tick applied at once:
- * the event's copy only catches up on the next read, and the private list is
- * what the member just changed.
+ * Who is interested in and going to an event, with the member's own status
+ * applied at once: the event's copy only catches up on the next read, and the
+ * private list is what the member just changed.
  */
-export function interestIn(event: CalendarEvent, uid: string | null, ticked: ReadonlySet<string>, ready: boolean) {
-  const counted = !!uid && event.interestedBy.includes(uid);
+export function attendanceIn(
+  event: CalendarEvent,
+  uid: string | null,
+  mine: { ids: ReadonlySet<string>; going: ReadonlySet<string>; ready: boolean },
+) {
+  const counted: EventStatus | null =
+    !uid ? null : event.goingBy.includes(uid) ? 'going' : event.interestedBy.includes(uid) ? 'interested' : null;
   // Until the private list has loaded, the event's own copy is the best guess.
-  const checked = ready ? ticked.has(event.id) : counted;
-  const others = uid ? event.interestedBy.filter((id) => id !== uid) : event.interestedBy;
+  const status = !uid ? null : mine.ready ? statusFrom(event.id, mine.ids, mine.going) : counted;
+  const side = (list: string[], count: number, which: EventStatus) => {
+    const others = uid ? list.filter((id) => id !== uid) : list;
+    const on = status === which;
+    return {
+      count: Math.max(0, count - (counted === which ? 1 : 0) + (on ? 1 : 0)),
+      userIds: on && uid ? [uid, ...others] : others,
+    };
+  };
   return {
-    checked,
-    count: Math.max(0, event.interestCount - (counted ? 1 : 0) + (checked ? 1 : 0)),
-    userIds: checked && uid ? [uid, ...others] : others,
+    status,
+    interested: side(event.interestedBy, event.interestCount, 'interested'),
+    going: side(event.goingBy, event.goingCount, 'going'),
   };
 }
 
 export const EVENT_LIMITS = {
   title: 120,
   description: 2000,
+  comment: 500,
   location: 200,
   city: 60,
   cost: 60,
@@ -217,6 +250,7 @@ export function toCalendarEvent(id: string, data: Record<string, unknown>): Cale
     endTime: str('endTime'),
     timeZone: isValidEventTimeZone(data.timeZone) ? data.timeZone : undefined,
     description: str('description'),
+    comment: str('comment'),
     location: str('location'),
     city: str('city'),
     lineup: Array.isArray(data.lineup)
@@ -236,6 +270,11 @@ export function toCalendarEvent(id: string, data: Record<string, unknown>): Cale
       typeof data.interestCount === 'number' && data.interestCount >= 0
         ? data.interestCount
         : Array.isArray(data.interestedBy) ? data.interestedBy.length : 0,
+    goingBy: Array.isArray(data.goingBy) ? data.goingBy.filter((u): u is string => typeof u === 'string') : [],
+    goingCount:
+      typeof data.goingCount === 'number' && data.goingCount >= 0
+        ? data.goingCount
+        : Array.isArray(data.goingBy) ? data.goingBy.length : 0,
     userId: typeof data.userId === 'string' ? data.userId : '',
     username: typeof data.username === 'string' ? data.username : '',
   };

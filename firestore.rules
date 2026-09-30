@@ -227,6 +227,17 @@ service cloud.firestore {
         && (urls.size() < 5 || isValidEventUrl(urls[4]));
     }
 
+    // One of an event's attendance lists either left alone, count and all, or
+    // moved by the caller's own uid with its count.
+    function isOwnAttendanceStep(before, after, listKey, countKey) {
+      let was = before.get(listKey, []).toSet();
+      let now = after.get(listKey, []).toSet();
+      let oldCount = before.get(countKey, 0);
+      let newCount = after.get(countKey, 0);
+      return (was == now && newCount == oldCount)
+        || isValidReactionToggle(was, now, oldCount, newCount);
+    }
+
     function isEventCityCollection(c) {
       return c in ['eventCities', 'testEventCities'];
     }
@@ -321,6 +332,7 @@ service cloud.firestore {
         && (!('endTime' in data) || ('time' in data && isValidEventTime(data.endTime)))
         && (!('timeZone' in data) || ('time' in data && isValidEventTimeZone(data.timeZone)))
         && (!('description' in data) || validString(data.description, 0, 2000))
+        && (!('comment' in data) || validString(data.comment, 0, 500))
         && (!('location' in data) || validString(data.location, 0, 200))
         && (!('city' in data) || isValidCityName(data.city))
         && (!('lineup' in data) || isValidLineup(data.lineup))
@@ -914,13 +926,15 @@ service cloud.firestore {
     // its author edits it, and the author or an admin deletes it. The author's
     // name must be the one on their profile — no admin exemption, since no bot
     // writes here. `hosted` is the author saying the event is theirs; an event
-    // saved before it existed counts as hosted. interestedBy/interestCount are
-    // who ticked "interested?", public like a post's likes.
+    // saved before it existed counts as hosted. `comment` is the author's own
+    // word on why they are interested. interestedBy/interestCount and
+    // goingBy/goingCount are who ticked "interested?" and "going", public like
+    // a post's likes.
     match /{eventCollection}/{eventId} {
       allow read: if isEventCollection(eventCollection) && isSignedIn();
 
       allow create: if isEventCollection(eventCollection) && isSignedIn()
-        && request.resource.data.keys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'hosted', 'userId', 'username', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'comment', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'hosted', 'userId', 'username', 'createdAt'])
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.username == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
         && request.resource.data.createdAt == request.time
@@ -928,19 +942,18 @@ service cloud.firestore {
 
       // Author, date and creation time are fixed once written.
       allow update: if isEventCollection(eventCollection) && isOwner(resource.data.userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'hosted', 'updatedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'date', 'category', 'time', 'endTime', 'timeZone', 'description', 'comment', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId', 'hosted', 'updatedAt'])
         && request.resource.data.updatedAt == request.time
         && isValidEventFields(request.resource.data);
 
-      // Interest toggle: own uid in/out of interestedBy, count kept in sync
+      // Interested/going: own uid in or out of each list, counts kept in
+      // step, and never in both — switching moves it across in one write.
       allow update: if isEventCollection(eventCollection) && isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['interestedBy', 'interestCount'])
-        && isValidReactionToggle(
-          resource.data.get('interestedBy', []).toSet(),
-          request.resource.data.interestedBy.toSet(),
-          resource.data.get('interestCount', 0),
-          request.resource.data.interestCount
-        );
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['interestedBy', 'interestCount', 'goingBy', 'goingCount'])
+        && isOwnAttendanceStep(resource.data, request.resource.data, 'interestedBy', 'interestCount')
+        && isOwnAttendanceStep(resource.data, request.resource.data, 'goingBy', 'goingCount')
+        && !(request.auth.uid in request.resource.data.get('interestedBy', [])
+          && request.auth.uid in request.resource.data.get('goingBy', []));
 
       allow delete: if isEventCollection(eventCollection) && (isOwner(resource.data.userId) || isAdmin());
     }
@@ -965,9 +978,11 @@ service cloud.firestore {
         && (isOwner(resource.data.createdBy) || isAdmin());
     }
 
-    // The events a member has ticked "interested?" on, plus the /test sandbox
-    // twin. One document per member, id = their uid, and nobody else may read
-    // it. Each tick is also counted in public on the event (interestedBy); this
+    // The events a member has ticked "interested?" or "going" on, plus the
+    // /test sandbox twin. eventIds holds both; goingIds is the going subset.
+    // One document per member, id = their uid, and nobody else may read it.
+    // Each tick is also counted in public on the event (interestedBy or
+    // goingBy); this
     // list is the member's own copy, which the backend's calendar feed reads
     // with the Admin SDK.
     //
@@ -979,15 +994,17 @@ service cloud.firestore {
       allow read: if isEventInterestCollection(interestCollection) && isOwner(userId);
 
       allow create: if isEventInterestCollection(interestCollection) && isOwner(userId)
-        && request.resource.data.keys().hasOnly(['eventIds', 'feedVersion', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['eventIds', 'goingIds', 'feedVersion', 'updatedAt'])
         && isValidEventIds(request.resource.data.eventIds)
+        && (!('goingIds' in request.resource.data) || isValidEventIds(request.resource.data.goingIds))
         && request.resource.data.feedVersion is int
         && request.resource.data.feedVersion >= 1
         && request.resource.data.updatedAt == request.time;
 
       allow update: if isEventInterestCollection(interestCollection) && isOwner(userId)
-        && request.resource.data.keys().hasOnly(['eventIds', 'feedVersion', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['eventIds', 'goingIds', 'feedVersion', 'updatedAt'])
         && isValidEventIds(request.resource.data.eventIds)
+        && (!('goingIds' in request.resource.data) || isValidEventIds(request.resource.data.goingIds))
         && (request.resource.data.feedVersion == resource.data.feedVersion
           || request.resource.data.feedVersion == resource.data.feedVersion + 1)
         && request.resource.data.updatedAt == request.time;

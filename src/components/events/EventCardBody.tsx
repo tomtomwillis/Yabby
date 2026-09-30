@@ -2,8 +2,8 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEvent, eventImageUrl, peekEvent } from '../../utils/eventsApi';
 import { validateUrl } from '../../utils/sanitise';
-import { parseMessageHTML } from '../basic/messageText';
 import EventLineup from './EventLineup';
+import EventNotes from './EventNotes';
 import InterestedCheck from './InterestedCheck';
 import UsernameLink from '../basic/UsernameLink';
 import {
@@ -30,8 +30,8 @@ interface EventCardBodyProps {
 }
 
 /** An event inside the album/artist card frame. What members wrote is rendered
- *  as text, apart from the description, which goes through the board's own
- *  sanitising parser so its @-tags work. Links are drawn only when http(s). */
+ *  as text, apart from the description (see EventNotes). Links are drawn only
+ *  when http(s). */
 const EventCardBody: React.FC<EventCardBodyProps> = ({ eventId, onLightbox, onContent, onClose }) => {
   // Seeded from the cache, so an event already listed somewhere is drawn on the
   // card's first frame rather than after a "loading" one.
@@ -107,7 +107,7 @@ const EventCardBody: React.FC<EventCardBodyProps> = ({ eventId, onLightbox, onCo
           )}
         </dl>
 
-        {event.description && <div className="ec-desc">{parseMessageHTML(event.description)}</div>}
+        <EventNotes event={event} descClassName="ec-desc" />
 
         {urls.length > 0 && (
           <ul className="ec-links">

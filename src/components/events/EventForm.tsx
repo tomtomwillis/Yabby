@@ -29,7 +29,8 @@ interface EventFormProps {
   editing?: CalendarEvent;
   /** The date a new event starts on — the day chosen on the calendar. */
   defaultDate: string;
-  onSubmit: (draft: EventDraft) => Promise<void>;
+  /** `going` is whether the author has a ticket — asked only for a new event. */
+  onSubmit: (draft: EventDraft, going: boolean) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -71,11 +72,13 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
   const [lineup, setLineup] = useState<LineupAct[]>(editing?.lineup ?? []);
   const [cost, setCost] = useState(editing?.cost ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
+  const [comment, setComment] = useState(editing?.comment ?? '');
   const [urls, setUrls] = useState<string[]>(editing?.urls?.length ? editing.urls : ['']);
   const [imageId, setImageId] = useState<string | undefined>(editing?.imageId);
   const [hosted, setHosted] = useState(editing ? isHosted(editing) : hostedByDefault('gig'));
   // Once the member has set it themselves, changing category leaves it alone.
   const [hostedTouched, setHostedTouched] = useState(!!editing);
+  const [going, setGoing] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
@@ -198,6 +201,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
       lineup,
       cost: oneLine(cost).slice(0, EVENT_LIMITS.cost) || undefined,
       description: sanitizeText(description).trim().slice(0, EVENT_LIMITS.description) || undefined,
+      comment: sanitizeText(comment).trim().slice(0, EVENT_LIMITS.comment) || undefined,
       urls: links.slice(0, EVENT_LIMITS.urls),
       imageId,
       hosted,
@@ -214,7 +218,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit(draft);
+      await onSubmit(draft, going);
     } catch (err) {
       setError((err as Error).message || 'Could not save the event.');
       setSubmitting(false);
@@ -265,6 +269,49 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
         </div>
 
         <div className="ev-form-body">
+          {!editing && (
+            <div className="ev-import">
+              <label className="ev-import-label" htmlFor="ev-import-url">
+                Automated Fill (works with links from Communal Leisure, Dice or GEL)
+              </label>
+              <div className="ev-url">
+                <input
+                  id="ev-import-url"
+                  className="ev-input"
+                  type="url"
+                  inputMode="url"
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text').trim();
+                    if (importSourceFor(pasted)) {
+                      e.preventDefault();
+                      setImportUrl(pasted);
+                      runImport(pasted);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      runImport(importUrl);
+                    }
+                  }}
+                  placeholder="https://dice.fm/event/…"
+                  disabled={importing}
+                />
+                <button
+                  type="button"
+                  className="ev-import-go"
+                  onClick={() => runImport(importUrl)}
+                  disabled={importing || !importUrl.trim()}
+                >
+                  {importing ? 'reading…' : 'fill in'}
+                </button>
+              </div>
+              {importNote && <p className="ev-import-note" role="status">{importNote}</p>}
+            </div>
+          )}
+
           <div className="ev-field">
             <span className="ev-label" id="ev-cat-label">category</span>
             <div className="ev-cats" role="group" aria-labelledby="ev-cat-label">
@@ -373,6 +420,17 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
             />
           </div>
 
+          <label className="ev-field">
+            <span className="ev-label">Add a Comment</span>
+            <textarea
+              className="ev-input ev-textarea"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              maxLength={EVENT_LIMITS.comment}
+              placeholder="saw them last year, a friend's playing…"
+            />
+          </label>
+
           <label className="ev-field ev-cost">
             <span className="ev-label">cost</span>
             <input
@@ -410,48 +468,6 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
                 + another link
               </button>
             )}
-              {!editing && (
-                <div className="ev-import">
-                  <label className="ev-import-label" htmlFor="ev-import-url">
-                    or fill the whole form in from a communal leisure, dice or gel link
-                  </label>
-                  <div className="ev-url">
-                    <input
-                      id="ev-import-url"
-                      className="ev-input"
-                      type="url"
-                      inputMode="url"
-                      value={importUrl}
-                      onChange={(e) => setImportUrl(e.target.value)}
-                      onPaste={(e) => {
-                        const pasted = e.clipboardData.getData('text').trim();
-                        if (importSourceFor(pasted)) {
-                          e.preventDefault();
-                          setImportUrl(pasted);
-                          runImport(pasted);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          runImport(importUrl);
-                        }
-                      }}
-                      placeholder="https://dice.fm/event/…"
-                      disabled={importing}
-                    />
-                    <button
-                      type="button"
-                      className="ev-import-go"
-                      onClick={() => runImport(importUrl)}
-                      disabled={importing || !importUrl.trim()}
-                    >
-                      {importing ? 'reading…' : 'fill in'}
-                    </button>
-                  </div>
-                  {importNote && <p className="ev-import-note" role="status">{importNote}</p>}
-                </div>
-              )}
           </div>
 
           <label className="ev-own">
@@ -467,6 +483,15 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
             this is my event
             <span className="ev-own-note">you're putting it on, playing, or it's your show</span>
           </label>
+
+          {!editing && (
+            <label className="ev-own">
+              <input type="checkbox" checked={going} onChange={(e) => setGoing(e.target.checked)} />
+              <span className="ev-own-mark" aria-hidden="true">{going ? '[x]' : '[ ]'}</span>
+              i'm going
+              <span className="ev-own-note">you've got a ticket — otherwise you're marked interested</span>
+            </label>
+          )}
 
           <div className="ev-actions">
             <button type="submit" className="ev-btn ev-btn-primary" disabled={submitting || uploading}>

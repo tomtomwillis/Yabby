@@ -18,6 +18,7 @@ import {
   toCalendarEvent,
   type CalendarEvent,
   type EventCategory,
+  type EventStatus,
   type LineupAct,
 } from '../components/events/eventTypes';
 
@@ -154,6 +155,7 @@ export interface EventDraft {
   endTime?: string;
   timeZone?: string;
   description?: string;
+  comment?: string;
   location?: string;
   city?: string;
   lineup?: LineupAct[];
@@ -164,7 +166,7 @@ export interface EventDraft {
 }
 
 const OPTIONAL_FIELDS = [
-  'time', 'endTime', 'timeZone', 'description', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId',
+  'time', 'endTime', 'timeZone', 'description', 'comment', 'location', 'city', 'lineup', 'cost', 'urls', 'imageId',
 ] as const;
 
 function present(draft: EventDraft): WriteData {
@@ -216,7 +218,16 @@ export async function createEvent(draft: EventDraft, username: string): Promise<
     username,
     createdAt: SERVER_TIME,
   });
-  const event: CalendarEvent = { ...draft, id: ref.id, userId: uid, username, interestedBy: [], interestCount: 0 };
+  const event: CalendarEvent = {
+    ...draft,
+    id: ref.id,
+    userId: uid,
+    username,
+    interestedBy: [],
+    interestCount: 0,
+    goingBy: [],
+    goingCount: 0,
+  };
   remember(event, ref.id);
   await ensureEventCity(draft.city);
   return event;
@@ -239,6 +250,8 @@ export async function updateEvent(existing: CalendarEvent, draft: EventDraft): P
     username: existing.username,
     interestedBy: existing.interestedBy,
     interestCount: existing.interestCount,
+    goingBy: existing.goingBy,
+    goingCount: existing.goingCount,
   };
   remember(event, existing.id);
   await ensureEventCity(draft.city);
@@ -250,16 +263,23 @@ export async function deleteEvent(id: string): Promise<void> {
   remember(null, id);
 }
 
-/** Folds a member's tick into the cached copy of the event, so a re-read of
- *  the range shows the count they just moved. */
-export function rememberInterest(event: CalendarEvent, uid: string, on: boolean): CalendarEvent {
+/** Folds a member's interested/going status into the cached copy of the
+ *  event, so a re-read of the range shows the counts they just moved. */
+export function rememberStatus(event: CalendarEvent, uid: string, status: EventStatus | null): CalendarEvent {
   const current = byId.get(event.id) ?? event;
-  const has = current.interestedBy.includes(uid);
-  if (has === on) return current;
+  const move = (list: string[], count: number, on: boolean) => {
+    const has = list.includes(uid);
+    if (has === on) return { list, count };
+    return { list: on ? [...list, uid] : list.filter((id) => id !== uid), count: Math.max(0, count + (on ? 1 : -1)) };
+  };
+  const interested = move(current.interestedBy, current.interestCount, status === 'interested');
+  const going = move(current.goingBy, current.goingCount, status === 'going');
   const next: CalendarEvent = {
     ...current,
-    interestedBy: on ? [...current.interestedBy, uid] : current.interestedBy.filter((id) => id !== uid),
-    interestCount: Math.max(0, current.interestCount + (on ? 1 : -1)),
+    interestedBy: interested.list,
+    interestCount: interested.count,
+    goingBy: going.list,
+    goingCount: going.count,
   };
   remember(next, event.id);
   return next;

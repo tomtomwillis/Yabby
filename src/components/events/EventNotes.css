@@ -1,0 +1,64 @@
+/* An event's description and its author's comment, in the calendar list and
+   the hover card. Reads the calendar's colours in the calendar and the card
+   frame's in a card. */
+
+.ev-notes-desc {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.ev-notes-desc > :first-child {
+  align-self: stretch;
+}
+
+.ev-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--ev-clamp, 6);
+  line-clamp: var(--ev-clamp, 6);
+  overflow: hidden;
+}
+
+.ev-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-accent, var(--nc-accent, #1a2ecc));
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.ev-more:hover,
+.ev-more:focus-visible {
+  color: var(--colour3);
+}
+
+.ev-comment {
+  margin: 0.35rem 0 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--cal-dim, var(--nc-accent-dim, #5566c9));
+}
+
+.ev-comment-label {
+  display: block;
+  font-family: var(--font2);
+  font-size: clamp(0.64rem, 0.62vw, 0.76rem);
+  letter-spacing: 0.06em;
+  color: var(--cal-dim, var(--nc-accent-dim, #5566c9));
+}
+
+.ev-comment-text {
+  margin: 0.1rem 0 0;
+  font-family: var(--font4);
+  font-size: clamp(0.74rem, 0.72vw, 0.88rem);
+  line-height: 1.5;
+  color: var(--cal-ink, var(--colour5));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

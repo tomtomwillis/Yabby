@@ -510,14 +510,13 @@
 
 /* ─── Import ──────────────────────────────────────────── */
 
-/* Under the links, set off by a dashed rule: the one field that fills the rest. */
+/* First in the form, set off by a dashed rule: the one field that fills the rest. */
 .ev-import {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  margin-top: 0.45rem;
-  padding-top: 0.55rem;
-  border-top: 1px dashed var(--cal-rule, #c9cee4);
+  padding-bottom: 0.7rem;
+  border-bottom: 1px dashed var(--cal-rule, #c9cee4);
 }
 
 .ev-import-label {

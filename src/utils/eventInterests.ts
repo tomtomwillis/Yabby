@@ -11,17 +11,18 @@ import {
   incrementBy,
   SERVER_TIME,
 } from '../api/shadow';
-import { authHeader, peekEvent, rememberInterest } from './eventsApi';
+import { authHeader, peekEvent, rememberStatus } from './eventsApi';
 import { clearUserCache } from './userCache';
-import type { CalendarEvent } from '../components/events/eventTypes';
+import { statusFrom, type CalendarEvent, type EventStatus } from '../components/events/eventTypes';
 
 /*
- * The events the signed-in member has ticked "interested?" on — one private
- * document, eventInterests/{uid}, read once a session and shared by every
- * component that shows a tick or a marker. Ticks update here at once and are
- * written behind, one at a time and in order. The private list is what the
- * calendar feed reads; each tick is also counted on the event itself
- * (interestedBy/interestCount), which is what other members see.
+ * The events the signed-in member has ticked "interested?" or "going" on — one
+ * private document, eventInterests/{uid}, read once a session and shared by
+ * every component that shows a tick or a marker. eventIds holds both, and is
+ * what the calendar feed reads; goingIds is the going subset. Ticks update
+ * here at once and are written behind, one at a time and in order. Each is
+ * also counted on the event itself (interestedBy/goingBy and their counts),
+ * which is what other members see.
  *
  * The same document carries feedVersion, which the backend signs into the
  * member's calendar feed link. Raising it retires the old link.
@@ -38,6 +39,8 @@ interface Interests {
   uid: string;
   /** In the order they were ticked, oldest first. */
   ids: ReadonlySet<string>;
+  /** The ones the member has a ticket for — always also in `ids`. */
+  going: ReadonlySet<string>;
   exists: boolean;
   feedVersion: number;
 }
@@ -68,9 +71,12 @@ function loadInterests(uid: string, fresh = false): Promise<Interests> {
   const promise = trackedGetDoc(doc(db, INTERESTS, uid))
     .then((snap) => {
       const data = snap.data() ?? {};
-      const ids = Array.isArray(data.eventIds) ? data.eventIds.filter((id): id is string => typeof id === 'string') : [];
+      const strings = (value: unknown) =>
+        Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
+      const ids = new Set(strings(data.eventIds));
+      const going = new Set(strings(data.goingIds).filter((id) => ids.has(id)));
       const feedVersion = Number.isInteger(data.feedVersion) && data.feedVersion >= 1 ? data.feedVersion : 1;
-      const loaded: Interests = { uid, ids: new Set(ids), exists: snap.exists(), feedVersion };
+      const loaded: Interests = { uid, ids, going, exists: snap.exists(), feedVersion };
       publish(loaded);
       return loaded;
     })
@@ -95,8 +101,10 @@ function enqueue<T>(write: () => Promise<T>): Promise<T> {
   return run;
 }
 
-/** The member's ticks, for drawing. Empty until loaded, and when signed out. */
-export function useEventInterests(): { ids: ReadonlySet<string>; ready: boolean } {
+/** The member's ticks, for drawing: `ids` is everything in their calendar,
+ *  `going` the ones they have a ticket for. Empty until loaded, and when
+ *  signed out. */
+export function useEventInterests(): { ids: ReadonlySet<string>; going: ReadonlySet<string>; ready: boolean } {
   const [user] = useAuthState(auth);
   const uid = user?.uid ?? null;
   const snapshot = useSyncExternalStore(subscribe, () => current);
@@ -106,64 +114,88 @@ export function useEventInterests(): { ids: ReadonlySet<string>; ready: boolean 
   }, [uid]);
 
   const mine = uid && snapshot?.uid === uid ? snapshot : null;
-  return { ids: mine?.ids ?? NONE, ready: mine !== null };
+  return { ids: mine?.ids ?? NONE, going: mine?.going ?? NONE, ready: mine !== null };
 }
 
-/** Ticks or unticks an event. Resolves with whether it is now ticked. */
-export async function toggleInterest(event: CalendarEvent): Promise<boolean> {
+/** Marks the member interested in or going to an event, or neither. The two
+ *  exclude each other, so choosing one clears the other. */
+export async function setEventStatus(event: CalendarEvent, status: EventStatus | null): Promise<void> {
   const eventId = event.id;
   const uid = requireUid();
   const state = await loadInterests(uid);
-  const on = !state.ids.has(eventId);
+  const before = statusFrom(eventId, state.ids, state.going);
 
-  const next = new Set(state.ids);
-  if (on) next.add(eventId);
-  else next.delete(eventId);
-  const overflow = next.size > MAX_INTERESTS;
-  const ids = overflow ? new Set([...next].slice(-MAX_INTERESTS)) : next;
-  const create = !state.exists;
-  publish({ ...state, ids, exists: true });
+  if (before !== status) {
+    const next = new Set(state.ids);
+    const nextGoing = new Set(state.going);
+    if (status) next.add(eventId);
+    else next.delete(eventId);
+    if (status === 'going') nextGoing.add(eventId);
+    else nextGoing.delete(eventId);
+    const overflow = next.size > MAX_INTERESTS;
+    const ids = overflow ? new Set([...next].slice(-MAX_INTERESTS)) : next;
+    const going = overflow ? new Set([...nextGoing].filter((id) => ids.has(id))) : nextGoing;
+    const create = !state.exists;
+    publish({ ...state, ids, going, exists: true });
 
-  const ref = doc(db, INTERESTS, uid);
-  try {
-    await enqueue(() => {
-      if (create) {
-        return setDocShadowed(ref, { eventIds: [...ids], feedVersion: state.feedVersion, updatedAt: SERVER_TIME });
-      }
-      // The whole list only when trimming; otherwise a transform, so two tabs
-      // ticking at once do not overwrite each other.
-      if (overflow) return updateDocShadowed(ref, { eventIds: [...ids], updatedAt: SERVER_TIME });
-      return updateDocShadowed(ref, {
-        eventIds: on ? arrayUnionOf(eventId) : arrayRemoveOf(eventId),
-        updatedAt: SERVER_TIME,
-      });
-    });
-  } catch (error) {
-    // What is stored is no longer certain, so read it back rather than guess.
-    await loadInterests(uid, true).catch(() => {});
-    throw error;
-  }
-
-  // The public count follows. It goes by what the event says rather than the
-  // private list, so a tick made before counts existed is never counted off.
-  const latest = peekEvent(eventId) ?? event;
-  const had = latest.interestedBy.includes(uid);
-  if (had !== on) {
-    rememberInterest(latest, uid, on);
+    const ref = doc(db, INTERESTS, uid);
     try {
-      await enqueue(() =>
-        updateDocShadowed(doc(db, EVENTS, eventId), {
-          interestedBy: on ? arrayUnionOf(uid) : arrayRemoveOf(uid),
-          interestCount: incrementBy(on ? 1 : -1),
-        }),
-      );
+      await enqueue(() => {
+        if (create) {
+          return setDocShadowed(ref, {
+            eventIds: [...ids],
+            goingIds: [...going],
+            feedVersion: state.feedVersion,
+            updatedAt: SERVER_TIME,
+          });
+        }
+        // The whole lists only when trimming; otherwise transforms, so two
+        // tabs ticking at once do not overwrite each other.
+        if (overflow) return updateDocShadowed(ref, { eventIds: [...ids], goingIds: [...going], updatedAt: SERVER_TIME });
+        return updateDocShadowed(ref, {
+          eventIds: status ? arrayUnionOf(eventId) : arrayRemoveOf(eventId),
+          goingIds: status === 'going' ? arrayUnionOf(eventId) : arrayRemoveOf(eventId),
+          updatedAt: SERVER_TIME,
+        });
+      });
     } catch (error) {
-      // The member's own calendar has it either way; only the count is off.
-      rememberInterest(latest, uid, had);
-      console.warn('Could not update the interest count:', error);
+      // What is stored is no longer certain, so read it back rather than guess.
+      await loadInterests(uid, true).catch(() => {});
+      throw error;
     }
   }
-  return on;
+
+  // The public counts follow. They go by what the event says rather than the
+  // private list, so a tick made before counts existed is never counted off.
+  const latest = peekEvent(eventId) ?? event;
+  const patch: Record<string, unknown> = {};
+  const step = (list: string[], listKey: string, countKey: string, on: boolean) => {
+    if (list.includes(uid) === on) return;
+    patch[listKey] = on ? arrayUnionOf(uid) : arrayRemoveOf(uid);
+    patch[countKey] = incrementBy(on ? 1 : -1);
+  };
+  step(latest.interestedBy, 'interestedBy', 'interestCount', status === 'interested');
+  step(latest.goingBy, 'goingBy', 'goingCount', status === 'going');
+  if (Object.keys(patch).length === 0) return;
+
+  rememberStatus(latest, uid, status);
+  try {
+    await enqueue(() => updateDocShadowed(doc(db, EVENTS, eventId), patch));
+  } catch (error) {
+    // The member's own calendar has it either way; only the counts are off.
+    restoreStatus(latest, uid);
+    console.warn('Could not update the interest count:', error);
+  }
+}
+
+/** Puts the member's status back to what the event said before a failed
+ *  count write. */
+function restoreStatus(before: CalendarEvent, uid: string) {
+  rememberStatus(
+    before,
+    uid,
+    before.goingBy.includes(uid) ? 'going' : before.interestedBy.includes(uid) ? 'interested' : null,
+  );
 }
 
 /**

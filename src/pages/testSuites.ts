@@ -825,7 +825,7 @@ const eventsSuite: TestSuite = {
   id: 'events',
   name: 'Calendar',
   description:
-    'Reads the live week ahead, then adds a sandbox event with every field, edits it, clears its time, counts you in as interested and out again, and deletes it, and adds and removes a sandbox city. Also checks the rules hold an event to its shape: a date, one of six categories, a yes-or-no hosted flag, http links only, at most five, a real image id, a lineup of named acts, a real place name, an interest count that moves only you by one, and nobody writing as someone else.',
+    'Reads the live week ahead, then adds a sandbox event with every field, edits it, clears its time, counts you in as interested, moves you to going and out again, and deletes it, and adds and removes a sandbox city. Also checks the rules hold an event to its shape: a date, one of six categories, a yes-or-no hosted flag, http links only, at most five, a real image id, a lineup of named acts, a real place name, a comment of at most 500 characters, interested and going counts that move only you by one and never hold you in both, and nobody writing as someone else.',
   tests: [
     {
       name: 'reads the week ahead',
@@ -868,6 +868,7 @@ const eventsSuite: TestSuite = {
             endTime: '03:00',
             timeZone: 'America/Argentina/Buenos_Aires',
             description: `${MARKER} description`,
+            comment: `${MARKER} why I'm interested`,
             location: 'the basement',
             city: 'Glasgow',
             lineup: [{ name: 'Djrum', artistId: 'abc123' }, { name: 'Support act' }],
@@ -886,6 +887,7 @@ const eventsSuite: TestSuite = {
         assert(Array.isArray(data?.urls) && data.urls.length === 2, 'The links did not save.');
         assert(data?.username === ctx.username, 'The author name did not save.');
         assert(data?.city === 'Glasgow', 'The city did not save.');
+        assert(data?.comment === `${MARKER} why I'm interested`, 'The comment did not save.');
         assert(data?.lineup?.[0]?.artistId === 'abc123' && !('artistId' in data.lineup[1]), 'The lineup did not save as written.');
         return `${SANDBOX_EVENTS}/${ref.id}`;
       },
@@ -921,6 +923,60 @@ const eventsSuite: TestSuite = {
         assert(unticked?.interestCount === 0 && unticked?.interestedBy?.length === 0, 'The untick was not counted off.');
         return 'counted 1, then 0';
       },
+    },
+    {
+      name: 'moves you from interested to going and back out',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        await updateDoc(ref, { interestedBy: arrayUnionOf(ctx.uid), interestCount: incrementBy(1) });
+        await updateDoc(ref, {
+          interestedBy: arrayRemoveOf(ctx.uid),
+          interestCount: incrementBy(-1),
+          goingBy: arrayUnionOf(ctx.uid),
+          goingCount: incrementBy(1),
+        });
+        const going = (await getDoc(ref)).data();
+        await updateDoc(ref, { goingBy: arrayRemoveOf(ctx.uid), goingCount: incrementBy(-1) });
+        const neither = (await getDoc(ref)).data();
+        assert(going?.goingCount === 1 && going?.goingBy?.includes(ctx.uid), 'Going was not counted.');
+        assert(going?.interestCount === 0 && !going?.interestedBy?.includes(ctx.uid), 'Interested was not counted off.');
+        assert(neither?.goingCount === 0 && neither?.goingBy?.length === 0, 'Not going was not counted off.');
+        return 'interested → going → neither';
+      },
+    },
+    {
+      name: 'rules stop being interested and going at once',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('ticking interested and going in one write', () =>
+          updateDoc(ref, {
+            interestedBy: arrayUnionOf(ctx.uid),
+            interestCount: incrementBy(1),
+            goingBy: arrayUnionOf(ctx.uid),
+            goingCount: incrementBy(1),
+          }),
+        );
+      },
+    },
+    {
+      name: 'rules stop marking someone else going',
+      run: async () => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('adding another uid to goingBy', () =>
+          updateDoc(ref, { goingBy: arrayUnionOf('not-my-uid'), goingCount: incrementBy(1) }),
+        );
+      },
+    },
+    {
+      name: 'rules stop a going count that moves alone',
+      run: async () => {
+        const ref = doc(db, SANDBOX_EVENTS, requireId(eventState.eventId, 'event'));
+        return expectDenied('raising goingCount with no one added', () => updateDoc(ref, { goingCount: incrementBy(3) }));
+      },
+    },
+    {
+      name: 'rules reject a comment over 500 characters',
+      run: async (ctx) => expectEventDenied(ctx, 'adding an event with a long comment', eventDoc(ctx, { comment: 'x'.repeat(501) })),
     },
     {
       name: 'rules stop counting someone else in',
@@ -1122,7 +1178,7 @@ const interestsSuite: TestSuite = {
   id: 'eventInterests',
   name: 'Calendar interests',
   description:
-    'Ticks and unticks events in a sandbox copy of your interests and retires its feed link, then checks the rules keep them private and the link one-way: nobody else may read or write them, the feed version only ever steps up by one, the live copy is never deleted, and the list holds at most 200. Last, asks the backend for your real feed link and fetches it — read only, your ticks are untouched.',
+    'Ticks and unticks events in a sandbox copy of your interests, marks one going and back, and retires its feed link, then checks the rules keep them private and the link one-way: nobody else may read or write them, the feed version only ever steps up by one, the live copy is never deleted, and the list holds at most 200. Last, asks the backend for your real feed link and fetches it — read only, your ticks are untouched.',
   tests: [
     {
       name: 'starts from an empty sandbox',
@@ -1152,6 +1208,26 @@ const interestsSuite: TestSuite = {
         assert(Array.isArray(ids) && ids.length === 1 && ids[0] === 'yabbytestB', `Expected [yabbytestB], got ${JSON.stringify(ids)}.`);
         return 'one ticked, one unticked';
       },
+    },
+    {
+      name: 'marks an event going, then back to interested',
+      run: async (ctx) => {
+        const ref = doc(db, SANDBOX_INTERESTS, ctx.uid);
+        await updateDoc(ref, { goingIds: arrayUnionOf('yabbytestB'), updatedAt: SERVER_TIME });
+        const going = (await getDoc(ref)).data()?.goingIds;
+        await updateDoc(ref, { goingIds: arrayRemoveOf('yabbytestB'), updatedAt: SERVER_TIME });
+        const after = (await getDoc(ref)).data()?.goingIds;
+        assert(Array.isArray(going) && going[0] === 'yabbytestB', `Expected going [yabbytestB], got ${JSON.stringify(going)}.`);
+        assert(Array.isArray(after) && after.length === 0, `Expected going [], got ${JSON.stringify(after)}.`);
+        return 'going, then interested';
+      },
+    },
+    {
+      name: 'rules want going as a list',
+      run: async (ctx) =>
+        expectDenied('storing going as text', () =>
+          updateDoc(doc(db, SANDBOX_INTERESTS, ctx.uid), { goingIds: 'yabbytestB', updatedAt: SERVER_TIME }),
+        ),
     },
     {
       name: 'a new link moves the feed version up one',

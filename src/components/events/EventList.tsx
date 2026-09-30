@@ -5,11 +5,11 @@ import { eventImageUrl } from '../../utils/eventsApi';
 import { getUserData } from '../../utils/userCache';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import { validateUrl } from '../../utils/sanitise';
-import { parseMessageHTML } from '../basic/messageText';
 import EventLineup from './EventLineup';
+import EventNotes from './EventNotes';
 import InterestedCheck, { InterestMark } from './InterestedCheck';
 import { useEventInterests } from '../../utils/eventInterests';
-import { categoryColour, dayLabel, interestIn, linkLabel, timeLabel, whereLabel, zoneNote, type CalendarEvent } from './eventTypes';
+import { attendanceIn, categoryColour, dayLabel, linkLabel, timeLabel, whereLabel, zoneNote, type CalendarEvent } from './eventTypes';
 import './EventList.css';
 
 /** The author's avatar beside the name the event was saved under. The avatar
@@ -66,7 +66,7 @@ const EventList: React.FC<EventListProps> = ({
   onDelete,
 }) => {
   const [lightbox, setLightbox] = useState<string | null>(null);
-  const { ids: interested, ready } = useEventInterests();
+  const mine = useEventInterests();
 
   return (
     <>
@@ -77,8 +77,15 @@ const EventList: React.FC<EventListProps> = ({
           const image = eventImageUrl(event.imageId);
           const urls = (event.urls ?? []).filter(validateUrl);
           const where = whereLabel(event);
-          const { count } = interestIn(event, currentUserId, interested, ready);
-          const summary = [event.category, where, count > 0 && `${count} interested`].filter(Boolean).join(' · ');
+          const { interested, going } = attendanceIn(event, currentUserId, mine);
+          const summary = [
+            event.category,
+            where,
+            interested.count > 0 && `${interested.count} interested`,
+            going.count > 0 && `${going.count} going`,
+          ]
+            .filter(Boolean)
+            .join(' · ');
           const classes = ['ev-row', open && 'is-open', event.id === focusId && 'is-focus'].filter(Boolean).join(' ');
 
           return (
@@ -98,7 +105,7 @@ const EventList: React.FC<EventListProps> = ({
                 <span className="ev-row-dot" aria-hidden="true" />
                 <span className="ev-row-time">{timeLabel(event) || 'all day'}</span>
                 <span className="ev-row-title">
-                  {interested.has(event.id) && <><InterestMark />{' '}</>}
+                  {mine.ids.has(event.id) && <><InterestMark />{' '}</>}
                   {event.title}
                 </span>
                 <span className="ev-row-where">{summary}</span>
@@ -122,6 +129,12 @@ const EventList: React.FC<EventListProps> = ({
 
                       <div className="ev-detail-text">
                         <dl className="ev-facts">
+                          {event.city && (
+                            <>
+                              <dt>city</dt>
+                              <dd>{event.city}</dd>
+                            </>
+                          )}
                           <dt>when</dt>
                           <dd>
                             {dayLabel(event.date)}
@@ -156,8 +169,7 @@ const EventList: React.FC<EventListProps> = ({
                           )}
                         </dl>
 
-                        {/* The board's own parser: sanitised, with @-tags as hover cards. */}
-                        {event.description && <div className="ev-desc">{parseMessageHTML(event.description)}</div>}
+                        <EventNotes event={event} descClassName="ev-desc" />
 
                         {urls.length > 0 && (
                           <ul className="ev-links">

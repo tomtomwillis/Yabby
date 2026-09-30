@@ -15,6 +15,7 @@ import {
   cityKey,
   compareEvents,
   addMonths,
+  attendeesOf,
   dayLabel,
   isHosted,
   monthGrid,
@@ -36,7 +37,7 @@ import {
   type EventCursor,
   type EventDraft,
 } from '../utils/eventsApi';
-import { useEventInterests } from '../utils/eventInterests';
+import { setEventStatus, useEventInterests } from '../utils/eventInterests';
 import { getUserData, getUserProfile } from '../utils/userCache';
 import { useAdmin } from '../utils/useAdmin';
 import { useRateLimit } from '../utils/useRateLimit';
@@ -301,7 +302,7 @@ export default function CalendarPage() {
   useEffect(() => {
     const unseen = new Set<string>();
     for (const event of events) {
-      for (const id of event.interestedBy) if (id !== uid && !people.has(id)) unseen.add(id);
+      for (const id of attendeesOf(event)) if (id !== uid && !people.has(id)) unseen.add(id);
     }
     if (unseen.size === 0) return;
     let cancelled = false;
@@ -386,7 +387,7 @@ export default function CalendarPage() {
         (skip === 'type' || !f.type || e.category === f.type) &&
         (skip === 'by' || !f.by || e.userId === f.by) &&
         (skip === 'host' || !f.host || (isHosted(e) && (f.host === 'members' || e.userId === uid))) &&
-        (skip === 'cal' || !f.cal || (f.cal === 'mine' ? interested.has(e.id) : e.interestedBy.includes(f.cal)))
+        (skip === 'cal' || !f.cal || (f.cal === 'mine' ? interested.has(e.id) : attendeesOf(e).includes(f.cal)))
       );
     },
     [filters, interested, uid],
@@ -448,7 +449,7 @@ export default function CalendarPage() {
     for (const e of inView) {
       if (e.city && !cityLabels.has(cityKey(e.city))) cityLabels.set(cityKey(e.city), e.city);
       if (e.userId && !userLabels.has(e.userId)) userLabels.set(e.userId, e.username || 'someone');
-      for (const id of e.interestedBy) {
+      for (const id of attendeesOf(e)) {
         const person = people.get(id);
         if (id !== uid && person?.shares) calLabels.set(id, person.username);
       }
@@ -527,7 +528,7 @@ export default function CalendarPage() {
         'calendar',
         filters.cal,
         calOptions,
-        count('cal', (e) => [interested.has(e.id) ? 'mine' : '', ...e.interestedBy.filter((id) => id !== uid)]),
+        count('cal', (e) => [interested.has(e.id) ? 'mine' : '', ...attendeesOf(e).filter((id) => id !== uid)]),
         (v, label) => setFilter({ cal: v, calLabel: v === 'mine' ? '' : label }),
         false,
       ),
@@ -640,7 +641,7 @@ export default function CalendarPage() {
     setVersion((v) => v + 1);
   };
 
-  const handleSubmit = async (draft: EventDraft) => {
+  const handleSubmit = async (draft: EventDraft, going: boolean) => {
     if (!user) throw new Error('Sign in to add events.');
 
     if (editing) {
@@ -658,8 +659,11 @@ export default function CalendarPage() {
     track('calendar_event_added', {
       category: saved.category,
       hosted: saved.hosted ? 'yes' : 'no',
+      going: going ? 'yes' : 'no',
     });
     showSaved(saved);
+    // Whoever adds an event is interested in it, or going. The event is saved either way.
+    setEventStatus(saved, going ? 'going' : 'interested').catch((error) => console.warn('Could not mark the new event interested:', error));
   };
 
   const handleDelete = async (event: CalendarEvent) => {
