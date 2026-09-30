@@ -9,7 +9,6 @@ import {
   categoryColour,
   dayLabel,
   eventPath,
-  timeLabel,
   todayISO,
   weekRangeLabel,
   type CalendarEvent,
@@ -56,8 +55,8 @@ interface HomeEventsProps {
 
 /**
  * A week at a glance, Monday to Sunday: a column per day, each event as its
- * time and name with the category down its side. Hovering one shows the same
- * card the board's Event Bot posts do, and clicking pins it — the card links
+ * city and category over its name, with the category's colour down its side.
+ * Hovering one shows the same card the board's Event Bot posts do, and clicking pins it — the card links
  * on to the calendar. One range query per week, shared with the calendar page
  * through the events cache.
  */
@@ -134,9 +133,9 @@ const HomeEvents: React.FC<HomeEventsProps> = ({ weekStart }) => {
                             open({ target, at: { x: e.clientX, y: e.clientY }, pinned: true, follow: false });
                           }}
                         >
-                          <span className="he-time">
+                          <span className="he-meta">
                             {interested.has(event.id) && <><InterestMark />{' '}</>}
-                            {timeLabel(event) || 'all day'}
+                            {[event.city, event.category].filter(Boolean).join(' • ')}
                           </span>
                           <span className="he-title">{event.title}</span>
                         </Link>

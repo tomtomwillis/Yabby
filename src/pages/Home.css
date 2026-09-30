@@ -1,8 +1,8 @@
 /*
  * Home — fixed rail, scrolling body.
  *
- * A left rail carries the site index and the small persistent readouts (radio,
- * stats, weather); the body beside it scrolls on its own. The ASCII wordmark is
+ * A left rail carries the site index with the weather scene at its foot; the
+ * body beside it scrolls on its own. The ASCII wordmark is
  * pinned to the bottom-left above both, with the ASCII man opposite it. Sections
  * are separated by hairline rules and a heading rather than boxes, so the page
  * reads as one document. Nothing is rounded, nothing is shadowed, and the
@@ -92,22 +92,22 @@ body:has(.home-page) .star-path {
    themselves by it to land in the frame the two columns leave. */
 .home-page {
   --hp-title-clear: calc(var(--hp-bar-h, 9rem) + 0.25rem);
-  --hp-side-w: clamp(210px, 17vw, 290px);
+  --hp-side-w: clamp(220px, 17.85vw, 305px);
   /* Named because a page inside the body column may need to cancel it: the
      message board's rules run edge to edge, which it does by insetting itself
      by this. */
-  --hp-main-pad: clamp(1.2rem, 2.2vw, 2.6rem);
+  --hp-main-pad: clamp(1.5rem, 2.75vw, 3.25rem);
   /* Named for the same reason, but for the top edge: a sticky band inside the
      column sticks to the column's *content* box, so anything that wants to pin
      flush with the window has to offset itself back out by this. */
-  --hp-main-pad-top: 1.4rem;
+  --hp-main-pad-top: 0.8rem;
 }
 
 .home-side {
   display: flex;
   flex: 0 0 var(--hp-side-w);
   flex-direction: column;
-  padding: 0.9rem clamp(0.8rem, 0.9vw, 1.2rem) var(--hp-title-clear);
+  padding: 1rem clamp(1.2rem, 1.35vw, 1.8rem) var(--hp-title-clear);
   overflow: hidden;
   border-right: 1px solid var(--hp-rule);
 }
@@ -118,7 +118,7 @@ body:has(.home-page) .star-path {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: clamp(0.7rem, 1.7vh, 1.6rem);
+  gap: clamp(1.12rem, 2.72vh, 2.56rem);
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -132,15 +132,22 @@ body:has(.home-page) .star-path {
   min-width: 0;
   /* Extra beyond the bar's height so the last section comes to rest clear of
      the wordmark rather than flush against it. */
-  padding: var(--hp-main-pad-top) var(--hp-main-pad) calc(var(--hp-title-clear) + 3rem);
+  padding: var(--hp-main-pad-top) var(--hp-main-pad) calc(var(--hp-title-clear) + 3.1rem);
   overflow-y: auto;
 }
 
-/* Lists beside travel, replacing the mock's calendar column. */
+/* Lists beside the stats and weather readouts. */
 .home-row2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: clamp(1.2rem, 2vw, 2rem);
+}
+
+.home-readouts {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.42rem, 0.84vh, 0.7rem);
+  min-width: 0;
 }
 
 /* ─── Routed pages inside the shell ───────────────────── */
@@ -263,12 +270,18 @@ body:has(.home-page) .star-path {
 /* The title is the section's only way through to its full page. */
 .hp-h-t {
   flex: 0 0 auto;
+  font-size: 1.2em;
   color: inherit;
   text-decoration: none;
 }
 
-.hp-h-t:hover,
-.hp-h-t:focus-visible {
+.hp-h-icon {
+  font-size: 1.5em;
+  line-height: 1;
+}
+
+a.hp-h-t:hover,
+a.hp-h-t:focus-visible {
   color: var(--colour3);
   text-decoration: underline;
 }
@@ -288,28 +301,29 @@ body:has(.home-page) .star-path {
   color: var(--hp-dim);
 }
 
-/* ─── Sidebar ─────────────────────────────────────────── */
+/* ─── Readouts ────────────────────────────────────────── */
 
-.hp-side-h {
-  display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  margin: 0 0 0.45rem;
+.home-readouts .stats-list {
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
+}
+
+.home-readouts .stats-row {
+  padding: 0.1rem 0;
+}
+
+.home-readouts .weather-card {
+  padding: 0;
+}
+
+.home-readouts .weather-card .normal-text {
+  margin: 0;
   font-family: var(--font2);
-  font-size: clamp(0.74rem, 0.72vw, 0.9rem);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--hp-accent);
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
+  line-height: 1.35;
+  color: var(--hp-ink);
 }
 
-.hp-side-branch {
-  flex: 0 0 auto;
-  color: var(--hp-rule);
-}
-
-.hp-side-t {
-  flex: 0 0 auto;
-}
+/* ─── Sidebar ─────────────────────────────────────────── */
 
 /* The rail's footer, outside the scrolling part: it holds the bottom edge above
    the fixed bar (the aside's padding) at any window height. */
@@ -323,50 +337,20 @@ body:has(.home-page) .star-path {
   color: var(--colour7);
 }
 
-.home-side .stats-list {
-  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
-}
-
-.home-side .stats-row {
-  padding: 0.3rem 0;
-}
-
-.home-side .weather-card {
-  padding: 0;
-}
-
-.home-side .weather-card .normal-text {
-  margin: 0;
-  font-family: var(--font2);
-  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
-  line-height: 1.5;
-  color: var(--hp-ink);
-}
-
-/* Weather is the rail's last section, so it can take whatever the index, stats
-   and strapline leave rather than claiming a share of the window that may not
-   be there — the strapline below it stays on screen at any height. */
-/* No min-height: 0 here — the automatic minimum stops the section shrinking
-   past its heading and readout, so the scene is the only thing that gives. */
-.home-side .hp-side-sec:last-of-type {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-}
-
 /* The engine's <pre> is absolutely positioned, so the frame has no intrinsic
    height — it has to be given one for the scale-to-fit to have a target. The
    component derives its row count from whatever height lands here, so there is
    no aspect ratio to keep in sync with the grid. */
-/* The scene is the rail's only elastic box: it takes the space everything else
+/* The scene is the rail's only elastic box: it takes the space the index
    leaves and gives it all back as the strapline below it runs to more lines,
    down to nothing. Without min-height: 0 it would refuse to shrink and the
-   strapline would lay out over the top of it. */
+   strapline would lay out over the top of it. The auto margin takes whatever
+   is left once it hits its cap, which is what sits it on the rail's floor. */
 .home-side .weathr-frame {
   flex: 1 1 0;
   min-height: 0;
   max-height: 260px;
-  margin-top: 0.35rem;
+  margin-top: auto;
 }
 
 /* ─── Sticker wall ────────────────────────────────────── */
@@ -404,7 +388,7 @@ body:has(.home-page) .star-path {
   opacity: 0.7;
 }
 
-/* "+ add your own +" — a heading control, so it inherits the heading's type
+/* "add your own" — a heading control, so it inherits the heading's type
    rather than looking like a button dropped into the rule. */
 .hp-af {
   display: flex;
@@ -423,18 +407,6 @@ body:has(.home-page) .star-path {
 .hp-af:hover,
 .hp-af:focus-visible {
   color: var(--colour3);
-}
-
-/* A + is unchanged by a quarter turn, so the closed state reads as a plain +
-   and opening looks like the arrow itself swinging down into place. */
-.hp-af-mark {
-  display: inline-block;
-  transform: rotate(-90deg);
-  transition: transform 0.28s ease;
-}
-
-.hp-af.is-open .hp-af-mark {
-  transform: rotate(0deg);
 }
 
 /* grid-template-rows 0fr → 1fr animates to the content's natural height without
@@ -508,12 +480,12 @@ body:has(.home-page) .star-path {
 
 .home-page .albums-marquee__tile,
 .home-page .albums-marquee__caption {
-  width: clamp(72px, 6vw, 110px);
+  width: clamp(83px, 6.9vw, 127px);
 }
 
 .home-page .albums-marquee__img {
-  width: clamp(72px, 6vw, 110px);
-  height: clamp(72px, 6vw, 110px);
+  width: clamp(83px, 6.9vw, 127px);
+  height: clamp(83px, 6.9vw, 127px);
   border-radius: 0;
   box-shadow: none;
 }
@@ -521,6 +493,11 @@ body:has(.home-page) .star-path {
 .home-page .albums-marquee__caption {
   font-family: var(--font2);
   font-size: 0.65rem;
+}
+
+.home-page .albums-marquee__track {
+  gap: 7px;
+  padding-block: 0;
 }
 
 /* ─── Recent lists ────────────────────────────────────── */
@@ -538,10 +515,10 @@ body:has(.home-page) .star-path {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   width: 100%;
   max-width: 100%;
-  padding: 0.5rem 0;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--hp-rule);
 }
 
@@ -550,9 +527,9 @@ body:has(.home-page) .star-path {
 }
 
 .home-page .recent-list-image-wrapper {
-  flex: 0 0 52px;
-  width: 52px;
-  height: 52px;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
   border-radius: 0;
 }
 
@@ -609,7 +586,7 @@ body:has(.home-page) .star-path {
   width: 100%;
   /* No top padding: the decorative rule is the bar's top edge, and the wordmark
      block below it sets the height the player is sized to fit inside. */
-  padding: 0 clamp(1rem, 2vw, 2rem) 0.5rem 1.2rem;
+  padding: 0 clamp(0.5rem, 1vw, 1rem) 0 0.8rem;
   box-sizing: border-box;
   background: var(--colour4);
 }
@@ -677,7 +654,7 @@ body:has(.home-page) .star-path {
    split with the player — enough of the bar for the track title to be readable
    rather than an ellipsis. */
 .home-bottom-title {
-  flex: 0 0 34%;
+  flex: 0 0 31%;
   align-self: flex-end;
   min-width: 0;
   color: var(--hp-accent);
@@ -889,13 +866,16 @@ body:has(.home-page) .star-path {
 .home-page > .mobile-nav {
   /* The bar is fixed above this at z-index 1002, so the last group would sit
      under it with no way to bring it out. */
+  padding-top: 1.05rem;
+  padding-inline: 1.55rem;
   padding-bottom: calc(var(--hp-bar-h, 9rem) + 1rem + env(safe-area-inset-bottom));
   border-right: 1px solid var(--hp-rule);
   box-shadow: none;
 }
 
 .home-page > .mobile-nav a {
-  padding: 0.7rem 0;
+  min-height: 24px;
+  padding: 0.5rem 0;
   font-size: 0.95rem;
   color: var(--hp-accent);
   border-bottom: 1px solid var(--hp-rule);
@@ -906,8 +886,12 @@ body:has(.home-page) .star-path {
   color: var(--colour3);
 }
 
+.home-page > .mobile-nav .mobile-nav-sublinks {
+  padding-left: 1.45rem;
+}
+
 .home-page > .mobile-nav .mobile-nav-group-header {
-  padding: 1.1rem 0 0.35rem;
+  padding: 1.4rem 0 0.3rem;
   font-size: 0.8rem;
   font-weight: 400;
   letter-spacing: 0.08em;
@@ -918,10 +902,9 @@ body:has(.home-page) .star-path {
 
 /* ─── Responsive ──────────────────────────────────────── */
 
-/* Short windows are where the rail runs out of room — the wrapped weather
-   sentence and index labels cost the same lines regardless of width. Pull the
-   spacing back just enough to keep the whole rail on screen without a
-   scrollbar; taller windows keep the roomier setting. */
+/* Short windows are where the rail runs out of room — the index labels cost
+   the same lines regardless of width. Pull the spacing back just enough to
+   leave the weather scene some room; taller windows keep the roomier setting. */
 @media (max-height: 900px) {
   .home-side-scroll {
     gap: clamp(0.5rem, 1.1vh, 1rem);
@@ -930,20 +913,12 @@ body:has(.home-page) .star-path {
   .home-side .home-index {
     line-height: 1.35;
   }
-
-  .hp-side-h {
-    margin-bottom: 0.3rem;
-  }
-
-  .home-side .stats-row {
-    padding: 0.22rem 0;
-  }
 }
 
 /* Mobile. The rail's two columns cannot both hold their content much below
    this, so this is where the page stops being a rail-and-body and becomes one
-   scrolling document: title → dashboard → readouts, and off `/` the routed page
-   alone. The drawer becomes the navigation here, which is earlier than
+   scrolling document: title → dashboard, and off `/` the routed page alone.
+   The drawer becomes the navigation here, which is earlier than
    Header.css switches over on its own — the burger is pulled up to match just
    below, since the rail's index goes with the rail. */
 @media (max-width: 900px) {
@@ -958,42 +933,51 @@ body:has(.home-page) .star-path {
     flex-direction: column;
   }
 
-  /* Stickers, recently added, lists and travel come first; stats and weather
-     are the tail of the page rather than a band above it. Source order is the
-     desktop rail's, so the two columns swap here instead. */
   /* Through the property rather than a literal, so a full-bleed page inside the
      column cancels exactly this much and not the wider desktop inset. */
   .home-main {
-    order: 1;
     --hp-main-pad: 1rem;
-    padding: 0 var(--hp-main-pad) 1.5rem;
+    padding: 0 var(--hp-main-pad) var(--hp-title-clear);
     overflow: visible;
   }
 
+  /* The index is the drawer's, the strapline the masthead's and the weather
+     scene is left unmounted by Home, so the rail has nothing left to show. */
   .home-side {
-    order: 2;
-    flex: 0 0 auto;
-    width: 100%;
-    padding: 1.2rem 1rem var(--hp-title-clear);
-    overflow: visible;
-    border-right: none;
-    border-top: 1px solid var(--hp-rule);
-  }
-
-  .home-side-scroll {
-    gap: 1.2rem;
-    overflow: visible;
+    display: none;
   }
 
   .home-row2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The clamp's floor at every width this block covers. */
+  .home-page .albums-marquee__tile,
+  .home-page .albums-marquee__caption,
+  .home-page .albums-marquee__img {
+    width: 79px;
+  }
+
+  .home-page .albums-marquee__img {
+    height: 79px;
+  }
+
+  .home-page .recent-list-card {
+    gap: 0.8rem;
+    padding: 0.3rem 0;
+  }
+
+  .home-page .recent-list-image-wrapper {
+    flex-basis: 60px;
+    width: 60px;
+    height: 60px;
+  }
+
   .home-top-title {
     display: block;
     /* The right inset is the burger's footprint — it is fixed at z-index 1001
        and would otherwise sit on top of the wordmark's first line. */
-    padding: 0.9rem 4.5rem 0.5rem 1rem;
+    padding: 0.6rem 4.5rem 0.5rem 1rem;
     color: var(--hp-accent);
   }
 
@@ -1011,28 +995,22 @@ body:has(.home-page) .star-path {
   }
 
   /* The bar is the player alone down here — the wordmark is at the top of the
-     page, and the rail's index and strapline are the drawer's and the
-     masthead's respectively. */
-  .home-bottom-title,
-  .home-side .home-index,
-  .home-side-sub {
+     page. */
+  .home-bottom-title {
     display: none;
   }
 
   /* Off home the shell keeps nothing but the player: the routed page renders
-     its own title, and the rail's readouts belong to the dashboard. Hidden
-     rather than unmounted, so returning to `/` costs no fresh reads. */
+     its own title. */
   .home-page:not(.is-home) .home-top-title,
-  .home-page:not(.is-home) .home-top-sub,
-  .home-page:not(.is-home) .home-side {
+  .home-page:not(.is-home) .home-top-sub {
     display: none;
   }
 
-  /* On `/` the masthead above supplies the top margin and the rail below takes
-     the bar's clearance; with both gone the column owns each end itself. */
+  /* On `/` the masthead above supplies the top margin; with it gone the column
+     owns that end itself. */
   .home-page:not(.is-home) .home-main {
     padding-top: 1rem;
-    padding-bottom: var(--hp-title-clear);
   }
 
   /* The window scrolls here, not the column, so a sticky band inside it pins to
@@ -1055,7 +1033,7 @@ body:has(.home-page) .star-path {
      matches the columns' inset. The dock is dropped at this width too, but by
      Home's VIZ_QUERY rather than here — hiding it in CSS would still mount it. */
   .home-bottom {
-    padding-right: 1.2rem;
+    padding: 0 0.9rem 0.45rem 0.75rem;
   }
 
   /* The drawer is the navigation from here down, but Header.css only reveals
@@ -1066,8 +1044,8 @@ body:has(.home-page) .star-path {
   .home-page > .burger-menu {
     display: flex;
     position: fixed;
-    top: 0.6rem;
-    right: 0.6rem;
+    top: 0.85rem;
+    right: 1rem;
     z-index: 1001;
   }
 }

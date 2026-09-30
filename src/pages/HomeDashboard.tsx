@@ -8,20 +8,24 @@ import CarouselStickers, {
 import PlaceSticker from '../components/PlaceSticker';
 import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import RecentLists from '../components/RecentLists';
+import Weather from '../components/weather-app';
 import HomeEvents, { HomeEventsNav } from '../components/events/HomeEvents';
 import { addDays, startOfWeek, todayISO, weekTitle } from '../components/events/eventTypes';
 import './Home.css';
 
 // Keeps leaflet out of the eagerly loaded home chunk.
 const HomeTravel = lazy(() => import('../components/travel/HomeTravel'));
+const Stats = lazy(() => import('../components/Stats'));
 
 const RECENTLY_ADDED_URL =
   'https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}';
 
 interface SectionProps {
+  icon: string;
   title: string;
-  /** Where the title links to — the heading itself is the only way through. */
-  to: string;
+  /** Where the title links to — the heading itself is the only way through.
+   *  Omitted for readouts with no page of their own. */
+  to?: string;
   /** Renders the title as a plain anchor in a new tab rather than a route link. */
   external?: boolean;
   /** Optional control sitting in the heading itself, before the rule. */
@@ -32,21 +36,30 @@ interface SectionProps {
 }
 
 /** A heading whose title links onward and whose rule fills the remaining width. */
-const Section: React.FC<SectionProps> = ({ title, to, external, extra, end, children }) => (
-  <section className="hp-sec">
-    <h2 className="hp-h">
-      {external ? (
-        <a className="hp-h-t" href={to} target="_blank" rel="noopener noreferrer">{title}</a>
-      ) : (
-        <Link className="hp-h-t" to={to}>{title}</Link>
-      )}
-      {extra}
-      <span className="hp-h-rule" aria-hidden="true" />
-      {end}
-    </h2>
-    {children}
-  </section>
-);
+const Section: React.FC<SectionProps> = ({ icon, title, to, external, extra, end, children }) => {
+  const label = (
+    <>
+      <span className="hp-h-icon" aria-hidden="true">{icon}</span> {title}
+    </>
+  );
+  return (
+    <section className="hp-sec">
+      <h2 className="hp-h">
+        {!to ? (
+          <span className="hp-h-t">{label}</span>
+        ) : external ? (
+          <a className="hp-h-t" href={to} target="_blank" rel="noopener noreferrer">{label}</a>
+        ) : (
+          <Link className="hp-h-t" to={to}>{label}</Link>
+        )}
+        {extra}
+        <span className="hp-h-rule" aria-hidden="true" />
+        {end}
+      </h2>
+      {children}
+    </section>
+  );
+};
 
 /** What `/` shows inside the home shell. The rail, wordmark and player belong to
  *  the shell, so this is only the body content. */
@@ -64,21 +77,20 @@ function HomeDashboard() {
   return (
     <>
       <Section
-        title="✦ stickers"
+        icon="✦"
+        title="stickers"
         to="/stickers"
         extra={
           <>
             <span className="hp-h-break" aria-hidden="true">❖</span>
             <button
               type="button"
-              className={`hp-af${stickerFormOpen ? ' is-open' : ''}`}
+              className="hp-af"
               onClick={() => setStickerFormOpen((open) => !open)}
               aria-expanded={stickerFormOpen}
               aria-controls="hp-sticker-form"
             >
-              <span className="hp-af-mark" aria-hidden="true">{stickerFormOpen ? '▾' : '+'}</span>
               add your own
-              <span className="hp-af-mark" aria-hidden="true">{stickerFormOpen ? '▾' : '+'}</span>
             </button>
             <span className="hp-h-break" aria-hidden="true">❖</span>
             <button
@@ -114,12 +126,13 @@ function HomeDashboard() {
         <CarouselStickers ref={stickersRef} order={stickerOrder} />
       </Section>
 
-      <Section title="♫ recently added" to={RECENTLY_ADDED_URL} external>
+      <Section icon="♫" title="recently added" to={RECENTLY_ADDED_URL} external>
         <CarouselAlbums />
       </Section>
 
       <Section
-        title={`☷ ${weekTitle(eventWeek, today)}`}
+        icon="☷"
+        title={weekTitle(eventWeek, today)}
         to="/calendar"
         end={
           <HomeEventsNav
@@ -132,16 +145,28 @@ function HomeDashboard() {
       </Section>
 
       <div className="home-row2">
-        <Section title="≡ recent lists" to="/lists">
+        <Section icon="≡" title="recent lists" to="/lists">
           <RecentLists />
         </Section>
 
-        <Section title="⚑ travel" to="/travel">
-          <Suspense fallback={<p className="hp-note">loading map…</p>}>
-            <HomeTravel />
-          </Suspense>
-        </Section>
+        <div className="home-readouts">
+          <Section icon="∑" title="stats">
+            <Suspense fallback={<p className="hp-note">counting…</p>}>
+              <Stats />
+            </Suspense>
+          </Section>
+
+          <Section icon="☼" title="weather">
+            <Weather />
+          </Section>
+        </div>
       </div>
+
+      <Section icon="⚑" title="travel" to="/travel">
+        <Suspense fallback={<p className="hp-note">loading map…</p>}>
+          <HomeTravel />
+        </Suspense>
+      </Section>
     </>
   );
 }

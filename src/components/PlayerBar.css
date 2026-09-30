@@ -354,7 +354,7 @@
   }
 
   /* Home stops mounting the dock at this width, so the switch would toggle
-     nothing. Kept in step with VIZ_QUERY there. */
+     nothing. Kept in step with WIDE_QUERY there. */
   .pb-mode--viz {
     display: none;
   }

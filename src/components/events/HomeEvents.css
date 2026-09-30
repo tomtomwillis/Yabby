@@ -1,5 +1,5 @@
 /* The week-ahead widget on the home page. Seven columns between two hairlines,
-   the days separated by softer ones; each event is its time over its name,
+   the days separated by softer ones; each event is its city and category over its name,
    with the category as a bar down its left side like the calendar's week. */
 
 .home-events {
@@ -40,9 +40,9 @@
 .he-day {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
   min-width: 0;
-  padding: 0.45rem 0.5rem 0.6rem;
+  padding: 0.3rem 0.5rem 0.75rem;
   border-right: 1px solid #dfe3f0;
 }
 
@@ -74,7 +74,7 @@
 .he-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -89,10 +89,14 @@
   text-decoration: none;
 }
 
-.he-time {
+.he-meta {
+  overflow: hidden;
   font-size: clamp(0.6rem, 0.56vw, 0.72rem);
   font-weight: 700;
   color: var(--hp-dim);
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
 }
 
 /* Two lines at most, so one long name cannot stretch the whole row. */
@@ -163,6 +167,10 @@
 
   .he-day:last-child {
     border-bottom: none;
+  }
+
+  .he-list {
+    gap: 0.2rem;
   }
 
   .he-day.is-empty:not(.is-today) {

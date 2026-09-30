@@ -45,7 +45,7 @@ const str = (value: unknown) => (typeof value === 'string' ? value : '');
 
 /**
  * Adding or editing an event, in flow inside the page's tinted input band like
- * the travel form. Only the title and the date are required; everything else
+ * the travel form. Only the title, date and city are required; everything else
  * is left out of the document when it is empty.
  */
 const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, onCancel }) => {
@@ -160,7 +160,8 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
     if (endTime && !isValidEventTime(endTime)) return 'The end time is not a time.';
 
     const cleanCity = city.trim().replace(/\s+/g, ' ');
-    if (cleanCity && !isValidCityName(cleanCity)) {
+    if (!cleanCity) return 'Add the city it is in.';
+    if (!isValidCityName(cleanCity)) {
       return 'A city is letters, with spaces, hyphens, apostrophes or full stops between them.';
     }
 
@@ -180,7 +181,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
       endTime: time && endTime ? endTime : undefined,
       timeZone: time ? timeZone : undefined,
       location: oneLine(location).slice(0, EVENT_LIMITS.location) || undefined,
-      city: cleanCity || undefined,
+      city: cleanCity,
       lineup: lineup.slice(0, EVENT_LIMITS.lineup),
       cost: oneLine(cost).slice(0, EVENT_LIMITS.cost) || undefined,
       description: sanitizeText(description).trim().slice(0, EVENT_LIMITS.description) || undefined,
@@ -339,7 +340,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
               />
             </label>
             <div className="ev-field">
-              <span className="ev-label">city</span>
+              <span className="ev-label">city <span className="ev-req">required</span></span>
               <CityInput value={city} onChange={setCity} />
             </div>
           </div>
