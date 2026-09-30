@@ -339,14 +339,14 @@ export function eventImageUrl(imageId: string | undefined): string | null {
   return imageId && isValidEventImageId(imageId) ? `${MEDIA_API_URL}/mb-images/${imageId}.webp` : null;
 }
 
-/** What a Communal Leisure page gives the form. */
+/** What an imported event page gives the form. */
 export type ImportedEvent = Partial<Omit<EventDraft, 'hosted'>>;
 
-/** Reads an event off a Communal Leisure link, through the backend — which
- *  asks their site at most once a day per page, and brings the poster across
- *  as an uploaded image. */
-export async function importCommunalLeisure(url: string): Promise<ImportedEvent> {
-  const response = await fetch(`${MEDIA_API_URL}/event-import/communal-leisure?url=${encodeURIComponent(url)}`, {
+/** Reads an event off a Communal Leisure, DICE or GEL link,
+ *  through the backend — which asks each site at most once a day per page,
+ *  and brings the poster across as an uploaded image. */
+export async function importEventFromLink(url: string): Promise<ImportedEvent> {
+  const response = await fetch(`${MEDIA_API_URL}/event-import?url=${encodeURIComponent(url)}`, {
     headers: { Authorization: await authHeader() },
   });
   const data = await response.json().catch(() => ({}));

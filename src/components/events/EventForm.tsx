@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { eventImageUrl, importCommunalLeisure, uploadEventImage, type EventDraft, type ImportedEvent } from '../../utils/eventsApi';
+import { eventImageUrl, importEventFromLink, uploadEventImage, type EventDraft, type ImportedEvent } from '../../utils/eventsApi';
 import { normalizeSiteUrl, sanitizeText } from '../../utils/sanitise';
 import {
   DEFAULT_TIME_ZONE,
@@ -40,7 +40,14 @@ const oneLine = (value: string) => sanitizeText(value).replace(/\s+/g, ' ').trim
  *  likely to be a night they are only telling people about. */
 const hostedByDefault = (category: EventCategory) => category === 'radio';
 
-const COMMUNAL_LEISURE_RE = /^https?:\/\/(www\.)?communalleisure\.com\/[a-z0-9][a-z0-9-]*\/?(\?.*)?$/i;
+/** The sites the backend can read an event from. It checks the link properly;
+ *  this only decides whether a paste is worth sending. */
+const IMPORT_SOURCES = [
+  { re: /^https?:\/\/(www\.)?communalleisure\.com\/[a-z0-9][a-z0-9-]*\/?(\?.*)?$/i, name: 'communal leisure', id: 'communal-leisure' },
+  { re: /^https?:\/\/(www\.)?dice\.fm\/event\/[a-z0-9][a-z0-9-]*\/?(\?.*)?$/i, name: 'dice', id: 'dice' },
+  { re: /^https?:\/\/(www\.)?gel\.now\/events\/[0-9]+\/?(\?.*)?$/i, name: 'gel', id: 'gel' },
+];
+const importSourceFor = (url: string) => IMPORT_SOURCES.find((source) => source.re.test(url));
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 
 /**
@@ -96,6 +103,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
     setLocation(str(found.location));
     setCity(str(found.city));
     setDescription(str(found.description));
+    setCost(str(found.cost));
     if (Array.isArray(found.lineup)) {
       setLineup(found.lineup.filter((act) => act && typeof act.name === 'string').map((act) => ({ name: act.name })));
     }
@@ -109,16 +117,17 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
 
   const runImport = async (raw: string) => {
     const url = raw.trim();
-    if (!COMMUNAL_LEISURE_RE.test(url)) {
-      setImportNote('paste a link to an event on communalleisure.com');
+    const source = importSourceFor(url);
+    if (!source) {
+      setImportNote('paste a link to an event on communal leisure, dice or gel');
       return;
     }
     setImporting(true);
     setImportNote(null);
     try {
-      applyImport(await importCommunalLeisure(url));
-      setImportNote('filled in from communal leisure — check it over before adding.');
-      window.umami?.track('calendar_event_imported', { source: 'communal-leisure' });
+      applyImport(await importEventFromLink(url));
+      setImportNote(`filled in from ${source.name} — check it over before adding.`);
+      window.umami?.track('calendar_event_imported', { source: source.id });
     } catch (err) {
       setImportNote(((err as Error).message || 'Could not read that page.').toLowerCase());
     } finally {
@@ -165,6 +174,10 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
       return 'A city is letters, with spaces, hyphens, apostrophes or full stops between them.';
     }
 
+    if (lineup.length > EVENT_LIMITS.lineup) {
+      return `An event can have at most ${EVENT_LIMITS.lineup} acts in its lineup. Remove ${lineup.length - EVENT_LIMITS.lineup} to save.`;
+    }
+
     const links: string[] = [];
     for (const [i, raw] of urls.entries()) {
       if (!raw.trim()) continue;
@@ -182,7 +195,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
       timeZone: time ? timeZone : undefined,
       location: oneLine(location).slice(0, EVENT_LIMITS.location) || undefined,
       city: cleanCity,
-      lineup: lineup.slice(0, EVENT_LIMITS.lineup),
+      lineup,
       cost: oneLine(cost).slice(0, EVENT_LIMITS.cost) || undefined,
       description: sanitizeText(description).trim().slice(0, EVENT_LIMITS.description) || undefined,
       urls: links.slice(0, EVENT_LIMITS.urls),
@@ -400,7 +413,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
               {!editing && (
                 <div className="ev-import">
                   <label className="ev-import-label" htmlFor="ev-import-url">
-                    or fill the whole form in from a communal leisure link
+                    or fill the whole form in from a communal leisure, dice or gel link
                   </label>
                   <div className="ev-url">
                     <input
@@ -412,7 +425,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
                       onChange={(e) => setImportUrl(e.target.value)}
                       onPaste={(e) => {
                         const pasted = e.clipboardData.getData('text').trim();
-                        if (COMMUNAL_LEISURE_RE.test(pasted)) {
+                        if (importSourceFor(pasted)) {
                           e.preventDefault();
                           setImportUrl(pasted);
                           runImport(pasted);
@@ -424,7 +437,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
                           runImport(importUrl);
                         }
                       }}
-                      placeholder="https://communalleisure.com/…"
+                      placeholder="https://dice.fm/event/…"
                       disabled={importing}
                     />
                     <button

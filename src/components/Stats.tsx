@@ -457,7 +457,7 @@ const Stats: React.FC = () => {
       )}
 
       {songOfTheDay && (
-        <div className="stats-row stats-row--stacked">
+        <div className="stats-row">
           <dt>song of the day</dt>
           <dd>
             <span className="stats-song">

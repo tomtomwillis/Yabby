@@ -414,6 +414,13 @@
   gap: 0.3rem;
 }
 
+.ev-lineup-full {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--cal-dim, #5566c9);
+}
+
 .ev-acts {
   margin: 0;
   padding: 0;

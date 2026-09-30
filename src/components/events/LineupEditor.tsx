@@ -120,7 +120,11 @@ const LineupEditor: React.FC<LineupEditorProps> = ({ acts, onChange }) => {
         </ol>
       )}
 
-      {adding ? (
+      {full ? (
+        <p className="ev-lineup-full" role="status">
+          that's the most an event can have — {EVENT_LIMITS.lineup} acts. remove one to add another.
+        </p>
+      ) : adding ? (
         <div className="ev-combo">
           <input
             ref={inputRef}
@@ -175,11 +179,9 @@ const LineupEditor: React.FC<LineupEditorProps> = ({ acts, onChange }) => {
           </button>
         </div>
       ) : (
-        !full && (
-          <button type="button" className="ev-url-add" onClick={() => setAdding(true)}>
-            + add an act
-          </button>
-        )
+        <button type="button" className="ev-url-add" onClick={() => setAdding(true)}>
+          + add an act
+        </button>
       )}
     </div>
   );

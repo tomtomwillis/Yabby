@@ -1,5 +1,5 @@
-/* Stats — a definition list of library and repo numbers. Short rows put the
-   value hard right against a dotted rule; long rows stack label over value. */
+/* Stats — a definition list of library and repo numbers, each value hard
+   right against a dotted rule. */
 
 .stats-list {
   width: 100%;
@@ -35,16 +35,6 @@
   text-align: right;
 }
 
-/* Song of the day and the last commit run long — give them their own line. */
-.stats-row--stacked {
-  display: block;
-}
-
-.stats-row--stacked dd {
-  margin: 0.2rem 0 0;
-  text-align: left;
-}
-
 .stats-row a {
   color: var(--colour2);
   text-decoration: none;
@@ -64,6 +54,7 @@
 
 .stats-song {
   display: flex;
+  justify-content: flex-end;
   align-items: baseline;
   gap: 0.4rem;
 }
