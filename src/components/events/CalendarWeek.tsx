@@ -12,6 +12,8 @@ interface CalendarWeekProps {
   eventsByDate: Map<string, CalendarEvent[]>;
   /** Events the member has ticked, marked beside their time. */
   interested: ReadonlySet<string>;
+  /** The subset of `interested` the member has a ticket for. */
+  going: ReadonlySet<string>;
   onSelect: (date: string) => void;
   onOpen: (event: CalendarEvent) => void;
 }
@@ -25,6 +27,7 @@ const CalendarWeek: React.FC<CalendarWeekProps> = ({
   openId,
   eventsByDate,
   interested,
+  going,
   onSelect,
   onOpen,
 }) => (
@@ -55,7 +58,7 @@ const CalendarWeek: React.FC<CalendarWeekProps> = ({
                     onClick={() => onOpen(event)}
                   >
                     <span className="cal-wk-time">
-                      {interested.has(event.id) && <><InterestMark />{' '}</>}
+                      {interested.has(event.id) && <><InterestMark going={going.has(event.id)} />{' '}</>}
                       {timeLabel(event) || 'all day'}
                     </span>
                     <span className="cal-wk-title">{event.title}</span>

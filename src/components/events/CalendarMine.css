@@ -6,7 +6,7 @@
   background: var(--cal-tint, #eef1fb);
   border-bottom: 2px solid var(--cal-accent, #1a2ecc);
   font-family: var(--font2);
-  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  font-size: clamp(0.8rem, 0.78vw, 0.95rem);
   letter-spacing: 0.04em;
   /* Clear of the pinned line when scrolled to. */
   scroll-margin-top: 3rem;

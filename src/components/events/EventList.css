@@ -23,9 +23,9 @@
 /* dot · time · title · category and place · caret */
 .ev-row-head {
   display: grid;
-  grid-template-columns: auto clamp(4.5rem, 7vw, 6.5rem) minmax(0, 1fr) auto auto;
+  grid-template-columns: auto clamp(4.5rem, 7vw, 6.5rem) minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: 0.7rem;
+  gap: 0.15rem 0.7rem;
   width: 100%;
   padding: 0.55rem var(--cal-edge, 1rem);
   background: none;
@@ -80,8 +80,10 @@
   overflow-wrap: anywhere;
 }
 
+/* Type, place and counts on their own line under the title. */
 .ev-row-where {
-  max-width: 22ch;
+  grid-column: 3 / -1;
+  grid-row: 2;
   overflow: hidden;
   font-size: 0.88em;
   color: var(--cal-mute, #8a90a8);
@@ -310,11 +312,18 @@
 @media (max-width: 700px) {
   .ev-row-head {
     grid-template-columns: auto auto minmax(0, 1fr) auto;
-    gap: 0.5rem;
+    gap: 0.15rem 0.5rem;
   }
 
-  .ev-row-where {
+  /* The interested and going counts drop to a line of their own. */
+  .ev-row-sep {
     display: none;
+  }
+
+  .ev-row-counts {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .ev-detail-body,

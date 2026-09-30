@@ -77,10 +77,11 @@ const EventList: React.FC<EventListProps> = ({
           const image = eventImageUrl(event.imageId);
           const urls = (event.urls ?? []).filter(validateUrl);
           const where = whereLabel(event);
+          // The collapsed line has room for the city and venue, not the whole address.
+          const venue = (event.location ?? '').split(',')[0].trim();
           const { interested, going } = attendanceIn(event, currentUserId, mine);
-          const summary = [
-            event.category,
-            where,
+          const place = [event.category, event.city, venue !== event.city && venue].filter(Boolean).join(' · ');
+          const counts = [
             interested.count > 0 && `${interested.count} interested`,
             going.count > 0 && `${going.count} going`,
           ]
@@ -105,10 +106,18 @@ const EventList: React.FC<EventListProps> = ({
                 <span className="ev-row-dot" aria-hidden="true" />
                 <span className="ev-row-time">{timeLabel(event) || 'all day'}</span>
                 <span className="ev-row-title">
-                  {mine.ids.has(event.id) && <><InterestMark />{' '}</>}
+                  {mine.ids.has(event.id) && <><InterestMark going={mine.going.has(event.id)} />{' '}</>}
                   {event.title}
                 </span>
-                <span className="ev-row-where">{summary}</span>
+                <span className="ev-row-where">
+                  {place}
+                  {counts && (
+                    <>
+                      <span className="ev-row-sep"> · </span>
+                      <span className="ev-row-counts">{counts}</span>
+                    </>
+                  )}
+                </span>
                 <span className="ev-row-toggle" aria-hidden="true">{open ? '▴ hide' : '▾ show'}</span>
               </button>
 

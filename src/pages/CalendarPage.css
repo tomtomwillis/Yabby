@@ -82,27 +82,60 @@
   gap: 0.6rem;
 }
 
+/* The month first, then today, then month/week, spaced apart, with the key at
+   the far end of the same line. */
+.cal-nav {
+  order: -1;
+  align-items: center;
+}
+
+.cal-today,
+.cal-views {
+  margin-left: clamp(1rem, 2.5vw, 2.5rem);
+}
+
+/* On a phone the arrows take a centred line of their own, with today and
+   month/week at either end of the line below. */
+@media (max-width: 768px) {
+  .cal-nav {
+    flex-basis: 100%;
+  }
+
+  .cal-today {
+    margin-left: 0;
+  }
+
+  .cal-views {
+    margin-left: auto;
+  }
+
+  .cal-key {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+/* The month/week arrows, big enough to hit with a thumb. */
+.cal-word.cal-step {
+  padding: 0 0.35rem;
+  font-size: 2.2em;
+  line-height: 1;
+}
+
 .cal-key {
   gap: 0.8rem;
-  margin: 0;
+  margin: 0 0 0 auto;
   padding: 0;
   list-style: none;
 }
 
 .cal-title {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   margin: 0;
+  text-align: center;
   font: inherit;
   font-weight: 700;
   color: var(--cal-accent);
-}
-
-.cal-bar-rule {
-  flex: 1 1 auto;
-  min-width: 1.5rem;
-  height: 0;
-  border-bottom: 1px solid var(--cal-rule);
-  transform: translateY(-0.25em);
 }
 
 /* A control on a line of type is a word, not a box. */
@@ -207,23 +240,18 @@
   scroll-margin-top: 3rem;
 }
 
-.cal-add-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
-  padding: 0.55rem var(--cal-edge);
-  font-family: var(--font2);
-  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
-  letter-spacing: 0.08em;
-}
-
-.cal-add-label {
-  flex: 0 0 auto;
-  color: var(--cal-accent);
-}
-
+/* The left-hand cell beside the settings toggle. */
 .cal-add-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   color: var(--cal-accent);
+  white-space: nowrap;
+}
+
+/* + turns to × while the form is open. */
+.cal-add-open[aria-expanded='true'] .cal-add-plus {
+  transform: rotate(45deg);
 }
 
 /* ─── The day ─────────────────────────────────────────── */
@@ -316,7 +344,7 @@
 /* ─── A date within the list ──────────────────────────── */
 
 .cal-group {
-  scroll-margin: 3.5rem 0 calc(var(--hp-title-clear, 5rem) + 1rem);
+  scroll-margin: calc(var(--cal-bar-h, 3.5rem) + 0.5rem) 0 calc(var(--hp-title-clear, 5rem) + 1rem);
 }
 
 /* A step down from the list heading: the date, then a softer rule. */
@@ -435,23 +463,3 @@
   }
 }
 
-/* ─── Narrow ──────────────────────────────────────────── */
-
-@media (max-width: 768px) {
-  /* The rule would only fill a wrapped line; the key drops to a line of its own. */
-  .cal-bar-rule {
-    display: none;
-  }
-
-  .cal-views {
-    margin-left: auto;
-  }
-
-  .cal-key {
-    flex-basis: 100%;
-  }
-
-  .cal-add-label {
-    display: none;
-  }
-}

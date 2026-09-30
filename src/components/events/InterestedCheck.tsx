@@ -111,9 +111,15 @@ const InterestedCheck: React.FC<InterestedCheckProps> = ({ event, className }) =
   );
 };
 
-/** The mark beside an event the member has ticked, wherever events are drawn. */
-export const InterestMark: React.FC = () => (
-  <span className="int-mark" role="img" aria-label="in your calendar" title="in your calendar">✓</span>
-);
+/** The mark beside an event the member has ticked, wherever events are drawn:
+ *  ✓ when interested, ☻ when going. */
+export const InterestMark: React.FC<{ going?: boolean }> = ({ going = false }) => {
+  const label = going ? "you're going" : 'in your calendar';
+  return (
+    <span className="int-mark" role="img" aria-label={label} title={label}>
+      {going ? '☻' : '✓'}
+    </span>
+  );
+};
 
 export default InterestedCheck;

@@ -1,27 +1,82 @@
-/* Settings + filters — one line under the grid that unrolls into every facet
-   side by side, each a short column that scrolls on its own, with the
-   member's calendar settings beneath them. */
+/* Settings + filters under the grid: a line stating the filters and the
+   count, then "add an event" and the settings toggle as two cells with a
+   hairline between. The settings unroll into every facet side by side, each a
+   short column that scrolls on its own, with the member's calendar settings
+   beneath them. */
 
 .cal-set {
   background: #fbfbfd;
   border-bottom: 1px solid var(--cal-rule, #c9cee4);
   font-family: var(--font2);
-  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  font-size: clamp(0.8rem, 0.78vw, 0.95rem);
   letter-spacing: 0.08em;
+}
+
+/* What the filters leave, then "reset filters" on its own line beneath. */
+.cal-set-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.45rem var(--cal-edge, 1rem);
+  border-bottom: 1px solid var(--cal-rule, #c9cee4);
+}
+
+.cal-set-status-line {
+  display: flex;
+  align-self: stretch;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem clamp(0.5rem, 1vw, 0.9rem);
+}
+
+.cal-set-summary {
+  min-width: 0;
+  color: var(--cal-dim, #5566c9);
+}
+
+.cal-set-summary b {
+  font-weight: 400;
+  color: var(--cal-accent, #1a2ecc);
+}
+
+.cal-set-row {
+  display: flex;
+  align-items: stretch;
+  font-size: clamp(0.9rem, 0.88vw, 1.05rem);
+}
+
+.cal-set-lead {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0.55rem var(--cal-edge, 1rem);
+  border-right: 1px solid var(--cal-rule, #c9cee4);
 }
 
 .cal-set-bar {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.35rem clamp(0.5rem, 1vw, 0.9rem);
-  padding: 0.5rem var(--cal-edge, 1rem);
+  min-width: 0;
+  padding: 0.55rem var(--cal-edge, 1rem);
+}
+
+/* The ⚙ and the + that lead the line's two controls, one size for both. */
+.cal-bar-sym {
+  display: inline-block;
+  font-size: 1.3em;
+  line-height: 1;
+  transition: transform 0.28s ease;
 }
 
 .cal-set-toggle {
   display: inline-flex;
   flex: 0 0 auto;
-  align-items: baseline;
+  align-items: center;
   gap: 0.35rem;
   padding: 0;
   background: none;
@@ -53,15 +108,6 @@
   transform: rotate(90deg);
 }
 
-.cal-set-chip {
-  flex: 0 0 auto;
-  color: var(--cal-dim, #5566c9);
-}
-
-.cal-set-chip b {
-  font-weight: 400;
-  color: var(--cal-accent, #1a2ecc);
-}
 
 .cal-set-rule {
   flex: 1 1 auto;
@@ -165,12 +211,8 @@
   color: var(--cal-mute, #8a90a8);
 }
 
-/* Always present so the panel does not change height as filters are picked. */
-.cal-set-reset {
-  padding: 0 var(--cal-edge, 1rem) 0.75rem;
-}
-
-.cal-set-reset .cal-word:disabled {
+/* Always present, greyed while there is nothing to reset. */
+.cal-set-reset:disabled {
   color: var(--cal-mute, #8a90a8);
   cursor: default;
 }
@@ -180,6 +222,14 @@
   background: none;
   border-top: 1px solid var(--cal-rule, #c9cee4);
   border-bottom: none;
+}
+
+/* Two equal halves wherever there is room for them. */
+@media (min-width: 701px) {
+  .cal-set-lead,
+  .cal-set-bar {
+    flex: 1 1 0;
+  }
 }
 
 @media (max-width: 700px) {
@@ -194,7 +244,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cal-set-panel,
-  .cal-set-mark {
+  .cal-set-mark,
+  .cal-bar-sym {
     transition: none;
   }
 }

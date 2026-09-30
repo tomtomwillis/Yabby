@@ -33,7 +33,7 @@
   align-items: baseline;
   gap: clamp(0.5rem, 1vw, 0.9rem);
   padding: 0.5rem var(--tv-edge, 1rem);
-  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  font-size: clamp(0.8rem, 0.78vw, 0.95rem);
   letter-spacing: 0.08em;
 }
 
@@ -181,7 +181,7 @@
   background: none;
   border: none;
   font-family: var(--font2);
-  font-size: clamp(0.68rem, 0.66vw, 0.8rem);
+  font-size: clamp(0.8rem, 0.78vw, 0.95rem);
   line-height: 1.55;
   letter-spacing: 0.03em;
   color: var(--tv-ink, #2b2b2b);

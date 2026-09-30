@@ -68,7 +68,7 @@ const HomeEvents: React.FC<HomeEventsProps> = ({ weekStart }) => {
   const [loaded, setLoaded] = useState<{ weekStart: string; events: CalendarEvent[] } | null>(null);
   const [failed, setFailed] = useState(false);
   const { open, close } = useNavidromeCard();
-  const { ids: interested } = useEventInterests();
+  const { ids: interested, going } = useEventInterests();
 
   useEffect(() => {
     let cancelled = false;
@@ -134,7 +134,7 @@ const HomeEvents: React.FC<HomeEventsProps> = ({ weekStart }) => {
                           }}
                         >
                           <span className="he-meta">
-                            {interested.has(event.id) && <><InterestMark />{' '}</>}
+                            {interested.has(event.id) && <><InterestMark going={going.has(event.id)} />{' '}</>}
                             {[event.city, event.category].filter(Boolean).join(' • ')}
                           </span>
                           <span className="he-title">{event.title}</span>

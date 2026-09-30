@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebaseConfig';
@@ -20,6 +20,7 @@ import {
   isHosted,
   monthGrid,
   monthLabel,
+  weekTitle,
   startOfMonth,
   startOfWeek,
   todayISO,
@@ -47,6 +48,10 @@ type View = 'month' | 'week';
 
 const VIEW_KEY = 'yabby.calendar.view';
 const FILTERS_KEY = 'yabby.calendar.filters';
+/** Where CalendarPage.css lays the page out for a phone. */
+const NARROW = '(max-width: 768px)';
+/** Matches .cal-set-panel's transition in CalendarSettings.css. */
+const SETTINGS_ROLL_MS = 280;
 
 /** The view last chosen here, or week on a phone — a month's cells are too
  *  narrow there to show anything but dots. */
@@ -156,13 +161,15 @@ export default function CalendarPage() {
   const [anchor, setAnchor] = useState(today);
   const [selected, setSelected] = useState(today);
   const [filters, setFilters] = useState<Filters>(storedFilters);
-  const { ids: interested } = useEventInterests();
+  const { ids: interested, going } = useEventInterests();
   // Members who ticked something in view: their name, and whether they let
   // others pick their calendar in the filter.
   const [people, setPeople] = useState<Map<string, { username: string; shares: boolean }>>(new Map());
-  const [onlyDay, setOnlyDay] = useState(false);
-  // Rows start open; these are the ones closed since.
+  // Rows start open; these are the ones closed since. On a phone every row
+  // starts closed, and choosing a day on the grid opens that day's.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const seenRows = useRef(new Set<string>());
+  const [openedDay, setOpenedDay] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -175,6 +182,9 @@ export default function CalendarPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CalendarEvent | undefined>();
+  // The settings panel and the form share a line and open one at a time.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const switchTimer = useRef<number | undefined>(undefined);
 
   const { checkRateLimit } = useRateLimit({
     maxAttempts: 10,
@@ -407,8 +417,9 @@ export default function CalendarPage() {
 
   // The list runs from the selected day — never from the edge of last month
   // the grid shows — through the rest of the grid and on into the pages after.
-  const periodStart = view === 'month' ? startOfMonth(anchor) : start;
-  const from = selected > periodStart ? selected : periodStart;
+  // The list covers the whole month (or week) on screen; choosing a day
+  // scrolls to it rather than cutting off the days before.
+  const from = view === 'month' ? startOfMonth(anchor) : start;
   const upcoming = useMemo(
     () =>
       [...events.filter((e) => e.date >= from), ...(beyond.from === beyondFrom ? beyond.events : [])].sort(
@@ -542,21 +553,35 @@ export default function CalendarPage() {
     track('calendar_filter', { type: 'type', via: 'key' });
   };
 
-  const listed = useMemo(
-    () => (onlyDay ? (eventsByDate.get(selected) ?? []) : upcomingShown),
-    [onlyDay, eventsByDate, selected, upcomingShown],
-  );
+  const listed = upcomingShown;
   const groups = useMemo(() => groupByDate(listed), [listed]);
+
+  // Closes rows the first time they are listed on a phone — before paint, so
+  // they never flash open. The chosen day's and the linked event stay open.
+  useLayoutEffect(() => {
+    const fresh = listed.filter((e) => !seenRows.current.has(e.id));
+    if (fresh.length === 0) return;
+    for (const e of fresh) seenRows.current.add(e.id);
+    if (!window.matchMedia(NARROW).matches) return;
+    const closing = fresh.filter((e) => e.date !== openedDay && e.id !== focusId);
+    if (closing.length === 0) return;
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      for (const e of closing) next.add(e.id);
+      return next;
+    });
+  }, [listed, openedDay, focusId]);
   const allCollapsed = listed.length > 0 && listed.every((e) => collapsed.has(e.id));
 
-  // Bring the chosen day or event into view once it exists. `nearest`, so
-  // something already on screen does not move.
+  // Bring the chosen day or event into view once it exists. A chosen day goes
+  // to the top of the list; an event only as far as `nearest`, so one already
+  // on screen does not move.
   useEffect(() => {
     if (!scrollTarget || loading) return;
     const el = document.getElementById(scrollTarget);
     if (!el) return;
     setScrollTarget(null);
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    el.scrollIntoView({ behavior: 'smooth', block: scrollTarget.startsWith('day-') ? 'start' : 'nearest' });
   }, [scrollTarget, loading, groups]);
 
   const step = (direction: -1 | 1) => {
@@ -590,12 +615,18 @@ export default function CalendarPage() {
     (day: string) => {
       setSelected(day);
       setFocusId(null);
+      setOpenedDay(day);
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        for (const event of events) if (event.date === day) next.delete(event.id);
+        return next.size === prev.size ? prev : next;
+      });
       // A day from the next or last month, greyed at the edge of the grid,
       // turns the page to its month.
       if (view === 'month' && day.slice(0, 7) !== anchor.slice(0, 7)) setAnchor(day);
       setScrollTarget(`day-${day}`);
     },
-    [view, anchor],
+    [view, anchor, events],
   );
 
   const toggleRow = (id: string) => {
@@ -618,10 +649,34 @@ export default function CalendarPage() {
     });
   };
 
+  useEffect(() => () => window.clearTimeout(switchTimer.current), []);
+
   const openForm = (event?: CalendarEvent) => {
-    setEditing(event);
-    setFormOpen(true);
-    requestAnimationFrame(() => addRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    window.clearTimeout(switchTimer.current);
+    const show = () => {
+      setEditing(event);
+      setFormOpen(true);
+      requestAnimationFrame(() => addRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    };
+    // Settings roll shut first, then the form opens in their place.
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      switchTimer.current = window.setTimeout(show, SETTINGS_ROLL_MS);
+    } else {
+      show();
+    }
+  };
+
+  const toggleSettings = () => {
+    window.clearTimeout(switchTimer.current);
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return;
+    }
+    // The form has no roll, so it is gone before the panel starts opening.
+    if (formOpen) closeForm();
+    setSettingsOpen(true);
+    track('calendar_settings_open');
   };
 
   const showMine = () => {
@@ -680,6 +735,12 @@ export default function CalendarPage() {
   };
 
   const heading = view === 'month' ? monthLabel(anchor) : `${dayLabel(start)} – ${dayLabel(end)}`;
+  // The stretch the filter counts cover, for "12 events this month".
+  const week = weekTitle(start, today);
+  const period =
+    view === 'month'
+      ? anchor.slice(0, 7) === today.slice(0, 7) ? 'this month' : `in ${monthLabel(anchor)}`
+      : week.startsWith('week of') ? `in the ${week}` : week;
 
   return (
     <div className="calendar-page" ref={pageRef}>
@@ -687,22 +748,23 @@ export default function CalendarPage() {
 
       {/* The one line that steers the page, pinned to the top of the column. */}
       <div className="cal-bar" ref={barRef}>
+        {/* The arrows round the month, today and month/week on one line, then
+            the key. The arrows come first by CSS order. */}
+        <button type="button" className="cal-word cal-today" onClick={goToday}>
+          today
+        </button>
+
         <div className="cal-nav">
-          <button type="button" className="cal-word" onClick={() => step(-1)} aria-label={`Previous ${view}`}>
+          <button type="button" className="cal-word cal-step" onClick={() => step(-1)} aria-label={`Previous ${view}`}>
             ‹
           </button>
-          <button type="button" className="cal-word" onClick={goToday}>
-            today
-          </button>
-          <button type="button" className="cal-word" onClick={() => step(1)} aria-label={`Next ${view}`}>
+          <h2 className="cal-title" aria-live="polite">
+            {heading}
+          </h2>
+          <button type="button" className="cal-word cal-step" onClick={() => step(1)} aria-label={`Next ${view}`}>
             ›
           </button>
         </div>
-
-        <h2 className="cal-title" aria-live="polite">
-          {heading}
-        </h2>
-        <span className="cal-bar-rule" aria-hidden="true" />
 
         <div className="cal-views" role="group" aria-label="View">
           {(['month', 'week'] as const).map((v) => (
@@ -757,6 +819,7 @@ export default function CalendarPage() {
                 openId={focusId}
                 eventsByDate={eventsByDate}
                 interested={interested}
+                going={going}
                 onSelect={selectDay}
                 onOpen={focusEvent}
               />
@@ -767,22 +830,28 @@ export default function CalendarPage() {
             facets={facets}
             shown={viewShown}
             total={inView.length}
+            period={period}
             onClear={clearFilters}
             signedIn={!!user}
             onShowMine={showMine}
+            open={settingsOpen}
+            onToggle={toggleSettings}
+            lead={
+              <button
+                type="button"
+                className="cal-add-open"
+                aria-expanded={formOpen}
+                onClick={() => (formOpen ? closeForm() : openForm())}
+              >
+                <span className="cal-bar-sym cal-add-plus" aria-hidden="true">+</span>
+                add an event
+              </button>
+            }
           />
 
           {/* The one band on the page that is an input rather than content. */}
-          <div className="cal-add" ref={addRef}>
-            {!formOpen && (
-              <div className="cal-add-row">
-                <span className="cal-add-label">add</span>
-                <button type="button" className="cal-add-open" onClick={() => openForm()}>
-                  + an event on {dayLabel(selected)}
-                </button>
-              </div>
-            )}
-            {formOpen && (
+          {formOpen && (
+            <div className="cal-add" ref={addRef}>
               <EventForm
                 key={editing?.id ?? 'new'}
                 editing={editing}
@@ -790,21 +859,14 @@ export default function CalendarPage() {
                 onSubmit={handleSubmit}
                 onCancel={closeForm}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="cal-list">
           <div className="cal-h">
-            <h2 className="cal-h-label">{onlyDay ? dayLabel(selected) : `events from ${dayLabel(from)}`}</h2>
+            <h2 className="cal-h-label">events from {dayLabel(from)}</h2>
             <span className="cal-h-rule" aria-hidden="true" />
-            <label className="cal-check">
-              <input type="checkbox" checked={onlyDay} onChange={(e) => setOnlyDay(e.target.checked)} />
-              <span className="cal-check-mark" aria-hidden="true">
-                {onlyDay ? '[x]' : '[ ]'}
-              </span>
-              only {dayLabel(selected)}
-            </label>
             {listed.length > 0 && (
               <button type="button" className="cal-word cal-h-toggle" onClick={toggleAll}>
                 {allCollapsed ? 'expand all' : 'collapse all'}
@@ -818,10 +880,10 @@ export default function CalendarPage() {
           {notice && <p className="cal-status">{notice}</p>}
           {error && <p className="cal-error">{error}</p>}
           {!error && loading && listed.length === 0 && <p className="cal-status">loading…</p>}
-          {!error && !loading && !beyond.loading && listed.length === 0 && (onlyDay || !beyond.next) && (
+          {!error && !loading && !beyond.loading && listed.length === 0 && !beyond.next && (
             <p className="cal-status">
-              nothing {onlyDay ? `on ${dayLabel(selected)}` : `from ${dayLabel(from)} on`}
-              {!onlyDay && upcomingShown.length < upcoming.length && ' that fits the filter'}.{' '}
+              nothing from {dayLabel(from)} on
+              {upcomingShown.length < upcoming.length && ' that fits the filter'}.{' '}
               <button type="button" className="cal-inline" onClick={() => openForm()}>
                 add something?
               </button>
@@ -835,15 +897,12 @@ export default function CalendarPage() {
               className={`cal-group${date === selected ? ' is-sel' : ''}${date === today ? ' is-today' : ''}`}
               aria-label={dayLabel(date)}
             >
-              {/* One day on its own already carries its date in the heading. */}
-              {!onlyDay && (
-                <h3 className="cal-dh">
-                  <button type="button" className="cal-dh-day" onClick={() => setSelected(date)}>
-                    {dayLabel(date)}
-                  </button>
-                  <span className="cal-dh-rule" aria-hidden="true" />
-                </h3>
-              )}
+              <h3 className="cal-dh">
+                <button type="button" className="cal-dh-day" onClick={() => setSelected(date)}>
+                  {dayLabel(date)}
+                </button>
+                <span className="cal-dh-rule" aria-hidden="true" />
+              </h3>
               <EventList
                 events={dayEvents}
                 collapsedIds={collapsed}
@@ -857,7 +916,7 @@ export default function CalendarPage() {
             </section>
           ))}
 
-          {!onlyDay && (beyond.next || beyond.loading) && (
+          {(beyond.next || beyond.loading) && (
             <p className="cal-more">
               {beyond.loading ? (
                 <span className="cal-status-inline">loading…</span>
