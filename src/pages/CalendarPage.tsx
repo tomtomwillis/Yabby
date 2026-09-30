@@ -193,8 +193,6 @@ export default function CalendarPage() {
   const addRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
-  const sideRef = useRef<HTMLDivElement>(null);
-  const [sidePinned, setSidePinned] = useState(false);
   // The element to bring into view once it has rendered. Kept until it has
   // been found — after a deep link the row only exists once its month loads.
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
@@ -211,27 +209,14 @@ export default function CalendarPage() {
     }
   }, [filters]);
 
-  // On a wide page the side column pins just under the bar — but only while it
-  // fits between the bar and the player; taller, it scrolls with the page
-  // rather than scrolling on its own.
+  // Published for the side column, which pins just under the bar on a wide page.
   useEffect(() => {
     const bar = barRef.current;
     const page = pageRef.current;
-    const side = sideRef.current;
-    if (!bar || !page || !side) return;
-    const measure = () => {
-      page.style.setProperty('--cal-bar-h', `${bar.offsetHeight}px`);
-      const player = parseFloat(getComputedStyle(side).getPropertyValue('--hp-bar-h')) || 0;
-      setSidePinned(side.offsetHeight <= window.innerHeight - bar.offsetHeight - player);
-    };
-    const observer = new ResizeObserver(measure);
+    if (!bar || !page) return;
+    const observer = new ResizeObserver(() => page.style.setProperty('--cal-bar-h', `${bar.offsetHeight}px`));
     observer.observe(bar);
-    observer.observe(side);
-    window.addEventListener('resize', measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', measure);
-    };
+    return () => observer.disconnect();
   }, []);
 
   const setFilter = useCallback((patch: Partial<Filters>) => setFilters((prev) => ({ ...prev, ...patch })), []);
@@ -800,7 +785,7 @@ export default function CalendarPage() {
 
       {/* One column, or the grid beside the list where the page is wide. */}
       <div className="cal-body">
-        <div className={`cal-side${sidePinned ? ' is-pinned' : ''}`} ref={sideRef}>
+        <div className="cal-side">
           <div className={`cal-grid${loading ? ' is-loading' : ''}`}>
             {view === 'month' ? (
               <CalendarMonth

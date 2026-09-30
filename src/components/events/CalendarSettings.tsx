@@ -19,6 +19,9 @@ interface CalendarSettingsProps {
   lead?: ReactNode;
 }
 
+/** Options a facet shows before "show more", counting "all". */
+const OPTS_SHOWN = 6;
+
 /** A category as the filter sentence reads it — "gigs in Glasgow". */
 const TYPE_PLURALS: Record<string, string> = {
   gig: 'gigs',
@@ -73,6 +76,14 @@ export default function CalendarSettings({
   // first open — and then stays, so closing does not empty the panel mid-roll.
   const [opened, setOpened] = useState(false);
   const panelId = useId();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
 
   useEffect(() => {
     if (open) setOpened(true);
@@ -121,27 +132,40 @@ export default function CalendarSettings({
       <div id={panelId} className="cal-set-panel">
         <div className="cal-set-panel-inner">
           <div className="cal-set-facets">
-            {facets.map((facet) => (
-              <div key={facet.key} className="cal-set-facet" role="group" aria-label={facet.key}>
-                <h3 className="cal-set-facet-h">{facet.key}</h3>
-                <ul className="cal-set-opts">
-                  {[{ value: '', label: 'all', count: facet.allCount }, ...facet.options].map((option) => (
-                    <li key={option.value || '*'}>
-                      <button
-                        type="button"
-                        className={`cal-set-opt${facet.value === option.value ? ' is-sel' : ''}${
-                          option.count === 0 ? ' is-empty' : ''
-                        }`}
-                        aria-pressed={facet.value === option.value}
-                        onClick={() => facet.onChange(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {facets.map((facet) => {
+              const options = [{ value: '', label: 'all', count: facet.allCount }, ...facet.options];
+              const isExpanded = expanded.has(facet.key);
+              // A chosen option past the cut stays in view, so the choice is never hidden.
+              const visible = isExpanded
+                ? options
+                : options.filter((o, i) => i < OPTS_SHOWN || o.value === facet.value);
+              return (
+                <div key={facet.key} className="cal-set-facet" role="group" aria-label={facet.key}>
+                  <h3 className="cal-set-facet-h">{facet.key}</h3>
+                  <ul className="cal-set-opts">
+                    {visible.map((option) => (
+                      <li key={option.value || '*'}>
+                        <button
+                          type="button"
+                          className={`cal-set-opt${facet.value === option.value ? ' is-sel' : ''}${
+                            option.count === 0 ? ' is-empty' : ''
+                          }`}
+                          aria-pressed={facet.value === option.value}
+                          onClick={() => facet.onChange(option.value)}
+                        >
+                          {option.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {options.length > OPTS_SHOWN && (
+                    <button type="button" className="cal-word cal-set-more" onClick={() => toggleExpanded(facet.key)}>
+                      {isExpanded ? 'show less' : `show ${options.length - visible.length} more`}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {signedIn && opened && <CalendarMine onShowMine={onShowMine} />}

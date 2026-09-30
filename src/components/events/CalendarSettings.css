@@ -164,13 +164,14 @@
 }
 
 .cal-set-opts {
-  max-height: clamp(7.5rem, 22vh, 12rem);
   margin: 0;
   padding: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   list-style: none;
-  scrollbar-width: thin;
+}
+
+.cal-set-more {
+  margin-top: 0.2rem;
+  color: var(--cal-mute, #8a90a8);
 }
 
 .cal-set-opt {

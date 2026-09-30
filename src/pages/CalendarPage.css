@@ -439,9 +439,9 @@
 /* ─── Wide: the grid beside the list ─────────────────── */
 
 /* The grid, filters and add band hold still under the bar while the list
-   scrolls past them, so choosing a day never moves the grid off screen. Pinned
-   only while they fit the window (is-pinned, set by the page); taller, they
-   scroll with the page like everything else. */
+   scrolls past them, so choosing a day never moves the grid off screen. When
+   the settings or the add form make them taller than the window, they scroll
+   on their own rather than with the list. */
 @container (min-width: 1100px) {
   .cal-body {
     display: grid;
@@ -450,16 +450,15 @@
   }
 
   .cal-side {
+    position: sticky;
+    top: var(--cal-bar-h, 2.3rem);
+    max-height: calc(100dvh - var(--cal-bar-h, 2.3rem) - var(--hp-title-clear, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-right: 1px solid var(--cal-rule);
   }
 
-  .cal-side.is-pinned {
-    position: sticky;
-    top: var(--cal-bar-h, 2.3rem);
-  }
-
-  .home-main .cal-side.is-pinned {
+  .home-main .cal-side {
     top: calc(var(--cal-bar-h, 2.3rem) - var(--hp-main-pad-top, 0px));
   }
 }
-
