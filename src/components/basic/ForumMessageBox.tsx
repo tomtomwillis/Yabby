@@ -9,14 +9,16 @@ import { searchLibrary } from '../../utils/navidromeSearch';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import { getAllUserProfiles } from '../../utils/userCache';
 import PollComposeModal, { type PollDraft } from './PollComposeModal';
+import { loadEventsInRange } from '../../utils/eventsApi';
+import { addDays, dayLabel, eventPath, todayISO } from '../events/eventTypes';
 
 interface Result {
   id: string;
   name: string;
-  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll' | 'issue' | 'user';
+  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll' | 'issue' | 'user' | 'event';
 }
 
-type SearchCommand = 'list' | 'playlist' | 'travel' | 'city' | 'issueresolved';
+type SearchCommand = 'list' | 'playlist' | 'travel' | 'city' | 'calendar' | 'issueresolved';
 type SlashMode = 'command' | SearchCommand | null;
 
 // Inserted links are stored in messages, so they must not depend on the
@@ -32,13 +34,14 @@ const INSTANT_COMMANDS: Record<string, { label: string; path: string }> = {
   issues:   { label: 'Issues',    path: '/issues' },
 };
 
-const SEARCH_COMMANDS: readonly SearchCommand[] = ['list', 'playlist', 'travel', 'city', 'issueresolved'];
+const SEARCH_COMMANDS: readonly SearchCommand[] = ['list', 'playlist', 'travel', 'city', 'calendar', 'issueresolved'];
 
 const SEARCH_COMMAND_LABELS: Record<SearchCommand, string> = {
   list:     'search lists',
   playlist: 'search public playlists',
   travel:   'search a travel rec',
   city:     'search a list of filtered recs for a city',
+  calendar: 'link to an upcoming event',
   issueresolved: 'link to a specific issue',
 };
 
@@ -47,10 +50,15 @@ const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
   playlist: 'Playlists',
   travel:   'Places',
   city:     'Cities',
+  calendar: 'Events',
   issueresolved: 'Issues',
 };
 
 const EVENT_BOT_COMMAND = 'eventbot';
+
+// How far ahead /calendar searches. Each event in the window is a read, so it
+// stays short; eventsApi caches the range for a few minutes.
+const CALENDAR_SEARCH_DAYS = 60;
 
 // Matches MAX_FILE_SIZE in backend_server/routes/messageImages.js
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -131,6 +139,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const [allPlaces, setAllPlaces] = useState<{ id: string; displayName: string; city: string; cityKey: string }[]>([]);
   const [allPlaylists, setAllPlaylists] = useState<Result[]>([]);
   const [allIssues, setAllIssues] = useState<Result[]>([]);
+  const [allEvents, setAllEvents] = useState<{ id: string; name: string; search: string }[] | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +152,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const playlistsFetchPromiseRef = useRef<Promise<void> | null>(null);
   const issuesFetchPromiseRef = useRef<Promise<void> | null>(null);
   const usersFetchPromiseRef = useRef<Promise<void> | null>(null);
+  const eventsFetchPromiseRef = useRef<Promise<void> | null>(null);
 
   // The shared directory read, so a session that has already opened the
   // directory — or tagged someone before — pays nothing more.
@@ -266,6 +276,27 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     return p;
   };
 
+  const ensureEventsLoaded = (): Promise<void> => {
+    if (eventsFetchPromiseRef.current) return eventsFetchPromiseRef.current;
+    const today = todayISO();
+    const p = loadEventsInRange(today, addDays(today, CALENDAR_SEARCH_DAYS))
+      .then((events) => {
+        setAllEvents(
+          events.map((e) => ({
+            id: e.id,
+            name: `${e.title} · ${dayLabel(e.date)}`,
+            search: [e.title, e.city, e.location, ...(e.lineup ?? []).map((act) => act.name)].join(' ').toLowerCase(),
+          })),
+        );
+      })
+      .catch((error) => {
+        console.error('Error fetching events:', error);
+        eventsFetchPromiseRef.current = null;
+      });
+    eventsFetchPromiseRef.current = p;
+    return p;
+  };
+
   const fetchResults = async (queryStr: string): Promise<Result[][]> => {
     setSearchStatus("Searching...");
     const items = await searchLibrary(queryStr, { artists: 3, albums: 3 });
@@ -350,6 +381,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         .filter((p) => p.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
         .slice(0, 5);
       setSlashResults(filtered);
+    } else if (slashMode === 'calendar') {
+      // Empty term shows the soonest events (the range comes back in date order).
+      const term = slashSearchTerm.trim().toLowerCase();
+      const filtered = (allEvents ?? [])
+        .filter((e) => !term || e.search.includes(term))
+        .slice(0, 5)
+        .map((e) => ({ id: e.id, name: e.name, type: 'event' as const }));
+      setSlashResults(filtered);
     } else if (slashMode === 'issueresolved') {
       // Empty term shows the most recent issues (kept in lastActivityAt order).
       const filtered = allIssues
@@ -357,7 +396,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         .slice(0, 5);
       setSlashResults(filtered);
     }
-  }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists, allIssues]);
+  }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists, allIssues, allEvents]);
 
   const handleSend = () => {
     if ((newMessage.trim() || imagePreviewUrl || pendingPoll) && onSend && !disabled) {
@@ -478,6 +517,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           if (command === 'list') ensureListsLoaded();
           if (command === 'travel' || command === 'city') ensurePlacesLoaded();
           if (command === 'playlist') ensurePlaylistsLoaded();
+          if (command === 'calendar') ensureEventsLoaded();
           if (command === 'issueresolved') ensureIssuesLoaded();
         } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command))) || (onEventAnnounce && EVENT_BOT_COMMAND.startsWith(command)) || (onPollAttach && 'poll'.startsWith(command))) {
           // Instant or action command typed with a trailing space
@@ -555,6 +595,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     const linkText =
       result.type === 'instant' ? INSTANT_COMMANDS[result.id].label
       : result.type === 'user' ? `@${result.name}`
+      : result.type === 'event' ? result.name.replace(/[[\]]/g, '')
       : result.name;
 
     if (result.type === 'user') {
@@ -570,6 +611,9 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
       link = `${SITE_ORIGIN}/travel?city=${result.id}`;
     } else if (result.type === 'list') {
       link = `${SITE_ORIGIN}/lists/${result.id}`;
+    } else if (result.type === 'event') {
+      link = `${SITE_ORIGIN}${eventPath(result.id)}`;
+      window.umami?.track('calendar_event_link');
     } else if (result.type === 'issue') {
       link = `${SITE_ORIGIN}/issues?issue=${result.id}`;
     } else {
@@ -615,6 +659,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (cmd === 'list') ensureListsLoaded();
     if (cmd === 'travel' || cmd === 'city') ensurePlacesLoaded();
     if (cmd === 'playlist') ensurePlaylistsLoaded();
+    if (cmd === 'calendar') ensureEventsLoaded();
     if (cmd === 'issueresolved') ensureIssuesLoaded();
 
     setTimeout(() => {
@@ -742,6 +787,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (slashMode === 'playlist') return 'Type to search playlists…';
     if (slashMode === 'travel') return allPlaces.length === 0 ? 'Loading places…' : 'Type to search places…';
     if (slashMode === 'city') return allPlaces.length === 0 ? 'Loading cities…' : 'No cities found';
+    if (slashMode === 'calendar') return allEvents === null ? 'Loading events…' : 'No matching upcoming events';
     if (slashMode === 'issueresolved') return allIssues.length === 0 ? 'Loading issues…' : 'No matching issues';
     return '';
   })();

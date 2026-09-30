@@ -69,6 +69,7 @@ Type `/` (at word start) to open the command menu. Three categories of commands 
 | `/playlist <query>` | Navidrome public playlists |
 | `/travel <query>` | Travel recommendations (places) |
 | `/city <query>` | Cities with travel recs (links to filtered travel view) |
+| `/calendar <query>` | Calendar events in the next 60 days, by title, city, venue or lineup (links to `/calendar?event=<id>`, which boards render with the event hover card). An empty query lists the soonest five |
 | `/issueresolved <query>` | Existing issues (links to a specific issue) |
 
 All results are inserted as Markdown links `[Name](url)`.

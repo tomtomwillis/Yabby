@@ -9,9 +9,11 @@ A community events calendar — gigs, club nights, radio shows, releases and gen
 
 - **Bar** (`cal-bar`, pinned to the top of the column) — prev/today/next navigation, the current month or week range as the heading, a month/week view switch, and a colour key for the six event categories (`gig`, `club`, `radio`, `release`, `event`, `other`) that doubles as a quick type filter.
 - **Grid** — `CalendarMonth` (a dot per event, coloured by category, ringed if the member is interested) or `CalendarWeek` (each day as a column of time + title rows), depending on the chosen view. Defaults to week view under 760px width, since a month cell there is too narrow for anything but dots.
-- **Settings + filters** (`CalendarSettings`) — a collapsible panel with faceted filters (city, type, hosted by, added by, calendar) each showing live counts for what's currently on screen, plus the member's own calendar settings (`CalendarMine`) once opened.
+- **Settings + filters** (`CalendarSettings`) — a collapsible panel with faceted filters (city, type, hosted by, added by, calendar) each showing live counts for what's currently on screen, plus the member's own calendar settings (`CalendarMine`) once opened. Each facet shows its first 6 options (counting "all") with a "show more" toggle for the rest; a chosen option past the cut stays visible.
 - **Add band** (`cal-add`) — a single line that expands into `EventForm` when clicked.
 - **List** — events from the selected day onward, grouped by date, as collapsible ledger rows (`EventList`). Runs past the grid's own range a page at a time ("show more") via `loadEventsFrom`.
+
+On a wide page (container ≥ 1100px) the grid, settings and add band sit in a side column beside the list. The side column is pinned under the bar, capped to the window height and scrolls on its own, so opening the settings or the add form never pushes the grid off screen while the list scrolls independently.
 
 ## Adding / editing events
 

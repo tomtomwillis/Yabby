@@ -7,7 +7,7 @@ A community forum where users can post messages, reply to each other, and react 
 
 ## Features
 
-- Messages with `@` tagging for members and artists/albums (links to a profile or Navidrome card) and `/` slash commands for linking to lists, playlists, travel recs, cities, issues, and community pages
+- Messages with `@` tagging for members and artists/albums (links to a profile or Navidrome card) and `/` slash commands for linking to lists, playlists, travel recs, cities, calendar events, issues, and community pages
 - Image attachments (paste, file select, or drag-and-drop, max 8 MB)
 - Polls (`/poll`)
 - Admin bot commands: `/filmannounce1`/`2`/`3` (Film Club), `/eventbot` (posts the calendar's weekly round-up — see [Calendar Page](Pages-CalendarPage))

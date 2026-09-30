@@ -721,6 +721,7 @@
    layout rather than hidden, so it keeps its place in the tab order and the
    label still toggles it. */
 .me-check {
+  position: relative;
   display: inline-flex;
   align-items: baseline;
   gap: 0.4rem;

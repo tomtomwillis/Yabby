@@ -301,6 +301,7 @@
 /* A real checkbox, clipped out of layout rather than hidden so it keeps its
    place in the tab order, drawn as [x] / [ ] like the rest of the site's. */
 .cal-check {
+  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: baseline;

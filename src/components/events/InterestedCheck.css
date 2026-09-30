@@ -3,7 +3,11 @@
    frame's where it sits in a card. The input is clipped rather than hidden so
    it keeps its place in the tab order. */
 
+/* Positioned so the clipped input is placed against it. Placed against the
+   window instead, it sits where it would be unscrolled, and focusing it on a
+   click scrolls the column to that spot. */
 .int-check {
+  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: baseline;

@@ -566,6 +566,7 @@
 
 /* The calendar's [x] / [ ] box, as the interested tick draws it. */
 .ev-own {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
