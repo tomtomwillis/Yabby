@@ -25,29 +25,82 @@
   font-family: var(--font2);
 }
 
+/* Stretched to the row beside it on the home grid: the map takes whatever the
+   index leaves, with the clamp as the floor, and is pulled out of flow so its
+   own content can never be what sets the row's height. */
+.home-row2--travel .home-travel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.home-row2--travel .ht-map {
+  flex: 1 1 0;
+  height: auto;
+  min-height: clamp(220px, 28vh, 360px);
+}
+
+.home-row2--travel .ht-map .leaflet-container {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+}
+
+/* Stacked, there is no neighbour to match, so the map is just a block. */
+@media (max-width: 900px) {
+  .home-row2--travel .ht-map {
+    flex: 0 0 auto;
+    height: clamp(200px, 55vw, 320px);
+    min-height: 0;
+  }
+}
+
+/* One row per pin on the map. Clicking flies to it and opens its bubble, so
+   the rows carry no detail of their own. */
 .ht-list {
+  flex: 0 0 auto;
   margin: 0;
-  font-family: var(--font2);
-  font-size: clamp(0.68rem, 0.6vw, 0.8rem);
-  line-height: 1.6;
-  color: var(--hp-dim);
-}
-
-.ht-list-label {
-  color: var(--hp-ink);
-}
-
-.ht-link {
   padding: 0;
+  list-style: none;
+  font-family: var(--font2);
+  font-size: clamp(0.68rem, 0.62vw, 0.82rem);
+}
+
+.ht-row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 1.2fr);
+  gap: 0.8rem;
+  align-items: baseline;
+  width: 100%;
+  padding: 0.3rem 0;
   background: none;
   border: none;
+  border-bottom: 1px solid var(--hp-rule);
   font: inherit;
-  color: var(--hp-accent);
+  text-align: left;
   cursor: pointer;
 }
 
-.ht-link:hover,
-.ht-link:focus-visible {
+.ht-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ht-row-name {
+  color: var(--hp-accent);
+}
+
+.ht-row-meta {
+  color: var(--hp-dim);
+}
+
+.ht-row-who {
+  text-align: right;
+}
+
+.ht-row:hover .ht-row-name,
+.ht-row:focus-visible .ht-row-name {
   color: var(--colour3);
   text-decoration: underline;
 }

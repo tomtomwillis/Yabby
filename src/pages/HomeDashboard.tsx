@@ -8,7 +8,6 @@ import CarouselStickers, {
 import PlaceSticker from '../components/PlaceSticker';
 import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import RecentLists from '../components/RecentLists';
-import Weather from '../components/weather-app';
 import HomeFilmClub from '../components/film/HomeFilmClub';
 import HomeEvents, { HomeEventsNav } from '../components/events/HomeEvents';
 import { addDays, startOfWeek, todayISO, weekTitle } from '../components/events/eventTypes';
@@ -16,7 +15,6 @@ import './Home.css';
 
 // Keeps leaflet out of the eagerly loaded home chunk.
 const HomeTravel = lazy(() => import('../components/travel/HomeTravel'));
-const Stats = lazy(() => import('../components/Stats'));
 
 const RECENTLY_ADDED_URL =
   'https://music.yabbyville.xyz/app/#/album/recentlyAdded?sort=recently_added&order=DESC&filter={}';
@@ -145,33 +143,21 @@ function HomeDashboard() {
         <HomeEvents weekStart={eventWeek} />
       </Section>
 
-      <div className="home-row2">
-        <Section icon="≡" title="recent lists" to="/lists">
-          <RecentLists />
-        </Section>
-
-        <div className="home-readouts">
-          <Section icon="∑" title="stats">
-            <Suspense fallback={<p className="hp-note">counting…</p>}>
-              <Stats />
-            </Suspense>
+      <div className="home-row2 home-row2--travel">
+        <div className="home-col">
+          <Section icon="≡" title="recent lists" to="/lists">
+            <RecentLists />
           </Section>
 
-          <Section icon="☼" title="weather">
-            <Weather />
+          <Section icon="▶" title="film club" to="/film-club">
+            <HomeFilmClub />
           </Section>
         </div>
-      </div>
 
-      <div className="home-row2">
         <Section icon="⚑" title="travel" to="/travel">
           <Suspense fallback={<p className="hp-note">loading map…</p>}>
             <HomeTravel />
           </Suspense>
-        </Section>
-
-        <Section icon="▶" title="film club" to="/film-club">
-          <HomeFilmClub />
         </Section>
       </div>
     </>

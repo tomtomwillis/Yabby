@@ -6,6 +6,7 @@ import AsciiMan from '../components/AsciiMan';
 import HomeIndex from '../components/HomeIndex';
 import PlayerBar from '../components/PlayerBar';
 import VisualiserDock from '../components/VisualiserDock';
+import Weather from '../components/weather-app';
 import { usePlayerState } from '../utils/usePlayer';
 import { scrollPageTo } from '../utils/pageScroll';
 import { SUBTITLES } from '../utils/straplines';
@@ -13,6 +14,7 @@ import '../App.css';
 import '../components/basic/TextAnimations.css';
 import './Home.css';
 
+const Stats = lazy(() => import('../components/Stats'));
 const WeathrAnimation = lazy(() => import('../components/weathr/WeathrAnimation'));
 
 
@@ -24,11 +26,30 @@ const RULE_REPEATS = 60;
 
 const BAR_MIN_KEY = 'yabby.homeBarMinimised';
 
-/* Below this the shell stacks and the rail goes, and the bar is the transport
-   and nothing else — the width left over for a visualiser is a few pixels of
-   nothing. Mirrored by Home.css's 900px breakpoint and by .pb-mode--viz in
+/* Below this the bar is the transport and nothing else — the width left over
+   for a visualiser is a few pixels of nothing. Mirrored by .pb-mode--viz in
    PlayerBar.css, which hides the switch at the same point. */
-const WIDE_QUERY = '(min-width: 901px)';
+const VIZ_QUERY = '(min-width: 901px)';
+
+interface SideSectionProps {
+  /** Box character joining this block to the index tree above it. */
+  branch: string;
+  title: string;
+  children: React.ReactNode;
+}
+
+/** Sidebar equivalent of Section: a box-drawing branch, a label, then a rule
+ *  that fills the rest of the rail. */
+const SideSection: React.FC<SideSectionProps> = ({ branch, title, children }) => (
+  <section className="hp-side-sec">
+    <h2 className="hp-side-h">
+      <span className="hp-side-branch" aria-hidden="true">{branch}</span>
+      <span className="hp-side-t">{title}</span>
+      <span className="hp-h-rule" aria-hidden="true" />
+    </h2>
+    {children}
+  </section>
+);
 
 /** The persistent shell: rail, wordmark and player stay put while routes swap
  *  through <Outlet /> in the body column. */
@@ -47,15 +68,13 @@ function Home() {
   // Gated in JS rather than hidden in CSS: a display:none dock still mounts,
   // and mounting it is what pulls in butterchurn and starts a WebGL loop the
   // phone would never show. The switch in the player bar hides at the same width.
-  // The rail's weather scene is gated the same way — hidden, it has no width to
-  // measure, so it never learns to stop drawing.
-  const [wide, setWide] = useState(
-    () => window.matchMedia(WIDE_QUERY).matches,
+  const [wideEnoughForViz, setWideEnoughForViz] = useState(
+    () => window.matchMedia(VIZ_QUERY).matches,
   );
 
   useEffect(() => {
-    const mql = window.matchMedia(WIDE_QUERY);
-    const onChange = (e: MediaQueryListEvent) => setWide(e.matches);
+    const mql = window.matchMedia(VIZ_QUERY);
+    const onChange = (e: MediaQueryListEvent) => setWideEnoughForViz(e.matches);
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
   }, []);
@@ -141,7 +160,14 @@ function Home() {
           <div className="home-side-scroll">
             <HomeIndex />
 
-            {wide && (
+            <SideSection branch="├" title="stats">
+              <Suspense fallback={<p className="hp-note">counting…</p>}>
+                <Stats />
+              </Suspense>
+            </SideSection>
+
+            <SideSection branch="└" title="weather">
+              <Weather />
               <Suspense fallback={null}>
                 {/* Columns set how big the scene draws in the rail: fewer means
                     more pixels per glyph. 88 is close to the floor — the house is
@@ -149,7 +175,7 @@ function Home() {
                     frame's height. */}
                 <WeathrAnimation cols={88} minRows={15} fontSizePx={10} />
               </Suspense>
-            )}
+            </SideSection>
           </div>
 
           <p className="home-side-sub">{subtitle}</p>
@@ -195,7 +221,7 @@ function Home() {
                 justify-content: flex-end on this row packs the two of them
                 together at the bar's right edge, rather than leaving the
                 visualiser stranded out by the wordmark. */}
-            {vizOpen && wide && (
+            {vizOpen && wideEnoughForViz && (
               <div className="home-bottom-viz">
                 <VisualiserDock />
               </div>

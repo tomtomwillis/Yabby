@@ -1,8 +1,8 @@
 /*
  * Home — fixed rail, scrolling body.
  *
- * A left rail carries the site index with the weather scene at its foot; the
- * body beside it scrolls on its own. The ASCII wordmark is
+ * A left rail carries the site index and the small persistent readouts (radio,
+ * stats, weather); the body beside it scrolls on its own. The ASCII wordmark is
  * pinned to the bottom-left above both, with the ASCII man opposite it. Sections
  * are separated by hairline rules and a heading rather than boxes, so the page
  * reads as one document. Nothing is rounded, nothing is shadowed, and the
@@ -136,18 +136,26 @@ body:has(.home-page) .star-path {
   overflow-y: auto;
 }
 
-/* Lists beside the stats and weather readouts. */
+/* Lists beside travel, and film club under them. */
 .home-row2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: clamp(1.2rem, 2vw, 2rem);
 }
 
-.home-readouts {
+/* Lists over film club on the left; travel takes the right at the height of
+   both. The left column sets the row's height — travel's map has no height of
+   its own here and just fills what is left of it. */
+.home-col {
   display: flex;
   flex-direction: column;
-  gap: clamp(0.42rem, 0.84vh, 0.7rem);
+  gap: clamp(1.2rem, 2.4vh, 2rem);
   min-width: 0;
+}
+
+.home-row2--travel > .hp-sec {
+  display: flex;
+  flex-direction: column;
 }
 
 /* ─── Routed pages inside the shell ───────────────────── */
@@ -301,29 +309,28 @@ a.hp-h-t:focus-visible {
   color: var(--hp-dim);
 }
 
-/* ─── Readouts ────────────────────────────────────────── */
-
-.home-readouts .stats-list {
-  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
-}
-
-.home-readouts .stats-row {
-  padding: 0.1rem 0;
-}
-
-.home-readouts .weather-card {
-  padding: 0;
-}
-
-.home-readouts .weather-card .normal-text {
-  margin: 0;
-  font-family: var(--font2);
-  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
-  line-height: 1.35;
-  color: var(--hp-ink);
-}
-
 /* ─── Sidebar ─────────────────────────────────────────── */
+
+.hp-side-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0 0 0.45rem;
+  font-family: var(--font2);
+  font-size: clamp(0.74rem, 0.72vw, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--hp-accent);
+}
+
+.hp-side-branch {
+  flex: 0 0 auto;
+  color: var(--hp-rule);
+}
+
+.hp-side-t {
+  flex: 0 0 auto;
+}
 
 /* The rail's footer, outside the scrolling part: it holds the bottom edge above
    the fixed bar (the aside's padding) at any window height. */
@@ -337,20 +344,50 @@ a.hp-h-t:focus-visible {
   color: var(--colour7);
 }
 
+.home-side .stats-list {
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
+}
+
+.home-side .stats-row {
+  padding: 0.3rem 0;
+}
+
+.home-side .weather-card {
+  padding: 0;
+}
+
+.home-side .weather-card .normal-text {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.7vw, 0.88rem);
+  line-height: 1.5;
+  color: var(--hp-ink);
+}
+
+/* Weather is the rail's last section, so it can take whatever the index, stats
+   and strapline leave rather than claiming a share of the window that may not
+   be there — the strapline below it stays on screen at any height. */
+/* No min-height: 0 here — the automatic minimum stops the section shrinking
+   past its heading and readout, so the scene is the only thing that gives. */
+.home-side .hp-side-sec:last-of-type {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
 /* The engine's <pre> is absolutely positioned, so the frame has no intrinsic
    height — it has to be given one for the scale-to-fit to have a target. The
    component derives its row count from whatever height lands here, so there is
    no aspect ratio to keep in sync with the grid. */
-/* The scene is the rail's only elastic box: it takes the space the index
+/* The scene is the rail's only elastic box: it takes the space everything else
    leaves and gives it all back as the strapline below it runs to more lines,
    down to nothing. Without min-height: 0 it would refuse to shrink and the
-   strapline would lay out over the top of it. The auto margin takes whatever
-   is left once it hits its cap, which is what sits it on the rail's floor. */
+   strapline would lay out over the top of it. */
 .home-side .weathr-frame {
   flex: 1 1 0;
   min-height: 0;
   max-height: 260px;
-  margin-top: auto;
+  margin-top: 0.35rem;
 }
 
 /* ─── Sticker wall ────────────────────────────────────── */
@@ -902,9 +939,10 @@ a.hp-h-t:focus-visible {
 
 /* ─── Responsive ──────────────────────────────────────── */
 
-/* Short windows are where the rail runs out of room — the index labels cost
-   the same lines regardless of width. Pull the spacing back just enough to
-   leave the weather scene some room; taller windows keep the roomier setting. */
+/* Short windows are where the rail runs out of room — the wrapped weather
+   sentence and index labels cost the same lines regardless of width. Pull the
+   spacing back just enough to keep the whole rail on screen without a
+   scrollbar; taller windows keep the roomier setting. */
 @media (max-height: 900px) {
   .home-side-scroll {
     gap: clamp(0.5rem, 1.1vh, 1rem);
@@ -913,12 +951,20 @@ a.hp-h-t:focus-visible {
   .home-side .home-index {
     line-height: 1.35;
   }
+
+  .hp-side-h {
+    margin-bottom: 0.3rem;
+  }
+
+  .home-side .stats-row {
+    padding: 0.22rem 0;
+  }
 }
 
 /* Mobile. The rail's two columns cannot both hold their content much below
    this, so this is where the page stops being a rail-and-body and becomes one
-   scrolling document: title → dashboard, and off `/` the routed page alone.
-   The drawer becomes the navigation here, which is earlier than
+   scrolling document: title → dashboard → readouts, and off `/` the routed page
+   alone. The drawer becomes the navigation here, which is earlier than
    Header.css switches over on its own — the burger is pulled up to match just
    below, since the rail's index goes with the rail. */
 @media (max-width: 900px) {
@@ -933,18 +979,31 @@ a.hp-h-t:focus-visible {
     flex-direction: column;
   }
 
+  /* Stickers, recently added, lists and travel come first; stats and weather
+     are the tail of the page rather than a band above it. Source order is the
+     desktop rail's, so the two columns swap here instead. */
   /* Through the property rather than a literal, so a full-bleed page inside the
      column cancels exactly this much and not the wider desktop inset. */
   .home-main {
+    order: 1;
     --hp-main-pad: 1rem;
-    padding: 0 var(--hp-main-pad) var(--hp-title-clear);
+    padding: 0 var(--hp-main-pad) 1.5rem;
     overflow: visible;
   }
 
-  /* The index is the drawer's, the strapline the masthead's and the weather
-     scene is left unmounted by Home, so the rail has nothing left to show. */
   .home-side {
-    display: none;
+    order: 2;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 1.2rem 1rem var(--hp-title-clear);
+    overflow: visible;
+    border-right: none;
+    border-top: 1px solid var(--hp-rule);
+  }
+
+  .home-side-scroll {
+    gap: 1.2rem;
+    overflow: visible;
   }
 
   .home-row2 {
@@ -995,22 +1054,28 @@ a.hp-h-t:focus-visible {
   }
 
   /* The bar is the player alone down here — the wordmark is at the top of the
-     page. */
-  .home-bottom-title {
+     page, and the rail's index and strapline are the drawer's and the
+     masthead's respectively. */
+  .home-bottom-title,
+  .home-side .home-index,
+  .home-side-sub {
     display: none;
   }
 
   /* Off home the shell keeps nothing but the player: the routed page renders
-     its own title. */
+     its own title, and the rail's readouts belong to the dashboard. Hidden
+     rather than unmounted, so returning to `/` costs no fresh reads. */
   .home-page:not(.is-home) .home-top-title,
-  .home-page:not(.is-home) .home-top-sub {
+  .home-page:not(.is-home) .home-top-sub,
+  .home-page:not(.is-home) .home-side {
     display: none;
   }
 
-  /* On `/` the masthead above supplies the top margin; with it gone the column
-     owns that end itself. */
+  /* On `/` the masthead above supplies the top margin and the rail below takes
+     the bar's clearance; with both gone the column owns each end itself. */
   .home-page:not(.is-home) .home-main {
     padding-top: 1rem;
+    padding-bottom: var(--hp-title-clear);
   }
 
   /* The window scrolls here, not the column, so a sticky band inside it pins to

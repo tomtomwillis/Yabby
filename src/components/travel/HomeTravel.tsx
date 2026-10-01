@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -13,7 +13,6 @@ import './TravelMap.css';
 import './HomeTravel.css';
 
 const PLACE_LIMIT = 5;
-const RECENT_LIMIT = 3;
 
 /** New identity on every click, so re-picking the same place re-fires the fly. */
 interface Focus {
@@ -72,6 +71,18 @@ function FitPlaces({ places }: { places: Place[] }) {
     const bounds = L.latLngBounds(places.map((p) => [p.lat, p.lng] as [number, number]));
     map.fitBounds(bounds, { padding: [28, 28], maxZoom: 9 });
   }, [places, map]);
+  return null;
+}
+
+/** The frame is sized by the grid beside it, which changes as the film club and
+ *  lists load in. Leaflet only watches the window, so tell it about the rest. */
+function SizeWatcher() {
+  const map = useMap();
+  useEffect(() => {
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(map.getContainer());
+    return () => ro.disconnect();
+  }, [map]);
   return null;
 }
 
@@ -188,30 +199,30 @@ const HomeTravel: React.FC = () => {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           <FitPlaces places={places} />
+          <SizeWatcher />
           <Focuser focus={focus} markers={markers} />
           {pins}
         </MapContainer>
       </div>
 
-      <p className="ht-list">
-        <span className="ht-list-label">Recently added: </span>
-        {places.slice(0, RECENT_LIMIT).map((place, i, recent) => (
-          <Fragment key={place.id}>
+      <ul className="ht-list">
+        {places.map((place) => (
+          <li key={place.id}>
             <button
               type="button"
-              className="ht-link"
+              className="ht-row"
               onClick={() => {
                 setFocus({ id: place.id, lat: place.lat, lng: place.lng });
                 window.umami?.track('home_travel_pin', { place: place.id });
               }}
             >
-              {shortName(place)}
-              {place.city ? ` (${place.city})` : ''}
+              <span className="ht-row-name">{shortName(place)}</span>
+              <span className="ht-row-meta">{place.city || place.country}</span>
+              <span className="ht-row-meta ht-row-who">{place.firstContributorUsername}</span>
             </button>
-            {i < recent.length - 1 && <span aria-hidden="true">, </span>}
-          </Fragment>
+          </li>
         ))}
-      </p>
+      </ul>
     </div>
   );
 };
