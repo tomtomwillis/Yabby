@@ -105,7 +105,9 @@
   position: fixed;
   transform: translateY(-50%);
   pointer-events: none;
-  z-index: 1200;
+  /* Over the pinned and hover cards (1500, 1600) and their pin hint (1700),
+     under the lightbox (2000). */
+  z-index: 1800;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
