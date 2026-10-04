@@ -222,6 +222,12 @@
   overflow-wrap: anywhere;
 }
 
+.me-pronouns {
+  margin-left: 0.6em;
+  font-size: 0.75em;
+  color: var(--me-mute);
+}
+
 /* Their own line, in the human face, marked the way a comment in the margin
    is — the one thing on the page nobody else wrote. */
 .me-bio {

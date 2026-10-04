@@ -115,6 +115,7 @@ const DirectoryPage: React.FC = () => {
               ? `${MONTHS[member.joinedAt.getMonth()]} ${member.joinedAt.getFullYear()}`
               : null;
             const hasWhere = !!member.locationFlag || !!member.locationText;
+            const hasCounts = member.postCount > 0 || member.stickerCount > 0 || member.travelCount > 0;
             const socialPlatforms = SOCIAL_ORDER.filter((platform) => member.socials[platform]);
             const letter = letterFor(member.username);
             const anchor = firstOfLetter.get(letter) === member.userId ? anchorFor(letter) : undefined;
@@ -128,6 +129,7 @@ const DirectoryPage: React.FC = () => {
                 <div className="dir-body">
                   <div className="dir-head">
                     <Link to={`/user/${member.userId}`} className="dir-name">{member.username}</Link>
+                    {member.pronouns && <span className="dir-pronouns">{member.pronouns}</span>}
                     {joined && <span className="dir-joined">since {joined}</span>}
                   </div>
 
@@ -137,7 +139,7 @@ const DirectoryPage: React.FC = () => {
                     <p className="dir-bio dir-bio--none">no bio yet.</p>
                   )}
 
-                  {(hasWhere || member.postCount > 0 || member.stickerCount > 0) && (
+                  {(hasWhere || hasCounts) && (
                     <div className="dir-facts">
                       {hasWhere && (
                         <span className="dir-fact">
@@ -145,7 +147,7 @@ const DirectoryPage: React.FC = () => {
                           {member.locationText}
                         </span>
                       )}
-                      {(member.postCount > 0 || member.stickerCount > 0) && (
+                      {hasCounts && (
                         <span className="dir-fact dir-counts">
                           {member.postCount > 0 && (
                             <span className="dir-count">
@@ -156,6 +158,16 @@ const DirectoryPage: React.FC = () => {
                             <span className="dir-count">
                               <Link to={`/stickers?user=${member.userId}`}>
                                 {member.stickerCount} {member.stickerCount === 1 ? 'sticker' : 'stickers'}
+                              </Link>
+                            </span>
+                          )}
+                          {member.travelCount > 0 && (
+                            <span className="dir-count">
+                              <Link
+                                to={`/travel?user=${member.userId}`}
+                                onClick={() => window.umami?.track('directory_travel_link')}
+                              >
+                                {member.travelCount} travel {member.travelCount === 1 ? 'rec' : 'recs'}
                               </Link>
                             </span>
                           )}

@@ -1590,6 +1590,36 @@ const profileSuite: TestSuite = {
         ),
     },
     {
+      name: 'saves pronouns, then puts yours back',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        const data = (await getDoc(ref)).data() ?? {};
+        const restore = 'pronouns' in data ? data.pronouns : DELETE_FIELD;
+
+        await updateDoc(ref, { pronouns: 'they/them' });
+        const after = (await getDoc(ref)).data()?.pronouns;
+        await updateDoc(ref, { pronouns: restore });
+
+        assert(after === 'they/them', `pronouns read back as ${after}.`);
+        return 'restored yours';
+      },
+    },
+    {
+      name: 'rules reject over-long pronouns',
+      run: async (ctx) =>
+        expectDenied('pronouns past the 30 character cap', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { pronouns: 'x'.repeat(31) }),
+        ),
+    },
+    {
+      name: 'rules reject a member moving their own travel count',
+      run: async (ctx) => {
+        const ref = doc(db, 'users', ctx.uid);
+        await expectDenied('bumping travelCount', () => updateDoc(ref, { travelCount: incrementBy(1) }));
+        return expectDenied('setting travelCount outright', () => updateDoc(ref, { travelCount: 99 }));
+      },
+    },
+    {
       name: 'rules still reject unknown profile fields',
       run: async (ctx) =>
         expectDenied('adding a field the profile schema does not allow', () =>

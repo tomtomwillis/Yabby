@@ -26,6 +26,8 @@ import './Profile.css';
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 20;
 const USERNAME_PATTERN = /^[a-zA-Z0-9]+([ ._-][a-zA-Z0-9]+)*$/;
+// Matches the pronouns cap in firestore.rules.
+const PRONOUNS_MAX = 30;
 
 interface SocialRow {
   id: number;
@@ -118,6 +120,7 @@ const Profile: React.FC = () => {
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
 
   const [bio, setBio] = useState('');
+  const [pronouns, setPronouns] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
   const [locationFlag, setLocationFlag] = useState('');
   const [locationText, setLocationText] = useState('');
@@ -129,6 +132,7 @@ const Profile: React.FC = () => {
   const [editShape, setEditShape] = useState('star');
   const [editAvatar, setEditAvatar] = useState('/Stickers/avatar_star_blue.webp');
   const [editBio, setEditBio] = useState('');
+  const [editPronouns, setEditPronouns] = useState('');
   const [editSiteUrl, setEditSiteUrl] = useState('');
   const [editLocationFlag, setEditLocationFlag] = useState('');
   const [editLocationText, setEditLocationText] = useState('');
@@ -165,6 +169,7 @@ const Profile: React.FC = () => {
             setAvatar(fetchedAvatar);
             setAvatarBroken(false);
             setBio(data.bio || '');
+            setPronouns(typeof data.pronouns === 'string' ? data.pronouns : '');
             setSiteUrl(data.siteUrl || '');
             setLocationFlag(data.locationFlag || '');
             setLocationText(data.locationText || '');
@@ -197,6 +202,7 @@ const Profile: React.FC = () => {
     setEditShape(selectedShape);
     setEditAvatar(avatar);
     setEditBio(bio);
+    setEditPronouns(pronouns);
     setEditSiteUrl(siteUrl);
     setEditLocationFlag(locationFlag);
     setEditLocationText(locationText);
@@ -259,6 +265,7 @@ const Profile: React.FC = () => {
 
     try {
       const sanitizedBio = sanitizeHtml(editBio.trim());
+      const sanitizedPronouns = sanitizeText(editPronouns.trim()).slice(0, PRONOUNS_MAX);
       // A web address never carries markup, so strip tags outright.
       const sanitizedSiteUrl = sanitizeText(editSiteUrl.trim());
       const sanitizedLocationText = sanitizeHtml(editLocationText.trim());
@@ -298,6 +305,7 @@ const Profile: React.FC = () => {
           shape: editShape,
           avatar: editAvatar,
           bio: sanitizedBio,
+          pronouns: sanitizedPronouns,
           siteUrl: sanitizedSiteUrl,
           locationFlag: editLocationFlag,
           locationText: sanitizedLocationText,
@@ -321,6 +329,7 @@ const Profile: React.FC = () => {
       setAvatar(editAvatar);
       setAvatarBroken(false);
       setBio(sanitizedBio);
+      setPronouns(sanitizedPronouns);
       setSiteUrl(sanitizedSiteUrl);
       setLocationFlag(editLocationFlag);
       setLocationText(sanitizedLocationText);
@@ -492,6 +501,21 @@ const Profile: React.FC = () => {
               showSendButton={false}
               showCounter={false}
               onLimitExceeded={(type) => handleLimitExceeded(type, 'Username')}
+            />
+          </div>
+
+          <div className="me-field">
+            <span className="me-label">pronouns</span>
+            <MessageTextBox
+              placeholder="e.g. she/her, they/them"
+              value={editPronouns}
+              onChange={setEditPronouns}
+              maxWords={5}
+              maxChars={PRONOUNS_MAX}
+              showSendButton={false}
+              showCounter={false}
+              rows={1}
+              onLimitExceeded={(type) => handleLimitExceeded(type, 'Pronouns')}
             />
           </div>
 
@@ -696,7 +720,10 @@ const Profile: React.FC = () => {
             <span className="me-channel" aria-hidden="true"></span>
 
             <div className="me-body">
-              <p className="me-name">{username || 'Anonymous'}</p>
+              <p className="me-name">
+                {username || 'Anonymous'}
+                {pronouns && <span className="me-pronouns">{pronouns}</span>}
+              </p>
 
               {bio ? (
                 <p className="me-bio">{bio}</p>

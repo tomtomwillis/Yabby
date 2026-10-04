@@ -155,13 +155,15 @@ export default function TravelPage() {
     [places],
   );
 
-  // Consume ?city= and ?place= query params once places are loaded
+  // Consume ?city=, ?place= and ?user= query params once places are loaded
   useEffect(() => {
     if (places.length === 0) return;
     const cityParam = searchParams.get('city');
     const placeParam = searchParams.get('place');
+    const userParam = searchParams.get('user');
     if (cityParam) handleCityChange(cityParam);
     if (placeParam) setDeepLinkedPlaceId(placeParam);
+    if (userParam) setUserFilter(userParam);
   }, [places, searchParams, handleCityChange]);
 
   // Pan map to deep-linked place

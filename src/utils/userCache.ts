@@ -18,6 +18,7 @@ export interface UserProfile {
   hasUsername: boolean;
   avatar: string;
   bio: string;
+  pronouns: string;
   siteUrl: string;
   locationFlag: string;
   locationText: string;
@@ -27,6 +28,8 @@ export interface UserProfile {
   joinedAt: Date | null;
   postCount: number;
   stickerCount: number;
+  /** Kept by the travel API as recs are added and removed. */
+  travelCount: number;
   nekoEnabled: boolean;
   designToolEnabled: boolean;
   /** Others may pick this member in the calendar's "calendar:" filter. */
@@ -40,6 +43,7 @@ const EMPTY: UserProfile = {
   hasUsername: false,
   avatar: '',
   bio: '',
+  pronouns: '',
   siteUrl: '',
   locationFlag: '',
   locationText: '',
@@ -47,6 +51,7 @@ const EMPTY: UserProfile = {
   joinedAt: null,
   postCount: 0,
   stickerCount: 0,
+  travelCount: 0,
   nekoEnabled: false,
   designToolEnabled: false,
   calendarPublic: false,
@@ -59,6 +64,7 @@ function toProfile(data: DocumentData): UserProfile {
     hasUsername: typeof data.username === 'string' && data.username.trim().length > 0,
     avatar: data.avatar || '',
     bio: data.bio || '',
+    pronouns: typeof data.pronouns === 'string' ? data.pronouns : '',
     siteUrl: data.siteUrl || '',
     locationFlag: data.locationFlag || '',
     locationText: data.locationText || '',
@@ -66,6 +72,7 @@ function toProfile(data: DocumentData): UserProfile {
     joinedAt: data.joinedAt?.toDate?.() ?? null,
     postCount: typeof data.postCount === 'number' ? data.postCount : 0,
     stickerCount: typeof data.stickerCount === 'number' ? data.stickerCount : 0,
+    travelCount: typeof data.travelCount === 'number' ? data.travelCount : 0,
     nekoEnabled: data.nekoEnabled === true,
     designToolEnabled: data.designToolEnabled === true,
     calendarPublic: data.calendarPublic === true,
@@ -78,7 +85,7 @@ type CacheEntry = UserProfile & { timestamp: number };
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<UserProfile>>();
 
-const STORAGE_KEY = 'yabbyville.userCache.v4';
+const STORAGE_KEY = 'yabbyville.userCache.v5';
 const FLUSH_DELAY = 200;
 
 /* Session storage rather than local: a profile that outlived the browser could

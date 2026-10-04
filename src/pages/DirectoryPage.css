@@ -189,6 +189,13 @@
   text-decoration: underline;
 }
 
+.dir-pronouns {
+  font-family: var(--font2);
+  font-size: clamp(0.72rem, 0.75vw, 0.86rem);
+  letter-spacing: 0.04em;
+  color: var(--dir-dim);
+}
+
 .dir-joined {
   font-family: var(--font2);
   font-size: clamp(0.68rem, 0.7vw, 0.82rem);

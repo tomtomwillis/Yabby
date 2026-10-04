@@ -41,7 +41,7 @@ const SEARCH_COMMAND_LABELS: Record<SearchCommand, string> = {
   playlist: 'search public playlists',
   travel:   'search a travel rec',
   city:     'search a list of filtered recs for a city',
-  calendar: 'link to an upcoming event',
+  calendar: 'link to a recent or upcoming event',
   issueresolved: 'link to a specific issue',
 };
 
@@ -56,9 +56,10 @@ const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
 
 const EVENT_BOT_COMMAND = 'eventbot';
 
-// How far ahead /calendar searches. Each event in the window is a read, so it
-// stays short; eventsApi caches the range for a few minutes.
+// The window /calendar searches. Each event in it is a read, so it stays
+// short; eventsApi caches the range for a few minutes.
 const CALENDAR_SEARCH_DAYS = 60;
+const CALENDAR_PAST_DAYS = 20;
 
 // Matches MAX_FILE_SIZE in backend_server/routes/messageImages.js
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -279,10 +280,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   const ensureEventsLoaded = (): Promise<void> => {
     if (eventsFetchPromiseRef.current) return eventsFetchPromiseRef.current;
     const today = todayISO();
-    const p = loadEventsInRange(today, addDays(today, CALENDAR_SEARCH_DAYS))
+    const p = loadEventsInRange(addDays(today, -CALENDAR_PAST_DAYS), addDays(today, CALENDAR_SEARCH_DAYS))
       .then((events) => {
+        // Upcoming first, soonest at the top, then past ones most recent first,
+        // so an empty search still leads with what is coming up.
+        const upcoming = events.filter((e) => e.date >= today);
+        const past = events.filter((e) => e.date < today).reverse();
         setAllEvents(
-          events.map((e) => ({
+          [...upcoming, ...past].map((e) => ({
             id: e.id,
             name: `${e.title} · ${dayLabel(e.date)}`,
             search: [e.title, e.city, e.location, ...(e.lineup ?? []).map((act) => act.name)].join(' ').toLowerCase(),
@@ -382,7 +387,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         .slice(0, 5);
       setSlashResults(filtered);
     } else if (slashMode === 'calendar') {
-      // Empty term shows the soonest events (the range comes back in date order).
+      // Empty term shows the soonest upcoming events (allEvents is kept upcoming-first).
       const term = slashSearchTerm.trim().toLowerCase();
       const filtered = (allEvents ?? [])
         .filter((e) => !term || e.search.includes(term))
@@ -787,7 +792,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (slashMode === 'playlist') return 'Type to search playlists…';
     if (slashMode === 'travel') return allPlaces.length === 0 ? 'Loading places…' : 'Type to search places…';
     if (slashMode === 'city') return allPlaces.length === 0 ? 'Loading cities…' : 'No cities found';
-    if (slashMode === 'calendar') return allEvents === null ? 'Loading events…' : 'No matching upcoming events';
+    if (slashMode === 'calendar') return allEvents === null ? 'Loading events…' : 'No matching events';
     if (slashMode === 'issueresolved') return allIssues.length === 0 ? 'Loading issues…' : 'No matching issues';
     return '';
   })();

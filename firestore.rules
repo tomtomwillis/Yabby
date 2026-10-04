@@ -390,7 +390,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'calendarPublic', 'calendarFeedPublic', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'calendarPublic', 'calendarFeedPublic', 'joinedAt', 'postCount', 'stickerCount', 'travelCount', 'socials', 'pronouns'])
         && isValidUsername(request.resource.data.username)
         && ownsUsername(userId, request.resource.data.username)
         && (!('avatar' in request.resource.data) || validString(request.resource.data.avatar, 0, 200))
@@ -400,6 +400,7 @@ service cloud.firestore {
         && (!('siteUrl' in request.resource.data) || validString(request.resource.data.siteUrl, 0, 200))
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
+        && (!('pronouns' in request.resource.data) || validString(request.resource.data.pronouns, 0, 30))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
         && (!('calendarPublic' in request.resource.data) || request.resource.data.calendarPublic is bool)
@@ -410,10 +411,11 @@ service cloud.firestore {
         // join date. A new profile starts on zero posts.
         && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt <= request.time)
         && (!('postCount' in request.resource.data) || request.resource.data.postCount == 0)
-        && (!('stickerCount' in request.resource.data) || request.resource.data.stickerCount == 0);
+        && (!('stickerCount' in request.resource.data) || request.resource.data.stickerCount == 0)
+        && (!('travelCount' in request.resource.data) || request.resource.data.travelCount == 0);
 
       allow update: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'calendarPublic', 'calendarFeedPublic', 'joinedAt', 'postCount', 'stickerCount', 'socials'])
+        && request.resource.data.keys().hasOnly(['username', 'avatar', 'color', 'shape', 'bio', 'siteUrl', 'locationFlag', 'locationText', 'nekoEnabled', 'designToolEnabled', 'calendarPublic', 'calendarFeedPublic', 'joinedAt', 'postCount', 'stickerCount', 'travelCount', 'socials', 'pronouns'])
         && isValidUsername(request.resource.data.username)
         // Only a rename pays for the reservation lookup — every other profile
         // write, including the post count increment on each post, keeps the
@@ -427,6 +429,7 @@ service cloud.firestore {
         && (!('siteUrl' in request.resource.data) || validString(request.resource.data.siteUrl, 0, 200))
         && (!('locationFlag' in request.resource.data) || validString(request.resource.data.locationFlag, 0, 20))
         && (!('locationText' in request.resource.data) || validString(request.resource.data.locationText, 0, 100))
+        && (!('pronouns' in request.resource.data) || validString(request.resource.data.pronouns, 0, 30))
         && (!('nekoEnabled' in request.resource.data) || request.resource.data.nekoEnabled is bool)
 				&& (!('designToolEnabled' in request.resource.data) || request.resource.data.designToolEnabled is bool)
         && (!('calendarPublic' in request.resource.data) || request.resource.data.calendarPublic is bool)
@@ -457,7 +460,10 @@ service cloud.firestore {
               && (request.resource.data.stickerCount == resource.data.get('stickerCount', 0)
                   || request.resource.data.stickerCount == resource.data.get('stickerCount', 0) + 1
                   || request.resource.data.stickerCount == resource.data.get('stickerCount', 0) - 1)
-            ));
+            ))
+        // Travel recs are written by the backend, which keeps this count with
+        // them. The member may carry it through a profile save but never move it.
+        && request.resource.data.get('travelCount', 0) == resource.data.get('travelCount', 0);
 
       // An admin may set anyone's sticker count and nothing else on the
       // profile: deleting someone else's sticker takes one off, and the recount
