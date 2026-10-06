@@ -145,6 +145,7 @@ const SEED = {
   'lists/own/items/it1': { type: 'custom', userText: 'note', order: 0, title: 'thing', timestamp: at(-1000) },
 
   'stickers/s1': { userId: ALICE, albumId: 'alb', text: 'nice', position: { x: 1, y: 2 }, sticker: '/s.webp', timestamp: at(-1000) },
+  'stickers/s2': { userId: BOB, albumId: 'alb', text: 'mine', position: { x: 3, y: 4 }, sticker: '/b.webp', timestamp: at(-1000) },
 
   'events/e1': { title: 'Gig', date: '2026-10-02', category: 'gig', time: '20:00', location: 'the hall', city: 'Glasgow', lineup: [{ name: 'Djrum', artistId: 'ar1' }], urls: ['https://t.example'], userId: ALICE, username: 'alice', createdAt: at(-1000) },
   'events/e2': { title: 'Club', date: '2026-10-03', category: 'club', interestedBy: [ALICE, BOB], interestCount: 2, userId: BOB, username: 'bob', createdAt: at(-1000) },
@@ -172,6 +173,17 @@ const newPost = (extra = {}) => ({
 });
 const newReply = (extra = {}) => ({
   text: 'new reply', userId: ALICE, username: 'alice', avatar: '', timestamp: SERVER_TIME, reactedBy: [], reactionCount: 0, ...extra,
+});
+
+// An event with every field at its longest and the most acts and links: the
+// heaviest write the event rules must judge inside their 1,000-expression
+// budget. size() counts UTF-16 units in the rules, so fifty emoji fill a 100 name.
+const FULL_BILL = Array.from({ length: 7 }, (_, i) => ({ name: i === 0 ? '🎛'.repeat(50) : 'n'.repeat(100), artistId: `a${i}`.padEnd(64, '_') }));
+const FULL_LINKS = ['https://' + 'é'.repeat(492), 'http://' + 'x'.repeat(493), 'https://a.example', 'https://b.example', 'https://' + 'y'.repeat(492)];
+const fullEvent = (userId, username) => ({
+  title: 't'.repeat(120), date: '2026-10-10', category: 'gig', time: '22:00', endTime: '04:00', timeZone: 'America/Argentina/Buenos_Aires',
+  description: 'd'.repeat(2000), comment: 'c'.repeat(500), location: 'l'.repeat(200), city: 'São Paulo', cost: '£'.repeat(60), hosted: true,
+  imageId: '0f8fad5b-d9cb-469f-a165-70867728950e', lineup: FULL_BILL, urls: FULL_LINKS, userId, username, createdAt: SERVER_TIME,
 });
 
 const BASES = [
@@ -245,6 +257,18 @@ const BASES = [
   { name: 'sticker', as: ALICE, op: 'create', path: 'stickers/new', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album' } },
   { name: 'sticker edit', as: ALICE, op: 'update', path: 'stickers/s1', data: { text: 'edited', editedAt: SERVER_TIME } },
   { name: 'sticker delete', as: ALICE, op: 'delete', path: 'stickers/s1' },
+  { name: 'sticker placed with its count', as: ALICE, op: 'batch', writes: [
+    { op: 'set', path: 'stickers/placed', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album', albumArtist: 'Artist' } },
+    { op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
+  ] },
+  { name: 'sticker deleted with its count', as: BOB, op: 'batch', writes: [
+    { op: 'delete', path: 'stickers/s2' },
+    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
+  ] },
+  { name: 'sticker deleted with its count by admin', as: ADMIN, op: 'batch', writes: [
+    { op: 'delete', path: 'stickers/s2' },
+    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
+  ] },
 
   // Calendar events
   { name: 'event', as: ALICE, op: 'create', path: 'events/new', data: { title: 'Club night', date: '2026-10-03', category: 'club', time: '22:00', endTime: '04:00', timeZone: 'Europe/Paris', description: 'dance', location: 'basement', cost: '£5', urls: ['https://a.example', 'http://b.example'], imageId: '0f8fad5b-d9cb-469f-a165-70867728950e', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
@@ -255,6 +279,8 @@ const BASES = [
   { name: 'event in UTC', as: BOB, op: 'create', path: 'events/utc', data: { title: 'Stream', date: '2026-10-11', category: 'radio', time: '18:00', timeZone: 'UTC', userId: BOB, username: 'bob', createdAt: SERVER_TIME } },
   { name: 'event delete', as: ALICE, op: 'delete', path: 'events/e1' },
   { name: 'event delete by admin', as: ADMIN, op: 'delete', path: 'events/e1' },
+  { name: 'event at every limit', as: BOB, op: 'create', path: 'events/full', data: fullEvent(BOB, 'bob') },
+  { name: 'event edited to every limit', as: ALICE, op: 'update', path: 'events/e1', data: (({ userId, username, createdAt, ...rest }) => ({ ...rest, updatedAt: SERVER_TIME }))(fullEvent(ALICE, 'alice')) },
   { name: 'event with city and lineup', as: BOB, op: 'create', path: 'events/withbill', data: { title: 'All-dayer', date: '2026-10-10', category: 'gig', city: 'São Paulo', lineup: [{ name: 'Djrum', artistId: 'ar-1_x' }, { name: 'Local band' }], userId: BOB, username: 'bob', createdAt: SERVER_TIME } },
   { name: 'event category and hosted', as: BOB, op: 'create', path: 'events/hosted', data: { title: 'Open day', date: '2026-10-12', category: 'event', hosted: false, userId: BOB, username: 'bob', createdAt: SERVER_TIME } },
   { name: 'event hosted edit', as: ALICE, op: 'update', path: 'events/e1', data: { hosted: true, updatedAt: SERVER_TIME } },
@@ -300,6 +326,28 @@ const BASES = [
 
 /** Writes no one may make. Judged as-is, not mutated. */
 const FORBIDDEN = [
+  { name: 'event title of emoji past its limit in UTF-16 units', as: ALICE, op: 'create', path: 'events/emo-title', data: { title: '🎛'.repeat(61), date: '2026-10-03', category: 'club', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'post of emoji past its limit in UTF-16 units', as: ALICE, op: 'create', path: 'messages/emo', data: newPost({ text: '🤤'.repeat(5001) }) },
+  { name: 'sticker placed with someone else\'s count', as: ALICE, op: 'batch', writes: [
+    { op: 'set', path: 'stickers/placed', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME } },
+    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(1) } },
+  ] },
+  { name: 'sticker placed as someone else', as: ALICE, op: 'batch', writes: [
+    { op: 'set', path: 'stickers/placed', data: { userId: BOB, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME } },
+    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(1) } },
+  ] },
+  { name: 'sticker placed over an existing one', as: ALICE, op: 'batch', writes: [
+    { op: 'set', path: 'stickers/s2', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME } },
+    { op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
+  ] },
+  { name: 'someone else\'s sticker deleted with its count', as: ALICE, op: 'batch', writes: [
+    { op: 'delete', path: 'stickers/s2' },
+    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
+  ] },
+  { name: 'sticker deleted with a count already at zero', as: ALICE, op: 'batch', writes: [
+    { op: 'delete', path: 'stickers/s1' },
+    { op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(-1) } },
+  ] },
   { name: 'place by a member', as: ALICE, op: 'set', path: 'places/N_1', data: { lat: 1, lng: 2 } },
   { name: 'contribution by a member', as: ALICE, op: 'set', path: 'places/N_1/contributions/uid-alice', data: { comment: 'x' } },
   { name: 'admin grant', as: ALICE, op: 'set', path: 'admins/uid-alice', data: {} },
@@ -332,7 +380,20 @@ const FORBIDDEN = [
   { name: 'city rename', as: ALICE, op: 'update', path: 'eventCities/glasgow', data: { name: 'Glesga' } },
   { name: 'city under another id', as: ALICE, op: 'create', path: 'eventCities/edinburgh', data: { name: 'Glasgow', createdBy: ALICE, createdAt: SERVER_TIME } },
   { name: 'city with a slash-free path trick', as: ALICE, op: 'create', path: 'eventCities/..x', data: { name: '..x', createdBy: ALICE, createdAt: SERVER_TIME } },
-  { name: 'event with 21 acts', as: ALICE, op: 'create', path: 'events/big', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: Array.from({ length: 21 }, (_, i) => ({ name: `a${i}` })), userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event with 8 acts', as: ALICE, op: 'create', path: 'events/big', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: Array.from({ length: 8 }, (_, i) => ({ name: `a${i}` })), userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event full but for an eighth act', as: BOB, op: 'create', path: 'events/full8', data: { ...fullEvent(BOB, 'bob'), lineup: [...FULL_BILL, { name: 'one more' }] } },
+  { name: 'event act as a string', as: ALICE, op: 'create', path: 'events/acts', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: ['Djrum'], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event act with no name', as: ALICE, op: 'create', path: 'events/actn', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: [{ artistId: 'ar1' }], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event act with a numeric artist id', as: ALICE, op: 'create', path: 'events/acti', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: [{ name: 'x', artistId: 7 }], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event act with a third key', as: ALICE, op: 'create', path: 'events/act3', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: [{ name: 'x', artistId: 'ar1', href: 'y' }], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event act name of 101', as: ALICE, op: 'create', path: 'events/actl', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: [{ name: '🎛'.repeat(101) }], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event link hiding a second link', as: ALICE, op: 'create', path: 'events/nl', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: ['https://a.example\nhttps://b.example'], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event link of 501', as: ALICE, op: 'create', path: 'events/u501', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: ['https://' + 'x'.repeat(493)], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event http link of 501', as: ALICE, op: 'create', path: 'events/h501', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: ['http://' + 'é'.repeat(494)], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event link with an emoji', as: ALICE, op: 'create', path: 'events/emo', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: ['https://a.example/🎛'], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event link with no host', as: ALICE, op: 'create', path: 'events/bare', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: ['https://'], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event link not a string', as: ALICE, op: 'create', path: 'events/unum', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: ['https://a.example', 42], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event with 6 links', as: ALICE, op: 'create', path: 'events/u6', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: Array.from({ length: 6 }, (_, i) => `https://e${i}.example`), userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
   { name: 'event act with extra key', as: ALICE, op: 'create', path: 'events/act', data: { title: 'x', date: '2026-10-01', category: 'gig', lineup: [{ name: 'x', href: 'javascript:1' }], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
   { name: 'event zone without a time', as: ALICE, op: 'create', path: 'events/tz', data: { title: 'x', date: '2026-10-01', category: 'gig', timeZone: 'Europe/London', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
   { name: 'event malformed zone', as: ALICE, op: 'create', path: 'events/tz2', data: { title: 'x', date: '2026-10-01', category: 'gig', time: '20:00', timeZone: '../etc', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
@@ -368,6 +429,10 @@ function retype(value) {
 }
 
 function* mutationsOf(base) {
+  if (base.op === 'batch') {
+    yield* batchMutationsOf(base);
+    return;
+  }
   yield { ...base, variant: 'as written' };
 
   for (const as of [null, OTHER[base.as], ADMIN]) {
@@ -404,6 +469,22 @@ function* mutationsOf(base) {
     }
     if (isMarker(value) && (value.__op === 'arrayUnion' || value.__op === 'arrayRemove')) {
       yield withField(key, { ...value, values: [OTHER[base.as] || BOB] }, `${key} for someone else`);
+    }
+  }
+}
+
+/** A batch is mutated one write at a time, the caller swapped as a whole. */
+function* batchMutationsOf(base) {
+  yield { ...base, variant: 'as written' };
+  for (const as of [null, OTHER[base.as], ADMIN]) {
+    if (as !== base.as) yield { ...base, as, variant: `as ${as || 'signed out'}` };
+  }
+  for (const [index, write] of base.writes.entries()) {
+    for (const mutated of mutationsOf({ ...write, as: base.as })) {
+      if (mutated.variant === 'as written' || mutated.variant.startsWith('as ')) continue;
+      const { as: _as, variant, ...changed } = mutated;
+      const writes = base.writes.map((w, i) => (i === index ? changed : w));
+      yield { ...base, writes, variant: `${write.path}: ${variant}` };
     }
   }
 }
@@ -447,6 +528,23 @@ async function emulatorVerdict(write) {
     emulatorDirty = false;
   }
   const context = write.as ? testEnv.authenticatedContext(write.as) : testEnv.unauthenticatedContext();
+  if (write.op === 'batch') {
+    const batch = writeBatch(context.firestore());
+    for (const w of write.writes) {
+      const ref = doc(context.firestore(), w.path);
+      if (w.op === 'delete') batch.delete(ref);
+      else if (w.op === 'update') batch.update(ref, forEmulator(w.data));
+      else batch.set(ref, forEmulator(w.data), w.merge ? { merge: true } : {});
+    }
+    try {
+      await batch.commit();
+      emulatorDirty = true;
+      return true;
+    } catch (error) {
+      if (error.code === 'permission-denied' || error.code === 'not-found') return false;
+      return error;
+    }
+  }
   const ref = doc(context.firestore(), write.path);
   const data = write.data ? forEmulator(write.data) : null;
   try {
@@ -474,7 +572,18 @@ function report(write) {
   return { data, remove };
 }
 
+/**
+ * A batch is allowed when every write in it is. Each is judged against the
+ * seed rather than the batch's end state, because processReport is called with
+ * firestoreOk:false and stores nothing — fine while no batch here has a write
+ * whose rule reads another write in it with getAfter().
+ */
 function policyVerdict(write) {
+  if (write.op === 'batch') {
+    const verdicts = write.writes.map((w) => policyVerdict({ ...w, as: write.as, variant: write.variant }));
+    const denied = verdicts.find((v) => !v.allowed);
+    return denied || verdicts[0];
+  }
   const { data, remove } = report(write);
   const outcome = processReport(db, {
     uid: write.as,
@@ -522,7 +631,7 @@ async function judge(writes) {
     const verdict = policyVerdict(write);
     if (verdict.allowed !== rules) {
       divergences.push({
-        write: `${write.name} [${write.variant}] ${write.op} ${write.path} as ${write.as || 'signed out'}`,
+        write: `${write.name} [${write.variant}] ${write.op} ${write.path || write.writes.map((w) => `${w.op} ${w.path}`).join(', ')} as ${write.as || 'signed out'}`,
         direction: verdict.allowed ? 'TOO LOOSE — policy allowed what the rules deny' : 'too strict — policy denied what the rules allow',
         policy: `${verdict.rule}${verdict.variant ? `/${verdict.variant}` : ''}${verdict.reasons.length ? `: ${verdict.reasons.join('; ')}` : ''}`,
       });
@@ -554,7 +663,12 @@ test('every valid write is allowed by both', async () => {
 
 test('forbidden writes are denied by both', async () => {
   const result = await judge(FORBIDDEN.map((write) => ({ ...write, variant: 'as written' })));
+  const allowed = [];
+  for (const write of FORBIDDEN) {
+    if ((await emulatorVerdict({ ...write })) === true) allowed.push(write.name);
+  }
   console.log(describe(result));
+  assert.deepStrictEqual(allowed, [], 'a forbidden case the rules allow is not forbidden');
   assert.deepStrictEqual(result.divergences, []);
 });
 
