@@ -165,12 +165,32 @@
 
 .ab .user-message-username {
     margin-bottom: var(--sb-gap, 0.4rem);
+    padding-right: 1.5rem;
     font-size: 0.95em;
+    line-height: 1.2;
 }
 
 .ab .user-message-timestamp {
     margin-bottom: var(--sb-gap, 0.4rem);
     font-size: 0.7em;
+    line-height: 1.2;
+}
+
+/* Delete sits opposite the byline rather than on a row of its own between it
+   and the text, centred on the name and date together since they read as one
+   group. The height is the two lines (0.95em and 0.7em at line-height 1.2)
+   plus the gap between them. */
+.ab .user-message-header-controls {
+    position: absolute;
+    top: var(--sb-gap, 0.4rem);
+    right: 0;
+    margin: 0;
+    height: calc(1.98em + var(--sb-gap, 0.4rem));
+    align-items: center;
+}
+
+.ab .user-message-delete-button {
+    font-size: 1.14em;
 }
 
 /* The shared separator is a dashed white rule meant to show against the
