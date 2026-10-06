@@ -261,18 +261,6 @@ export async function bumpPostCount(userId: string): Promise<void> {
   }
 }
 
-/** Moves a member's sticker tally by one as a sticker is placed or deleted.
-    Fire-and-forget, like bumpPostCount. The rules also let an admin take one
-    off when deleting someone else's sticker. */
-export async function bumpStickerCount(userId: string, delta: 1 | -1): Promise<void> {
-  try {
-    await updateDocShadowed(doc(db, 'users', userId), { stickerCount: incrementBy(delta) });
-    clearUserCache(userId);
-  } catch (error) {
-    console.error('Failed to update sticker count:', error);
-  }
-}
-
 /** Admin only: sets every member's stickerCount from the stickers that exist.
     One read per sticker and per profile, so this is a repair tool for /test,
     not something to run on a page load. Writes only the counts that are wrong,

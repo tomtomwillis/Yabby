@@ -185,7 +185,8 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
     for (const [i, raw] of urls.entries()) {
       if (!raw.trim()) continue;
       const url = normalizeSiteUrl(raw);
-      if (!url || url.length > EVENT_LIMITS.url) return `Link ${i + 1} is not a web address.`;
+      // The rules refuse characters outside the BMP (emoji) in a link.
+      if (!url || url.length > EVENT_LIMITS.url || /[\u{10000}-\u{10FFFF}]/u.test(url)) return `Link ${i + 1} is not a web address.`;
       if (!links.includes(url)) links.push(url);
     }
 

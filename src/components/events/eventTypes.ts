@@ -114,7 +114,7 @@ export const EVENT_LIMITS = {
   url: 500,
   urls: 5,
   act: 100,
-  lineup: 20,
+  lineup: 7,
 } as const;
 
 /** An IANA zone name's shape: "Europe/London", "America/Argentina/Buenos_Aires",

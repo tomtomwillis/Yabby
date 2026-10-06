@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import './PlaceStickerCore.css';
 import { db, auth } from '../firebaseConfig';
 import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
-import { addDocShadowed, SERVER_TIME } from '../api/shadow';
-import { bumpStickerCount } from '../utils/userCache';
+import { writeBatchShadowed, SERVER_TIME, incrementBy } from '../api/shadow';
+import { clearUserCache } from '../utils/userCache';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
 
@@ -344,8 +344,14 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         stickerData.favoriteTrackTitle = selectedTrack.title;
       }
 
-      const docRef = await addDocShadowed(collection(db, 'stickers'), stickerData);
-      void bumpStickerCount(auth.currentUser.uid, 1);
+      // One batch, so the profile's count can never drift from the stickers.
+      const uid = auth.currentUser.uid;
+      const docRef = doc(collection(db, 'stickers'));
+      await writeBatchShadowed(db)
+        .set(docRef, stickerData)
+        .update(doc(db, 'users', uid), { stickerCount: incrementBy(1) })
+        .commit();
+      clearUserCache(uid);
 
       if (onSuccess) {
         onSuccess({

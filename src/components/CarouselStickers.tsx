@@ -18,9 +18,9 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
-import { deleteDocShadowed } from '../api/shadow';
+import { writeBatchShadowed, incrementBy } from '../api/shadow';
 import { useAdmin } from '../utils/useAdmin';
-import { getUserData, bumpStickerCount } from '../utils/userCache';
+import { getUserData, clearUserCache } from '../utils/userCache';
 
 interface Sticker {
   stickerId: string;
@@ -399,8 +399,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     if (!window.confirm('Are you sure you want to delete this sticker? This cannot be undone.')) return;
 
     try {
-      await deleteDocShadowed(doc(db, 'stickers', stickerId));
-      void bumpStickerCount(ownerId, -1);
+      // One batch, so the owner's count can never drift from the stickers.
+      // An admin deleting someone else's sticker is let through by the
+      // profile's admin stickerCount rule.
+      await writeBatchShadowed(db)
+        .delete(doc(db, 'stickers', stickerId))
+        .update(doc(db, 'users', ownerId), { stickerCount: incrementBy(-1) })
+        .commit();
+      clearUserCache(ownerId);
       setPopup((prev) => ({
         ...prev,
         stickers: prev.stickers.filter((s) => s.stickerId !== stickerId),
