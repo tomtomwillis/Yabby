@@ -211,20 +211,17 @@ service cloud.firestore {
         && z.matches('UTC|[A-Za-z]+(/[A-Za-z0-9_+-]+){1,2}');
     }
 
-    // http(s) only, so a link can never be a javascript: or data: URL.
-    function isValidEventUrl(u) {
-      return validString(u, 1, 500) && u.matches('https?://.+');
-    }
-
-    // Up to five links. Unrolled like isValidPollOptions — rules have no loops.
+    // Up to five http(s) links of at most 500 characters, so a link can never
+    // be a javascript: or data: URL. Joined and matched in one go because a
+    // check per link spends the 1,000-expression budget the lineup needs. The
+    // split count stops a link holding a newline from passing as two. The
+    // regex counts code points where size() counts UTF-16 units, so characters
+    // outside the BMP are refused to keep the two lengths the same.
     function isValidEventUrls(urls) {
       return urls is list
         && urls.size() <= 5
-        && (urls.size() < 1 || isValidEventUrl(urls[0]))
-        && (urls.size() < 2 || isValidEventUrl(urls[1]))
-        && (urls.size() < 3 || isValidEventUrl(urls[2]))
-        && (urls.size() < 4 || isValidEventUrl(urls[3]))
-        && (urls.size() < 5 || isValidEventUrl(urls[4]));
+        && (urls.size() == 0 || (urls.join('\n').split('\n').size() == urls.size()
+          && urls.join('\n').matches('(https://[^\\n\\x{10000}-\\x{10FFFF}]{1,492}|http://[^\\n\\x{10000}-\\x{10FFFF}]{1,493})(\n(https://[^\\n\\x{10000}-\\x{10FFFF}]{1,492}|http://[^\\n\\x{10000}-\\x{10FFFF}]{1,493}))*')));
     }
 
     // One of an event's attendance lists either left alone, count and all, or
@@ -286,38 +283,28 @@ service cloud.firestore {
     }
 
     // One act on a bill: a name, and the Navidrome artist id when the act is
-    // in the library.
+    // in the library. Reading act.name fails on anything without a name, so
+    // the key count alone limits the keys to name and artistId.
     function isValidLineupAct(act) {
-      return act is map
-        && act.keys().hasOnly(['name', 'artistId'])
-        && validString(act.name, 1, 100)
-        && (!('artistId' in act) || (act.artistId is string && act.artistId.matches('[A-Za-z0-9_-]{1,64}')));
+      return act.name is string && act.name != '' && act.name.size() <= 100
+        && (act.size() == 1 || (act.size() == 2 && act.artistId.matches('[A-Za-z0-9_-]{1,64}')));
     }
 
-    // Up to twenty acts, unrolled like isValidEventUrls.
+    // Up to seven acts, unrolled because rules have no loops. A full event has
+    // room for about ten in the emulator before the 1,000-expression budget
+    // runs out, and production counts slightly higher. EVENT_LIMITS.lineup in
+    // eventTypes.ts must match.
     function isValidLineup(acts) {
+      let n = acts.size();
       return acts is list
-        && acts.size() <= 20
-        && (acts.size() < 1 || isValidLineupAct(acts[0]))
-        && (acts.size() < 2 || isValidLineupAct(acts[1]))
-        && (acts.size() < 3 || isValidLineupAct(acts[2]))
-        && (acts.size() < 4 || isValidLineupAct(acts[3]))
-        && (acts.size() < 5 || isValidLineupAct(acts[4]))
-        && (acts.size() < 6 || isValidLineupAct(acts[5]))
-        && (acts.size() < 7 || isValidLineupAct(acts[6]))
-        && (acts.size() < 8 || isValidLineupAct(acts[7]))
-        && (acts.size() < 9 || isValidLineupAct(acts[8]))
-        && (acts.size() < 10 || isValidLineupAct(acts[9]))
-        && (acts.size() < 11 || isValidLineupAct(acts[10]))
-        && (acts.size() < 12 || isValidLineupAct(acts[11]))
-        && (acts.size() < 13 || isValidLineupAct(acts[12]))
-        && (acts.size() < 14 || isValidLineupAct(acts[13]))
-        && (acts.size() < 15 || isValidLineupAct(acts[14]))
-        && (acts.size() < 16 || isValidLineupAct(acts[15]))
-        && (acts.size() < 17 || isValidLineupAct(acts[16]))
-        && (acts.size() < 18 || isValidLineupAct(acts[17]))
-        && (acts.size() < 19 || isValidLineupAct(acts[18]))
-        && (acts.size() < 20 || isValidLineupAct(acts[19]));
+        && n <= 7
+        && (n < 1 || isValidLineupAct(acts[0]))
+        && (n < 2 || isValidLineupAct(acts[1]))
+        && (n < 3 || isValidLineupAct(acts[2]))
+        && (n < 4 || isValidLineupAct(acts[3]))
+        && (n < 5 || isValidLineupAct(acts[4]))
+        && (n < 6 || isValidLineupAct(acts[5]))
+        && (n < 7 || isValidLineupAct(acts[6]));
     }
 
     // Everything an event holds, checked the same way on create and after an
