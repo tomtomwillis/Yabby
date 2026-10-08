@@ -132,6 +132,18 @@
   display: none;
 }
 
+.ev-form-image-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.ev-form-image-link .ev-import-go {
+  align-self: flex-start;
+  padding: 0.2rem 0.8rem;
+}
+
 .ev-form-body {
   display: flex;
   flex-direction: column;

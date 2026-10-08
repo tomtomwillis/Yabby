@@ -355,6 +355,21 @@ export async function uploadEventImage(file: File): Promise<string> {
   return data.imageId;
 }
 
+/** Has the backend fetch an image from a pasted link and store it like an upload. */
+export async function uploadEventImageFromUrl(url: string): Promise<string> {
+  const response = await fetch(`${MEDIA_API_URL}/mb-images/from-url`, {
+    method: 'POST',
+    headers: { Authorization: await authHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Could not fetch that image.');
+  if (typeof data.imageId !== 'string' || !isValidEventImageId(data.imageId)) {
+    throw new Error('Could not fetch that image.');
+  }
+  return data.imageId;
+}
+
 export function eventImageUrl(imageId: string | undefined): string | null {
   return imageId && isValidEventImageId(imageId) ? `${MEDIA_API_URL}/mb-images/${imageId}.webp` : null;
 }

@@ -1,6 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { eventImageUrl, importEventFromLink, uploadEventImage, type EventDraft, type ImportedEvent } from '../../utils/eventsApi';
-import { normalizeSiteUrl, sanitizeText } from '../../utils/sanitise';
+import {
+  eventImageUrl,
+  importEventFromLink,
+  uploadEventImage,
+  uploadEventImageFromUrl,
+  type EventDraft,
+  type ImportedEvent,
+} from '../../utils/eventsApi';
+import { normalizeSiteUrl, sanitizeText, validateUrl } from '../../utils/sanitise';
 import {
   DEFAULT_TIME_ZONE,
   EVENT_CATEGORIES,
@@ -83,6 +90,8 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [imageLink, setImageLink] = useState('');
+  const [imageNote, setImageNote] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -153,6 +162,25 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const fetchImageFromLink = async (raw: string) => {
+    const url = raw.trim();
+    if (!validateUrl(url)) {
+      setImageNote('paste a link to an image, starting https://');
+      return;
+    }
+    setImageNote(null);
+    setUploading(true);
+    try {
+      setImageId(await uploadEventImageFromUrl(url));
+      setImageLink('');
+      window.umami?.track('calendar_event_image_from_link');
+    } catch (err) {
+      setImageNote(((err as Error).message || 'Could not fetch that image.').toLowerCase());
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -267,6 +295,43 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
             className="ev-form-file"
             onChange={(e) => handleImage(e.target.files?.[0])}
           />
+          <div className="ev-form-image-link">
+            <input
+              className="ev-input"
+              type="url"
+              inputMode="url"
+              value={imageLink}
+              onChange={(e) => setImageLink(e.target.value)}
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData('text').trim();
+                if (validateUrl(pasted)) {
+                  e.preventDefault();
+                  setImageLink(pasted);
+                  fetchImageFromLink(pasted);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  fetchImageFromLink(imageLink);
+                }
+              }}
+              placeholder="or paste an image link"
+              aria-label="Image link"
+              disabled={uploading}
+            />
+            {imageLink.trim() && (
+              <button
+                type="button"
+                className="ev-import-go"
+                onClick={() => fetchImageFromLink(imageLink)}
+                disabled={uploading}
+              >
+                {uploading ? 'fetching…' : 'fetch'}
+              </button>
+            )}
+            {imageNote && <p className="ev-import-note" role="status">{imageNote}</p>}
+          </div>
         </div>
 
         <div className="ev-form-body">

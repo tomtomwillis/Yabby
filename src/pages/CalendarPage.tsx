@@ -400,11 +400,9 @@ export default function CalendarPage() {
     return map;
   }, [visible]);
 
-  // The list runs from the selected day — never from the edge of last month
-  // the grid shows — through the rest of the grid and on into the pages after.
-  // The list covers the whole month (or week) on screen; choosing a day
-  // scrolls to it rather than cutting off the days before.
-  const from = view === 'month' ? startOfMonth(anchor) : start;
+  // The list runs from the selected day through the rest of the grid and on
+  // into the pages after; days before it are left off.
+  const from = selected;
   const upcoming = useMemo(
     () =>
       [...events.filter((e) => e.date >= from), ...(beyond.from === beyondFrom ? beyond.events : [])].sort(
