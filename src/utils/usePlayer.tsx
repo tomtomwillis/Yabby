@@ -153,9 +153,66 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (graph) applyVolume(volumeRef.current, mutedRef.current);
   }, [ensureGraph, resumeGraph, applyVolume]);
 
+  // ── Radio reconnect ──────────────────────────────────────
+
+  /** Set by startRadio, cleared only by unloadRadio — so a drop the listener
+   *  did not ask for is the only thing that leaves it set without sound. */
+  const radioWantedRef = useRef(false);
+  const radioRetryRef = useRef<number | null>(null);
+  const radioWatchdogRef = useRef<number | null>(null);
+  const radioAttemptRef = useRef(0);
+
+  const clearRadioTimers = useCallback(() => {
+    if (radioRetryRef.current != null) window.clearTimeout(radioRetryRef.current);
+    if (radioWatchdogRef.current != null) window.clearTimeout(radioWatchdogRef.current);
+    radioRetryRef.current = null;
+    radioWatchdogRef.current = null;
+  }, []);
+
+  const scheduleRadioRetry = useCallback(() => {
+    if (!radioWantedRef.current || radioRetryRef.current != null) return;
+    if (radioWatchdogRef.current != null) window.clearTimeout(radioWatchdogRef.current);
+    radioWatchdogRef.current = null;
+    const delay = Math.min(1000 * 2 ** radioAttemptRef.current, 30_000);
+    radioAttemptRef.current += 1;
+    radioRetryRef.current = window.setTimeout(() => {
+      radioRetryRef.current = null;
+      const rad = radAudioRef.current;
+      if (!rad || !radioWantedRef.current) return;
+      window.umami?.track('radio_reconnect', { attempt: radioAttemptRef.current });
+      // Reassigning src opens a fresh request; play() alone would resume the
+      // dead one from a buffer that is now behind live.
+      rad.src = RADIO_STREAM_URL;
+      rad.play().catch((err) => {
+        if (err?.name !== 'AbortError') scheduleRadioRetry();
+      });
+    }, delay);
+  }, []);
+
+  /** Buffering on a live stream either recovers in a moment or never does —
+   *  the socket can hang without ever raising error. */
+  const armRadioWatchdog = useCallback(() => {
+    if (!radioWantedRef.current || radioWatchdogRef.current != null) return;
+    radioWatchdogRef.current = window.setTimeout(() => {
+      radioWatchdogRef.current = null;
+      scheduleRadioRetry();
+    }, 10_000);
+  }, [scheduleRadioRetry]);
+
+  const disarmRadioWatchdog = useCallback(() => {
+    if (radioWatchdogRef.current == null) return;
+    window.clearTimeout(radioWatchdogRef.current);
+    radioWatchdogRef.current = null;
+  }, []);
+
+  useEffect(() => clearRadioTimers, [clearRadioTimers]);
+
   // ── Source exclusivity ───────────────────────────────────
 
   const unloadRadio = useCallback(() => {
+    radioWantedRef.current = false;
+    radioAttemptRef.current = 0;
+    clearRadioTimers();
     const rad = radAudioRef.current;
     if (!rad || !rad.hasAttribute('src')) return;
     rad.pause();
@@ -164,11 +221,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // the browser re-request the page URL.
     rad.removeAttribute('src');
     rad.load();
-  }, []);
+  }, [clearRadioTimers]);
 
   const startRadio = useCallback(() => {
     const rad = radAudioRef.current;
     if (!rad) return;
+    radioWantedRef.current = true;
+    radioAttemptRef.current = 0;
+    clearRadioTimers();
     armAudio();
     libAudioRef.current?.pause();
     setRadioError(false);
@@ -181,7 +241,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     rad.play().catch((err) => {
       if (err?.name !== 'AbortError') console.error('Playback failed:', err);
     });
-  }, [armAudio, ensureVisualizer]);
+  }, [armAudio, clearRadioTimers, ensureVisualizer]);
 
   // ── Library transport ────────────────────────────────────
 
@@ -366,11 +426,21 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           crossOrigin="anonymous"
           preload="none"
           onPlay={() => { setRadioPlaying(true); setRadioError(false); }}
+          onPlaying={() => { radioAttemptRef.current = 0; disarmRadioWatchdog(); }}
+          onTimeUpdate={disarmRadioWatchdog}
+          onWaiting={armRadioWatchdog}
+          onStalled={armRadioWatchdog}
           onPause={() => setRadioPlaying(false)}
+          // Icecast closing the socket (a restart, BUTT taking over /live)
+          // reads as a clean end of file, not an error.
+          onEnded={() => { setRadioPlaying(false); scheduleRadioRetry(); }}
           onError={() => {
             setRadioPlaying(false);
             // Clearing src fires error too; only a live failure counts.
-            if (radAudioRef.current?.hasAttribute('src')) setRadioError(true);
+            if (radAudioRef.current?.hasAttribute('src')) {
+              setRadioError(true);
+              scheduleRadioRetry();
+            }
           }}
         />
 

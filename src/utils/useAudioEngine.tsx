@@ -95,7 +95,9 @@ export function useAudioEngine(
     try {
       const Ctx = window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new Ctx();
+      // Nothing here is interactive, so trade latency for a deeper buffer that
+      // rides out the visualiser's frame spikes without crackling.
+      const ctx = new Ctx({ latencyHint: 'playback' });
       const mix = ctx.createGain();
       const out = ctx.createGain();
       // Terminate the chain before attaching sources: routing an element
