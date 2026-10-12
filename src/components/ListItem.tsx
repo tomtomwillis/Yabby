@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import './ListItem.css';
 import { parseMessageHTML } from './basic/messageText';
 import { normalizeAvatarPath } from '../utils/avatarPath';
+import ListAlbumTracks from './ListAlbumTracks';
 
 interface BaseListItemProps {
   type: 'album' | 'custom';
@@ -83,6 +84,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
     <div
       className={
         'ls-item' +
+        (type === 'album' ? ' ls-item--album' : '') +
         (itemDetails.imageUrl ? '' : ' ls-item--no-image') +
         (showRemoveButton && onRemove ? ' ls-item--removable' : '')
       }
@@ -120,6 +122,10 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         <div className={`ls-item-text${userText ? '' : ' ls-item-text--none'}`}>
           {userText ? parseMessageHTML(userText) : 'no note.'}
         </div>
+
+        {type === 'album' && props.albumId && (
+          <ListAlbumTracks albumId={props.albumId} albumTitle={props.albumTitle} albumArtist={props.albumArtist} />
+        )}
 
         {props.addedByUsername && (
           <div className="ls-item-by">

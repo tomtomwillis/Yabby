@@ -184,6 +184,121 @@ a.ls-item-title:focus-visible {
   object-fit: cover;
 }
 
+/* ─── Album tracks ────────────────────────────────────── */
+
+/* An album's entry is as tall as its plate, and the tracks take whatever the
+   heading and note leave of that height. */
+.ls-item--album {
+  align-items: stretch;
+}
+
+.ls-item--album .ls-item-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.ls-tracks {
+  margin-top: 0.8rem;
+  font-size: clamp(0.85rem, 0.92vw, 1.05rem);
+}
+
+/* contain: size keeps the track list from stretching the entry past its plate;
+   the pane gets only the height the flex column hands it. */
+.ls-tracks:not(.ls-tracks--stacked) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 10rem;
+  contain: size;
+}
+
+.ls-tracks-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  border-top: 1px dashed var(--ls-rule, #c9cee4);
+  padding-top: 0.4rem;
+}
+
+/* Down each column, then across. --ls-track-rows is measured off the pane; a
+   short album fills the width in one or two columns, a long one adds columns
+   past the edge and scrolls. */
+.ls-tracks-pane .sp-tracks {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--ls-track-rows, 1), auto);
+  grid-auto-columns: minmax(15rem, 1fr);
+  column-gap: 1rem;
+  align-content: start;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+}
+
+.ls-tracks .sp-track {
+  font-size: inherit;
+}
+
+.ls-tracks-btn {
+  padding: 0.35rem 0;
+  background: none;
+  border: none;
+  font-family: var(--font2);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  color: var(--ls-dim, #5566c9);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ls-tracks-btn:hover,
+.ls-tracks-btn:focus-visible {
+  color: var(--colour3);
+}
+
+.ls-tracks-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px dashed var(--ls-rule, #c9cee4);
+  border-bottom: 1px dashed var(--ls-rule, #c9cee4);
+  animation: ls-tracks-open 0.2s ease-out;
+}
+
+.ls-tracks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--ls-mute, #8a90a8);
+}
+
+.ls-tracks-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ls-tracks-scroll .sp-tracks {
+  max-height: none;
+  margin: 0 0 0.4rem;
+  overflow: visible;
+}
+
+@keyframes ls-tracks-open {
+  from { opacity: 0; transform: translateY(-0.4rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-tracks-panel {
+    animation: none;
+  }
+}
+
 /* ─── Remove ──────────────────────────────────────────── */
 
 /* A word, not an icon, and red only on hover. */

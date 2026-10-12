@@ -149,7 +149,7 @@ interface TrackListProps {
   columns?: number;
 }
 
-const TrackList: React.FC<TrackListProps> = ({ albumId, albumTitle, albumArtist, tracks, columns }) => {
+export const TrackList: React.FC<TrackListProps> =({ albumId, albumTitle, albumArtist, tracks, columns }) => {
   const { album: playing, index } = usePlayerState();
   const { playAlbum } = usePlayerActions();
   const playingHere = playing?.id === albumId;
