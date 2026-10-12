@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { subsonicUrl } from './navidrome';
 import { loadAlbumCard } from './navidromeCards';
 import { useAudioEngine } from './useAudioEngine';
+import { useMediaSession } from './useMediaSession';
 import { useRadioMetadata } from './useRadioMetadata';
 
 const RADIO_STREAM_URL = 'https://radio.yabbyville.xyz/live';
@@ -380,6 +381,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     vizOpen: engine.vizOpen,
     vizFullscreen: engine.vizFullscreen,
   };
+
+  useMediaSession({
+    mode,
+    album,
+    track: tracks[index],
+    radioArtist: artist,
+    radioTitle: title,
+    isPlaying: state.isPlaying,
+    duration,
+    hasNext: index + 1 < tracks.length,
+    hasPrev: index > 0,
+    libAudioRef,
+    toggle, next, prev, seek,
+  });
 
   // Every action reads refs, so this object is built once and never changes.
   const actions: PlayerActions = useMemo(() => ({
