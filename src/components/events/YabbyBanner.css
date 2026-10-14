@@ -2,8 +2,14 @@
    left so the loop is seamless. Hover pauses it so it can be read. */
 .yb-banner {
   display: block;
+  /* The home column is a scrolling flex column, and overflow: hidden drops
+     the banner's minimum height to zero, so without this it is squashed to
+     its padding whenever the page is taller than the window. */
+  flex-shrink: 0;
   overflow: hidden;
-  margin-bottom: 1rem;
+  /* Eats into the home column's gap between sections, which is wider than a
+     strip this thin needs. */
+  margin-bottom: -0.6rem;
   padding: 0.4rem 0;
   background: #f5e93a;
   color: #111;

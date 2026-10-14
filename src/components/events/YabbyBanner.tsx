@@ -4,8 +4,8 @@ import { useNavidromeCard, type CardTarget } from '../../utils/useNavidromeCard'
 import { eventPath, todayISO } from './eventTypes';
 import './YabbyBanner.css';
 
-/** The symposium's calendar event. Empty until it has been added. */
-const SYMPOSIUM_EVENT_ID = '';
+/** The symposium's calendar event. */
+const SYMPOSIUM_EVENT_ID = 'ZsjSXzLVgt7cv9z7PckO';
 const SYMPOSIUM_DATE = '2027-01-30';
 const PARTS = ['Yabbyville Annual Symposium', '30th Jan 2027', 'Glasgow, Scotland'];
 
@@ -23,7 +23,7 @@ const YabbyBanner: React.FC = () => {
   const { open, close } = useNavidromeCard();
   const target = useMemo<CardTarget>(() => ({ type: 'event', id: SYMPOSIUM_EVENT_ID }), []);
 
-  if (!SYMPOSIUM_EVENT_ID || today > SYMPOSIUM_DATE) return null;
+  if (today > SYMPOSIUM_DATE) return null;
 
   const phrase = (
     <span className="yb-phrase">
