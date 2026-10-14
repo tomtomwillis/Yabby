@@ -122,6 +122,29 @@
   outline-offset: 1.5px;
 }
 
+/* Yabby events glow, pulsing gently unless motion is reduced. */
+.cal-dot.is-yabby {
+  box-shadow: 0 0 6px 2px var(--ec-c);
+  animation: cal-yabby-glow 2.4s ease-in-out infinite;
+}
+
+.cal-wk-ev.is-yabby {
+  background: color-mix(in srgb, var(--ec-c) 14%, transparent);
+  box-shadow: -2px 0 10px -2px var(--ec-c), inset 0 0 12px -6px var(--ec-c);
+  animation: cal-yabby-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes cal-yabby-glow {
+  50% { box-shadow: 0 0 2px 0 var(--ec-c); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-dot.is-yabby,
+  .cal-wk-ev.is-yabby {
+    animation: none;
+  }
+}
+
 .cal-dots-more {
   font-size: 0.6rem;
   line-height: 1;

@@ -61,6 +61,22 @@
   background: var(--ec-c, #5566c9);
 }
 
+/* Yabby events glow, pulsing gently unless motion is reduced. */
+.ev-row.is-yabby .ev-row-dot {
+  box-shadow: 0 0 6px 2px var(--ec-c);
+  animation: ev-yabby-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes ev-yabby-glow {
+  50% { box-shadow: 0 0 2px 0 var(--ec-c); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-row.is-yabby .ev-row-dot {
+    animation: none;
+  }
+}
+
 .ev-row-time {
   font-size: 0.9em;
   color: var(--cal-dim, #5566c9);

@@ -120,7 +120,7 @@ const HomeEvents: React.FC<HomeEventsProps> = ({ weekStart }) => {
                     return (
                       <li key={event.id}>
                         <Link
-                          className="he-ev"
+                          className={`he-ev${event.category === 'yabby' ? ' is-yabby' : ''}`}
                           to={eventPath(event.id)}
                           style={{ '--ec-c': categoryColour(event.category) } as React.CSSProperties}
                           onMouseEnter={(e) => open({ target, at: { x: e.clientX, y: e.clientY }, pinned: false, follow: true })}

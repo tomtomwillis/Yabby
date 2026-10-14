@@ -53,7 +53,7 @@ const CalendarMonth: React.FC<CalendarMonthProps> = ({ anchor, today, selected, 
               {events.slice(0, MAX_DOTS).map((event) => (
                 <span
                   key={event.id}
-                  className={`cal-dot${interested.has(event.id) ? ' is-mine' : ''}`}
+                  className={`cal-dot${interested.has(event.id) ? ' is-mine' : ''}${event.category === 'yabby' ? ' is-yabby' : ''}`}
                   style={{ '--ec-c': categoryColour(event.category) } as React.CSSProperties}
                   title={event.title}
                 />

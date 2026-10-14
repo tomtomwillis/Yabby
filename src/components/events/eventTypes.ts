@@ -1,7 +1,7 @@
 /** Shared shapes and date helpers for the calendar, its home widget and the
  *  event hover card. Limits mirror isValidEventFields in firestore.rules. */
 
-export type EventCategory = 'radio' | 'club' | 'gig' | 'release' | 'event' | 'other';
+export type EventCategory = 'radio' | 'club' | 'gig' | 'release' | 'event' | 'other' | 'yabby';
 
 export const EVENT_CATEGORIES: { value: EventCategory; label: string; colour: string }[] = [
   { value: 'gig', label: 'gig', colour: '#1a2ecc' },
@@ -10,7 +10,12 @@ export const EVENT_CATEGORIES: { value: EventCategory; label: string; colour: st
   { value: 'release', label: 'release', colour: '#3a9d3f' },
   { value: 'event', label: 'event', colour: '#e0721a' },
   { value: 'other', label: 'other', colour: '#6b7280' },
+  { value: 'yabby', label: 'yabby', colour: '#e6c619' },
 ];
+
+/** Categories only an admin may file an event under — firestore.rules holds
+ *  the same line. */
+export const ADMIN_CATEGORIES: ReadonlySet<EventCategory> = new Set(['yabby']);
 
 export function categoryColour(category: EventCategory): string {
   return EVENT_CATEGORIES.find((c) => c.value === category)?.colour ?? '#5566c9';

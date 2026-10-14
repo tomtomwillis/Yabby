@@ -87,7 +87,7 @@ const EventList: React.FC<EventListProps> = ({
           ]
             .filter(Boolean)
             .join(' · ');
-          const classes = ['ev-row', open && 'is-open', event.id === focusId && 'is-focus'].filter(Boolean).join(' ');
+          const classes = ['ev-row', open && 'is-open', event.id === focusId && 'is-focus', event.category === 'yabby' && 'is-yabby'].filter(Boolean).join(' ');
 
           return (
             <li

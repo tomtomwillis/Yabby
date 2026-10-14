@@ -10,6 +10,7 @@ import type { PlacedStickerPayload } from '../components/PlaceStickerCore';
 import RecentLists from '../components/RecentLists';
 import HomeFilmClub from '../components/film/HomeFilmClub';
 import HomeEvents, { HomeEventsNav } from '../components/events/HomeEvents';
+import YabbyBanner from '../components/events/YabbyBanner';
 import { addDays, startOfWeek, todayISO, weekTitle } from '../components/events/eventTypes';
 import './Home.css';
 
@@ -75,6 +76,7 @@ function HomeDashboard() {
 
   return (
     <>
+      <YabbyBanner />
       <Section
         icon="✦"
         title="stickers"

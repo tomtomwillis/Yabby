@@ -825,7 +825,7 @@ const eventsSuite: TestSuite = {
   id: 'events',
   name: 'Calendar',
   description:
-    'Reads the live week ahead, then adds a sandbox event with every field, edits it, clears its time, counts you in as interested, moves you to going and out again, and deletes it, and adds and removes a sandbox city. Also checks the rules hold an event to its shape: a date, one of six categories, a yes-or-no hosted flag, http links only, at most five, a real image id, a lineup of named acts, a real place name, a comment of at most 500 characters, interested and going counts that move only you by one and never hold you in both, and nobody writing as someone else.',
+    'Reads the live week ahead, then adds a sandbox event with every field, edits it, clears its time, counts you in as interested, moves you to going and out again, and deletes it, and adds and removes a sandbox city. Also checks the rules hold an event to its shape: a date, one of seven categories with yabby for admins only, a yes-or-no hosted flag, http links only, at most five, a real image id, a lineup of named acts, a real place name, a comment of at most 500 characters, interested and going counts that move only you by one and never hold you in both, and nobody writing as someone else.',
   tests: [
     {
       name: 'reads the week ahead',
@@ -1008,6 +1008,20 @@ const eventsSuite: TestSuite = {
     {
       name: 'rules reject hosted that is not a yes or no',
       run: async (ctx) => expectEventDenied(ctx, 'adding an event hosted "yes"', eventDoc(ctx, { hosted: 'yes' })),
+    },
+    {
+      name: 'rules keep yabby events to admins',
+      run: async (ctx) => {
+        const admin = (await getDoc(doc(db, 'admins', ctx.uid))).exists();
+        if (!admin) {
+          return expectEventDenied(ctx, 'adding a yabby event as a member', eventDoc(ctx, { category: 'yabby' }));
+        }
+        const ref = await addDoc(collection(db, SANDBOX_EVENTS), eventDoc(ctx, { category: 'yabby' }));
+        const dispose = ctx.cleanup(`${SANDBOX_EVENTS}/${ref.id}`, () => deleteDoc(ref));
+        await deleteDoc(ref);
+        dispose();
+        return 'admin may add one (run as a member to check the refusal)';
+      },
     },
     {
       name: 'rules stop an event made with interest already on it',

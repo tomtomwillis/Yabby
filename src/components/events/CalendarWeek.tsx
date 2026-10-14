@@ -53,7 +53,7 @@ const CalendarWeek: React.FC<CalendarWeekProps> = ({
                 <li key={event.id}>
                   <button
                     type="button"
-                    className={`cal-wk-ev${event.id === openId ? ' is-open' : ''}`}
+                    className={`cal-wk-ev${event.id === openId ? ' is-open' : ''}${event.category === 'yabby' ? ' is-yabby' : ''}`}
                     style={{ '--ec-c': categoryColour(event.category) } as React.CSSProperties}
                     onClick={() => onOpen(event)}
                   >

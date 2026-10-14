@@ -89,6 +89,23 @@
   text-decoration: none;
 }
 
+/* Yabby events glow, pulsing gently unless motion is reduced. */
+.he-ev.is-yabby {
+  background: color-mix(in srgb, var(--ec-c) 14%, transparent);
+  box-shadow: -2px 0 10px -2px var(--ec-c), inset 0 0 12px -6px var(--ec-c);
+  animation: he-yabby-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes he-yabby-glow {
+  50% { box-shadow: -1px 0 3px -2px var(--ec-c); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .he-ev.is-yabby {
+    animation: none;
+  }
+}
+
 .he-meta {
   overflow: hidden;
   font-size: clamp(0.6rem, 0.56vw, 0.72rem);

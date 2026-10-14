@@ -10,6 +10,7 @@ import {
 import { normalizeSiteUrl, sanitizeText, validateUrl } from '../../utils/sanitise';
 import {
   DEFAULT_TIME_ZONE,
+  ADMIN_CATEGORIES,
   EVENT_CATEGORIES,
   EVENT_LIMITS,
   EVENT_TIME_ZONES,
@@ -26,6 +27,7 @@ import {
 import TagTextarea from './TagTextarea';
 import LineupEditor from './LineupEditor';
 import CityInput from './CityInput';
+import { useAdmin } from '../../utils/useAdmin';
 import './EventForm.css';
 
 // Matches MAX_FILE_SIZE in backend_server/routes/messageImages.js
@@ -44,9 +46,10 @@ interface EventFormProps {
 /** One line of text as the rules want it: tags stripped, whitespace folded. */
 const oneLine = (value: string) => sanitizeText(value).replace(/\s+/g, ' ').trim();
 
-/** Radio shows are nearly always the member's own; everything else is as
- *  likely to be a night they are only telling people about. */
-const hostedByDefault = (category: EventCategory) => category === 'radio';
+/** Radio shows and yabby events are nearly always the author's own;
+ *  everything else is as likely to be a night they are only telling people
+ *  about. */
+const hostedByDefault = (category: EventCategory) => category === 'radio' || category === 'yabby';
 
 /** The sites the backend can read an event from. It checks the link properly;
  *  this only decides whether a paste is worth sending. */
@@ -64,6 +67,8 @@ const str = (value: unknown) => (typeof value === 'string' ? value : '');
  * is left out of the document when it is empty.
  */
 const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, onCancel }) => {
+  const { isAdmin } = useAdmin();
+  const categories = EVENT_CATEGORIES.filter((c) => isAdmin || !ADMIN_CATEGORIES.has(c.value));
   const [title, setTitle] = useState(editing?.title ?? '');
   const [category, setCategory] = useState<EventCategory>(editing?.category ?? 'gig');
   const [date, setDate] = useState(editing?.date ?? defaultDate);
@@ -123,7 +128,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
       const links = found.urls.filter((u): u is string => typeof u === 'string');
       if (links.length) setUrls(links.slice(0, EVENT_LIMITS.urls));
     }
-    if (found.category && EVENT_CATEGORIES.some((c) => c.value === found.category)) chooseCategory(found.category);
+    if (found.category && categories.some((c) => c.value === found.category)) chooseCategory(found.category);
     if (!imageId && isValidEventImageId(str(found.imageId))) setImageId(str(found.imageId));
   };
 
@@ -381,7 +386,7 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
           <div className="ev-field">
             <span className="ev-label" id="ev-cat-label">category</span>
             <div className="ev-cats" role="group" aria-labelledby="ev-cat-label">
-              {EVENT_CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <button
                   key={c.value}
                   type="button"

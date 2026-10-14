@@ -1,0 +1,56 @@
+/* The yabby ticker: poster yellow, black ink, two identical halves sliding
+   left so the loop is seamless. Hover pauses it so it can be read. */
+.yb-banner {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  padding: 0.4rem 0;
+  background: #f5e93a;
+  color: #111;
+  border-top: 1px solid #111;
+  border-bottom: 1px solid #111;
+  font-size: clamp(0.78rem, 0.8vw, 0.95rem);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.yb-banner:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+.yb-track {
+  display: inline-flex;
+  animation: yb-scroll 60s linear infinite;
+}
+
+.yb-banner:hover .yb-track,
+.yb-banner:focus-visible .yb-track {
+  animation-play-state: paused;
+}
+
+.yb-half,
+.yb-phrase {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.yb-phrase > span {
+  padding-right: 0.7em;
+}
+
+.yb-star {
+  font-size: 0.8em;
+}
+
+@keyframes yb-scroll {
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yb-track {
+    animation: none;
+  }
+}

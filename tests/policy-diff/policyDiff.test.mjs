@@ -283,6 +283,7 @@ const BASES = [
   { name: 'event edited to every limit', as: ALICE, op: 'update', path: 'events/e1', data: (({ userId, username, createdAt, ...rest }) => ({ ...rest, updatedAt: SERVER_TIME }))(fullEvent(ALICE, 'alice')) },
   { name: 'event with city and lineup', as: BOB, op: 'create', path: 'events/withbill', data: { title: 'All-dayer', date: '2026-10-10', category: 'gig', city: 'São Paulo', lineup: [{ name: 'Djrum', artistId: 'ar-1_x' }, { name: 'Local band' }], userId: BOB, username: 'bob', createdAt: SERVER_TIME } },
   { name: 'event category and hosted', as: BOB, op: 'create', path: 'events/hosted', data: { title: 'Open day', date: '2026-10-12', category: 'event', hosted: false, userId: BOB, username: 'bob', createdAt: SERVER_TIME } },
+  { name: 'yabby event by admin', as: ADMIN, op: 'create', path: 'events/yabby', data: { title: 'Symposium', date: '2027-01-30', category: 'yabby', city: 'Glasgow', userId: ADMIN, username: 'admin', createdAt: SERVER_TIME } },
   { name: 'event hosted edit', as: ALICE, op: 'update', path: 'events/e1', data: { hosted: true, updatedAt: SERVER_TIME } },
   { name: 'event interest tick', as: BOB, op: 'update', path: 'events/e1', data: { interestedBy: arrayUnionOf(BOB), interestCount: incrementBy(1) } },
   { name: 'event interest untick', as: ALICE, op: 'update', path: 'events/e2', data: { interestedBy: arrayRemoveOf(ALICE), interestCount: incrementBy(-1) } },
@@ -326,6 +327,8 @@ const BASES = [
 
 /** Writes no one may make. Judged as-is, not mutated. */
 const FORBIDDEN = [
+  { name: 'yabby event by a member', as: ALICE, op: 'create', path: 'events/yabby', data: { title: 'Symposium', date: '2027-01-30', category: 'yabby', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
+  { name: 'event moved to yabby by a member', as: ALICE, op: 'update', path: 'events/e1', data: { category: 'yabby', updatedAt: SERVER_TIME } },
   { name: 'event title of emoji past its limit in UTF-16 units', as: ALICE, op: 'create', path: 'events/emo-title', data: { title: '🎛'.repeat(61), date: '2026-10-03', category: 'club', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
   { name: 'post of emoji past its limit in UTF-16 units', as: ALICE, op: 'create', path: 'messages/emo', data: newPost({ text: '🤤'.repeat(5001) }) },
   { name: 'sticker placed with someone else\'s count', as: ALICE, op: 'batch', writes: [
