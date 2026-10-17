@@ -9,7 +9,8 @@
  * caller awaits it, a failure is swallowed, and if the API is down or slow
  * posting behaves exactly as it did before any of this existed. That property
  * is worth more than the shadow itself, which is disposable and rebuildable
- * from a re-import.
+ * from a re-import. A report that fails is kept and resent later, in order
+ * (shadowQueue.ts).
  *
  * Outside the server's canary allowlist the endpoint returns 204 and does
  * nothing, so widening the canary is an environment change on the host rather
@@ -48,6 +49,7 @@ import {
   type DocumentReference,
   type Firestore,
 } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // The tracked variants, not the raw SDK — every write in the app is counted
 // against the Firestore budget by firestoreMetrics, and routing around it here
@@ -61,6 +63,7 @@ import {
 } from '../utils/firestoreMetrics';
 
 import { auth } from '../firebaseConfig';
+import { createShadowQueue } from './shadowQueue';
 
 const DATA_API_URL = import.meta.env.VITE_DATA_API_URL || '/api/data';
 
@@ -201,14 +204,6 @@ type ShadowOp = 'create' | 'set' | 'update' | 'delete';
 
 type ReportOptions = { merge?: boolean };
 
-/**
- * Browsers refuse a keepalive request whose body, together with every other
- * keepalive request still in flight, exceeds 64 KiB — the fetch rejects and
- * the report is lost. Large bodies (a long wiki page) go without keepalive,
- * which only matters if the tab closes in the same instant.
- */
-const KEEPALIVE_MAX_BYTES = 60_000;
-
 /** One write as the API reads it. */
 function describe(op: ShadowOp, path: string, data: WriteData | null, options: ReportOptions = {}) {
   const entry: Record<string, unknown> = { op, path };
@@ -221,35 +216,45 @@ function describe(op: ShadowOp, path: string, data: WriteData | null, options: R
   return entry;
 }
 
+const outbox = createShadowQueue({
+  currentUid: () => auth.currentUser?.uid ?? null,
+  getToken: (refresh) => {
+    const user = auth.currentUser;
+    if (!user) return Promise.reject(new Error('signed out'));
+    return user.getIdToken(refresh);
+  },
+  fetch: (url, init) => fetch(url, init),
+  storage: () => (typeof localStorage === 'undefined' ? null : localStorage),
+  setTimer: (callback, ms) => setTimeout(callback, ms),
+  clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  // Two tabs draining one queue would send its reports twice and out of order.
+  exclusive: (task) =>
+    typeof navigator !== 'undefined' && navigator.locks
+      ? navigator.locks.request('yabby-shadow-outbox', task).then(() => undefined)
+      : task(),
+  url: `${DATA_API_URL}/shadow`,
+});
+
+// Covers app start (auth restores the session) as well as signing in.
+onAuthStateChanged(auth, (user) => {
+  if (user) void outbox.flush();
+});
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => void outbox.flush());
+}
+
 /**
- * Hand a report to the API. Never throws, never awaited by a caller, and
- * deliberately does not force a token refresh — a cached token is fine for a
- * report that is allowed to fail, and forcing one would add a network round
- * trip to every write in the app.
+ * Hand a report to the outbox. Never throws, and never awaited by a caller.
+ * The outbox uses the cached token and forces a refresh only after a 401, so
+ * an ordinary write costs no extra round trip.
  */
 function post(build: () => Record<string, unknown>): void {
-  void (async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const body = JSON.stringify(build());
-
-      await fetch(`${DATA_API_URL}/shadow`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${await user.getIdToken()}`,
-        },
-        body,
-        // Survives the tab closing straight after a post.
-        keepalive: new TextEncoder().encode(body).length < KEEPALIVE_MAX_BYTES,
-      });
-    } catch {
-      // The Firestore write already succeeded, and the differ finds whatever
-      // the shadow missed. Nothing here is worth a user-visible error.
-    }
-  })();
+  try {
+    outbox.enqueue(JSON.stringify(build()));
+  } catch {
+    // The Firestore write already succeeded, and the differ finds whatever
+    // the shadow missed. Nothing here is worth a user-visible error.
+  }
 }
 
 function send(
