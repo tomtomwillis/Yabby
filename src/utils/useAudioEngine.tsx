@@ -12,6 +12,18 @@ function readVizPref(): boolean {
   return (localStorage.getItem(VIZ_KEY) ?? localStorage.getItem(LEGACY_VIZ_KEY)) === '1';
 }
 
+/** False on iOS, where element volume is fixed at 1 and the hardware buttons
+ *  are the only control. */
+export const elementVolumeSettable: boolean = (() => {
+  try {
+    const probe = document.createElement('audio');
+    probe.volume = 0.5;
+    return probe.volume === 0.5;
+  } catch {
+    return true;
+  }
+})();
+
 interface AudioGraph {
   ctx: AudioContext;
   /** Both sources summed, before volume. The visualiser taps here so muting
@@ -22,14 +34,10 @@ interface AudioGraph {
 }
 
 export interface AudioEngine {
-  /** Builds the graph once. Must be called synchronously from a user gesture.
-   *  Returns null if the browser refused — playback then falls back to the
-   *  elements' own output, without a visualiser. */
-  ensureGraph: () => AudioGraph | null;
-  resumeGraph: (graph: AudioGraph | null) => void;
+  /** Call synchronously from a user gesture, before play(). Routes the
+   *  elements through Web Audio only if the visualiser wants it. */
+  armAudio: () => void;
   applyVolume: (volume: number, muted: boolean) => void;
-  /** Safe to call at any time; no-ops while the visualiser is closed. */
-  ensureVisualizer: () => void;
 
   vizOpen: boolean;
   vizFullscreen: boolean;
@@ -41,6 +49,12 @@ export interface AudioEngine {
 
 /**
  * Owns the single AudioContext, the two source nodes and the butterchurn canvas.
+ *
+ * Playback is plain <audio> until the visualiser is first switched on. Routing
+ * an element through Web Audio is what Safari mishandles (pitch drift, crackle)
+ * and what iOS suspends on lock, so nobody pays for it without the effect.
+ * createMediaElementSource cannot be undone, so once built the graph stays for
+ * the life of the page.
  *
  * The canvas is created once and never destroyed. It lives in exactly one of
  * three places — the sidebar dock, the fullscreen layer, or detached — and
@@ -82,7 +96,27 @@ export function useAudioEngine(
 
   // ── Audio graph ──────────────────────────────────────────
 
-  const ensureGraph = useCallback((): AudioGraph | null => {
+  const levelRef = useRef({ volume: 1, muted: false });
+
+  const applyVolume = useCallback((requested: number, muted: boolean) => {
+    // With no slider shown, the graph must not hold the level below full.
+    const volume = elementVolumeSettable ? requested : 1;
+    levelRef.current = { volume, muted };
+    const graph = graphRef.current;
+    const els = [libAudioRef.current, radAudioRef.current];
+    if (graph) {
+      // Ramped, because the block bars fire a change per pixel of drag.
+      graph.out.gain.setTargetAtTime(muted ? 0 : volume, graph.ctx.currentTime, 0.015);
+      // Loudness belongs to the graph now. Never element.muted — that would
+      // zero the signal upstream of the visualiser's tap.
+      for (const el of els) if (el) { el.volume = 1; el.muted = false; }
+      return;
+    }
+    // muted as well as volume: iOS ignores volume but honours muted.
+    for (const el of els) if (el) { el.volume = volume; el.muted = muted; }
+  }, [libAudioRef, radAudioRef]);
+
+  const ensureGraph = (): AudioGraph | null => {
     if (graphRef.current) return graphRef.current;
     // One flag for both source nodes: createMediaElementSource is one-shot per
     // element, so a partial build must never be retried.
@@ -93,13 +127,14 @@ export function useAudioEngine(
     graphTriedRef.current = true;
 
     try {
-      const Ctx = window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       // Nothing here is interactive, so trade latency for a deeper buffer that
       // rides out the visualiser's frame spikes without crackling.
-      const ctx = new Ctx({ latencyHint: 'playback' });
+      const ctx = new AudioContext({ latencyHint: 'playback' });
       const mix = ctx.createGain();
       const out = ctx.createGain();
+      // Born at the current level rather than ramped from 1, which would blip.
+      const { volume, muted } = levelRef.current;
+      out.gain.value = muted ? 0 : volume;
       // Terminate the chain before attaching sources: routing an element
       // through the graph replaces its direct output, so if the second source
       // throws the first is still audible rather than silent.
@@ -108,15 +143,16 @@ export function useAudioEngine(
       ctx.createMediaElementSource(lib).connect(mix);
       ctx.createMediaElementSource(rad).connect(mix);
       graphRef.current = { ctx, mix, out };
+      applyVolume(volume, muted);
       return graphRef.current;
     } catch (err) {
       console.error('Audio graph unavailable, falling back to plain playback:', err);
       return null;
     }
-  }, [libAudioRef, radAudioRef]);
+  };
 
-  const resumeGraph = useCallback((graph: AudioGraph | null) => {
-    if (!graph || graph.ctx.state === 'running') return;
+  const resumeGraph = (graph: AudioGraph) => {
+    if (graph.ctx.state === 'running') return;
     graph.ctx.resume().catch(() => {});
     // If that gesture did not take, the audio is routed through a suspended
     // context and would be silent. Retry on the next press.
@@ -126,25 +162,18 @@ export function useAudioEngine(
       resumeArmedRef.current = false;
       graph.ctx.resume().catch(() => {});
     }, { once: true });
-  }, []);
+  };
 
-  const applyVolume = useCallback((volume: number, muted: boolean) => {
-    const level = muted ? 0 : volume;
-    const graph = graphRef.current;
-    const lib = libAudioRef.current;
-    const rad = radAudioRef.current;
-    if (graph) {
-      // Ramped, because the block bars fire a change per pixel of drag.
-      graph.out.gain.setTargetAtTime(level, graph.ctx.currentTime, 0.015);
-      // Loudness belongs to the graph now. Never element.muted — that would
-      // zero the signal upstream of the visualiser's tap.
-      if (lib) lib.volume = 1;
-      if (rad) rad.volume = 1;
-      return;
-    }
-    if (lib) lib.volume = level;
-    if (rad) rad.volume = level;
-  }, [libAudioRef, radAudioRef]);
+  const armAudio = useCallback(() => {
+    if (!graphRef.current && !(vizOpenRef.current || fullscreenRef.current)) return;
+    const graph = ensureGraph();
+    if (!graph) return;
+    resumeGraph(graph);
+    // Kicked off before play() so its init never waits on a stalled stream.
+    ensureVisualizer();
+    // Reads refs only; see registerVizHost.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Visualiser ───────────────────────────────────────────
 
@@ -332,7 +361,14 @@ export function useAudioEngine(
     fsHostRef.current = el;
   }, []);
 
-  const setVizOpen = useCallback((open: boolean) => setVizOpenState(open), []);
+  const setVizOpen = useCallback((open: boolean) => {
+    vizOpenRef.current = open;
+    setVizOpenState(open);
+    // The toggle is the gesture the graph needs: building it from the effect
+    // instead could route a playing element into a context that never resumes.
+    // With nothing playing, the next play() builds it.
+    if (open && anyPlayingRef.current) armAudio();
+  }, [armAudio]);
   const setVizFullscreen = useCallback((fs: boolean) => setVizFullscreenState(fs), []);
 
   // Move the (React-independent) canvas between the dock and the fullscreen
@@ -426,10 +462,8 @@ export function useAudioEngine(
   );
 
   return {
-    ensureGraph,
-    resumeGraph,
+    armAudio,
     applyVolume,
-    ensureVisualizer,
     vizOpen,
     vizFullscreen,
     setVizOpen,

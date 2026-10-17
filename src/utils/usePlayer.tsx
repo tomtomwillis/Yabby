@@ -120,7 +120,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const modeRef = useRef(mode);
   const indexRef = useRef(index);
   const tracksRef = useRef(tracks);
-  const volumeRef = useRef(volume);
   const mutedRef = useRef(muted);
   /** Was an album playing when the radio took over? */
   const resumeOnReturnRef = useRef(false);
@@ -128,14 +127,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   modeRef.current = mode;
   indexRef.current = index;
   tracksRef.current = tracks;
-  volumeRef.current = volume;
   mutedRef.current = muted;
 
   const engine = useAudioEngine(libAudioRef, radAudioRef, libraryPlaying || radioPlaying);
-  const {
-    ensureGraph, resumeGraph, applyVolume, ensureVisualizer,
-    setVizOpen, setVizFullscreen, registerVizHost,
-  } = engine;
+  const { armAudio, applyVolume, setVizOpen, setVizFullscreen, registerVizHost } = engine;
 
   // Only poll while the radio is on screen or still running; keep the last
   // known track when it is not, so returning does not flash "tuning in…".
@@ -144,15 +139,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     applyVolume(volume, muted);
   }, [volume, muted, applyVolume]);
-
-  /** Build and resume the graph, then hand it the current level — the gain node
-   *  is born at 1, and the volume effect will not fire again on its own. Must
-   *  run synchronously inside a user gesture. */
-  const armAudio = useCallback(() => {
-    const graph = ensureGraph();
-    resumeGraph(graph);
-    if (graph) applyVolume(volumeRef.current, mutedRef.current);
-  }, [ensureGraph, resumeGraph, applyVolume]);
 
   // ── Radio reconnect ──────────────────────────────────────
 
@@ -208,6 +194,73 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => clearRadioTimers, [clearRadioTimers]);
 
+  // ── Library recovery ─────────────────────────────────────
+
+  const libRetryRef = useRef<number | null>(null);
+  const libWatchdogRef = useRef<number | null>(null);
+  const libAttemptRef = useRef(0);
+  /** Last position actually heard, so a reload resumes where the drop was. */
+  const libPositionRef = useRef(0);
+  /** Applied once the reloaded track's metadata arrives. */
+  const libResumeAtRef = useRef<number | null>(null);
+
+  const clearLibRecovery = useCallback(() => {
+    if (libRetryRef.current != null) window.clearTimeout(libRetryRef.current);
+    if (libWatchdogRef.current != null) window.clearTimeout(libWatchdogRef.current);
+    libRetryRef.current = null;
+    libWatchdogRef.current = null;
+    libResumeAtRef.current = null;
+  }, []);
+
+  /** Reloads the same track from where it dropped. A few tries, then it gives
+   *  up paused rather than walking the queue while the network is down. */
+  const retryLibrary = useCallback(() => {
+    const audio = libAudioRef.current;
+    if (!audio?.hasAttribute('src') || libRetryRef.current != null) return;
+    if (libWatchdogRef.current != null) window.clearTimeout(libWatchdogRef.current);
+    libWatchdogRef.current = null;
+    if (libAttemptRef.current >= 3) {
+      audio.pause();
+      setLibraryPlaying(false);
+      return;
+    }
+    // A drop while paused still reloads, so play resumes from the right
+    // place, but must not start the music by itself.
+    const resume = !audio.paused;
+    const delay = 1000 * 2 ** libAttemptRef.current;
+    libAttemptRef.current += 1;
+    libRetryRef.current = window.setTimeout(() => {
+      libRetryRef.current = null;
+      const src = audio.getAttribute('src');
+      if (!src) return;
+      window.umami?.track('library_reconnect', { attempt: libAttemptRef.current });
+      libResumeAtRef.current = libPositionRef.current;
+      // Setting src, even to the same URL, reruns the load with a fresh request.
+      audio.src = src;
+      if (!resume) return;
+      audio.play().catch((err) => {
+        if (err?.name !== 'AbortError') retryLibrary();
+      });
+    }, delay);
+  }, []);
+
+  /** Safari can sit on a dead socket in "waiting" without ever raising error. */
+  const armLibWatchdog = useCallback(() => {
+    if (libWatchdogRef.current != null || libRetryRef.current != null) return;
+    libWatchdogRef.current = window.setTimeout(() => {
+      libWatchdogRef.current = null;
+      if (libAudioRef.current && !libAudioRef.current.paused) retryLibrary();
+    }, 15_000);
+  }, [retryLibrary]);
+
+  const disarmLibWatchdog = useCallback(() => {
+    if (libWatchdogRef.current == null) return;
+    window.clearTimeout(libWatchdogRef.current);
+    libWatchdogRef.current = null;
+  }, []);
+
+  useEffect(() => clearLibRecovery, [clearLibRecovery]);
+
   // ── Source exclusivity ───────────────────────────────────
 
   const unloadRadio = useCallback(() => {
@@ -237,12 +290,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // every unload and start buffering again.
     if (!rad.hasAttribute('src')) rad.src = RADIO_STREAM_URL;
     window.umami?.track('radio_play');
-    // Kick the visualiser off first so its init never waits on a stalled play().
-    ensureVisualizer();
     rad.play().catch((err) => {
       if (err?.name !== 'AbortError') console.error('Playback failed:', err);
     });
-  }, [armAudio, clearRadioTimers, ensureVisualizer]);
+  }, [armAudio, clearRadioTimers]);
 
   // ── Library transport ────────────────────────────────────
 
@@ -253,6 +304,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!audio || !queue[i]) return;
 
     unloadRadio();
+    clearLibRecovery();
+    libAttemptRef.current = 0;
+    libPositionRef.current = 0;
     setMode('library');
     setIndex(i);
     setCurrentTime(0);
@@ -263,14 +317,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // expected whenever the user picks another track before this one starts.
       if (err?.name !== 'AbortError') console.error('Playback failed:', err);
     });
-  }, [unloadRadio]);
+  }, [unloadRadio, clearLibRecovery]);
 
   const playAlbum = useCallback(async (nextAlbum: PlayerAlbum, startTrackId?: string) => {
-    // Before the await, not after: the graph sits in the audio path now, so a
-    // resume() that falls outside the user gesture means silence, not just a
-    // dead visualiser.
+    // Before the await, not after: once the visualiser has put the graph in
+    // the audio path, a resume() outside the user gesture means silence.
     armAudio();
-    ensureVisualizer();
     window.umami?.track('sticker_player_play', { albumId: nextAlbum.id });
     try {
       const detail = await loadAlbumCard(nextAlbum.id);
@@ -283,7 +335,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (err) {
       console.error('Could not load album tracks:', err);
     }
-  }, [armAudio, ensureVisualizer, start]);
+  }, [armAudio, start]);
 
   const next = useCallback(() => {
     const queue = tracksRef.current;
@@ -302,6 +354,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const stop = useCallback(() => {
+    clearLibRecovery();
     const audio = libAudioRef.current;
     if (audio) {
       audio.pause();
@@ -314,7 +367,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setLibraryPlaying(false);
     setCurrentTime(0);
     setAudioDuration(0);
-  }, []);
+  }, [clearLibRecovery]);
 
   // ── Mode ─────────────────────────────────────────────────
 
@@ -349,9 +402,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (err?.name !== 'AbortError') console.error('Playback failed:', err);
       });
     } else {
+      // Also cancels a pending reconnect, which would otherwise start it again.
+      clearLibRecovery();
       lib.pause();
     }
-  }, [armAudio, unloadRadio, startRadio]);
+  }, [armAudio, unloadRadio, startRadio, clearLibRecovery]);
 
   const setVolume = useCallback((v: number) => {
     setVolumeState(v);
@@ -420,17 +475,46 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           preload="none"
           onPlay={() => setLibraryPlaying(true)}
           onPause={() => setLibraryPlaying(false)}
-          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-          onLoadedMetadata={(e) => setAudioDuration(e.currentTarget.duration)}
+          onPlaying={() => { libAttemptRef.current = 0; disarmLibWatchdog(); }}
+          onWaiting={armLibWatchdog}
+          onStalled={armLibWatchdog}
+          onTimeUpdate={(e) => {
+            disarmLibWatchdog();
+            // A reload reads 0 until its metadata lands and the resume seek
+            // applies; that 0 must not replace the position being restored.
+            if (libResumeAtRef.current != null) return;
+            libPositionRef.current = e.currentTarget.currentTime;
+            setCurrentTime(e.currentTarget.currentTime);
+          }}
+          onLoadedMetadata={(e) => {
+            const audio = e.currentTarget;
+            setAudioDuration(audio.duration);
+            if (libResumeAtRef.current != null) {
+              audio.currentTime = libResumeAtRef.current;
+              libResumeAtRef.current = null;
+            }
+          }}
           onEnded={() => {
             // 'ended' does not fire 'pause', so the flag must be cleared here.
             const queue = tracksRef.current;
             if (indexRef.current + 1 < queue.length) start(queue, indexRef.current + 1);
             else setLibraryPlaying(false);
           }}
-          onError={() => {
-            setLibraryPlaying(false);
-            console.error('Audio stream error');
+          onError={(e) => {
+            const audio = e.currentTarget;
+            // Clearing src fires error too; only a live failure counts.
+            if (!audio.hasAttribute('src')) return;
+            // A corrupt file fails the same way every time, so move on. Anything
+            // else (a dropped connection, or a request that never got going,
+            // which Chrome reports as unsupported) is worth reloading.
+            if (audio.error?.code === MediaError.MEDIA_ERR_DECODE) {
+              console.error('Track could not be decoded, skipping');
+              const queue = tracksRef.current;
+              if (indexRef.current + 1 < queue.length) start(queue, indexRef.current + 1);
+              else setLibraryPlaying(false);
+              return;
+            }
+            retryLibrary();
           }}
         />
 

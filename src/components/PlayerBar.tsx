@@ -7,6 +7,7 @@ import BlockRange, {
 } from './basic/BlockRange';
 import { NAVIDROME_SERVER_URL } from '../utils/navidrome';
 import { formatTime, usePlayerActions, usePlayerState } from '../utils/usePlayer';
+import { elementVolumeSettable } from '../utils/useAudioEngine';
 import './PlayerBar.css';
 
 const albumLink = (id: string) => `${NAVIDROME_SERVER_URL}/app/#/album/${id}/show`;
@@ -130,7 +131,7 @@ const VolumeControl: React.FC = () => {
       >
         {muted ? 'UNMUTE' : 'VOL'}
       </button>
-      <BlockRange
+      {elementVolumeSettable && <BlockRange
         label="Volume"
         className="sp-vol"
         value={muted ? 0 : volume}
@@ -139,7 +140,7 @@ const VolumeControl: React.FC = () => {
         cellPx={VOLUME_CELL_PX}
         minBlocks={VOLUME_MIN_BLOCKS}
         onChange={setVolume}
-      />
+      />}
     </>
   );
 };
