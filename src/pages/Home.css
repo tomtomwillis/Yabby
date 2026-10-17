@@ -623,7 +623,7 @@ a.hp-h-t:focus-visible {
   width: 100%;
   /* No top padding: the decorative rule is the bar's top edge, and the wordmark
      block below it sets the height the player is sized to fit inside. */
-  padding: 0 clamp(0.5rem, 1vw, 1rem) 0 0.8rem;
+  padding: 0 clamp(0.5rem, 1vw, 1rem) 0.45rem 0.8rem;
   box-sizing: border-box;
   background: var(--colour4);
 }
@@ -811,7 +811,8 @@ a.hp-h-t:focus-visible {
 .home-bottom--min .home-fixed-welcome,
 .home-bottom--min .home-bottom-man,
 .home-bottom--min .home-bottom-viz,
-.home-bottom--min .pb-seek {
+.home-bottom--min .pb-seek,
+.home-bottom--min .pb-set {
   display: none;
 }
 

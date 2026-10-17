@@ -248,16 +248,16 @@ const RadioControls: React.FC<{ trailing?: React.ReactNode }> = ({ trailing }) =
       : 'tuning in…';
 
   // Same three rows as the library, so switching mode does not rearrange the
-  // bar; the set stands in for the seek bar, which a live stream has no use for.
+  // bar. The seek row stays as an empty spacer: the set is twice its height, and
+  // in it the radio outgrew the height the player is capped to fit.
   return (
     <>
       <MetaRow title="[ YABBY FM ]" sub={nowPlaying} />
 
-      <div className="pb-seek pb-seek--radio">
-        <RadioSet />
-      </div>
+      <div className="pb-seek pb-seek--radio" aria-hidden="true" />
 
       <div className="pb-row">
+        <RadioSet />
         <button className="pb-btn pb-play" onClick={toggle} aria-label={isPlaying ? 'Pause' : 'Play'}>
           {isPlaying ? '❚❚' : '▶'}
         </button>
