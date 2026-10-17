@@ -887,52 +887,6 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         {showSendButton && !outsideControls && sendButton}
       </div>
 
-      {outsideControls && (
-        <div className="textbox-controls">
-          {showSendButton && sendButton}
-          {attachButton}
-          {crossPostToggle}
-          {wordCounter}
-        </div>
-      )}
-
-      {imagePreviewUrl && (
-        <div className="image-preview-container">
-          <div className="image-preview-frame">
-            <img src={imagePreviewUrl} alt="Attached image preview" className="image-preview" />
-            <button className="image-preview-remove" onClick={removeImage} aria-label="Remove image">
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {pendingPoll && (
-        <div className="poll-draft-chip" onClick={() => setPollComposeOpen(true)} role="button" tabIndex={0}>
-          <span className="poll-draft-chip__label">📊 {pendingPoll.question}</span>
-          <span className="poll-draft-chip__meta">{pendingPoll.options.length} options</span>
-          <button
-            type="button"
-            className="poll-draft-chip__remove"
-            onClick={(e) => {
-              e.stopPropagation();
-              removePollDraft();
-            }}
-            aria-label="Remove poll"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {pollComposeOpen && (
-        <PollComposeModal
-          initialValue={pendingPoll}
-          onSave={savePollDraft}
-          onCancel={() => setPollComposeOpen(false)}
-        />
-      )}
-
       {isSearching && <p>{searchStatus}</p>}
 
       {userResults.length > 0 && (
@@ -1006,6 +960,52 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
             </ul>
           )}
         </figure>
+      )}
+
+      {outsideControls && (
+        <div className="textbox-controls">
+          {showSendButton && sendButton}
+          {attachButton}
+          {crossPostToggle}
+          {wordCounter}
+        </div>
+      )}
+
+      {imagePreviewUrl && (
+        <div className="image-preview-container">
+          <div className="image-preview-frame">
+            <img src={imagePreviewUrl} alt="Attached image preview" className="image-preview" />
+            <button className="image-preview-remove" onClick={removeImage} aria-label="Remove image">
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pendingPoll && (
+        <div className="poll-draft-chip" onClick={() => setPollComposeOpen(true)} role="button" tabIndex={0}>
+          <span className="poll-draft-chip__label">📊 {pendingPoll.question}</span>
+          <span className="poll-draft-chip__meta">{pendingPoll.options.length} options</span>
+          <button
+            type="button"
+            className="poll-draft-chip__remove"
+            onClick={(e) => {
+              e.stopPropagation();
+              removePollDraft();
+            }}
+            aria-label="Remove poll"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {pollComposeOpen && (
+        <PollComposeModal
+          initialValue={pendingPoll}
+          onSave={savePollDraft}
+          onCancel={() => setPollComposeOpen(false)}
+        />
       )}
 
       {!outsideControls && crossPostToggle}

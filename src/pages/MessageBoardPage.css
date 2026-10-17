@@ -1844,6 +1844,6 @@
     --mb-composer-row-gap: calc(0.4rem * var(--mb-k-space));
     --mb-composer-controls-top: calc(0.45rem * var(--mb-k-space));
     --mb-field-pad-y: calc(0.25rem * var(--mb-k-control));
-    --mb-field-pad-x: calc(3rem * var(--mb-k-control));
+    --mb-field-pad-x: calc(0.3rem * var(--mb-k-control));
   }
 }

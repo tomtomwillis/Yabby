@@ -108,7 +108,7 @@ const BOARD_KNOBS: Knob[] = [
   L('mb-composer-controls-top', 'Above controls', 'Composer', 0.35, { max: 2, mobileDef: 0.45 }),
   L('mb-composer-controls-gap', 'Between controls', 'Composer', 1.85, { max: 4 }),
   L('mb-field-pad-y', 'Field padding (y)', 'Composer', 0.7, { max: 3, factor: 'control', mobileDef: 0.25 }),
-  L('mb-field-pad-x', 'Field padding (x)', 'Composer', 0.8, { max: 4, factor: 'control', mobileDef: 3 }),
+  L('mb-field-pad-x', 'Field padding (x)', 'Composer', 0.8, { max: 4, factor: 'control', mobileDef: 0.3 }),
 ];
 
 /* Home knobs. Keys are only ids here — `at` says what each one writes. Scale
