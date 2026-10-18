@@ -28,6 +28,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
+      '/api/music': {
+        target: 'https://yabbyville.xyz',
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
   plugins: [
@@ -78,23 +83,21 @@ export default defineConfig({
             }
           },
           {
-            // Must precede the general music rule. Audio seeking issues Range
-            // requests, and NetworkFirst has no Range support — a cached full
-            // 200 body served for a Range request breaks seeking (notably Safari).
-            urlPattern: /^https:\/\/music\.yabbyville\.xyz\/rest\/stream/i,
-            handler: 'NetworkOnly'
-          },
-          {
-            urlPattern: /^https:\/\/music\.yabbyville\.xyz\/.*/i,
-            handler: 'NetworkFirst',
+            // Covers through the music proxy. Same origin, so a response is
+            // never opaque and only a real 200 is kept; a 401 before the music
+            // cookie is set must not be cached. Everything else under
+            // /api/music falls through to the network: streams need Range
+            // support the cache does not have, and metadata changes.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname === '/api/music/rest/getCoverArt',
+            handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'api-cache',
+              cacheName: 'music-covers',
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                maxEntries: 300,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
               },
               cacheableResponse: {
-                statuses: [0, 200]
+                statuses: [200]
               }
             }
           }

@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
+import { albumCoverUrl } from '../utils/navidrome';
 import './RecentLists.css';
 
 interface RecentList {
   id: string;
   title: string;
   lastItemImage: string;
+  lastItemAlbumId: string;
   lastItemLink: string;
   lastItemAddedByAvatar: string;
 }
@@ -58,6 +60,7 @@ const RecentLists: React.FC = () => {
             id: docSnap.id,
             title: data.title || 'Untitled',
             lastItemImage: data.lastItemImage || '',
+            lastItemAlbumId: data.lastItemAlbumId || '',
             lastItemLink: data.lastItemLink || '',
             lastItemAddedByAvatar: data.lastItemAddedByAvatar || '',
           });
@@ -87,6 +90,7 @@ const RecentLists: React.FC = () => {
   };
 
   const getImageSrc = (list: RecentList): string => {
+    if (list.lastItemAlbumId) return albumCoverUrl(list.lastItemAlbumId, 300);
     if (list.lastItemImage) return list.lastItemImage;
     if (list.lastItemAddedByAvatar) return normalizeAvatarPath(list.lastItemAddedByAvatar);
     return '';

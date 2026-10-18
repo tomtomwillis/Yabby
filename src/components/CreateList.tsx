@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, query, orderBy } from 'firebase/fires
 import { addDocShadowed, updateDocShadowed, deleteDocShadowed, SERVER_TIME } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
+import { albumCoverUrl, fetchAlbumSummary } from '../utils/navidrome';
 import './CreateList.css';
 
 interface AlbumInfo {
@@ -26,7 +27,6 @@ interface AlbumListItem extends BaseListItem {
   albumId: string;
   albumTitle: string;
   albumArtist: string;
-  albumCover: string;
 }
 
 interface CustomListItem extends BaseListItem {
@@ -153,11 +153,7 @@ const CreateList: React.FC<CreateListProps> = ({
     }
   };
 
-  // Environment variables for Navidrome API
   const NAVIDROME_SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-  const NAVIDROME_API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-  const NAVIDROME_API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-  const NAVIDROME_CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
 
   // Extract album ID from Navidrome URL
   const extractAlbumId = (url: string): string | null => {
@@ -168,36 +164,7 @@ const CreateList: React.FC<CreateListProps> = ({
   // Fetch album info from Navidrome API
   const fetchAlbumInfoById = async (albumId: string): Promise<AlbumInfo | null> => {
     try {
-      const response = await fetch(
-        `${NAVIDROME_SERVER_URL}/rest/getAlbum?id=${albumId}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
-        {
-          headers: {
-            Authorization: 'Basic ' + btoa(`${NAVIDROME_API_USERNAME}:${NAVIDROME_API_PASSWORD}`),
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const text = await response.text();
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(text, 'application/xml');
-
-      const albumElement = xmlDoc.querySelector('album');
-      if (!albumElement) {
-        throw new Error('Album not found in response');
-      }
-
-      return {
-        id: albumElement.getAttribute('id') || '',
-        artist: albumElement.getAttribute('artist') || 'Unknown Artist',
-        title: albumElement.getAttribute('name') || 'Unknown Album',
-        cover: `${NAVIDROME_SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-          'coverArt'
-        )}&u=${NAVIDROME_API_USERNAME}&p=${NAVIDROME_API_PASSWORD}&v=1.16.1&c=${NAVIDROME_CLIENT_ID}`,
-      };
+      return await fetchAlbumSummary(albumId);
     } catch (error) {
       console.error('Failed to fetch album info:', error);
       return null;
@@ -238,7 +205,6 @@ const CreateList: React.FC<CreateListProps> = ({
       albumId: selectedAlbum.id,
       albumTitle: selectedAlbum.title,
       albumArtist: selectedAlbum.artist,
-      albumCover: selectedAlbum.cover,
       userText: currentItemText,
       order: items.length,
       addedByUserId: auth.currentUser?.uid || '',
@@ -411,9 +377,10 @@ const CreateList: React.FC<CreateListProps> = ({
     // Search from end of list for an item with an image
     for (let i = listItems.length - 1; i >= 0; i--) {
       const item = listItems[i];
-      if (item.type === 'album' && item.albumCover) {
+      if (item.type === 'album' && item.albumId) {
         return {
-          lastItemImage: item.albumCover,
+          lastItemImage: '',
+          lastItemAlbumId: item.albumId,
           lastItemLink: NAVIDROME_SERVER_URL
             ? `${NAVIDROME_SERVER_URL}/app/#/album/${item.albumId}/show`
             : '',
@@ -422,6 +389,7 @@ const CreateList: React.FC<CreateListProps> = ({
       } else if (item.type === 'custom' && item.imageUrl) {
         return {
           lastItemImage: item.imageUrl,
+          lastItemAlbumId: '',
           lastItemLink: item.linkUrl || '',
           lastItemAddedByAvatar: item.addedByAvatar || '',
         };
@@ -431,6 +399,7 @@ const CreateList: React.FC<CreateListProps> = ({
     const lastItem = listItems[listItems.length - 1];
     return {
       lastItemImage: '',
+      lastItemAlbumId: '',
       lastItemLink: '',
       lastItemAddedByAvatar: lastItem?.addedByAvatar || '',
     };
@@ -468,6 +437,7 @@ const CreateList: React.FC<CreateListProps> = ({
             itemCount: items.length,
             lastUpdated: SERVER_TIME,
             lastItemImage: lastItemMeta.lastItemImage,
+            lastItemAlbumId: lastItemMeta.lastItemAlbumId,
             lastItemLink: lastItemMeta.lastItemLink,
             lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
           });
@@ -480,6 +450,7 @@ const CreateList: React.FC<CreateListProps> = ({
             isCollaborative: isCollaborative,
             lastUpdated: SERVER_TIME,
             lastItemImage: lastItemMeta.lastItemImage,
+            lastItemAlbumId: lastItemMeta.lastItemAlbumId,
             lastItemLink: lastItemMeta.lastItemLink,
             lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
           });
@@ -511,7 +482,6 @@ const CreateList: React.FC<CreateListProps> = ({
             cleanItemData.albumId = item.albumId;
             cleanItemData.albumTitle = item.albumTitle;
             cleanItemData.albumArtist = item.albumArtist;
-            cleanItemData.albumCover = item.albumCover;
           } else if (item.type === 'custom') {
             cleanItemData.title = item.title;
             if (item.imageUrl && item.imageUrl.trim()) {
@@ -559,6 +529,7 @@ const CreateList: React.FC<CreateListProps> = ({
           isCollaborative: isCollaborative,
           lastUpdated: SERVER_TIME,
           lastItemImage: lastItemMeta.lastItemImage,
+          lastItemAlbumId: lastItemMeta.lastItemAlbumId,
           lastItemLink: lastItemMeta.lastItemLink,
           lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
         });
@@ -582,7 +553,6 @@ const CreateList: React.FC<CreateListProps> = ({
           cleanItemData.albumId = item.albumId;
           cleanItemData.albumTitle = item.albumTitle;
           cleanItemData.albumArtist = item.albumArtist;
-          cleanItemData.albumCover = item.albumCover;
         } else if (item.type === 'custom') {
           cleanItemData.title = item.title;
           // Only add imageUrl if it exists and is not empty
@@ -825,7 +795,7 @@ const CreateList: React.FC<CreateListProps> = ({
             {items.map((item, index) => {
               const isDragging = draggedIndex === index;
               const isDragOver = dragOverIndex === index;
-              const image = item.type === 'album' ? item.albumCover : item.imageUrl;
+              const image = item.type === 'album' ? albumCoverUrl(item.albumId, 300) : item.imageUrl;
               const title = item.type === 'album' ? item.albumTitle : item.title;
 
               return (

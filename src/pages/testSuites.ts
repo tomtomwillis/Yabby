@@ -485,6 +485,7 @@ const listsSuite: TestSuite = {
           isCollaborative: false,
           lastUpdated: SERVER_TIME,
           lastItemImage: '',
+          lastItemAlbumId: '',
           lastItemLink: '',
           lastItemAddedByAvatar: '',
         });
@@ -511,7 +512,6 @@ const listsSuite: TestSuite = {
           albumId: 'yabby-test-album',
           albumTitle: 'Test Album',
           albumArtist: 'Test Artist',
-          albumCover: '',
           addedByUserId: ctx.uid,
           addedByUsername: ctx.username,
           addedByAvatar: ctx.avatar,
@@ -556,10 +556,18 @@ const listsSuite: TestSuite = {
         const ref = doc(db, SANDBOX_LISTS, listId);
         const title = `${MARKER} list (edited)`;
 
-        await updateDoc(ref, { title, itemCount: 2, isPublic: true, lastUpdated: SERVER_TIME });
+        await updateDoc(ref, {
+          title,
+          itemCount: 2,
+          isPublic: true,
+          lastUpdated: SERVER_TIME,
+          lastItemImage: '',
+          lastItemAlbumId: 'yabby-test-album',
+        });
         const data = (await getDoc(ref)).data();
         assert(data?.title === title, 'The title change did not save.');
         assert(data?.itemCount === 2, 'itemCount did not update.');
+        assert(data?.lastItemAlbumId === 'yabby-test-album', 'The album preview did not save.');
 
         // Same query shape the Lists page uses, so this also proves the index.
         const snap = await getDocs(
@@ -590,6 +598,17 @@ const listsSuite: TestSuite = {
               order: 99,
               timestamp: SERVER_TIME,
             }),
+          ctx,
+        );
+      },
+    },
+    {
+      name: 'rules reject an unknown list field',
+      run: async (ctx) => {
+        const listId = requireId(listState.listId, 'list');
+        return expectDenied(
+          'setting a field the list rules do not name',
+          () => updateDoc(doc(db, SANDBOX_LISTS, listId), { lastItemCover: 'https://example.com/c.jpg' }),
           ctx,
         );
       },

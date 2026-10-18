@@ -1,9 +1,13 @@
 import { md5 } from 'js-md5';
+import { musicSessionReady } from './musicSession';
 
 const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
 const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
+
+// Same-origin proxy (backend routes/music.js). Caddy adds the proxy account's
+// credentials, so nothing here knows a Navidrome password. Media requests are
+// authorised by the music session cookie (musicSession.ts).
+const PROXY_BASE = '/api/music/rest';
 
 export interface SubsonicAuth {
   u: string;
@@ -20,8 +24,6 @@ export function createSubsonicAuth(username: string, password: string): Subsonic
   return { u: username, t: md5(`${password}${salt}`), s: salt };
 }
 
-const DEFAULT_AUTH = createSubsonicAuth(API_USERNAME, API_PASSWORD);
-
 /** Base server URL, for non-API links like /app/#/album/... */
 export const NAVIDROME_SERVER_URL: string = SERVER_URL;
 
@@ -33,15 +35,16 @@ const SERVER_ORIGIN = (() => {
   }
 })();
 
-/** Build an authenticated Subsonic REST URL. Params are URL-encoded; array values are repeated (e.g. songId for playlists). */
-export function subsonicUrl(endpoint: string, params: Record<string, string | number | string[]> = {}, auth: SubsonicAuth = DEFAULT_AUTH): string {
-  const search = new URLSearchParams({
-    u: auth.u,
-    t: auth.t,
-    s: auth.s,
-    v: '1.16.1',
-    c: CLIENT_ID,
-  });
+/**
+ * Build a Subsonic REST URL. Params are URL-encoded; array values are repeated
+ * (e.g. songId for playlists). Without `auth` the URL goes through the proxy,
+ * which allows only the read-only endpoints in the backend's utils/musicGate.js.
+ * With `auth` (a member's own Navidrome login) it goes to Navidrome directly.
+ */
+export function subsonicUrl(endpoint: string, params: Record<string, string | number | string[]> = {}, auth?: SubsonicAuth): string {
+  const search = auth
+    ? new URLSearchParams({ u: auth.u, t: auth.t, s: auth.s, v: '1.16.1', c: CLIENT_ID })
+    : new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (Array.isArray(value)) {
       value.forEach(v => search.append(key, v));
@@ -49,12 +52,40 @@ export function subsonicUrl(endpoint: string, params: Record<string, string | nu
       search.set(key, String(value));
     }
   }
-  return `${SERVER_URL}/rest/${endpoint}?${search.toString()}`;
+  const query = search.toString();
+  const base = auth ? `${SERVER_URL}/rest` : PROXY_BASE;
+  return `${base}/${endpoint}${query ? `?${query}` : ''}`;
 }
 
 /** Cover-art image URL for use in img src. Omit size for the original image. */
 export function coverArtUrl(coverArtId: string, size?: number): string {
   return subsonicUrl('getCoverArt', size ? { id: coverArtId, size } : { id: coverArtId });
+}
+
+/** Cover art for an album by its id, for stored items that keep only the id. */
+export function albumCoverUrl(albumId: string, size?: number): string {
+  return coverArtUrl(`al-${albumId}`, size);
+}
+
+export interface AlbumSummary {
+  id: string;
+  artist: string;
+  title: string;
+  cover: string;
+}
+
+/** Name, artist and cover URL of one album. Throws if Navidrome does not have it. */
+export async function fetchAlbumSummary(albumId: string): Promise<AlbumSummary> {
+  const xmlDoc = await fetchSubsonicXml('getAlbum', { id: albumId });
+  const album = xmlDoc.querySelector('album');
+  if (!album) throw new Error('Album not found in response');
+  const id = album.getAttribute('id') || albumId;
+  return {
+    id,
+    artist: album.getAttribute('artist') || 'Unknown Artist',
+    title: album.getAttribute('name') || 'Unknown Album',
+    cover: coverArtUrl(album.getAttribute('coverArt') || `al-${id}`),
+  };
 }
 
 export interface NavidromeLink {
@@ -82,6 +113,7 @@ export function parseNavidromeLink(href: string): NavidromeLink | null {
 
 /** Fetch a Subsonic endpoint and return the parsed XML document. Throws on HTTP, parse or API errors. */
 export async function fetchSubsonicXml(endpoint: string, params: Record<string, string | number | string[]> = {}, auth?: SubsonicAuth): Promise<Document> {
+  if (!auth) await musicSessionReady();
   const response = await fetch(subsonicUrl(endpoint, params, auth));
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
@@ -102,6 +134,7 @@ export async function fetchSubsonicXml(endpoint: string, params: Record<string, 
 /** Fetch a Subsonic endpoint with f=json and return the subsonic-response object. Throws on HTTP or API errors. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchSubsonicJson(endpoint: string, params: Record<string, string | number | string[]> = {}, auth?: SubsonicAuth): Promise<any> {
+  if (!auth) await musicSessionReady();
   const response = await fetch(subsonicUrl(endpoint, { ...params, f: 'json' }, auth));
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);

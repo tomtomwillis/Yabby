@@ -762,18 +762,18 @@ service cloud.firestore {
 
       allow create: if isListCollection(listCollection) && isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
+        && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
         && usernameMatchesProfile(request.resource.data.username)
         && request.resource.data.timestamp == request.time;
 
       allow update: if isListCollection(listCollection) && isOwner(resource.data.userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200);
 
       allow update: if isListCollection(listCollection) && isSignedIn()
         && resource.data.isCollaborative == true
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemLink', 'lastItemAddedByAvatar'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200);
 
       allow delete: if isListCollection(listCollection) && isOwner(resource.data.userId);

@@ -8,6 +8,7 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
 import { getUserData } from '../utils/userCache';
+import { albumCoverUrl, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
 
 interface Sticker {
   userId: string;
@@ -92,11 +93,6 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       setLoading(true);
       setError(null);
 
-      const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-      const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-      const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
-
       // Fetch all stickers ordered by timestamp
       const allStickersQuery = query(
         collection(db, 'stickers'),
@@ -120,32 +116,14 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
           const allAlbumStickers: Sticker[] = stickersByAlbum.get(albumId) || [];
 
           try {
-            // Fetch album details from Navidrome API
-            const response = await fetch(
-              `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-              {
-                headers: {
-                  Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-                },
-              }
-            );
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const text = await response.text();
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, 'application/xml');
+            const xmlDoc = await fetchSubsonicXml('getAlbum', { id: albumId });
             const albumElement = xmlDoc.querySelector('album');
 
             if (!albumElement) {
               throw new Error('Album not found in response');
             }
 
-            const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-              'coverArt'
-            )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
+            const albumCover = coverArtUrl(albumElement.getAttribute('coverArt') || `al-${albumId}`);
 
             // Find the most recent sticker timestamp for this album
             const mostRecentTimestamp = allAlbumStickers[0]?.timestamp?.toDate ?
@@ -242,11 +220,6 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
   const hasMore = visibleCount < filteredAlbums.length;
 
   const handleAlbumClick = async (album: AlbumWithStickers) => {
-    const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-    const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-    const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-    const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
-
     setPopup({
       stickers: await Promise.all(
         album.stickers.map(async (sticker) => {
@@ -269,7 +242,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       albumId: album.albumId,
       albumTitle: album.albumTitle,
       albumArtist: album.albumArtist,
-      albumCover: `${SERVER_URL}/rest/getCoverArt?id=${album.albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
+      albumCover: albumCoverUrl(album.albumId),
     });
   };
 

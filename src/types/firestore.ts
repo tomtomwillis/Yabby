@@ -78,7 +78,8 @@ export interface AlbumListItem extends BaseListItem {
   albumId: string;
   albumTitle: string;
   albumArtist: string;
-  albumCover: string;
+  /** Legacy: older items stored a cover URL. Render from albumId instead. */
+  albumCover?: string;
 }
 
 export interface CustomListItem extends BaseListItem {
