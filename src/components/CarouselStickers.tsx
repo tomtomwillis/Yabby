@@ -5,6 +5,7 @@ import PlaceSticker from './PlaceSticker';
 import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './CarouselStickers.css';
 import AnchoredBubble from './basic/AnchoredBubble';
+import { albumCoverUrl, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
 import {
   collection,
   query,
@@ -160,11 +161,6 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
       setLoading(true);
       setError(null);
 
-      const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-      const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-      const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-      const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
-
       // Step 1: scan a window of stickers to pick the albums to show. Insertion
       // order into the map is the order they end up on the wall.
       const stickers = collection(db, 'stickers');
@@ -242,31 +238,14 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
           const stickers = stickersByAlbum.get(albumId) || [];
 
           try {
-            const response = await fetch(
-              `${SERVER_URL}/rest/getAlbum?id=${albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
-              {
-                headers: {
-                  Authorization: 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-                },
-              },
-            );
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const text = await response.text();
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, 'application/xml');
+            const xmlDoc = await fetchSubsonicXml('getAlbum', { id: albumId });
             const albumElement = xmlDoc.querySelector('album');
 
             if (!albumElement) {
               throw new Error('Album not found in response');
             }
 
-            const albumCover = `${SERVER_URL}/rest/getCoverArt?id=${albumElement.getAttribute(
-              'coverArt',
-            )}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`;
+            const albumCover = coverArtUrl(albumElement.getAttribute('coverArt') || `al-${albumId}`);
 
             return {
               albumId,
@@ -362,11 +341,6 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
       return;
     }
 
-    const API_USERNAME = import.meta.env.VITE_NAVIDROME_API_USERNAME;
-    const API_PASSWORD = import.meta.env.VITE_NAVIDROME_API_PASSWORD;
-    const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
-    const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
-
     setPopup({
       anchor,
       stickers: await Promise.all(
@@ -391,7 +365,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
       albumId: album.albumId,
       albumTitle: album.albumTitle,
       albumArtist: album.albumArtist,
-      albumCover: `${SERVER_URL}/rest/getCoverArt?id=${album.albumId}&u=${API_USERNAME}&p=${API_PASSWORD}&v=1.16.1&c=${CLIENT_ID}`,
+      albumCover: albumCoverUrl(album.albumId),
     });
   };
 

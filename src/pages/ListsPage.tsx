@@ -5,6 +5,7 @@ import { db, auth } from '../firebaseConfig';
 import Header from '../components/basic/Header';
 import CreateList from '../components/CreateList';
 import { normalizeAvatarPath } from '../utils/avatarPath';
+import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
 import './ListsPage.css';
 
 interface List {
@@ -20,6 +21,7 @@ interface List {
   // Denormalised onto the list by CreateList on every save, so the sheet needs
   // no subcollection reads to show what was added last.
   lastItemImage?: string;
+  lastItemAlbumId?: string;
   lastItemAddedByAvatar?: string;
 }
 
@@ -33,7 +35,8 @@ const activityMillis = (list: List): number => {
 /** What the plate shows, in order of preference: the last thing added to the
  *  list, the sticker of whoever added it, then nothing. */
 const plateFor = (list: List): { src: string; kind: 'image' | 'avatar' | 'none' } => {
-  if (list.lastItemImage) return { src: list.lastItemImage, kind: 'image' };
+  if (list.lastItemAlbumId) return { src: albumCoverUrl(list.lastItemAlbumId, 300), kind: 'image' };
+  if (list.lastItemImage) return { src: displayImageUrl(list.lastItemImage), kind: 'image' };
   const avatar = normalizeAvatarPath(list.lastItemAddedByAvatar);
   if (avatar) return { src: avatar, kind: 'avatar' };
   return { src: '', kind: 'none' };
