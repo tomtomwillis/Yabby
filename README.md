@@ -53,10 +53,10 @@ Create user accounts through the Firebase Console.
 
 [Navidrome](https://www.navidrome.org/) is a self-hosted music server. The app uses the Subsonic API to search albums/artists and display album art. Without it, album carousels, sticker placement search, and artist tagging won't work.
 
+The browser never holds a Navidrome password. It calls the backend's `/api/music/rest/*` proxy, and the proxy account's credentials live only in the backend environment (`NAVIDROME_PROXY_USERNAME`, `NAVIDROME_PROXY_PASSWORD`, `MUSIC_SESSION_SECRET`; see `backend_server/CLAUDE.md`). The frontend only needs the server's address, for links into the Navidrome web UI:
+
 ```
 VITE_NAVIDROME_SERVER_URL=https://your-navidrome-instance.com
-VITE_NAVIDROME_API_USERNAME=
-VITE_NAVIDROME_API_PASSWORD=
 VITE_NAVIDROME_CLIENT_ID=yabbyville
 ```
 
