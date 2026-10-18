@@ -329,6 +329,8 @@ const BASES = [
 
 /** Writes no one may make. Judged as-is, not mutated. */
 const FORBIDDEN = [
+  { name: 'list album preview not a string', as: ALICE, op: 'update', path: 'lists/collab', data: { lastUpdated: SERVER_TIME, lastItemAlbumId: 42 } },
+  { name: 'list album preview too long', as: ALICE, op: 'update', path: 'lists/own', data: { lastUpdated: SERVER_TIME, lastItemAlbumId: 'a'.repeat(81) } },
   { name: 'yabby event by a member', as: ALICE, op: 'create', path: 'events/yabby', data: { title: 'Symposium', date: '2027-01-30', category: 'yabby', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
   { name: 'event moved to yabby by a member', as: ALICE, op: 'update', path: 'events/e1', data: { category: 'yabby', updatedAt: SERVER_TIME } },
   { name: 'event title of emoji past its limit in UTF-16 units', as: ALICE, op: 'create', path: 'events/emo-title', data: { title: '🎛'.repeat(61), date: '2026-10-03', category: 'club', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },

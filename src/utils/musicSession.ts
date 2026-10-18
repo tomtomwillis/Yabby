@@ -8,8 +8,9 @@ import { auth } from '../firebaseConfig';
 
 const SESSION_URL = '/api/music/session';
 const LOGOUT_URL = '/api/music/logout';
-// Well inside the server's 12 h, for a tab left open with no token refresh.
-const REMINT_AFTER_MS = 6 * 60 * 60 * 1000;
+// Well inside the server's 2 h, for a tab left open with no token refresh
+// (a phone resuming the PWA, a throttled background tab).
+const REMINT_AFTER_MS = 50 * 60 * 1000;
 // The app must not hang on music: past this, pages render and covers fail.
 const READY_TIMEOUT_MS = 8000;
 

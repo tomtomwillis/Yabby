@@ -141,6 +141,11 @@ service cloud.firestore {
       return !('isBot' in data) || (data.isBot == true && isAdmin());
     }
 
+    // The album a list's preview cover is built from.
+    function validLastItemAlbumId(data) {
+      return !('lastItemAlbumId' in data) || validString(data.lastItemAlbumId, 0, 80);
+    }
+
     function isValidListItem(data) {
       return data.keys().hasOnly([
           'type', 'userText', 'order', 'timestamp',
@@ -764,17 +769,20 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
+        && validLastItemAlbumId(request.resource.data)
         && usernameMatchesProfile(request.resource.data.username)
         && request.resource.data.timestamp == request.time;
 
       allow update: if isListCollection(listCollection) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
-        && validString(request.resource.data.title, 1, 200);
+        && validString(request.resource.data.title, 1, 200)
+        && validLastItemAlbumId(request.resource.data);
 
       allow update: if isListCollection(listCollection) && isSignedIn()
         && resource.data.isCollaborative == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
-        && validString(request.resource.data.title, 1, 200);
+        && validString(request.resource.data.title, 1, 200)
+        && validLastItemAlbumId(request.resource.data);
 
       allow delete: if isListCollection(listCollection) && isOwner(resource.data.userId);
 
