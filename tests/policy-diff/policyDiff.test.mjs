@@ -247,8 +247,10 @@ const BASES = [
   { name: 'list', as: ALICE, op: 'create', path: 'lists/new', data: { title: 'new list', userId: ALICE, username: 'alice', timestamp: SERVER_TIME, itemCount: 0, isPublic: true, isCollaborative: false, lastUpdated: SERVER_TIME } },
   { name: 'list edit', as: ALICE, op: 'update', path: 'lists/own', data: { title: 'renamed', isPublic: false, lastUpdated: SERVER_TIME } },
   { name: 'collab list edit', as: ALICE, op: 'update', path: 'lists/collab', data: { itemCount: incrementBy(1), lastUpdated: SERVER_TIME, lastItemImage: 'https://i' } },
+  { name: 'list with album preview', as: ALICE, op: 'create', path: 'lists/new2', data: { title: 'new list', userId: ALICE, username: 'alice', timestamp: SERVER_TIME, itemCount: 1, isPublic: true, isCollaborative: false, lastUpdated: SERVER_TIME, lastItemImage: '', lastItemAlbumId: 'a1', lastItemLink: 'https://l', lastItemAddedByAvatar: '' } },
+  { name: 'collab list album preview', as: ALICE, op: 'update', path: 'lists/collab', data: { itemCount: incrementBy(1), lastUpdated: SERVER_TIME, lastItemImage: '', lastItemAlbumId: 'a1' } },
   { name: 'list delete', as: ALICE, op: 'delete', path: 'lists/own' },
-  { name: 'list item', as: ALICE, op: 'create', path: 'lists/own/items/new', data: { type: 'album', userText: '', order: 1, albumId: 'a1', albumTitle: 'T', albumArtist: 'A', albumCover: 'c', timestamp: SERVER_TIME, addedByUserId: ALICE, addedByUsername: 'alice' } },
+  { name: 'list item', as: ALICE, op: 'create', path: 'lists/own/items/new', data: { type: 'album', userText: '', order: 1, albumId: 'a1', albumTitle: 'T', albumArtist: 'A', timestamp: SERVER_TIME, addedByUserId: ALICE, addedByUsername: 'alice' } },
   { name: 'collab list item', as: ALICE, op: 'create', path: 'lists/collab/items/new', data: { type: 'custom', userText: 'x', order: 1, title: 'T', linkUrl: 'https://l' } },
   { name: 'list item edit', as: ALICE, op: 'update', path: 'lists/own/items/it1', data: { userText: 'changed', order: 2 } },
   { name: 'list item delete', as: ALICE, op: 'delete', path: 'lists/own/items/it1' },
@@ -327,6 +329,8 @@ const BASES = [
 
 /** Writes no one may make. Judged as-is, not mutated. */
 const FORBIDDEN = [
+  { name: 'list album preview not a string', as: ALICE, op: 'update', path: 'lists/collab', data: { lastUpdated: SERVER_TIME, lastItemAlbumId: 42 } },
+  { name: 'list album preview too long', as: ALICE, op: 'update', path: 'lists/own', data: { lastUpdated: SERVER_TIME, lastItemAlbumId: 'a'.repeat(81) } },
   { name: 'yabby event by a member', as: ALICE, op: 'create', path: 'events/yabby', data: { title: 'Symposium', date: '2027-01-30', category: 'yabby', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
   { name: 'event moved to yabby by a member', as: ALICE, op: 'update', path: 'events/e1', data: { category: 'yabby', updatedAt: SERVER_TIME } },
   { name: 'event title of emoji past its limit in UTF-16 units', as: ALICE, op: 'create', path: 'events/emo-title', data: { title: '🎛'.repeat(61), date: '2026-10-03', category: 'club', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
