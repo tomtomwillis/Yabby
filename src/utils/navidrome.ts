@@ -67,6 +67,27 @@ export function albumCoverUrl(albumId: string, size?: number): string {
   return coverArtUrl(`al-${albumId}`, size);
 }
 
+/**
+ * A stored image URL as it should be shown. Older documents saved Navidrome
+ * cover URLs with the shared account's credentials in them; those are shown
+ * through the proxy instead, so the browser never sends them. Anything else is
+ * returned unchanged.
+ */
+export function displayImageUrl(url: string): string {
+  if (!SERVER_ORIGIN || !url) return url;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (parsed.origin !== SERVER_ORIGIN || !/^\/rest\/getCoverArt(\.view)?$/.test(parsed.pathname)) return url;
+  const id = parsed.searchParams.get('id');
+  if (!id) return url;
+  const size = Number(parsed.searchParams.get('size'));
+  return coverArtUrl(id, size > 0 ? size : undefined);
+}
+
 export interface AlbumSummary {
   id: string;
   artist: string;

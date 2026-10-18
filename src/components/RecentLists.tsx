@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
-import { albumCoverUrl } from '../utils/navidrome';
+import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
 import './RecentLists.css';
 
 interface RecentList {
@@ -91,7 +91,7 @@ const RecentLists: React.FC = () => {
 
   const getImageSrc = (list: RecentList): string => {
     if (list.lastItemAlbumId) return albumCoverUrl(list.lastItemAlbumId, 300);
-    if (list.lastItemImage) return list.lastItemImage;
+    if (list.lastItemImage) return displayImageUrl(list.lastItemImage);
     if (list.lastItemAddedByAvatar) return normalizeAvatarPath(list.lastItemAddedByAvatar);
     return '';
   };

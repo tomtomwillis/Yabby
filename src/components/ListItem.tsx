@@ -4,7 +4,7 @@ import './ListItem.css';
 import { parseMessageHTML } from './basic/messageText';
 import { normalizeAvatarPath } from '../utils/avatarPath';
 import ListAlbumTracks from './ListAlbumTracks';
-import { albumCoverUrl } from '../utils/navidrome';
+import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
 
 interface BaseListItemProps {
   type: 'album' | 'custom';
@@ -70,7 +70,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
       return {
         title: props.title,
         subtitle: null,
-        imageUrl: props.imageUrl,
+        imageUrl: props.imageUrl ? displayImageUrl(props.imageUrl) : undefined,
         imageAlt: props.title,
         clickable: !!props.linkUrl,
         typeLabel: '[custom]'

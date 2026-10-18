@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, query, orderBy } from 'firebase/fires
 import { addDocShadowed, updateDocShadowed, deleteDocShadowed, SERVER_TIME } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
-import { albumCoverUrl, fetchAlbumSummary } from '../utils/navidrome';
+import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
 import './CreateList.css';
 
 interface AlbumInfo {
@@ -795,7 +795,7 @@ const CreateList: React.FC<CreateListProps> = ({
             {items.map((item, index) => {
               const isDragging = draggedIndex === index;
               const isDragOver = dragOverIndex === index;
-              const image = item.type === 'album' ? albumCoverUrl(item.albumId, 300) : item.imageUrl;
+              const image = item.type === 'album' ? albumCoverUrl(item.albumId, 300) : item.imageUrl && displayImageUrl(item.imageUrl);
               const title = item.type === 'album' ? item.albumTitle : item.title;
 
               return (
