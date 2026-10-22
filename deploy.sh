@@ -7,7 +7,9 @@ LOG=/yabbyville/logs/deploy.log
 exec >> "$LOG" 2>&1
 echo "=== Deploy started at $(date) ==="
 
-export PATH="$HOME/.local/bin:$PATH"
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+nvm use default
 cd "$REPO"
 
 git fetch origin main
