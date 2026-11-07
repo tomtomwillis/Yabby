@@ -168,6 +168,15 @@ service cloud.firestore {
         && (!('addedByAvatar' in data) || validString(data.addedByAvatar, 0, 200));
     }
 
+    // A ballot's entries are submission ids. Rules cannot loop over a list, so
+    // join() bounds the total size. It also refuses maps and lists, but lets
+    // numbers, bools and nulls through; the tally ignores those.
+    function isValidRanking(ranking) {
+      return ranking is list
+        && ranking.size() <= 100
+        && ranking.join(',').size() <= 8000;
+    }
+
     function isValidNextFilm(film) {
       return film is map
         && film.tmdbId is int
@@ -771,18 +780,21 @@ service cloud.firestore {
         && validString(request.resource.data.title, 1, 200)
         && validLastItemAlbumId(request.resource.data)
         && usernameMatchesProfile(request.resource.data.username)
-        && request.resource.data.timestamp == request.time;
+        && request.resource.data.timestamp == request.time
+        && request.resource.data.lastUpdated == request.time;
 
       allow update: if isListCollection(listCollection) && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
-        && validLastItemAlbumId(request.resource.data);
+        && validLastItemAlbumId(request.resource.data)
+        && request.resource.data.lastUpdated == request.time;
 
       allow update: if isListCollection(listCollection) && isSignedIn()
         && resource.data.isCollaborative == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
-        && validLastItemAlbumId(request.resource.data);
+        && validLastItemAlbumId(request.resource.data)
+        && request.resource.data.lastUpdated == request.time;
 
       allow delete: if isListCollection(listCollection) && isOwner(resource.data.userId);
 
@@ -1070,7 +1082,8 @@ service cloud.firestore {
           && request.resource.data.tmdbId is int
           && (request.resource.data.posterPath == null
               || (request.resource.data.posterPath is string
-                  && request.resource.data.posterPath.size() <= 200));
+                  && request.resource.data.posterPath.size() <= 200))
+          && request.resource.data.timestamp == request.time;
 
         allow delete: if isSignedIn()
           && (submissionId.matches(request.auth.uid + '_.*') || isAdmin());
@@ -1082,7 +1095,9 @@ service cloud.firestore {
 
         allow create, update: if isSignedIn()
           && request.auth.uid == userId
-          && request.resource.data.ranking is list;
+          && request.resource.data.keys().hasOnly(['ranking', 'updatedAt'])
+          && isValidRanking(request.resource.data.ranking)
+          && request.resource.data.updatedAt == request.time;
 
         allow delete: if isSignedIn() && request.auth.uid == userId;
       }

@@ -143,8 +143,8 @@ const SEED = {
   'news/n1': post(ADMIN, 'admin', { showOnMain: true }),
   'news/n1/replies/r1': reply(BOB, 'bob'),
 
-  'lists/own': { title: 'mine', userId: ALICE, username: 'alice', timestamp: at(-1000), itemCount: 1, isPublic: true, isCollaborative: false, lastUpdated: at(-1000) },
-  'lists/collab': { title: 'shared', userId: BOB, username: 'bob', timestamp: at(-1000), itemCount: 0, isPublic: true, isCollaborative: true, lastUpdated: at(-1000) },
+  'lists/own': { title: 'mine', userId: ALICE, username: 'alice', timestamp: at(-1000), itemCount: 1, isPublic: true, isCollaborative: false, lastUpdated: at(-3_600_000) },
+  'lists/collab': { title: 'shared', userId: BOB, username: 'bob', timestamp: at(-1000), itemCount: 0, isPublic: true, isCollaborative: true, lastUpdated: at(-3_600_000) },
   'lists/own/items/it1': { type: 'custom', userText: 'note', order: 0, title: 'thing', timestamp: at(-1000) },
 
   'stickers/s1': { userId: ALICE, albumId: 'alb', text: 'nice', position: { x: 1, y: 2 }, sticker: '/s.webp', timestamp: at(-1000) },
@@ -322,6 +322,10 @@ const BASES = [
   { name: 'submission', as: ALICE, op: 'set', path: 'filmClub/2026-09/submissions/uid-alice_7', data: { userId: ALICE, username: 'alice', title: 'Other', releaseYear: '2001', posterPath: '/p.jpg', overview: '', pitch: 'watch it', tmdbId: 7, timestamp: SERVER_TIME } },
   { name: 'submission delete', as: ALICE, op: 'delete', path: 'filmClub/2026-09/submissions/uid-alice_42' },
   { name: 'vote', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: ['uid-alice_42'], updatedAt: SERVER_TIME } },
+  { name: 'vote at its entry limit', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: Array.from({ length: 100 }, (_, i) => `f${i}`), updatedAt: SERVER_TIME } },
+  { name: 'vote at its size limit', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: ['a'.repeat(8000)], updatedAt: SERVER_TIME } },
+  { name: 'vote of plain values the rules cannot tell from ids', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: ['a', 42, true, null], updatedAt: SERVER_TIME } },
+  { name: 'empty vote', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: [], updatedAt: SERVER_TIME } },
   { name: 'vote delete', as: ALICE, op: 'delete', path: 'filmClub/2026-09/votes/uid-alice' },
 
   // Admin pages
@@ -332,6 +336,17 @@ const BASES = [
 
 /** Writes no one may make. Judged as-is, not mutated. */
 const FORBIDDEN = [
+  { name: 'list created with no lastUpdated', as: ALICE, op: 'create', path: 'lists/stale', data: { title: 'new list', userId: ALICE, username: 'alice', timestamp: SERVER_TIME, itemCount: 0, isPublic: true, isCollaborative: false } },
+  { name: 'list edit that removes lastUpdated', as: ALICE, op: 'update', path: 'lists/own', data: { lastUpdated: DELETE_FIELD } },
+  { name: 'list edit that leaves lastUpdated stale', as: ALICE, op: 'update', path: 'lists/own', data: { title: 'renamed' } },
+  { name: 'collab list edit that leaves lastUpdated stale', as: ALICE, op: 'update', path: 'lists/collab', data: { title: 'renamed' } },
+  { name: 'submission with no timestamp', as: ALICE, op: 'set', path: 'filmClub/2026-09/submissions/uid-alice_8', data: { userId: ALICE, username: 'alice', title: 'Other', releaseYear: '2001', posterPath: null, overview: '', pitch: '', tmdbId: 8 } },
+  { name: 'vote with no updatedAt', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: ['a'] } },
+  { name: 'vote with a backdated updatedAt', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: ['a'], updatedAt: at(-3_600_000) } },
+  { name: 'vote with an extra field', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: ['a'], updatedAt: SERVER_TIME, note: 'x' } },
+  { name: 'vote with too many entries', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: Array.from({ length: 101 }, (_, i) => `f${i}`), updatedAt: SERVER_TIME } },
+  { name: 'vote past its total size', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: ['a'.repeat(8001)], updatedAt: SERVER_TIME } },
+  { name: 'vote with a map entry', as: BOB, op: 'set', path: 'filmClub/2026-09/votes/uid-bob', data: { ranking: [{ a: 1 }], updatedAt: SERVER_TIME } },
   { name: 'list album preview not a string', as: ALICE, op: 'update', path: 'lists/collab', data: { lastUpdated: SERVER_TIME, lastItemAlbumId: 42 } },
   { name: 'list album preview too long', as: ALICE, op: 'update', path: 'lists/own', data: { lastUpdated: SERVER_TIME, lastItemAlbumId: 'a'.repeat(81) } },
   { name: 'yabby event by a member', as: ALICE, op: 'create', path: 'events/yabby', data: { title: 'Symposium', date: '2027-01-30', category: 'yabby', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },

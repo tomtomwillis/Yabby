@@ -614,6 +614,35 @@ const listsSuite: TestSuite = {
       },
     },
     {
+      name: 'rules reject a list edit that leaves lastUpdated stale',
+      run: async (ctx) => {
+        const listId = requireId(listState.listId, 'list');
+        return expectDenied(
+          'editing a list without stamping lastUpdated',
+          () => updateDoc(doc(db, SANDBOX_LISTS, listId), { title: `${MARKER} should not save` }),
+          ctx,
+        );
+      },
+    },
+    {
+      name: 'rules reject a new list with no lastUpdated',
+      run: async (ctx) =>
+        expectDenied(
+          'creating a list with no lastUpdated',
+          () =>
+            addDoc(collection(db, SANDBOX_LISTS), {
+              title: `${MARKER} should not exist`,
+              userId: ctx.uid,
+              username: ctx.username,
+              timestamp: SERVER_TIME,
+              itemCount: 0,
+              isPublic: false,
+              isCollaborative: false,
+            }),
+          ctx,
+        ),
+    },
+    {
       name: 'rules stop making a list for someone else',
       run: async (ctx) =>
         expectDenied(
