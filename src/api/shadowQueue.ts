@@ -3,10 +3,11 @@
  *
  * A report is kept until the API answers 2xx, so an API outage or a closed
  * tab delays it rather than losing it. Reports are sent one at a time, oldest
- * first, and sending stops at the first failure: when the API cannot read a
- * document back it replays the patch, and a patch applied out of order could
- * store old values. A late report is otherwise safe, because read-back stores
- * Firestore's copy as it is when the report arrives.
+ * first, and sending stops at the first failure: with read-back turned off the
+ * API replays the patch, and a patch applied out of order could store old
+ * values. With it on a late report is safe, because read-back stores Firestore's
+ * copy as it is when the report arrives, and if it cannot read a document back
+ * it stores nothing.
  *
  * The queue lives in localStorage under one key per uid, because the API
  * attributes each report to the token's user. If storage is unavailable it
