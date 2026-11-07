@@ -52,6 +52,9 @@ process.env.AUDIT_LOG_DIR = path.join(here, '.audit-unused');
 const require = createRequire(import.meta.url);
 const { initDataDb, closeDataDb } = require('../../backend_server/data/db');
 const { parsePath, processReport, applyWrite } = require('../../backend_server/data/shadow');
+const { TEST_COLLECTIONS } = require('../../backend_server/data/migrate/mapping');
+const { evaluateWrite } = require('../../backend_server/data/policy');
+const { policyContext } = require('../../backend_server/data/documents');
 
 // ---------------------------------------------------------------------------
 // Vocabulary — the same markers src/api/shadow.ts uses
@@ -521,6 +524,8 @@ async function seedEmulator() {
 function seedShadow() {
   db = initDataDb();
   for (const docPath of seedOrder()) {
+    // The /test collections are in Firestore only, so these seed the emulator alone.
+    if (TEST_COLLECTIONS.has(docPath.split('/')[0])) continue;
     const result = applyWrite(db, { op: 'create', target: parsePath(docPath), after: forReport(SEED[docPath]) });
     if (!result.applied) throw new Error(`could not seed ${docPath}: ${result.note}`);
   }
@@ -591,11 +596,20 @@ function policyVerdict(write) {
     const denied = verdicts.find((v) => !v.allowed);
     return denied || verdicts[0];
   }
+  const target = parsePath(write.path);
+
+  // The /test collections are not in SQLite, so processReport cannot find the
+  // document a delete needs. The same verdict runs on the seed's copy instead.
+  if (write.op === 'delete' && TEST_COLLECTIONS.has(target.collection)) {
+    const before = SEED[write.path] ? forReport(SEED[write.path]) : null;
+    return evaluateWrite({ op: 'delete', ...target, before, after: null }, policyContext(db, { uid: write.as, now: Date.now() }));
+  }
+
   const { data, remove } = report(write);
   const outcome = processReport(db, {
     uid: write.as,
     op: write.op,
-    target: parsePath(write.path),
+    target,
     data,
     remove,
     merge: write.merge,
