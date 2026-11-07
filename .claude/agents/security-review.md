@@ -17,9 +17,10 @@ Review code changes for security vulnerabilities and verify that security contro
 
 - **Frontend:** React SPA, Vite build, all `VITE_*` env vars are bundled into client JS and visible to anyone
 - **Auth:** Firebase email/password; all routes except `/login` require auth via `PrivateRoute`
-- **Database:** Firestore — security rules are the authoritative access control layer, NOT client-side checks
+- **Database:** Firestore — security rules are the authoritative access control layer, NOT client-side checks. It is being migrated to SQLite: every browser write is also reported to `POST /api/data/shadow`, and the backend reads the document back from Firestore before storing it. Nothing reads SQLite yet, but it will, so a forged row is a future forged post
+- **Backend:** Express API in the `backend_server/` submodule, a separate private repo (`hamsterona/Yabbyville_backend`). Read `backend_server/CLAUDE.md` and `backend_server/data/RUNBOOK.md` before reviewing it
 - **Roles:** `admins` and `mediaManagers` Firestore collections; client-side hooks (`useAdmin`, `useMediaManager`) are UI-only
-- **External services:** Navidrome (Subsonic API), Copyparty (file uploads via Firebase JWT), a backend media API
+- **External services:** Navidrome (through the backend's music proxy; the browser holds no Navidrome password), Copyparty (file uploads via Firebase JWT), a backend media API, Beets (WebSocket terminal)
 - **Sanitization:** DOMPurify via `src/utils/sanitise.ts` for all user-generated HTML; `sanitizeText` for plain text
 
 ## How to Run a Review
@@ -30,6 +31,8 @@ If given a PR number or branch, run:
 git log main..HEAD --oneline
 git diff main...HEAD -- .
 ```
+Backend changes live in the submodule, so run these inside `backend_server/`, against `origin/main`. A diff in the parent repo only shows the pointer moving.
+
 If given specific files, read those files directly. If no scope is specified, default to:
 ```
 git diff HEAD~1 HEAD
@@ -38,7 +41,7 @@ git diff HEAD~1 HEAD
 ### Step 2 — Categorise each changed file
 
 Assign each changed file a risk tier:
-- **HIGH**: Firestore rules, auth config, sanitization utils, external API integrations, role checks, message/reply send paths
+- **HIGH**: Firestore rules, auth config, sanitization utils, external API integrations, role checks, message/reply send paths, `routes/`, `middleware/`, `data/shadow.js`, `data/readback.js`, `data/policy.js`, `data/db.js`, `data/differ.js`, `data/backup.js`, `data/migrate/`
 - **MEDIUM**: New UI components handling user input, routing changes, new Firestore queries, profile/settings pages
 - **LOW**: Styling, static content, non-interactive UI, test files, documentation
 
@@ -85,7 +88,7 @@ For any new code that accepts, stores, or renders user input:
 ### D. External API Calls
 
 For any code calling Navidrome, Copyparty, the media API, or any new external service:
-- [ ] Navidrome API calls: Are credentials in URL params? If yes, flag as HIGH — should be proxied
+- [ ] Navidrome calls go through the music proxy. Any Navidrome credential in the browser or in a `VITE_*` var is HIGH
 - [ ] Copyparty: Uses Firebase ID token (`user.getIdToken()`) not hardcoded credentials
 - [ ] Media API: Uses `Authorization: Bearer ${idToken}` header
 - [ ] No new direct calls to backend services with embedded credentials
@@ -129,6 +132,26 @@ If `package.json` or `package-lock.json` changed:
 - [ ] No new dependencies with known malicious versions
 - [ ] DOMPurify version is current (security-critical package)
 
+### J. Backend routes and the shadow store
+
+For any change under `backend_server/`:
+- [ ] Field names and paths from a request are never used as plain object keys without a guard: `__proto__`, `constructor` and `prototype` are refused by `parseBody` and the patch functions in `data/shadow.js` touch own properties only. Check any new `obj[key]` on caller data
+- [ ] The uid comes from the verified token, never the body. `before` comes from this server's store, never the caller
+- [ ] A report is evidence, not content: nothing a member sends may be stored unless Firestore's read-back confirms it. The exceptions are a failed or disabled read, and then only if `policy.js` allows it. Can a member cause that failed read?
+- [ ] A member cannot grow disk or logs faster than the limits allow: audit lines, console lines, batch size, the per-uid limit on `/shadow`
+- [ ] Limits stay above real use: the client drops a report on 400 or 429, and a dropped report is drift
+- [ ] Any `firestore.rules` change is ported to `data/policy.js`, and `npm run test:policy` passes
+- [ ] Every `allow` test has a matching rejection test
+- [ ] New `/api/` routes have auth middleware, and `/authorize` stays on `MUSIC_GATE_PORT` only
+
+### K. Data safety in the migration tools
+
+- [ ] Nothing can silently replace good data with worse: failed exports, empty or shrunken backups, truncated audit files
+- [ ] `differ.js --repair` keeps evidence (old rows in the audit line) and never acts on an incomplete dump
+- [ ] Migrations cannot cascade-delete children, and a broken reference rolls back
+- [ ] SQL built by string uses table and column names from code, never from a request. Values are bound
+- [ ] Audit files, reports and backups contain document content, so paths and permissions must not widen who can read them
+
 ---
 
 ## Output Format
@@ -165,8 +188,8 @@ Produce a structured report:
 
 These are known issues in the codebase that have been accepted or are pre-existing:
 
-1. **Client-side rate limiting only** — `useRateLimit` is bypass-able. Known limitation, server-side limiting is a future improvement.
+1. **Firestore writes have client-side rate limiting only** — `useRateLimit` is bypass-able, and Firestore writes do not pass through the backend. The API itself has server-side limits in `server.js`.
 2. **Firebase API key in client** — `VITE_FIREBASE_API_KEY` is intentionally public; Firebase client SDKs require it. Security is via Firestore rules and Auth, not key secrecy.
-3. **Navidrome credentials in frontend** — Pre-existing issue; Navidrome API calls embed credentials in URL params. Do flag if new call sites are added, but do not re-flag existing ones unless the pattern changes.
+3. **Host permissions** — `chmod` on the Firebase key and `.env`, the data folders, and Docker log size are known host work, separate from code review.
 
 If any of the above pre-existing issues are worsened or expanded, escalate them.
