@@ -4,9 +4,8 @@ import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './StickerGrid.css';
-import { collection, query, orderBy } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
-import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
+import { auth } from '../firebaseConfig';
+import { recentStickers } from '../api/areas/stickers';
 import { getUserData } from '../utils/userCache';
 import { albumCoverUrl, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
 
@@ -60,11 +59,13 @@ interface StickerGridProps {
   shuffleKey: number;
   filterUserId?: string;
   onUsersLoaded?: (users: StickerUser[]) => void;
+  /** Changing it fetches the grid again, after a sticker is posted. */
+  refreshKey?: number;
 }
 
 const ALBUMS_PER_PAGE = 50;
 
-const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterUserId, onUsersLoaded }) => {
+const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterUserId, onUsersLoaded, refreshKey = 0 }) => {
   const [albums, setAlbums] = useState<AlbumWithStickers[]>([]);
   const [displayedAlbums, setDisplayedAlbums] = useState<AlbumWithStickers[]>([]);
   const [visibleCount, setVisibleCount] = useState<number>(ALBUMS_PER_PAGE);
@@ -93,13 +94,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       setLoading(true);
       setError(null);
 
-      // Fetch all stickers ordered by timestamp
-      const allStickersQuery = query(
-        collection(db, 'stickers'),
-        orderBy('timestamp', 'desc')
-      );
-      const allStickersSnapshot = await getDocs(allStickersQuery);
-      const allStickers: Sticker[] = allStickersSnapshot.docs.map((doc) => doc.data() as Sticker);
+      const allStickers: Sticker[] = (await recentStickers()).map((doc) => doc.data as Sticker);
 
       // Group by album. The query above already returned every sticker in
       // timestamp order, so each album's list needs no further reads.
@@ -190,6 +185,12 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (refreshKey > 0) fetchStickers();
+    // fetchStickers is recreated each render; only a new key should refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   // Handle sort mode changes and shuffle key
   useEffect(() => {
@@ -451,6 +452,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
         albumInfo={selectedAlbumForSticker || undefined}
         isVisible={placeStickerVisible}
         onClose={closePopup}
+        onSuccess={() => void fetchStickers()}
         onBack={handleBackToPopup}
         showBackButton={true}
       />

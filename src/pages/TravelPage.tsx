@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { collection } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '../firebaseConfig';
+import { auth } from '../firebaseConfig';
+import { listPlaces } from '../api/areas/travel';
 import TravelMap, { type TravelMapView } from '../components/travel/TravelMap';
 import TravelAddBox from '../components/travel/TravelAddBox';
 import TravelConfirmForm from '../components/travel/TravelConfirmForm';
@@ -11,7 +11,6 @@ import TravelPlaceBubble from '../components/travel/TravelPlaceBubble';
 import TravelRecommendationList from '../components/travel/TravelRecommendationList';
 import { getUserData } from '../utils/userCache';
 import { onPageScroll, scrollPageTo } from '../utils/pageScroll';
-import { trackedGetDocs } from '../utils/firestoreMetrics';
 import {
   categoryFromOsm,
   cityFromAddress,
@@ -45,14 +44,14 @@ function trackFilter(type: string) {
 }
 
 async function loadPlacesAndMemberships(): Promise<{ places: Place[]; memberships: UserPlaceMembership }> {
-  const snap = await trackedGetDocs(collection(db, 'places'));
+  const docs = await listPlaces();
 
   // contributorIds is denormalised onto the place by the travel API on every
   // write path, so the filter needs no subcollection reads.
   const memberships: UserPlaceMembership = {};
 
-  const places = snap.docs.map((d) => {
-    const data = d.data();
+  const places = docs.map((d) => {
+    const { data } = d;
     const category = (data.category as PlaceCategory) || 'other';
     const rawCategories = Array.isArray(data.categories) ? (data.categories as PlaceCategory[]) : null;
     const categories = rawCategories && rawCategories.length > 0 ? rawCategories : [category];

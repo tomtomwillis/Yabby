@@ -16,6 +16,8 @@ const Stickers: React.FC = () => {
   const setFilterUserId = (userId: string) =>
     setSearchParams(userId ? { user: userId } : {}, { replace: true });
   const [availableUsers, setAvailableUsers] = useState<StickerUser[]>([]);
+  // Bumped when a sticker is posted, so the grid shows it without a reload.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleNewestFirst = () => {
     setSortMode('chronological');
@@ -35,7 +37,7 @@ const Stickers: React.FC = () => {
       <Header title="Stickers" subtitle="All albums with stickers" />
 
       <div className="st-place">
-        <PlaceSticker mode="inline-url" />
+        <PlaceSticker mode="inline-url" onSuccess={() => setRefreshKey((key) => key + 1)} />
       </div>
 
       {/* The sort and the filter stated on one line of type: both orders shown
@@ -88,6 +90,7 @@ const Stickers: React.FC = () => {
         shuffleKey={shuffleKey}
         filterUserId={filterUserId || undefined}
         onUsersLoaded={handleUsersLoaded}
+        refreshKey={refreshKey}
       />
     </div>
   );

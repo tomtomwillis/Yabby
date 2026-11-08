@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
-import { trackedGetDocs } from '../../utils/firestoreMetrics';
+import { placeContributions } from '../../api/areas/travel';
 import TravelContributionCard from './TravelContributionCard';
 import type { Contribution, Place, PlaceCategory, TravelPhoto } from './travelTypes';
 import { CATEGORY_COLOURS, PLACE_CATEGORIES } from './travelTypes';
@@ -50,10 +48,10 @@ export default function TravelPlaceBubble({
     let cancelled = false;
     (async () => {
       try {
-        const snap = await trackedGetDocs(collection(db, 'places', place.id, 'contributions'));
+        const docs = await placeContributions(place.id);
         if (cancelled) return;
-        const loaded: Contribution[] = snap.docs.map((d) => {
-          const data = d.data();
+        const loaded: Contribution[] = docs.map((d) => {
+          const { data } = d;
           return {
             userId: data.userId,
             username: data.username || 'Anonymous',

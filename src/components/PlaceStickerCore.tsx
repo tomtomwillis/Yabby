@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './PlaceStickerCore.css';
 import { db, auth } from '../firebaseConfig';
-import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
-import { writeBatchShadowed, SERVER_TIME, incrementBy } from '../api/shadow';
+import { doc, getDoc } from 'firebase/firestore';
+import { createSticker, stickersOnAlbums, type NewSticker } from '../api/areas/stickers';
+import { ApiError } from '../api/client';
 import { clearUserCache } from '../utils/userCache';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
@@ -126,15 +127,10 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     if (!user) return;
 
     try {
-      const q = query(
-        collection(db, 'stickers'),
-        where('albumId', '==', albumInfo.id)
-      );
-      const snap = await getDocs(q);
-      const stickers = snap.docs.map(d => ({
-        position: d.data().position as { x: number; y: number },
-        sticker: d.data().sticker as string,
-        userId: d.data().userId as string,
+      const stickers = (await stickersOnAlbums([albumInfo.id])).map(d => ({
+        position: d.data.position as { x: number; y: number },
+        sticker: d.data.sticker as string,
+        userId: d.data.userId as string,
       }));
       setExistingStickers(stickers.map(({ position, sticker }) => ({ position, sticker })));
       setAlreadyHasSticker(stickers.some(s => s.userId === user.uid));
@@ -302,8 +298,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     setIsSubmitting(true);
 
     try {
-      const stickerData: any = {
-        userId: auth.currentUser.uid,
+      const stickerData: NewSticker = {
         albumId: albumInfo.id,
         // Navidrome reissues album ids when files are re-scanned, orphaning the
         // sticker. The name and artist keep it readable, and searchable back to
@@ -316,7 +311,6 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
           y: stickerPos.y,
         },
         sticker: userSticker,
-        timestamp: SERVER_TIME,
       };
 
       // Add favorite track if selected
@@ -325,18 +319,13 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         stickerData.favoriteTrackTitle = selectedTrack.title;
       }
 
-      // One batch, so the profile's count can never drift from the stickers.
       const uid = auth.currentUser.uid;
-      const docRef = doc(collection(db, 'stickers'));
-      await writeBatchShadowed(db)
-        .set(docRef, stickerData)
-        .update(doc(db, 'users', uid), { stickerCount: incrementBy(1) })
-        .commit();
+      const stickerId = await createSticker(uid, stickerData);
       clearUserCache(uid);
 
       if (onSuccess) {
         onSuccess({
-          stickerId: docRef.id,
+          stickerId,
           userId: auth.currentUser.uid,
           albumId: albumInfo.id,
           albumTitle: albumInfo.title,
@@ -356,7 +345,9 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
     } catch (error: any) {
       console.error('Error submitting sticker:', error);
       const code = error?.code as string | undefined;
-      if (code === 'permission-denied') {
+      if (error instanceof ApiError) {
+        setSubmitError(error.message);
+      } else if (code === 'permission-denied') {
         setSubmitError("You don't have permission to post this sticker. If you just signed in, try refreshing the page.");
       } else if (code === 'unavailable' || code === 'deadline-exceeded' || !navigator.onLine) {
         setSubmitError("Couldn't reach the server. Check your connection and try again.");

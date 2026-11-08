@@ -6,20 +6,9 @@ import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './CarouselStickers.css';
 import AnchoredBubble from './basic/AnchoredBubble';
 import { albumCoverUrl, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
-import {
-  collection,
-  query,
-  orderBy,
-  doc,
-  documentId,
-  endBefore,
-  limit,
-  startAt,
-  where,
-} from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
-import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
-import { writeBatchShadowed, incrementBy } from '../api/shadow';
+import { auth } from '../firebaseConfig';
+import { deleteSticker, randomStickers, recentStickers, stickersOnAlbums } from '../api/areas/stickers';
+import { ApiError } from '../api/client';
 import { useAdmin } from '../utils/useAdmin';
 import { getUserData, clearUserCache } from '../utils/userCache';
 
@@ -104,16 +93,6 @@ function patchWallCache(update: (albums: AlbumWithStickers[]) => AlbumWithSticke
   }
 }
 
-/** Firestore's auto-ID alphabet. A key drawn from it lands uniformly among the
- *  existing document IDs, so a window starting there is a random slice of the
- *  collection — no extra field, no extra reads, no index. */
-const AUTO_ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-function randomDocId(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(20));
-  return Array.from(bytes, (b) => AUTO_ID_CHARS[b % AUTO_ID_CHARS.length]).join('');
-}
-
 export type StickerOrder = 'recent' | 'random';
 
 interface CarouselStickersProps {
@@ -163,38 +142,15 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
 
       // Step 1: scan a window of stickers to pick the albums to show. Insertion
       // order into the map is the order they end up on the wall.
-      const stickers = collection(db, 'stickers');
-      let scanned;
-      if (order === 'random') {
-        const from = randomDocId();
-        scanned = (
-          await getDocs(
-            query(stickers, orderBy(documentId()), startAt(from), limit(RECENT_STICKERS_SCAN_LIMIT)),
-          )
-        ).docs;
-        // The window runs off the end of the collection when the random key
-        // lands near it, so wrap back round to the start for the shortfall.
-        if (scanned.length < RECENT_STICKERS_SCAN_LIMIT) {
-          const wrapped = await getDocs(
-            query(
-              stickers,
-              orderBy(documentId()),
-              endBefore(from),
-              limit(RECENT_STICKERS_SCAN_LIMIT - scanned.length),
-            ),
-          );
-          scanned = [...scanned, ...wrapped.docs];
-        }
-      } else {
-        scanned = (
-          await getDocs(query(stickers, orderBy('timestamp', 'desc'), limit(RECENT_STICKERS_SCAN_LIMIT)))
-        ).docs;
-      }
+      const scanned =
+        order === 'random'
+          ? await randomStickers(RECENT_STICKERS_SCAN_LIMIT)
+          : await recentStickers(RECENT_STICKERS_SCAN_LIMIT);
 
       const albumOrder: string[] = [];
       const seenAlbums = new Set<string>();
       for (const d of scanned) {
-        const albumId = (d.data() as { albumId: string }).albumId;
+        const albumId = (d.data as { albumId: string }).albumId;
         if (!seenAlbums.has(albumId)) {
           seenAlbums.add(albumId);
           albumOrder.push(albumId);
@@ -209,14 +165,13 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
       }
 
       // Step 2: fetch ALL stickers for the selected albums in one query.
-      // Firestore `in` supports up to 30 values — 16 is well within the limit.
-      const fullQuery = query(stickers, where('albumId', 'in', albumOrder));
-      const fullSnapshot = await getDocs(fullQuery);
+      // At most 30 albums per query — 16 is well within the limit.
+      const albumStickers = await stickersOnAlbums(albumOrder);
 
       const stickersByAlbum = new Map<string, Sticker[]>();
-      for (const d of fullSnapshot.docs) {
+      for (const d of albumStickers) {
         const sticker: Sticker = {
-          ...(d.data() as Omit<Sticker, 'stickerId'>),
+          ...(d.data as Omit<Sticker, 'stickerId'>),
           stickerId: d.id,
         };
         const list = stickersByAlbum.get(sticker.albumId);
@@ -373,13 +328,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     if (!window.confirm('Are you sure you want to delete this sticker? This cannot be undone.')) return;
 
     try {
-      // One batch, so the owner's count can never drift from the stickers.
-      // An admin deleting someone else's sticker is let through by the
-      // profile's admin stickerCount rule.
-      await writeBatchShadowed(db)
-        .delete(doc(db, 'stickers', stickerId))
-        .update(doc(db, 'users', ownerId), { stickerCount: incrementBy(-1) })
-        .commit();
+      await deleteSticker(stickerId, ownerId);
       clearUserCache(ownerId);
       setPopup((prev) => ({
         ...prev,
@@ -398,7 +347,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
       patchWallCache(withoutSticker);
     } catch (error) {
       console.error('Error deleting sticker:', error);
-      alert('Failed to delete sticker. Please try again.');
+      alert(error instanceof ApiError ? error.message : 'Failed to delete sticker. Please try again.');
     }
   };
 

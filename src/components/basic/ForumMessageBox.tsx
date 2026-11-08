@@ -7,6 +7,7 @@ import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
 import { searchLibrary } from '../../utils/navidromeSearch';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
+import { listPlaces } from '../../api/areas/travel';
 import { getAllUserProfiles } from '../../utils/userCache';
 import PollComposeModal, { type PollDraft } from './PollComposeModal';
 import { loadEventsInRange } from '../../utils/eventsApi';
@@ -202,10 +203,10 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (placesFetchPromiseRef.current) return placesFetchPromiseRef.current;
     const p = (async () => {
       try {
-        const snapshot = await getDocs(collection(db, 'places'));
+        const docs = await listPlaces();
         const places: { id: string; displayName: string; city: string; cityKey: string }[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
+        docs.forEach((docSnap) => {
+          const { data } = docSnap;
           if (data.displayName) {
             places.push({
               id: docSnap.id,

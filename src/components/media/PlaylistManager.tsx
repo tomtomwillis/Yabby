@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { allStickers } from '../../api/areas/stickers';
 import Button from '../basic/Button';
 import { fetchSubsonicJson, createSubsonicAuth } from '../../utils/navidrome';
 import type { SubsonicAuth } from '../../utils/navidrome';
@@ -35,11 +34,11 @@ function timestampToMs(ts: FirestoreTimestamp): number {
 }
 
 async function fetchFavouriteSongs(dateRange?: { start: Date; end: Date }): Promise<SongEntry[]> {
-  const snap = await getDocs(collection(db, 'stickers'));
+  const stickers = await allStickers();
   const entries: SongEntry[] = [];
 
-  snap.forEach(docSnap => {
-    const data = docSnap.data() as Sticker;
+  stickers.forEach(({ data: raw }) => {
+    const data = raw as Sticker;
     if (!data.favoriteTrackId) return;
     const ms = timestampToMs(data.timestamp);
     if (dateRange && (ms < dateRange.start.getTime() || ms >= dateRange.end.getTime())) return;

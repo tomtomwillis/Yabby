@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
-import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
+import { recentPlaces } from '../../api/areas/travel';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import { singleAvatarIcon, multiContributorIcon } from './TravelPinIcon';
 import { PLACE_CATEGORIES, type Place } from './travelTypes';
@@ -117,10 +115,10 @@ const HomeTravel: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    getDocs(query(collection(db, 'places'), orderBy('lastActivityAt', 'desc'), limit(PLACE_LIMIT)))
-      .then((snap) => {
+    recentPlaces(PLACE_LIMIT)
+      .then((docs) => {
         if (cancelled) return;
-        setPlaces(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Place));
+        setPlaces(docs.map((d) => ({ id: d.id, ...d.data }) as Place));
       })
       .catch(() => {
         if (!cancelled) setFailed(true);

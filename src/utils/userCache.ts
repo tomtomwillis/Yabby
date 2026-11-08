@@ -3,6 +3,7 @@ import { collection, doc, Timestamp, type DocumentData } from 'firebase/firestor
 import { db } from '../firebaseConfig';
 import { trackedGetDoc, trackedGetDocs } from './firestoreMetrics';
 import { updateDocShadowed, incrementBy } from '../api/shadow';
+import { allStickers } from '../api/areas/stickers';
 import { readSocials, type Socials } from './socials';
 
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
@@ -266,14 +267,14 @@ export async function bumpPostCount(userId: string): Promise<void> {
     not something to run on a page load. Writes only the counts that are wrong,
     and returns how many that was. */
 export async function recountStickers(): Promise<{ stickers: number; changed: number }> {
-  const [stickerSnap, userSnap] = await Promise.all([
-    trackedGetDocs(collection(db, 'stickers')),
+  const [stickers, userSnap] = await Promise.all([
+    allStickers(),
     trackedGetDocs(collection(db, 'users')),
   ]);
 
   const counts = new Map<string, number>();
-  stickerSnap.forEach((sticker) => {
-    const userId = sticker.data().userId;
+  stickers.forEach((sticker) => {
+    const userId = sticker.data.userId;
     if (typeof userId === 'string') counts.set(userId, (counts.get(userId) ?? 0) + 1);
   });
 
@@ -289,5 +290,5 @@ export async function recountStickers(): Promise<{ stickers: number; changed: nu
 
   directory = null;
   persist();
-  return { stickers: stickerSnap.size, changed };
+  return { stickers: stickers.length, changed };
 }

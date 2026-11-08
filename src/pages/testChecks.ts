@@ -2,6 +2,7 @@ import { collection, query, where, orderBy, limit, doc } from 'firebase/firestor
 import { trackedGetDoc as getDoc, trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
 import { db, auth } from '../firebaseConfig';
 import { fetchSubsonicJson } from '../utils/navidrome';
+import { apiRequest, ApiError } from '../api/client';
 
 /**
  * Fast read-only checks that run when the test page loads. Between them they
@@ -92,6 +93,24 @@ export const quickChecks: QuickCheck[] = [
       const data = await response.json();
       if (data?.status !== 'ok') throw new Error('Health check did not report ok.');
       return 'uploads and travel API up';
+    },
+  },
+  {
+    name: 'Data store',
+    run: async () => {
+      // Where each moved area reads from, and whether the write-back queue is
+      // keeping up. An admin also writes, reads and deletes one scratch row.
+      const { sources } = await apiRequest<{ sources: Record<string, string> }>('GET', '/source');
+      const { writeback } = await apiRequest<{ writeback: { pending: number; stuck: boolean } }>('GET', '/health');
+      if (writeback.stuck) throw new Error(`Write-back is stuck with ${writeback.pending} change(s) waiting for Firestore.`);
+      const result = await apiRequest<{ ok: boolean; ms: number }>('POST', '/selftest').catch((err) => {
+        if (err instanceof ApiError && err.status === 403) return null;
+        throw err;
+      });
+      if (result && !result.ok) throw new Error('The scratch row did not come back.');
+      const selftest = result ? `scratch write ok in ${result.ms} ms` : 'scratch write needs an admin';
+      const moved = Object.entries(sources).filter(([, source]) => source === 'sqlite').map(([area]) => area);
+      return `${moved.length ? `on SQLite: ${moved.join(', ')}` : 'every area on Firestore'}; ${writeback.pending} queued; ${selftest}`;
     },
   },
   {
