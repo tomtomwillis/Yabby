@@ -22,7 +22,7 @@ npm ls, npm outdated
 
 ## Architecture
 
-**Yabbyville** is a private music community SPA using Firebase Auth (email/password) and Firestore. Root url is yabbyville.xyz
+**Yabbyville** is a private music community SPA using Firebase Auth (email/password), Firestore, and an Express API (`backend_server/`, a git submodule) that holds a SQLite store the app is moving onto. Root url is yabbyville.xyz
 
 ### Gotchas
 
@@ -39,8 +39,8 @@ npm ls, npm outdated
 Leaflet map where users pin places with a comment and optional photos.
 
 - `placeId` via `placeIdFor()` in `src/utils/geocode.ts` — never construct manually
-- Two backends: photo uploads → `VITE_MEDIA_API_URL`, contributions CRUD → `VITE_TRAVEL_API_URL`
-- `loadUserMemberships()` in `TravelPage.tsx` does N subcollection reads (one per place) — avoid adding more
+- Photo uploads → `VITE_MEDIA_API_URL`; contribution writes → `VITE_TRAVEL_API_URL` (the server writes Firestore and mirrors to SQLite); reads → `src/api/areas/travel.ts`
+- Places carry `contributorIds`, so the page and its filters need no subcollection reads; a place's contributions are read only when its bubble opens
 
 ### Firestore Read Budget
 
@@ -59,23 +59,22 @@ Areas move off Firestore one at a time. **Travel and stickers read from SQLite**
 
 - **Moved areas:** components call the area module (`src/api/areas/<area>.ts`), never Firestore for that collection. Each read goes through `readArea`, which follows the flag (`GET /api/data/source`, from `/yabbyville/data/data-source.json` on the host) and falls back to Firestore on a network error, timeout or 5xx. Writes go through `writeArea` and never fall back. To move another area, follow `backend_server/data/AREA_MOVE.md`.
 
-- **All Firestore writes go through `src/api/shadow.ts`.** Use `addDocShadowed`, `setDocShadowed`, `updateDocShadowed`, `deleteDocShadowed`, `writeBatchShadowed`, and the markers `SERVER_TIME`, `incrementBy`, `arrayUnionOf`, `arrayRemoveOf` and `DELETE_FIELD` (top level only) instead of the Firestore sentinels. ESLint rejects the raw write functions elsewhere. A transaction must call `reportWrite` after it commits (see `FilmClub.tsx`).
+- **Every browser write to Firestore goes through `src/api/shadow.ts`.** Use `addDocShadowed`, `setDocShadowed`, `updateDocShadowed`, `deleteDocShadowed`, `writeBatchShadowed`, and the markers `SERVER_TIME`, `incrementBy`, `arrayUnionOf`, `arrayRemoveOf` and `DELETE_FIELD` (top level only) instead of the Firestore sentinels. ESLint rejects the raw write functions elsewhere. A transaction must call `reportWrite` after it commits (see `FilmClub.tsx`).
 - Backend-side Admin SDK writes must call `data/mirror.js`; see `backend_server/CLAUDE.md`.
-- **Keep the SQLite side in lockstep with Firestore.** Any new write path, collection or profile field must be dual-written, and any `firestore.rules` change must be ported to `backend_server/data/policy.js` in the same change. A field added only to the rules makes the shadow reject writes the app allows.
-- `npm run test:policy` checks the backend's port of the rules (`backend_server/data/policy.js`) against the real `firestore.rules` in the Firestore emulator, over about 2,000 valid and mutated writes. Run it after changing either. It needs Java and the backend's dependencies (`cd backend_server && npm ci`), and it never touches the real Firestore.
-- Current phase, next steps and history: `_backend_plan/STATUS.md` (local, gitignored).
+- **Keep the SQLite side in lockstep with Firestore.** Any new write path, collection or profile field must be dual-written, and any `firestore.rules` change must be ported to `backend_server/data/policy.js` in the same change. A field added only to the rules makes the shadow reject writes the app allows. In a moved area the API endpoint is the enforcer instead: a rule change there must be made in its route (`backend_server/routes/areas/`) too.
+- `npm run test:policy` checks the backend's port of the rules (`backend_server/data/policy.js`) against the real `firestore.rules` in the Firestore emulator, over every valid write it lists and many mutations of each. Run it after changing either. It needs Java and the backend's dependencies (`cd backend_server && npm ci`), and it never touches the real Firestore.
+- Current phase, next steps and history: `/yabbyville/backend/_backend_plan/STATUS.md` **on the host** (not in git; the Mac's `_backend_plan/` copy is older). Design: `DATA_MIGRATION_PLAN.md` beside it. Host operations: `backend_server/data/RUNBOOK.md`.
 
 ### Security Model
 
-- All authorization enforced server-side via Firestore security rules, not client-side UI checks
+- All authorization enforced server-side, never by client-side UI checks: by Firestore security rules, and for a moved area's writes by its API endpoint (`backend_server/routes/areas/`), which ports those rules
 - Client-side `useAdmin` hook is UI-only; always validate permissions on read/write operations
 - After editing `firestore.rules`, deploy then run the affected `/test` suites — they assert both the allowed and the denied paths — and run `npm run test:policy`, which fails until `policy.js` matches
 
 ### External Integrations
 
 - **Navidrome**: Music library via Subsonic API
-- **Copyparty**: File upload server
-- **SLSKD**: Soulseek request integration
+- **SLSKD**: Soulseek requests, an external link (`VITE_SLSK_REQUEST_URL`); downloads land where beets imports them
 - **Beets**: Music library management via WebSocket terminal on host
 - **Umami**: Analytics (page views, custom events via `window.umami?.track()`) — suggest adding tracking when implementing features that don't have it
 
