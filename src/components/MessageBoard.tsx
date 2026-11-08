@@ -952,19 +952,15 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       };
       if (imageId) replyData.imageId = imageId;
 
-      const newReplyRef = await addDocShadowed(collection(db, board, messageId, 'replies'), replyData);
-      void bumpPostCount(auth.currentUser.uid);
-      await updateDocShadowed(doc(db, board, messageId), {
-        lastActivityAt: SERVER_TIME,
-        replyCount: incrementBy(1),
-      });
-
-      // Optimistically append reply + bump counts locally.
+      // Shown before the writes finish: they wait on the server, which on a slow
+      // or backgrounded phone can be a long time, or never.
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const pendingId = `pending-${nowSeconds}-${Math.random().toString(36).slice(2)}`;
       const optimisticReply: Reply = {
-        id: newReplyRef.id,
+        id: pendingId,
         text: sanitizedText,
         userId: auth.currentUser.uid,
-        timestamp: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+        timestamp: { seconds: nowSeconds, nanoseconds: 0 },
         username: userData.username,
         avatar: userData.avatar,
         reactedBy: [],
@@ -972,23 +968,67 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
         currentUserReacted: false,
         imageId,
       };
+      // A thread with no replies has nothing loaded yet, but then the new reply
+      // is the whole thread. Otherwise a list is only extended if one is held,
+      // loaded thread or preview tail alike: a partial list built from nothing
+      // would pass for the thread.
+      const firstReply = (message.replyCount ?? 0) === 0;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId && (m.replies || firstReply)
+            ? {
+                ...m,
+                replies: [...(m.replies ?? []), optimisticReply],
+                repliesLoaded: m.repliesLoaded || firstReply,
+                replyCount: (m.replyCount ?? 0) + 1,
+                lastActivityAt: { seconds: nowSeconds, nanoseconds: 0 },
+              }
+            : m.id === messageId
+              ? { ...m, replyCount: (m.replyCount ?? 0) + 1 }
+              : m,
+        ),
+      );
+      // Only a board with no collapsed preview needs opening to show the reply;
+      // elsewhere it lands in the preview, or in the thread if already open.
+      if (replyPreviewCount === 0 && (firstReply || message.repliesLoaded)) {
+        setExpandedReplies((prev) => new Set(prev).add(messageId));
+      }
+
+      let newReplyId: string;
+      try {
+        const newReplyRef = await addDocShadowed(collection(db, board, messageId, 'replies'), replyData);
+        newReplyId = newReplyRef.id;
+      } catch (error) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? {
+                  ...m,
+                  replies: m.replies?.filter((r) => r.id !== pendingId),
+                  replyCount: Math.max(0, (m.replyCount ?? 0) - 1),
+                }
+              : m,
+          ),
+        );
+        throw error;
+      }
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
-            ? {
-                ...m,
-                // Appended whenever anything is held, loaded thread or preview
-                // tail alike: in both cases the newest reply belongs on the
-                // end, and the preview is read from that end.
-                replies: m.replies ? [...m.replies, optimisticReply] : m.replies,
-                replyCount: (m.replyCount ?? 0) + 1,
-                lastActivityAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
-              }
+            ? { ...m, replies: m.replies?.map((r) => (r.id === pendingId ? { ...r, id: newReplyId } : r)) }
             : m,
         ),
       );
-      // Auto-expand so user sees their reply.
-      setExpandedReplies((prev) => new Set(prev).add(messageId));
+      void bumpPostCount(auth.currentUser.uid);
+      try {
+        await updateDocShadowed(doc(db, board, messageId), {
+          lastActivityAt: SERVER_TIME,
+          replyCount: incrementBy(1),
+        });
+      } catch (error) {
+        // The reply is saved; only the stored count is behind.
+        console.error('Error updating reply count:', error);
+      }
     } catch (error) {
       console.error('Error sending reply:', error);
       alert('Failed to send reply. Please try again.');
