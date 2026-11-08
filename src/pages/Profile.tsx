@@ -19,6 +19,7 @@ import {
   type Socials,
 } from '../utils/socials';
 import { useAdmin } from '../utils/useAdmin';
+import YeishinTokens from '../components/YeishinTokens';
 import MessageTextBox from '../components/basic/MessageTextBox';
 import AvatarPreview from '../components/AvatarPreview';
 import './Profile.css';
@@ -839,6 +840,8 @@ const Profile: React.FC = () => {
             </span>
           </li>
         )}
+
+        {isAdmin && <YeishinTokens />}
 
         <li className="me-row">
           <span className="me-row-key">session</span>

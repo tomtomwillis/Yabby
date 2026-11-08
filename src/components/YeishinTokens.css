@@ -1,0 +1,33 @@
+.yt-item .me-row-key {
+  padding-left: 1rem;
+  color: var(--me-mute);
+}
+
+.yt-fresh {
+  gap: 0.4rem 0.8rem;
+  padding-left: calc(var(--me-edge) + 1rem);
+}
+
+.yt-token {
+  flex: 1 1 18rem;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+  color: var(--me-ink);
+  border: 1px dotted var(--me-rule);
+}
+
+.yt-fresh-acts {
+  flex: 0 0 auto;
+}
+
+.yt-note {
+  flex: 1 0 100%;
+  color: var(--me-dim);
+  font-size: 0.74rem;
+}
+
+.yt-error {
+  padding: 0;
+}
