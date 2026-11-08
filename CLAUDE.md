@@ -55,7 +55,9 @@ Free tier (50k reads/day) — minimising reads is critical:
 
 ### Data Migration (Firestore → SQLite, in progress)
 
-Firestore is still authoritative and the only store the app reads. Every write is also reported to a SQLite shadow on the backend (`POST /api/data/shadow`), which will eventually take over.
+Areas move off Firestore one at a time. **Travel and stickers read from SQLite** (since 2026-11-08), through `src/api/areas/`; sticker writes go to the API, which writes SQLite first and copies the change to Firestore. Everything else still reads Firestore, and every Firestore write is also reported to a SQLite shadow (`POST /api/data/shadow`).
+
+- **Moved areas:** components call the area module (`src/api/areas/<area>.ts`), never Firestore for that collection. Each read goes through `readArea`, which follows the flag (`GET /api/data/source`, from `/yabbyville/data/data-source.json` on the host) and falls back to Firestore on a network error, timeout or 5xx. Writes go through `writeArea` and never fall back. To move another area, follow `backend_server/data/AREA_MOVE.md`.
 
 - **All Firestore writes go through `src/api/shadow.ts`.** Use `addDocShadowed`, `setDocShadowed`, `updateDocShadowed`, `deleteDocShadowed`, `writeBatchShadowed`, and the markers `SERVER_TIME`, `incrementBy`, `arrayUnionOf`, `arrayRemoveOf` and `DELETE_FIELD` (top level only) instead of the Firestore sentinels. ESLint rejects the raw write functions elsewhere. A transaction must call `reportWrite` after it commits (see `FilmClub.tsx`).
 - Backend-side Admin SDK writes must call `data/mirror.js`; see `backend_server/CLAUDE.md`.
