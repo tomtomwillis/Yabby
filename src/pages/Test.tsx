@@ -15,6 +15,7 @@ import MessageBoard from '../components/MessageBoard';
 import { NAVIDROME_SERVER_URL, fetchSubsonicJson } from '../utils/navidrome';
 import '../App.css';
 import '../components/basic/TextAnimations.css';
+import './MessageBoardPage.css';
 import './Test.css';
 
 type Status = 'pending' | 'running' | 'pass' | 'fail';
@@ -229,12 +230,29 @@ export default function Test() {
           edit and delete here to check the board by hand. Nobody sees any of it. Images you attach do get
           uploaded for real, because the server has no way to delete them.
         </p>
-        <MessageBoard
-          collectionName={SANDBOX_MESSAGES}
-          enableReactions
-          enableReplies
-          enableFilmAnnounce={false}
-        />
+        {/* The same props the real board is given, minus the cross-posts, so
+            what is tried here is what is shipped. The page's stylesheet is
+            scoped to .mb-board and sizes from the same fallback, so this wrapper
+            is all it needs. */}
+        <div className="mb-board">
+          <MessageBoard
+            collectionName={SANDBOX_MESSAGES}
+            enableReactions
+            enableReplies
+            enableFilmAnnounce={false}
+            showPosterStats
+            showComposerAvatar
+            replyPreviewCount={2}
+            ledger
+            listHeader={
+              <div className="mb-board-bar">
+                <span className="mb-board-bar-label">threads</span>
+                <span className="mb-board-bar-rule" aria-hidden="true"></span>
+                <span className="mb-board-bar-note">newest activity first</span>
+              </div>
+            }
+          />
+        </div>
       </section>
 
       <section className="test-gallery">
