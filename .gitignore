@@ -10,9 +10,13 @@ lerna-debug.log*
 # Dev items
 node_modules
 dist/
+dist.next/
+dist.prev/
 dist-ssr
 *.local
 dev-dist/
+dist.next/
+dist.prev/
 local/
 
 # Local-only scripts (per-user maintenance / deploy helpers, not for the public repo)

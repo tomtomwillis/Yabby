@@ -1,6 +1,9 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import Header from '../components/basic/Header';
+import PageError from '../components/basic/PageError';
+import { reportPageError } from '../utils/reportPageError';
 import AsciiTitle from '../components/basic/AsciiTitle';
 import AsciiMan from '../components/AsciiMan';
 import HomeIndex from '../components/HomeIndex';
@@ -182,7 +185,15 @@ function Home() {
         </aside>
 
         <main className="home-main">
-          <Outlet />
+          {/* A page that throws takes only itself down: the rail and the
+              player keep going, and moving to another page clears it. The
+              Suspense sits inside so a page still loading leaves the shell
+              on screen rather than blanking it. */}
+          <ErrorBoundary FallbackComponent={PageError} onError={reportPageError} resetKeys={[pathname]}>
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
 

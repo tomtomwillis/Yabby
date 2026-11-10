@@ -4,7 +4,7 @@ import { fetchAlbumSummary } from '../../utils/navidrome';
 import Button from '../basic/Button';
 import { useRateLimit } from '../../utils/useRateLimit';
 import { validateUrl } from '../../utils/sanitise';
-import { auth } from '../../firebaseConfig';
+import { authedJson, MEDIA_API_URL } from '../../api/media';
 import { useMediaTheme, MEDIA_THEMES } from '../../utils/useMediaTheme';
 import './CoverArtTool.css';
 
@@ -25,7 +25,6 @@ type Stage = 'search' | 'preview' | 'processing' | 'success' | 'error';
 // Config
 // ---------------------------------------------------------------------------
 
-const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -120,47 +119,28 @@ const CoverArtTool: React.FC = () => {
       return;
     }
 
-    const user = auth.currentUser;
-    if (!user) {
-      setStage('error');
-      setStatusMessage('You must be logged in.');
-      return;
-    }
-
     setStage('processing');
     setStatusMessage('Fetching and processing image...');
 
     try {
-      const idToken = await user.getIdToken(true);
-
-      const response = await fetch(`${MEDIA_API_URL}/update-cover`, {
+      const data = await authedJson<{
+        message?: string;
+        details?: { originalFormat?: string; originalDimensions?: string; processedSize?: number };
+      }>(`${MEDIA_API_URL}/update-cover`, 'Unknown server error.', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          albumId: selectedAlbum.id,
-          imageUrl: imageUrl,
-        }),
+        json: { albumId: selectedAlbum.id, imageUrl },
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Unknown server error.');
-      }
 
       setStage('success');
       setStatusMessage(data.message || 'Cover art updated successfully!');
       setResultDetails(
         `Format: ${data.details?.originalFormat} → JPEG | ` +
         `Original: ${data.details?.originalDimensions} | ` +
-        `Saved: ${(data.details?.processedSize / 1024).toFixed(0)} KB`
+        `Saved: ${((data.details?.processedSize ?? 0) / 1024).toFixed(0)} KB`
       );
-    } catch (error: any) {
+    } catch (error) {
       setStage('error');
-      setStatusMessage(error.message || 'An unexpected error occurred.');
+      setStatusMessage((error instanceof Error && error.message) || 'An unexpected error occurred.');
     }
   };
 
@@ -312,7 +292,6 @@ const CoverArtTool: React.FC = () => {
                 <div className="coverart-section">
                   <p className="coverart-preview-label">Preview</p>
                   <div className={previewBoxClass}>
-                    {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
                     <img
                       src={imageUrl}
                       alt="New cover preview"

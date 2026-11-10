@@ -272,8 +272,7 @@ const Oneko: React.FC = () => {
         return;
       }
 
-      let direction = '';
-      direction = diffY / distance > 0.5 ? 'N' : '';
+      let direction = diffY / distance > 0.5 ? 'N' : '';
       direction += diffY / distance < -0.5 ? 'S' : '';
       direction += diffX / distance > 0.5 ? 'W' : '';
       direction += diffX / distance < -0.5 ? 'E' : '';

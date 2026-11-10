@@ -11,6 +11,7 @@ import { deleteSticker, randomStickers, recentStickers, stickersOnAlbums } from 
 import { ApiError } from '../api/client';
 import { useAdmin } from '../utils/useAdmin';
 import { getUserData, clearUserCache } from '../utils/userCache';
+import type { FirestoreTimestamp } from '../types/firestore';
 
 interface Sticker {
   stickerId: string;
@@ -19,7 +20,7 @@ interface Sticker {
   text: string;
   position: { x: number; y: number };
   sticker: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp;
   favoriteTrackId?: string;
   favoriteTrackTitle?: string;
 }

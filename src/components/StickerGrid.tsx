@@ -8,6 +8,7 @@ import { auth } from '../firebaseConfig';
 import { recentStickers } from '../api/areas/stickers';
 import { getUserData } from '../utils/userCache';
 import { albumCoverUrl, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
+import type { FirestoreTimestamp } from '../types/firestore';
 
 interface Sticker {
   userId: string;
@@ -15,7 +16,7 @@ interface Sticker {
   text: string;
   position: { x: number; y: number };
   sticker: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp;
   favoriteTrackId?: string;
   favoriteTrackTitle?: string;
 }
@@ -146,7 +147,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       );
 
       // Sort by most recent sticker timestamp (chronological by default)
-      const sortedAlbums = albumsWithAllStickers.sort((a: any, b: any) =>
+      const sortedAlbums = albumsWithAllStickers.sort((a, b) =>
         b.mostRecentTimestamp - a.mostRecentTimestamp
       );
 

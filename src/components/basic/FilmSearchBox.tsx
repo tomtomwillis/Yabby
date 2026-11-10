@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { TMDB } from '@tdanks2000/tmdb-wrapper';
 import './FilmSearchBox.css';
 
+interface TmdbMovie {
+  id: number;
+  title: string;
+  release_date?: string;
+  poster_path?: string | null;
+  overview?: string;
+}
+
 export interface FilmResult {
   id: number;
   title: string;
@@ -32,7 +40,7 @@ const FilmSearchBox: React.FC<FilmSearchBoxProps> = ({
     setSearchStatus('Searching...');
     try {
       const response = await tmdb.search.movies({ query });
-      const movies = (response as any).results ?? [];
+      const movies = (response as { results?: TmdbMovie[] }).results ?? [];
 
       if (movies.length === 0) {
         setSearchStatus('No films found');
@@ -40,7 +48,7 @@ const FilmSearchBox: React.FC<FilmSearchBoxProps> = ({
         setSearchStatus('');
       }
 
-      return movies.slice(0, 6).map((m: any) => ({
+      return movies.slice(0, 6).map((m) => ({
         id: m.id,
         title: m.title,
         releaseYear: m.release_date ? m.release_date.slice(0, 4) : '',

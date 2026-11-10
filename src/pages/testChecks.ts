@@ -120,7 +120,7 @@ export const quickChecks: QuickCheck[] = [
         await getDocs(query(collection(db, 'testMessages'), limit(1)));
       } catch (err) {
         if ((err as { code?: string }).code === 'permission-denied') {
-          throw new Error('Not deployed. Run: firebase deploy --only firestore:rules,firestore:indexes');
+          throw new Error('Not deployed. Run: firebase deploy --only firestore:rules,firestore:indexes', { cause: err });
         }
         throw err;
       }

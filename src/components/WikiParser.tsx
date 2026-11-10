@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import parse, { domToReact } from 'html-react-parser';
+import parse, { domToReact, Element, type DOMNode, type HTMLReactParserOptions } from 'html-react-parser';
 
 interface WikiProps {
   htmlFile?: string; // Path to HTML file
@@ -61,8 +61,9 @@ const WikiSimple: React.FC<WikiProps> = ({
   };
 
   const processHtmlContent = (html: string) => {
-    const options = {
-      replace: (domNode: any) => {
+    const options: HTMLReactParserOptions = {
+      replace: (domNode) => {
+        if (!(domNode instanceof Element)) return undefined;
         if (domNode.name === 'h1') {
           const sectionId = domNode.attribs?.id || `section-${Math.random()}`;
           const isOpen = openSections.has(sectionId);
@@ -81,11 +82,11 @@ const WikiSimple: React.FC<WikiProps> = ({
                   }
                 }}
               >
-                <span className="wiki-section-title">{domToReact(domNode.children)}</span>
+                <span className="wiki-section-title">{domToReact(domNode.children as DOMNode[])}</span>
                 <span className="wiki-section-arrow">{isOpen ? '▼' : '▶'}</span>
               </h1>
               <div className={`wiki-section-content ${isOpen ? 'open' : 'collapsed'}`}>
-                {domToReact(domNode.nextSibling ? [domNode.nextSibling] : [])}
+                {domToReact(domNode.nextSibling ? [domNode.nextSibling as DOMNode] : [])}
               </div>
             </div>
           );
@@ -95,7 +96,7 @@ const WikiSimple: React.FC<WikiProps> = ({
           // Wrap tables in a scrollable container
           return (
             <div style={{ overflowX: 'auto' }}>
-              {domToReact(domNode.children)}
+              {domToReact(domNode.children as DOMNode[])}
             </div>
           );
         }
@@ -104,7 +105,7 @@ const WikiSimple: React.FC<WikiProps> = ({
           // Ensure preformatted text wraps instead of overflowing
           return (
             <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
-              {domToReact(domNode.children)}
+              {domToReact(domNode.children as DOMNode[])}
             </pre>
           );
         }

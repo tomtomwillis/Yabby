@@ -332,9 +332,8 @@ export async function searchPlaces(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  let photonHits: PlaceSearchResult[] = [];
   try {
-    photonHits = await searchPhoton(trimmed, signal, opts);
+    const photonHits = await searchPhoton(trimmed, signal, opts);
     if (photonHits.length > 0) return photonHits;
   } catch (err) {
     if (signal?.aborted) throw err;

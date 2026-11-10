@@ -26,6 +26,7 @@ import {
   incrementBy,
   arrayUnionOf,
   arrayRemoveOf,
+  type WriteData,
 } from '../api/shadow';
 import type { DocumentData } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -40,25 +41,28 @@ import { useAdmin } from '../utils/useAdmin';
 import { getUserData, bumpPostCount } from '../utils/userCache';
 import { getCurrentMonthId, getPrevMonthId } from '../utils/useFilmClub';
 import { postEventBotNow, EVENT_BOT_BOARDS } from '../utils/eventsApi';
+import { uploadBoardImage } from '../api/media';
+import { formatTimestamp } from '../utils/formatTimestamp';
+import type { FirestoreTimestamp } from '../types/firestore';
 
 interface Reaction {
   userId: string;
   username: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp | null;
 }
 
 interface Reply {
   id: string;
   text: string;
   userId: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp;
   username: string;
   avatar: string;
   reactions?: Reaction[];
   reactedBy?: string[];
   reactionCount?: number;
   currentUserReacted?: boolean;
-  editedAt?: any;
+  editedAt?: FirestoreTimestamp;
   imageId?: string;
 }
 
@@ -81,8 +85,8 @@ interface Message {
   id: string;
   text: string;
   userId: string;
-  timestamp: any;
-  lastActivityAt?: any;
+  timestamp: FirestoreTimestamp;
+  lastActivityAt?: FirestoreTimestamp;
   username: string;
   avatar: string;
   reactions?: Reaction[];
@@ -92,7 +96,7 @@ interface Message {
   replies?: Reply[];
   replyCount?: number;
   repliesLoaded?: boolean;
-  editedAt?: any;
+  editedAt?: FirestoreTimestamp;
   imageId?: string;
   posterUrl?: string;
   status?: string;
@@ -167,31 +171,6 @@ interface SourceCursor {
 }
 
 const NO_CROSS_POST_SOURCES: CrossPostSource[] = [];
-const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
-
-async function uploadMessageImage(file: File): Promise<string> {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Not authenticated');
-  const idToken = await user.getIdToken(true);
-
-  const formData = new FormData();
-  formData.append('image', file);
-
-  const response = await fetch(`${MEDIA_API_URL}/mb-images/upload`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${idToken}` },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || 'Image upload failed');
-  }
-
-  const data = await response.json();
-  return data.imageId;
-}
-
 function bumpSeconds(message: Message): number {
   return (message.lastActivityAt ?? message.timestamp)?.seconds ?? 0;
 }
@@ -573,7 +552,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       return;
     }
 
-    let pollFields: Record<string, any> | undefined;
+    let pollFields: WriteData | undefined;
     if (pendingPoll) {
       const sanitizedQuestion = sanitizeText(pendingPoll.question);
       const sanitizedOptions = pendingPoll.options.map((o) => sanitizeText(o)).filter(Boolean);
@@ -601,7 +580,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       let imageId: string | undefined;
       if (pendingImage) {
         try {
-          imageId = await uploadMessageImage(pendingImage);
+          imageId = await uploadBoardImage(pendingImage);
         } catch (error) {
           console.error('Image upload failed:', error);
           alert('Failed to upload image. Please try again.');
@@ -619,7 +598,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
         setLoading(false);
         return;
       }
-      const messageData: Record<string, any> = {
+      const messageData: WriteData = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: SERVER_TIME,
@@ -928,7 +907,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
       let imageId: string | undefined;
       if (imageFile) {
         try {
-          imageId = await uploadMessageImage(imageFile);
+          imageId = await uploadBoardImage(imageFile);
         } catch (error) {
           console.error('Image upload failed:', error);
           alert('Failed to upload image. Please try again.');
@@ -941,7 +920,7 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
         alert('Set a username on your profile before replying.');
         return;
       }
-      const replyData: Record<string, any> = {
+      const replyData: WriteData = {
         text: sanitizedText,
         userId: auth.currentUser.uid,
         timestamp: SERVER_TIME,
@@ -1178,15 +1157,6 @@ const MessageBoard: React.FC<MessageBoardProps> = ({
     } catch (error) {
       console.error('Error deleting reply:', error);
       alert('Failed to delete reply. Please try again.');
-    }
-  };
-
-  const formatTimestamp = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-      return new Date(timestamp.seconds * 1000).toLocaleString();
-    } catch {
-      return '';
     }
   };
 

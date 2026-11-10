@@ -50,7 +50,7 @@ Use this table to decide how much care an update needs and how to verify it. Kee
 | js-md5 | Navidrome auth token | `/test` status row "Navidrome" |
 | @tdanks2000/tmdb-wrapper | Film club search box | **Manual**: search a film on `/film-club-submit` |
 | @xterm/* | Beets terminal in media manager | **Manual**: admin only, and the test account is not admin |
-| react-icons, @fortawesome/* | Icons | smoke test |
+| react-icons | Icons | smoke test |
 | vite-plugin-pwa | Service worker | Build prints "PWA … files generated" |
 | better-sqlite3 (backend) | SQLite shadow DB and backups | backend `npm test` (covers `data/`) |
 | node-pty, ws (backend) | Beets terminal | native load check; manual as above |

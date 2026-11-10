@@ -1,9 +1,14 @@
 // Shared shapes for Firestore documents. Components previously redeclared
 // these locally with `timestamp: any` — import from here instead.
 
+/** A stored time as the pages read it. The SDK's Timestamp fits, and so do
+ *  the stand-ins an optimistic update puts in its place, which carry only
+ *  the parts a page reads. */
 export interface FirestoreTimestamp {
   seconds: number;
-  nanoseconds: number;
+  nanoseconds?: number;
+  toDate?(): Date;
+  toMillis?(): number;
 }
 
 export interface Reply {

@@ -95,7 +95,7 @@ function renderGround(
 ): void {
   for (let y = 0; y < groundHeight; y++) {
     for (let x = 0; x < width; x++) {
-      let ch = ' ';
+      let ch: string;
       let color: Color = style.soil;
       if (y === 0) {
         const r = pseudoRand(x, y);

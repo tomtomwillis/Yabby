@@ -28,6 +28,9 @@ npm ls, npm outdated
 
 - Pre-commit hook flags shell command construction patterns — avoid even in comments
 - More specific Vite proxy rules must come before general ones
+- A library only a few pages use belongs in `OPTIONAL_VENDORS` in `vite.config.ts`, and must only be reached through a lazy import — a static import from the shell puts it back in every first load
+- Requests to the media, travel and other `/api` routes go through `authedFetch` / `authedJson` in `src/api/media.ts` — never build an Authorization header by hand or force a token refresh
+- `npm run check` (lint, unit tests, build) must pass before a push; CI runs it
 
 ### Key Data Flow Patterns
 

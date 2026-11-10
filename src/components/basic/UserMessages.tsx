@@ -12,18 +12,19 @@ import Lightbox from './Lightbox';
 import PollBlock from './PollBlock';
 import UsernameLink from './UsernameLink';
 import PosterStats from './PosterStats';
+import type { FirestoreTimestamp } from '../../types/firestore';
 
 interface Reaction {
   userId: string;
   username: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp | null;
 }
 
 interface Reply {
   id: string;
   text: string;
   userId: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp;
   username: string;
   avatar: string;
   reactions?: Reaction[];
@@ -215,16 +216,6 @@ const UserMessage: React.FC<UserMessageProps> = ({
   const handleStartEdit = () => {
     setEditText(message);
     setIsEditing(true);
-  };
-
-  const handleSaveEdit = () => {
-    const sanitized = sanitizeHtml(editText.trim());
-    if (!sanitized.trim()) {
-      alert('Your message contains invalid content. Please try again.');
-      return;
-    }
-    onEdit?.(sanitized);
-    setIsEditing(false);
   };
 
   const handleDelete = () => {
