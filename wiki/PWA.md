@@ -14,11 +14,10 @@ Yabbyville is a PWA, meaning it can be installed on phones and desktops and work
 
 | File | Purpose |
 |------|---------|
-| `vite.config.ts` | Configures the PWA plugin — manifest, caching strategies, service worker |
+| `vite.config.ts` | Configures the PWA plugin — the manifest (app name, icons, theme colour, display mode), caching strategies, service worker |
 | `src/main.tsx` | Registers the service worker and handles update prompts |
-| `public/manifest.json` | App name, icons, theme colour, display mode |
 | `public/icons/` | App icons: 192×192, 512×512, and Apple touch icon (180×180) |
-| `index.html` | PWA meta tags and manifest link |
+| `index.html` | PWA meta tags; the build adds the manifest link |
 
 ## Caching Strategy
 
