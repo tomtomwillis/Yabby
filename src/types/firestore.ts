@@ -11,6 +11,13 @@ export interface FirestoreTimestamp {
   toMillis?(): number;
 }
 
+/** Someone who reacted, resolved for the hover tooltip from `reactedBy`. */
+export interface Reaction {
+  userId: string;
+  username: string;
+  timestamp: FirestoreTimestamp | null;
+}
+
 export interface Reply {
   id: string;
   text: string;
@@ -18,11 +25,27 @@ export interface Reply {
   timestamp: FirestoreTimestamp;
   username: string;
   avatar: string;
-  reactionCount?: number;
+  reactions?: Reaction[];
   reactedBy?: string[];
+  reactionCount?: number;
   currentUserReacted?: boolean;
   editedAt?: FirestoreTimestamp;
   imageId?: string;
+}
+
+/** Another board whose cross-posted threads are listed on this one. The thread
+    itself still lives on the board it names — reacting, replying and editing it
+    here all write there — and the tag on the post links back to it. */
+export interface CrossPostSource {
+  collection: string;
+  /** Field that collection is ordered by; news has no lastActivityAt. */
+  orderField: 'lastActivityAt' | 'timestamp';
+  /** Wording of the tag drawn on the post, and where it points. */
+  label: string;
+  href: string;
+  /** That board's post length cap, so editing one of its posts from here is
+      held to the same limit it was written under. Defaults to this board's. */
+  postMaxWords?: number;
 }
 
 export interface Message {
@@ -33,8 +56,9 @@ export interface Message {
   lastActivityAt?: FirestoreTimestamp;
   username: string;
   avatar: string;
-  reactionCount?: number;
+  reactions?: Reaction[];
   reactedBy?: string[];
+  reactionCount?: number;
   currentUserReacted?: boolean;
   replies?: Reply[];
   replyCount?: number;
@@ -42,6 +66,17 @@ export interface Message {
   editedAt?: FirestoreTimestamp;
   imageId?: string;
   posterUrl?: string;
+  status?: string;
+  pollQuestion?: string;
+  pollOptions?: string[];
+  pollMultiple?: boolean;
+  pollVotes?: Record<string, number[]>;
+  pollVoterNames?: Record<number, string[]>;
+  /** Set when the post came from another board. */
+  sourceBoard?: CrossPostSource;
+  /** Announcement posted under a bot identity. Admin-only to write, so it is
+      the one marker on a post that a member cannot forge. */
+  isBot?: boolean;
 }
 
 export interface NewsItem {

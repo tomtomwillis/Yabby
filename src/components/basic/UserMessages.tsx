@@ -12,26 +12,7 @@ import Lightbox from './Lightbox';
 import PollBlock from './PollBlock';
 import UsernameLink from './UsernameLink';
 import PosterStats from './PosterStats';
-import type { FirestoreTimestamp } from '../../types/firestore';
-
-interface Reaction {
-  userId: string;
-  username: string;
-  timestamp: FirestoreTimestamp | null;
-}
-
-interface Reply {
-  id: string;
-  text: string;
-  userId: string;
-  timestamp: FirestoreTimestamp;
-  username: string;
-  avatar: string;
-  reactions?: Reaction[];
-  reactionCount?: number;
-  currentUserReacted?: boolean;
-  imageId?: string;
-}
+import type { Reaction, Reply } from '../../types/firestore';
 
 interface UserMessageProps {
   username: string;

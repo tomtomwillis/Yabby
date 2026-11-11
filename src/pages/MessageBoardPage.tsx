@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Header from '../components/basic/Header';
 import MessageBoard from '../components/MessageBoard';
-import type { CrossPostSource } from '../components/MessageBoard';
+import type { CrossPostSource } from '../types/firestore';
 import BoardsRail from '../components/BoardsRail';
 import Tips from '../components/basic/Tips';
 import './MessageBoardPage.css';
