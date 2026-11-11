@@ -5,50 +5,13 @@ import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
 import './CreateList.css';
-import type { FirestoreTimestamp } from '../types/firestore';
+import type { AlbumListItem, CustomListItem, List, ListItem } from '../types/firestore';
 
 interface AlbumInfo {
   id: string;
   artist: string;
   title: string;
   cover: string;
-}
-
-interface BaseListItem {
-  type: 'album' | 'custom';
-  userText: string;
-  order: number;
-  addedByUserId?: string;
-  addedByUsername?: string;
-  addedByAvatar?: string;
-}
-
-interface AlbumListItem extends BaseListItem {
-  type: 'album';
-  albumId: string;
-  albumTitle: string;
-  albumArtist: string;
-}
-
-interface CustomListItem extends BaseListItem {
-  type: 'custom';
-  title: string;
-  imageUrl?: string;
-  linkUrl?: string;
-}
-
-type ListItem = AlbumListItem | CustomListItem;
-
-interface List {
-  id: string;
-  title: string;
-  userId: string;
-  username: string;
-  timestamp: FirestoreTimestamp;
-  itemCount: number;
-  isPublic?: boolean;
-  isCollaborative?: boolean;
-  items?: ListItem[];
 }
 
 interface CreateListProps {

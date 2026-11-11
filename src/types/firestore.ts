@@ -96,7 +96,7 @@ export interface CustomListItem extends BaseListItem {
 
 export type ListItem = AlbumListItem | CustomListItem;
 
-export interface List {
+export interface List<Item extends ListItem = ListItem> {
   id: string;
   title: string;
   userId: string;
@@ -106,5 +106,10 @@ export interface List {
   itemCount: number;
   isPublic?: boolean;
   isCollaborative?: boolean;
-  items?: ListItem[];
+  items?: Item[];
+  // Denormalised onto the list by CreateList on every save, so the lists page
+  // needs no subcollection reads to show what was added last.
+  lastItemImage?: string;
+  lastItemAlbumId?: string;
+  lastItemAddedByAvatar?: string;
 }

@@ -7,21 +7,10 @@ import Header from '../components/basic/Header';
 import ListItem from '../components/ListItem';
 import CreateList from '../components/CreateList';
 import './ListDetailPage.css';
-import type { FirestoreTimestamp, ListItem as ListItemData } from '../types/firestore';
+import type { FirestoreTimestamp, List as ListData, ListItem as ListItemData } from '../types/firestore';
 
 type StoredListItem = ListItemData & { id: string };
-
-interface List {
-  id: string;
-  title: string;
-  userId: string;
-  username: string;
-  timestamp: FirestoreTimestamp;
-  itemCount: number;
-  isPublic?: boolean;
-  isCollaborative?: boolean;
-  items?: StoredListItem[];
-}
+type List = ListData<StoredListItem>;
 
 type SortDir = 'newest' | 'oldest';
 

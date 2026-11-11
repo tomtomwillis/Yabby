@@ -7,24 +7,7 @@ import CreateList from '../components/CreateList';
 import { normalizeAvatarPath } from '../utils/avatarPath';
 import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
 import './ListsPage.css';
-import type { FirestoreTimestamp } from '../types/firestore';
-
-interface List {
-  id: string;
-  title: string;
-  userId: string;
-  username: string;
-  timestamp: FirestoreTimestamp;
-  lastUpdated?: FirestoreTimestamp;
-  itemCount: number;
-  isPublic?: boolean;
-  isCollaborative?: boolean;
-  // Denormalised onto the list by CreateList on every save, so the sheet needs
-  // no subcollection reads to show what was added last.
-  lastItemImage?: string;
-  lastItemAlbumId?: string;
-  lastItemAddedByAvatar?: string;
-}
+import type { List } from '../types/firestore';
 
 /** What a list is ordered and dated by: when it last changed, falling back to
  *  when it was made for the lists that predate the field. */
