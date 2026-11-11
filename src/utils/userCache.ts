@@ -159,8 +159,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
   const cached = cache.get(userId);
 
   if (cached && now - cached.timestamp < CACHE_DURATION) {
-    const { timestamp: _t, ...profile } = cached;
-    return profile;
+    return cached;
   }
 
   // Deduplicate concurrent fetches for the same userId

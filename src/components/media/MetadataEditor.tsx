@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import AlbumSearchBox from '../basic/AlbumSearchBox';
 import Button from '../basic/Button';
-import { auth } from '../../firebaseConfig';
+import { authedJson, MEDIA_API_URL } from '../../api/media';
 import ArtistCreditEditor, { DEFAULT_JOIN_PHRASE } from './ArtistCreditEditor';
 import type { ArtistCredit } from './ArtistCreditEditor';
 import './MetadataEditor.css';
 
-const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 
 type Stage = 'search' | 'loading' | 'editing' | 'confirming' | 'applying' | 'success' | 'error';
 
@@ -70,12 +69,6 @@ function joinCredits(credits: ArtistCredit[]): string {
   return out;
 }
 
-function getAuthHeader(): Promise<string> {
-  const user = auth.currentUser;
-  if (!user) return Promise.reject(new Error('Not signed in'));
-  return user.getIdToken(true).then(t => `Bearer ${t}`);
-}
-
 function statusbarLabel(stage: Stage, albumName: string): string {
   switch (stage) {
     case 'search':     return 'Ready';
@@ -133,15 +126,10 @@ const MetadataEditor: React.FC = () => {
     setStatusMessage('Loading album metadata...');
     setErrorMessage('');
     try {
-      const Authorization = await getAuthHeader();
-      const resp = await fetch(`${MEDIA_API_URL}/metadata/preview`, {
+      const preview = await authedJson<PreviewResponse>(`${MEDIA_API_URL}/metadata/preview`, 'Failed to load album.', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization },
-        body: JSON.stringify({ subsonicAlbumId: id }),
+        json: { subsonicAlbumId: id },
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'Failed to load album.');
-      const preview: PreviewResponse = data;
       setAlbumId(id);
       setAlbumName(preview.albumName);
       setArtistName(preview.artistName);
@@ -162,9 +150,9 @@ const MetadataEditor: React.FC = () => {
         trackNumber: t.track,
       })));
       setStage('editing');
-    } catch (err: any) {
+    } catch (err) {
       setStage('error');
-      setErrorMessage(err.message || 'Failed to load album.');
+      setErrorMessage((err instanceof Error && err.message) || 'Failed to load album.');
     }
   };
 
@@ -255,19 +243,15 @@ const MetadataEditor: React.FC = () => {
     setStatusMessage('Writing tags and updating beets...');
     setErrorMessage('');
     try {
-      const Authorization = await getAuthHeader();
-      const resp = await fetch(`${MEDIA_API_URL}/metadata/apply`, {
+      const data = await authedJson<ApplyResponse>(`${MEDIA_API_URL}/metadata/apply`, 'Failed to apply edits.', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization },
-        body: JSON.stringify({ subsonicAlbumId: albumId, edits }),
+        json: { subsonicAlbumId: albumId, edits },
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'Failed to apply edits.');
-      setApplyResult(data as ApplyResponse);
+      setApplyResult(data);
       setStage('success');
-    } catch (err: any) {
+    } catch (err) {
       setStage('error');
-      setErrorMessage(err.message || 'Failed to apply edits.');
+      setErrorMessage((err instanceof Error && err.message) || 'Failed to apply edits.');
     }
   };
 
@@ -283,20 +267,16 @@ const MetadataEditor: React.FC = () => {
     setStage('applying');
     setStatusMessage('Restoring previous tags...');
     try {
-      const Authorization = await getAuthHeader();
-      const resp = await fetch(`${MEDIA_API_URL}/metadata/rollback`, {
+      const data = await authedJson<{ fileCount?: number }>(`${MEDIA_API_URL}/metadata/rollback`, 'Failed to restore.', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization },
-        body: JSON.stringify({ subsonicAlbumId: albumId }),
+        json: { subsonicAlbumId: albumId },
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'Failed to restore.');
       setHasRolledBack(true);
       setStatusMessage(`Restored ${data.fileCount} files.`);
       setStage('success');
-    } catch (err: any) {
+    } catch (err) {
       setStage('error');
-      setErrorMessage(err.message || 'Failed to restore.');
+      setErrorMessage((err instanceof Error && err.message) || 'Failed to restore.');
     }
   };
 
@@ -577,11 +557,11 @@ const MetadataEditor: React.FC = () => {
                             <li key={field} className="metadata-editor__diff-change">
                               <span className="metadata-editor__diff-field">{field}:</span>
                               <span className="metadata-editor__diff-before">
-                                {(r.before as any)[field] || <em>empty</em>}
+                                {(r.before as Record<string, React.ReactNode>)[field] || <em>empty</em>}
                               </span>
                               <span className="metadata-editor__diff-arrow" aria-hidden="true">→</span>
                               <span className="metadata-editor__diff-after">
-                                {(r.after as any)[field] || <em>empty</em>}
+                                {(r.after as Record<string, React.ReactNode>)[field] || <em>empty</em>}
                               </span>
                             </li>
                           ))}

@@ -14,16 +14,18 @@ Yabbyville is a PWA, meaning it can be installed on phones and desktops and work
 
 | File | Purpose |
 |------|---------|
-| `vite.config.ts` | Configures the PWA plugin — manifest, caching strategies, service worker |
+| `vite.config.ts` | Configures the PWA plugin — the manifest (app name, icons, theme colour, display mode), caching strategies, service worker |
 | `src/main.tsx` | Registers the service worker and handles update prompts |
-| `public/manifest.json` | App name, icons, theme colour, display mode |
 | `public/icons/` | App icons: 192×192, 512×512, and Apple touch icon (180×180) |
-| `index.html` | PWA meta tags and manifest link |
+| `index.html` | PWA meta tags; the build adds the manifest link |
 
 ## Caching Strategy
 
-- Stickers and fonts are precached by the service worker
-- API requests to the music server use a NetworkFirst strategy (24-hour cache)
+- The install precaches the app shell and the everyday pages only (about 2 MB)
+- Sticker images are cached as they are shown, and refreshed in the background
+- Tools and heavy optional libraries (the cinema player, terminal, map, visualiser — the `opt-*` chunks in `vite.config.ts`) are fetched on first use and then kept
+- Album covers through the music proxy are cached for 7 days; streams always go to the network
+- `/api/*` links opened in their own tab are never answered with the app shell
 - Google Fonts cached for 1 year
 
 ## Customising

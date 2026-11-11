@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, doc, getDoc, getDocs, query, orderBy } from 'firebase/firestore';
-import { addDocShadowed, updateDocShadowed, deleteDocShadowed, SERVER_TIME } from '../api/shadow';
+import { addDocShadowed, updateDocShadowed, deleteDocShadowed, SERVER_TIME, type WriteData } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
 import './CreateList.css';
+import type { FirestoreTimestamp } from '../types/firestore';
 
 interface AlbumInfo {
   id: string;
@@ -43,7 +44,7 @@ interface List {
   title: string;
   userId: string;
   username: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp;
   itemCount: number;
   isPublic?: boolean;
   isCollaborative?: boolean;
@@ -468,7 +469,7 @@ const CreateList: React.FC<CreateListProps> = ({
         const itemsCollection = collection(db, 'lists', existingListId, 'items');
         
         for (const item of items) {
-          const cleanItemData: any = {
+          const cleanItemData: WriteData = {
             type: item.type,
             userText: item.userText,
             order: item.order,
@@ -539,7 +540,7 @@ const CreateList: React.FC<CreateListProps> = ({
       
       for (const item of items) {
         // Clean the item data for Firestore (remove undefined fields)
-        const cleanItemData: any = {
+        const cleanItemData: WriteData = {
           type: item.type,
           userText: item.userText,
           order: item.order,

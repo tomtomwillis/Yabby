@@ -7,14 +7,15 @@ import CreateList from '../components/CreateList';
 import { normalizeAvatarPath } from '../utils/avatarPath';
 import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
 import './ListsPage.css';
+import type { FirestoreTimestamp } from '../types/firestore';
 
 interface List {
   id: string;
   title: string;
   userId: string;
   username: string;
-  timestamp: any;
-  lastUpdated?: any;
+  timestamp: FirestoreTimestamp;
+  lastUpdated?: FirestoreTimestamp;
   itemCount: number;
   isPublic?: boolean;
   isCollaborative?: boolean;

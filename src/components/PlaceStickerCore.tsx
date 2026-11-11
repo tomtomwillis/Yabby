@@ -106,7 +106,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
 
       console.log('Fetched tracks:', songs);
 
-      const trackList: Track[] = songs.map((song: any) => ({
+      const trackList: Track[] = songs.map((song: { id: string; title: string; artist?: string; duration: number }) => ({
         id: song.id,
         title: song.title,
         artist: song.artist || albumInfo.artist,
@@ -342,9 +342,9 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
         onClose?.();
         window.location.reload();
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error submitting sticker:', error);
-      const code = error?.code as string | undefined;
+      const code = (error as { code?: string } | null)?.code;
       if (error instanceof ApiError) {
         setSubmitError(error.message);
       } else if (code === 'permission-denied') {

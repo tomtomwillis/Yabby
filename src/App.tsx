@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ErrorBoundary } from 'react-error-boundary';
 import Star from './components/basic/Star';
-import Oneko from './components/Oneko';
+import PageError from './components/basic/PageError';
+import { reportPageError } from './utils/reportPageError';
 import Home from './pages/Home';
 import HomeDashboard from './pages/HomeDashboard';
 import Login from './pages/Login';
@@ -9,7 +11,6 @@ import NotFound from './pages/NotFound';
 import './App.css';
 import './components/basic/TextAnimations.css';
 import PrivateRoute from './components/PrivateRoute';
-import DesignTool from './components/DesignTool';
 import PullToRefresh from './components/PullToRefresh';
 import { PlayerProvider } from './utils/usePlayer';
 import { NavidromeCardProvider } from './utils/useNavidromeCard';
@@ -39,6 +40,9 @@ const IssuesPage = lazy(() => import('./pages/IssuesPage'));
 const DirectoryPage = lazy(() => import('./pages/DirectoryPage'));
 // Admin tool for dialling in the message board's spacing.
 const SpacingLab = lazy(() => import('./pages/SpacingLab'));
+// Both are off unless a member turns them on, so neither holds up first paint.
+const Oneko = lazy(() => import('./components/Oneko'));
+const DesignTool = lazy(() => import('./components/DesignTool'));
 
 function App() {
   useJoinDate();
@@ -51,51 +55,59 @@ function App() {
           <div className="app-container">
             <PullToRefresh />
             <Star />
-            <Oneko />
-            <DesignTool />
-            <Suspense fallback={null}>
-              <Routes>
-                {/* Public route */}
-                <Route path="/login" element={<Login />} />
+            <ErrorBoundary fallback={null} onError={reportPageError}>
+              <Suspense fallback={null}>
+                <Oneko />
+                <DesignTool />
+              </Suspense>
+            </ErrorBoundary>
+            {/* Catches what the shell's own boundary cannot: the routes
+                outside the shell, and the shell itself. */}
+            <ErrorBoundary FallbackComponent={PageError} onError={reportPageError}>
+              <Suspense fallback={null}>
+                <Routes>
+                  {/* Public route */}
+                  <Route path="/login" element={<Login />} />
 
-                {/* Cinema takes over the whole viewport — its blackout layer is
-                    fixed to the viewport, so it cannot live inside the shell. */}
-                <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
+                  {/* Cinema takes over the whole viewport — its blackout layer is
+                      fixed to the viewport, so it cannot live inside the shell. */}
+                  <Route path="/cinema" element={<PrivateRoute><CinemaPage /></PrivateRoute>} />
 
-                {/* The spacing lab is full viewport and iframes the board, so
-                    it stays outside the shell. Admin-gated inside the page. */}
-                <Route path="/spacing" element={<PrivateRoute><SpacingLab /></PrivateRoute>} />
+                  {/* The spacing lab is full viewport and iframes the board, so
+                      it stays outside the shell. Admin-gated inside the page. */}
+                  <Route path="/spacing" element={<PrivateRoute><SpacingLab /></PrivateRoute>} />
 
-                {/* Every other private route renders into the home shell's body
-                    column, so the rail, wordmark and player never unmount. */}
-                <Route element={<PrivateRoute><Home /></PrivateRoute>}>
-                  <Route path="/" element={<HomeDashboard />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/wiki" element={<Wiki />} />
-                  <Route path="/messageboard" element={<MessageBoard />} />
-                  <Route path="/upload" element={<Upload />} />
-                  <Route path="/stickers" element={<Stickers />} />
-                  <Route path="/lists" element={<ListsPage />} />
-                  <Route path="/lists/:listId" element={<ListDetailPage />} />
-                  <Route path="/user/:userId" element={<UserProfile />} />
-                  <Route path="/news" element={<NewsPage />} />
-                  <Route path="/film-club" element={<FilmClub />} />
-                  <Route path="/film-club-submit" element={<FilmClubSubmit />} />
-                  <Route path="/film-club-vote" element={<FilmClubVote />} />
-                  <Route path="/filmclubmessage" element={<FilmClubMessagePage />} />
-                  <Route path="/test" element={<Test />} />
-                  <Route path="/media" element={<MediaManager />} />
-                  <Route path="/travel" element={<TravelPage />} />
-                  <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/issues" element={<IssuesPage />} />
-                  <Route path="/directory" element={<DirectoryPage />} />
+                  {/* Every other private route renders into the home shell's body
+                      column, so the rail, wordmark and player never unmount. */}
+                  <Route element={<PrivateRoute><Home /></PrivateRoute>}>
+                    <Route path="/" element={<HomeDashboard />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/wiki" element={<Wiki />} />
+                    <Route path="/messageboard" element={<MessageBoard />} />
+                    <Route path="/upload" element={<Upload />} />
+                    <Route path="/stickers" element={<Stickers />} />
+                    <Route path="/lists" element={<ListsPage />} />
+                    <Route path="/lists/:listId" element={<ListDetailPage />} />
+                    <Route path="/user/:userId" element={<UserProfile />} />
+                    <Route path="/news" element={<NewsPage />} />
+                    <Route path="/film-club" element={<FilmClub />} />
+                    <Route path="/film-club-submit" element={<FilmClubSubmit />} />
+                    <Route path="/film-club-vote" element={<FilmClubVote />} />
+                    <Route path="/filmclubmessage" element={<FilmClubMessagePage />} />
+                    <Route path="/test" element={<Test />} />
+                    <Route path="/media" element={<MediaManager />} />
+                    <Route path="/travel" element={<TravelPage />} />
+                    <Route path="/calendar" element={<CalendarPage />} />
+                    <Route path="/issues" element={<IssuesPage />} />
+                    <Route path="/directory" element={<DirectoryPage />} />
 
-                  {/* Inside the shell rather than beside it: an unknown URL
-                      still gets the rail and the player to leave by. */}
-                  <Route path="*" element={<NotFound />} />
-                </Route>
-              </Routes>
-            </Suspense>
+                    {/* Inside the shell rather than beside it: an unknown URL
+                        still gets the rail and the player to leave by. */}
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </NavidromeCardProvider>
       </Router>

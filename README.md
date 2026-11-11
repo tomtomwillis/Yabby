@@ -19,6 +19,8 @@ Other commands:
 ```bash
 npm run build      # TypeScript check + production build
 npm run lint       # run ESLint
+npm test           # unit tests for the data API client and the shadow queue
+npm run check      # lint, tests and build together; CI runs this on every pull request
 npm run preview    # preview the production build locally
 ```
 

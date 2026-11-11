@@ -1,39 +1,37 @@
-import React from "react";
-import WeatherCard from './weathercard';
-import "./weathercard.css";
+import { useEffect, useState } from 'react';
+import WeatherCard, { type WeatherData } from './weathercard';
+import './weathercard.css';
+
+// Glasgow.
+const WEATHER_URL =
+  'https://api.open-meteo.com/v1/forecast?latitude=55.83&longitude=-4.27&current_weather=true';
 
 export default function Weather() {
-  const baseWeatherApiUrl = 'https://api.open-meteo.com/v1/forecast';
-  const [weatherData, setWeatherData] = React.useState(null);
-  const [latitude,longitude] = [55.83, -4.27];
-  const [error,setError] = React.useState(false);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
 
-
-  React.useEffect(() => {
-    const getWeatherData = async () => {
-      const weatherApi = `${baseWeatherApiUrl}?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
       try {
-      const response = await fetch(weatherApi);
-      // A 503 resolves rather than throwing, and open-meteo answers it with a
-      // JSON error body — which parses fine and would otherwise be stored as
-      // weather with no current_weather on it.
-      if (!response.ok) throw new Error(`Weather API returned ${response.status}`);
-      const data = await response.json();
-      if (!data?.current_weather) throw new Error('Weather API returned no current_weather');
-      setWeatherData(data);
-    } catch (error) {
-      setError(true);
-    }}
-    
-    getWeatherData();
-    
-  }, [latitude, longitude]);
+        const response = await fetch(WEATHER_URL);
+        // A 503 resolves rather than throwing, and open-meteo answers it with
+        // a JSON error body, which parses fine and would otherwise be stored
+        // as weather with no current_weather on it.
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled && data?.current_weather) setWeather(data);
+      } catch {
+        // No weather is not worth a message: the card stays empty.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  if (error) return null
-  
   return (
     <div className="weather-card">
-    <WeatherCard weather = {weatherData}/>
+      <WeatherCard weather={weather} />
     </div>
-  )
+  );
 }

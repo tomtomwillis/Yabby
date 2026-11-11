@@ -111,11 +111,11 @@ const Stats: React.FC = () => {
       return {
         albumCount: albums.length,
         songCount: albums.reduce(
-          (sum: number, album: any) => sum + (album.songCount || 0),
+          (sum: number, album: { songCount?: number }) => sum + (album.songCount || 0),
           0
         ),
       };
-    } catch (error) {
+    } catch {
       console.log("Single-request count failed, falling back to paginated approach");
       return null;
     }
@@ -142,7 +142,7 @@ const Stats: React.FC = () => {
         totalAlbums += albums.length;
 
         const batchSongCount = albums.reduce(
-          (sum: number, album: any) => sum + (album.songCount || 0),
+          (sum: number, album: { songCount?: number }) => sum + (album.songCount || 0),
           0
         );
         totalSongs += batchSongCount;
@@ -296,7 +296,7 @@ const Stats: React.FC = () => {
 
         const albumId = song.albumId || song.album?.id;
         if (!albumId) {
-          throw new Error("Album ID is missing in the API response.");
+          throw new Error("Album ID is missing in the API response.", { cause: deterministicErr });
         }
 
         const songData: SongOfTheDay = {

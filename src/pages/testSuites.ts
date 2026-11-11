@@ -108,7 +108,7 @@ async function expectDenied(
   } catch (err) {
     const code = (err as { code?: string }).code;
     if (code === 'permission-denied') return `${what}: rejected`;
-    throw new Error(`${what}: failed with "${code ?? (err as Error).message}", expected permission-denied.`);
+    throw new Error(`${what}: failed with "${code ?? (err as Error).message}", expected permission-denied.`, { cause: err });
   }
   const ref = result as DocumentReference | undefined;
   if (ctx && ref && typeof ref.path === 'string') {

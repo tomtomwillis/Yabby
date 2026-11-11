@@ -4,13 +4,13 @@ import { marked } from 'marked';
 import { doc, getDoc } from 'firebase/firestore';
 import { setDocShadowed, SERVER_TIME } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
+import { boardImageUrl, uploadBoardImage } from '../api/media';
 import Header from '../components/basic/Header';
 import Tips from '../components/basic/Tips';
 import { useAdmin } from '../utils/useAdmin';
 import { sanitizeWikiHtml } from '../utils/sanitise';
 import '../components/Wiki.css';
 
-const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 
 function slugify(title: string): string {
   return title
@@ -186,20 +186,7 @@ const Wiki: React.FC = () => {
   const uploadImage = useCallback(async (file: File) => {
     setUploadingImage(true);
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('Not authenticated');
-      const idToken = await user.getIdToken(true);
-      const formData = new FormData();
-      formData.append('image', file);
-      const resp = await fetch(`${MEDIA_API_URL}/mb-images/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${idToken}` },
-        body: formData,
-      });
-      if (!resp.ok) throw new Error('Upload failed');
-      const data = await resp.json();
-      const url = `${MEDIA_API_URL}/mb-images/${data.imageId}.webp`;
-      insertAtCursor(`![image](${url})`);
+      insertAtCursor(`![image](${boardImageUrl(await uploadBoardImage(file))})`);
     } catch {
       alert('Image upload failed. Please try again.');
     } finally {

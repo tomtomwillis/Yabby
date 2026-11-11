@@ -7,22 +7,25 @@ import Header from '../components/basic/Header';
 import ListItem from '../components/ListItem';
 import CreateList from '../components/CreateList';
 import './ListDetailPage.css';
+import type { FirestoreTimestamp, ListItem as ListItemData } from '../types/firestore';
+
+type StoredListItem = ListItemData & { id: string };
 
 interface List {
   id: string;
   title: string;
   userId: string;
   username: string;
-  timestamp: any;
+  timestamp: FirestoreTimestamp;
   itemCount: number;
   isPublic?: boolean;
   isCollaborative?: boolean;
-  items?: any[];
+  items?: StoredListItem[];
 }
 
 type SortDir = 'newest' | 'oldest';
 
-const formatDate = (timestamp: any): string => {
+const formatDate = (timestamp: FirestoreTimestamp | undefined): string => {
   const millis = timestamp?.toMillis
     ? timestamp.toMillis()
     : timestamp?.seconds
@@ -38,7 +41,7 @@ const ListDetailPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
   const [list, setList] = useState<List | null>(null);
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<StoredListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -93,10 +96,10 @@ const ListDetailPage: React.FC = () => {
       );
 
       const itemsSnapshot = await getDocs(itemsQuery);
-      const itemsData: any[] = [];
+      const itemsData: StoredListItem[] = [];
 
       itemsSnapshot.forEach((doc) => {
-        itemsData.push({ id: doc.id, ...doc.data() });
+        itemsData.push({ id: doc.id, ...doc.data() } as StoredListItem);
       });
 
       setItems(itemsData);

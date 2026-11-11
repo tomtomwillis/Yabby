@@ -12,13 +12,11 @@ const Tips: React.FC<TipsProps> = ({
   showOnMobile = true,
   showOnDesktop = false
 }) => {
-  const [isMobile, setIsMobile] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.matchMedia('(max-width: 768px)').matches;
-      setIsMobile(mobile);
 
       // Determine if tip should show based on device and props
       if (mobile && showOnMobile) {

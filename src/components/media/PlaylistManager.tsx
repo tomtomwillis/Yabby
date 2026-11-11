@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { allStickers } from '../../api/areas/stickers';
 import Button from '../basic/Button';
-import { fetchSubsonicJson, createSubsonicAuth } from '../../utils/navidrome';
+import { fetchSubsonicJson } from '../../utils/navidrome';
+import { createSubsonicAuth } from '../../utils/subsonicAuth';
 import type { SubsonicAuth } from '../../utils/navidrome';
 import { getCurrentSeason } from '../../utils/seasons';
 import type { Sticker, FirestoreTimestamp } from '../../types/firestore';
@@ -30,7 +31,7 @@ interface SongEntry {
 // ---------------------------------------------------------------------------
 
 function timestampToMs(ts: FirestoreTimestamp): number {
-  return ts.seconds * 1000 + Math.floor(ts.nanoseconds / 1e6);
+  return ts.seconds * 1000 + Math.floor((ts.nanoseconds ?? 0) / 1e6);
 }
 
 async function fetchFavouriteSongs(dateRange?: { start: Date; end: Date }): Promise<SongEntry[]> {

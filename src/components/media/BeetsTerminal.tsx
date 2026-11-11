@@ -94,7 +94,6 @@ function normalizeId(value: string): string {
 // ---------------------------------------------------------------------------
 
 const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
-const IDLE_TIMEOUT_SECONDS = 10 * 60;
 const PING_INTERVAL_MS = 30_000;
 
 function getWsUrl(): string {

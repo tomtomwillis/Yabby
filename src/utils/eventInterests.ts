@@ -11,7 +11,8 @@ import {
   incrementBy,
   SERVER_TIME,
 } from '../api/shadow';
-import { authHeader, peekEvent, rememberStatus } from './eventsApi';
+import { authedJson, MEDIA_API_URL } from '../api/media';
+import { peekEvent, rememberStatus } from './eventsApi';
 import { clearUserCache } from './userCache';
 import { statusFrom, type CalendarEvent, type EventStatus } from '../components/events/eventTypes';
 
@@ -30,7 +31,6 @@ import { statusFrom, type CalendarEvent, type EventStatus } from '../components/
 
 const INTERESTS = 'eventInterests';
 const EVENTS = 'events';
-const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 
 /** The rules' cap. Past it the oldest ticks give way to the new one. */
 export const MAX_INTERESTS = 200;
@@ -212,13 +212,9 @@ export async function setCalendarSharing(patch: { calendarPublic?: boolean; cale
 
 /** Another member's feed address, when they show it on their profile. */
 export async function getPublicFeedLink(uid: string): Promise<string> {
-  const response = await fetch(`${MEDIA_API_URL}/calendar/link/${encodeURIComponent(uid)}`, {
-    headers: { Authorization: await authHeader() },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || typeof data.token !== 'string' || !TOKEN_RE.test(data.token)) {
-    throw new Error(data.error || 'Could not get that calendar link.');
-  }
+  const fallback = 'Could not get that calendar link.';
+  const data = await authedJson<{ token?: unknown }>(`${MEDIA_API_URL}/calendar/link/${encodeURIComponent(uid)}`, fallback);
+  if (typeof data.token !== 'string' || !TOKEN_RE.test(data.token)) throw new Error(fallback);
   return new URL(`${MEDIA_API_URL}/calendar/feed/${data.token}.ics`, window.location.origin).href;
 }
 
@@ -230,10 +226,9 @@ const TOKEN_RE = /^[A-Za-z0-9]+\.[0-9]+\.[A-Za-z0-9_-]+$/;
 const links = new Map<string, Promise<string>>();
 
 async function fetchFeedLink(): Promise<string> {
-  const response = await fetch(`${MEDIA_API_URL}/calendar/link`, { headers: { Authorization: await authHeader() } });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Could not get your calendar link.');
-  if (typeof data.token !== 'string' || !TOKEN_RE.test(data.token)) throw new Error('Could not get your calendar link.');
+  const fallback = 'Could not get your calendar link.';
+  const data = await authedJson<{ token?: unknown }>(`${MEDIA_API_URL}/calendar/link`, fallback);
+  if (typeof data.token !== 'string' || !TOKEN_RE.test(data.token)) throw new Error(fallback);
   return new URL(`${MEDIA_API_URL}/calendar/feed/${data.token}.ics`, window.location.origin).href;
 }
 

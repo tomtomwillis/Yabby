@@ -3,7 +3,41 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+/* Libraries only a few pages need. Each gets a chunk of its own under one
+   prefix, so the service worker can leave them out of the install (see
+   globIgnores) and a page that never opens the cinema never downloads hls.js. */
+const OPTIONAL_VENDORS: Record<string, string> = {
+  'hls.js': 'hls',
+  'leaflet': 'leaflet',
+  'react-leaflet': 'leaflet',
+  '@react-leaflet': 'leaflet',
+  '@xterm': 'xterm',
+  'butterchurn': 'butterchurn',
+  'butterchurn-presets': 'butterchurn-presets',
+  'marked': 'marked',
+}
+
+/* Split by how often code changes rather than by where it is used: Firebase
+   and React are most of the first load and change only on a dependency bump,
+   so a deploy that touches app code leaves them cached. */
+function vendorChunk(id: string): string | undefined {
+  const [, path] = id.split('/node_modules/')
+  if (!path) return undefined
+  const name = path.startsWith('@') ? path.split('/').slice(0, 2).join('/') : path.split('/')[0]
+  const scope = name.split('/')[0]
+  const optional = OPTIONAL_VENDORS[name] ?? OPTIONAL_VENDORS[scope]
+  if (optional) return `opt-${optional}`
+  if (scope === '@firebase' || name === 'firebase' || name === 'idb' || name === 're2js') return 'vendor-firebase'
+  if (['react', 'react-dom', 'scheduler', 'react-router', 'react-router-dom'].includes(name)) return 'vendor-react'
+  return undefined
+}
+
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: { manualChunks: vendorChunk },
+    },
+  },
   server: {
     proxy: {
       // WebSocket rule MUST come before the general /api/media rule
@@ -39,7 +73,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png', 'Stickers/*.webp'],
+      includeAssets: ['icons/*.png'],
       manifest: {
         name: 'Yabbyville',
         short_name: 'Yabbyville',
@@ -67,7 +101,51 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: 'index.html',
+        // A photo or a calendar feed opened in its own tab is a navigation
+        // too, and must reach the server rather than be answered with the app.
+        navigateFallbackDenylist: [/^\/api\//],
+        // The install is the shell and the pages most visits open. Tools and
+        // the heavy optional libraries are fetched when first used and kept
+        // by the runtime rule below, as are sticker images.
+        globIgnores: [
+          '**/opt-*',
+          '**/MediaManager-*',
+          '**/Test-*',
+          '**/SpacingLab-*',
+        ],
         runtimeCaching: [
+          {
+            // Built files carry a content hash in their name, so one that is
+            // cached can never be out of date.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lazy-assets',
+              expiration: {
+                maxEntries: 80,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              },
+              cacheableResponse: {
+                statuses: [200]
+              }
+            }
+          },
+          {
+            // Sticker images keep their name when redrawn, so each is shown
+            // from the cache and refreshed behind it.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/Stickers/'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'stickers',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              },
+              cacheableResponse: {
+                statuses: [200]
+              }
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',

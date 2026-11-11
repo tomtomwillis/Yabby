@@ -39,6 +39,12 @@ export default tseslint.config([
     },
   },
   {
+    // A context's provider and the hook that reads it belong in one file.
+    // These only lose state on a hot reload, which is a fair price for that.
+    files: ['src/utils/use*.tsx', 'src/components/media/ArtistCreditEditor.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
     // Every Firestore write must also reach the SQLite shadow, so writes go
     // through src/api/shadow.ts. A raw write is silent drift in the migration.
     files: ['src/**/*.{ts,tsx}'],

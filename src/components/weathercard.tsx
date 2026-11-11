@@ -1,59 +1,63 @@
-import React from "react";
-import "./weathercard.css";
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; // Import FontAwesomeIcon
-import { faNotdef, faSun, faMoon, faWind, faTemperatureLow, faCloudSun, faCloud, faSmog, faCloudSunRain, faCloudShowersHeavy, faSnowflake, faCloudBolt, faBoltLightning } from '@fortawesome/free-solid-svg-icons';
+import type { IconType } from 'react-icons';
+import {
+  FaSun, FaCloudSun, FaCloud, FaSmog, FaCloudSunRain, FaCloudShowersHeavy,
+  FaSnowflake, FaCloudBolt, FaBoltLightning,
+} from 'react-icons/fa6';
+import './weathercard.css';
 
-interface WeatherCode {
-  weatherCode: number;
-  description: string;
-  icon: IconDefinition;
+export interface WeatherData {
+  current_weather: { weathercode: number; temperature: number };
 }
 
-const weatherCodes: WeatherCode[] = [
-  { weatherCode: 0, description: "clear sky", icon: faSun },
-  { weatherCode: 1, description: "mainly clear sky", icon: faCloudSun },
-  { weatherCode: 2, description: "partly cloudy", icon: faCloudSun },
-  { weatherCode: 3, description: "overcast", icon: faCloud },
-  { weatherCode: 45, description: "foggy", icon: faSmog },
-  { weatherCode: 48, description: "depositing rime fog (?)", icon: faSmog },
-  { weatherCode: 51, description: "drizzling", icon: faCloudSunRain },
-  { weatherCode: 53, description: "drizzling", icon: faCloudSunRain },
-  { weatherCode: 55, description: "drizzling", icon: faCloudSunRain },
-  { weatherCode: 56, description: "freezing mist", icon: faCloudSunRain },
-  { weatherCode: 57, description: "freezing mist", icon: faCloudSunRain },
-  { weatherCode: 61, description: "slightly raining", icon: faCloudShowersHeavy },
-  { weatherCode: 63, description: "raining", icon: faCloudShowersHeavy },
-  { weatherCode: 65, description: "raining heavily", icon: faCloudShowersHeavy },
-  { weatherCode: 66, description: "freezing rain", icon: faCloudShowersHeavy },
-  { weatherCode: 67, description: "freezing rain", icon: faCloudShowersHeavy },
-  { weatherCode: 71, description: "slightly snowing", icon: faSnowflake },
-  { weatherCode: 73, description: "snowing", icon: faSnowflake },
-  { weatherCode: 75, description: "snowing heavily", icon: faSnowflake },
-  { weatherCode: 77, description: "snow grains", icon: faSnowflake },
-  { weatherCode: 80, description: "showering", icon: faCloudShowersHeavy },
-  { weatherCode: 81, description: "showering", icon: faCloudShowersHeavy },
-  { weatherCode: 82, description: "violently showering", icon: faCloudShowersHeavy },
-  { weatherCode: 85, description: "snow showering", icon: faSnowflake },
-  { weatherCode: 86, description: "snow showering", icon: faSnowflake },
-  { weatherCode: 95, description: "thunderstorming", icon: faCloudBolt },
-  { weatherCode: 96, description: "thunderstorming with slight hail !!", icon: faBoltLightning },
-  { weatherCode: 99, description: "thunderstorming with heavy hail !!", icon: faBoltLightning }
-];
+/** WMO weather codes, as open-meteo reports them. */
+const WEATHER: Record<number, { description: string; Icon: IconType }> = {
+  0: { description: 'clear sky', Icon: FaSun },
+  1: { description: 'mainly clear sky', Icon: FaCloudSun },
+  2: { description: 'partly cloudy', Icon: FaCloudSun },
+  3: { description: 'overcast', Icon: FaCloud },
+  45: { description: 'foggy', Icon: FaSmog },
+  48: { description: 'depositing rime fog (?)', Icon: FaSmog },
+  51: { description: 'drizzling', Icon: FaCloudSunRain },
+  53: { description: 'drizzling', Icon: FaCloudSunRain },
+  55: { description: 'drizzling', Icon: FaCloudSunRain },
+  56: { description: 'freezing mist', Icon: FaCloudSunRain },
+  57: { description: 'freezing mist', Icon: FaCloudSunRain },
+  61: { description: 'slightly raining', Icon: FaCloudShowersHeavy },
+  63: { description: 'raining', Icon: FaCloudShowersHeavy },
+  65: { description: 'raining heavily', Icon: FaCloudShowersHeavy },
+  66: { description: 'freezing rain', Icon: FaCloudShowersHeavy },
+  67: { description: 'freezing rain', Icon: FaCloudShowersHeavy },
+  71: { description: 'slightly snowing', Icon: FaSnowflake },
+  73: { description: 'snowing', Icon: FaSnowflake },
+  75: { description: 'snowing heavily', Icon: FaSnowflake },
+  77: { description: 'snow grains', Icon: FaSnowflake },
+  80: { description: 'showering', Icon: FaCloudShowersHeavy },
+  81: { description: 'showering', Icon: FaCloudShowersHeavy },
+  82: { description: 'violently showering', Icon: FaCloudShowersHeavy },
+  85: { description: 'snow showering', Icon: FaSnowflake },
+  86: { description: 'snow showering', Icon: FaSnowflake },
+  95: { description: 'thunderstorming', Icon: FaCloudBolt },
+  96: { description: 'thunderstorming with slight hail !!', Icon: FaBoltLightning },
+  99: { description: 'thunderstorming with heavy hail !!', Icon: FaBoltLightning },
+};
 
-export default function WeatherCard({weather} : { weather: any }) {
-  // Checked here as well as at the fetch: this renders inside the home shell
-  // with no error boundary above it, so a malformed response reaching this line
-  // takes the whole site down rather than just the card.
+const UNKNOWN = { description: 'Unknown weather', Icon: FaSun };
+
+export default function WeatherCard({ weather }: { weather: WeatherData | null }) {
+  // Checked here as well as at the fetch: this sits in the home shell's rail,
+  // above the page's error boundary, so a malformed response reaching the
+  // lines below would take the whole shell down rather than just the card.
   if (!weather?.current_weather) return null;
 
-  const weatherCode = weather.current_weather.weathercode;
-  const weatherInfo = weatherCodes.find(item => item.weatherCode === weatherCode) || { icon: faSun, description: "Unknown weather" }; // Fallback
+  const { weathercode, temperature } = weather.current_weather;
+  const { description, Icon } = WEATHER[weathercode] ?? UNKNOWN;
 
   return (
     <div>
-       <p className="normal-text">The temperature in Yabbyville is {Math.round(weather.current_weather.temperature)} °C and it is currently {weatherInfo.description} <FontAwesomeIcon icon={weatherInfo.icon} /></p>
+      <p className="normal-text">
+        The temperature in Yabbyville is {Math.round(temperature)} °C and it is currently {description}{' '}
+        <Icon style={{ verticalAlign: '-0.125em' }} aria-hidden="true" />
+      </p>
     </div>
-  );  
+  );
 }
-

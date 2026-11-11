@@ -1,6 +1,7 @@
 import { collection, query, where, orderBy, limit, doc, documentId, startAfter } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { trackedGetDoc, trackedGetDocs } from './firestoreMetrics';
+import { authedJson, MEDIA_API_URL, uploadBoardImage } from '../api/media';
 import {
   addDocShadowed,
   setDocShadowed,
@@ -24,7 +25,6 @@ import {
 
 const EVENTS = 'events';
 const CITIES = 'eventCities';
-const MEDIA_API_URL = import.meta.env.VITE_MEDIA_API_URL || '/api/media';
 
 /*
  * Shared cache for everything that reads events — the calendar page, the home
@@ -332,41 +332,21 @@ async function ensureEventCity(name: string | undefined): Promise<void> {
 // Backend
 // ---------------------------------------------------------------------------
 
-export async function authHeader(): Promise<string> {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Not authenticated');
-  return `Bearer ${await user.getIdToken(true)}`;
-}
-
 /** Stored beside message board images, through the same upload endpoint. */
 export async function uploadEventImage(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append('image', file);
-  const response = await fetch(`${MEDIA_API_URL}/mb-images/upload`, {
-    method: 'POST',
-    headers: { Authorization: await authHeader() },
-    body: formData,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Image upload failed.');
-  if (typeof data.imageId !== 'string' || !isValidEventImageId(data.imageId)) {
-    throw new Error('Image upload failed.');
-  }
-  return data.imageId;
+  const imageId = await uploadBoardImage(file, 'Image upload failed.');
+  if (!isValidEventImageId(imageId)) throw new Error('Image upload failed.');
+  return imageId;
 }
 
 /** Has the backend fetch an image from a pasted link and store it like an upload. */
 export async function uploadEventImageFromUrl(url: string): Promise<string> {
-  const response = await fetch(`${MEDIA_API_URL}/mb-images/from-url`, {
+  const fallback = 'Could not fetch that image.';
+  const data = await authedJson<{ imageId?: unknown }>(`${MEDIA_API_URL}/mb-images/from-url`, fallback, {
     method: 'POST',
-    headers: { Authorization: await authHeader(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    json: { url },
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Could not fetch that image.');
-  if (typeof data.imageId !== 'string' || !isValidEventImageId(data.imageId)) {
-    throw new Error('Could not fetch that image.');
-  }
+  if (typeof data.imageId !== 'string' || !isValidEventImageId(data.imageId)) throw new Error(fallback);
   return data.imageId;
 }
 
@@ -381,13 +361,9 @@ export type ImportedEvent = Partial<Omit<EventDraft, 'hosted'>>;
  *  through the backend — which asks each site at most once a day per page,
  *  and brings the poster across as an uploaded image. */
 export async function importEventFromLink(url: string): Promise<ImportedEvent> {
-  const response = await fetch(`${MEDIA_API_URL}/event-import?url=${encodeURIComponent(url)}`, {
-    headers: { Authorization: await authHeader() },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.event || typeof data.event !== 'object') {
-    throw new Error(data.error || 'Could not read that page.');
-  }
+  const fallback = 'Could not read that page.';
+  const data = await authedJson<{ event?: unknown }>(`${MEDIA_API_URL}/event-import?url=${encodeURIComponent(url)}`, fallback);
+  if (!data.event || typeof data.event !== 'object') throw new Error(fallback);
   return data.event as ImportedEvent;
 }
 
@@ -397,13 +373,9 @@ export type EventBotResult = { status: 'posted' | 'skipped'; count: number } | {
 export const EVENT_BOT_BOARDS = ['messages', 'testMessages'];
 
 /** Admins only — the backend checks. Posts this week's round-up now. */
-export async function postEventBotNow(board: string): Promise<EventBotResult> {
-  const response = await fetch(`${MEDIA_API_URL}/event-bot/post`, {
+export function postEventBotNow(board: string): Promise<EventBotResult> {
+  return authedJson<EventBotResult>(`${MEDIA_API_URL}/event-bot/post`, 'Could not post this week\'s events.', {
     method: 'POST',
-    headers: { Authorization: await authHeader(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ board }),
+    json: { board },
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Could not post this week\'s events.');
-  return data as EventBotResult;
 }
