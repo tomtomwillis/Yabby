@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Visualizer } from 'butterchurn';
 import '../components/VisualiserDock.css';
+import { audioLog } from './audioDebug';
 
 // The visualiser is off until asked for; the choice sticks between visits.
 // Read through the radio-only key it replaced so nobody's preference resets.
@@ -143,6 +144,13 @@ export function useAudioEngine(
       ctx.createMediaElementSource(lib).connect(mix);
       ctx.createMediaElementSource(rad).connect(mix);
       graphRef.current = { ctx, mix, out };
+      audioLog('graph built', {
+        sampleRate: ctx.sampleRate,
+        baseLatency: ctx.baseLatency,
+        outputLatency: ctx.outputLatency,
+        state: ctx.state,
+      });
+      ctx.addEventListener('statechange', () => audioLog('graph state', ctx.state, 'sampleRate', ctx.sampleRate));
       applyVolume(volume, muted);
       return graphRef.current;
     } catch (err) {
@@ -165,6 +173,7 @@ export function useAudioEngine(
   };
 
   const armAudio = useCallback(() => {
+    audioLog('arm', { graph: !!graphRef.current, vizOpen: vizOpenRef.current, fullscreen: fullscreenRef.current });
     if (!graphRef.current && !(vizOpenRef.current || fullscreenRef.current)) return;
     const graph = ensureGraph();
     if (!graph) return;

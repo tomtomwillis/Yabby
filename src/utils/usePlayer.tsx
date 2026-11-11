@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { subsonicUrl } from './navidrome';
 import { loadAlbumCard } from './navidromeCards';
+import { attachAudioDebug, logEnvironment, logTrackSource } from './audioDebug';
 import { useAudioEngine } from './useAudioEngine';
 import { useMediaSession } from './useMediaSession';
 import { useRadioMetadata } from './useRadioMetadata';
@@ -139,6 +140,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     applyVolume(volume, muted);
   }, [volume, muted, applyVolume]);
+
+  useEffect(() => {
+    const lib = libAudioRef.current;
+    const rad = radAudioRef.current;
+    if (!lib || !rad) return;
+    logEnvironment();
+    const detachLib = attachAudioDebug(lib, 'library');
+    const detachRad = attachAudioDebug(rad, 'radio');
+    return () => { detachLib(); detachRad(); };
+  }, []);
 
   // ── Radio reconnect ──────────────────────────────────────
 
@@ -312,6 +323,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentTime(0);
     setAudioDuration(0);
     audio.src = subsonicUrl('stream', { id: queue[i].id });
+    logTrackSource(queue[i].id, audio.src);
     audio.play().catch((err) => {
       // Reassigning src mid-load rejects the in-flight play() with AbortError —
       // expected whenever the user picks another track before this one starts.
