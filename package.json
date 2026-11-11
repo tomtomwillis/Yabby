@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test tests/area-client/areaClient.test.mjs tests/shadow-queue/shadowQueue.test.mjs",
+    "test": "node --test tests/area-client/areaClient.test.mjs tests/shadow-queue/shadowQueue.test.mjs tests/profile-draft/profileDraft.test.mjs",
     "check": "npm run lint -- --max-warnings 7 && npm test && npm run build",
     "test:policy": "firebase emulators:exec --only firestore --project demo-yabby-policy \"node --test tests/policy-diff/policyDiff.test.mjs\""
   },

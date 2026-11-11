@@ -1,149 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { getAuth, sendPasswordResetEmail, signOut } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { updateDocShadowed, writeBatchShadowed } from '../api/shadow';
 import { db } from '../firebaseConfig';
 import { clearUserCache } from '../utils/userCache';
 import { sanitizeHtml, sanitizeText } from '../utils/sanitise';
 import Header from '../components/basic/Header';
-import Button from '../components/basic/Button';
-import SiteLink from '../components/basic/SiteLink';
-import SocialHandle from '../components/basic/SocialHandle';
-import {
-  SOCIAL_PLATFORMS,
-  SOCIAL_ORDER,
-  parseSocial,
-  readSocials,
-  type SocialPlatform,
-  type Socials,
-} from '../utils/socials';
+import { readSocials } from '../utils/socials';
 import { useAdmin } from '../utils/useAdmin';
-import YeishinTokens from '../components/YeishinTokens';
-import MessageTextBox from '../components/basic/MessageTextBox';
-import AvatarPreview from '../components/AvatarPreview';
+import ProfileView from '../components/profile/ProfileView';
+import ProfileEditForm from '../components/profile/ProfileEditForm';
+import AccountSettings from '../components/profile/AccountSettings';
+import {
+  EMPTY_PROFILE,
+  PRONOUNS_MAX,
+  draftFrom,
+  sameSocials,
+  validateProfileDraft,
+  type ProfileDraft,
+  type SavedProfile,
+} from '../components/profile/profileDraft';
 import './Profile.css';
-
-const USERNAME_MIN = 2;
-const USERNAME_MAX = 20;
-const USERNAME_PATTERN = /^[a-zA-Z0-9]+([ ._-][a-zA-Z0-9]+)*$/;
-// Matches the pronouns cap in firestore.rules.
-const PRONOUNS_MAX = 30;
-
-interface SocialRow {
-  id: number;
-  platform: SocialPlatform | '';
-  value: string;
-}
-
-const sameSocials = (a: Socials, b: Socials): boolean =>
-  SOCIAL_ORDER.every((platform) => a[platform] === b[platform]);
-
-/** Usernames are reserved case-insensitively, so "alice " and "al  ice" must
- *  not be able to stand in for "alice" on a post. */
-const normaliseUsername = (value: string) => value.trim().replace(/\s+/g, ' ');
-
-const FLAG_OPTIONS: { flag: string; label: string }[] = [
-  { flag: '', label: 'None' },
-  { flag: '🇦🇷', label: 'Argentina' },
-  { flag: '🇦🇺', label: 'Australia' },
-  { flag: '🇦🇹', label: 'Austria' },
-  { flag: '🇧🇩', label: 'Bangladesh' },
-  { flag: '🇧🇪', label: 'Belgium' },
-  { flag: '🇧🇷', label: 'Brazil' },
-  { flag: '🇨🇦', label: 'Canada' },
-  { flag: '🇨🇱', label: 'Chile' },
-  { flag: '🇨🇳', label: 'China' },
-  { flag: '🇨🇴', label: 'Colombia' },
-  { flag: '🇨🇿', label: 'Czech Republic' },
-  { flag: '🇩🇰', label: 'Denmark' },
-  { flag: '🇪🇬', label: 'Egypt' },
-  { flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', label: 'England' },
-  { flag: '🇫🇮', label: 'Finland' },
-  { flag: '🇫🇷', label: 'France' },
-  { flag: '🇩🇪', label: 'Germany' },
-  { flag: '🇬🇷', label: 'Greece' },
-  { flag: '🇭🇺', label: 'Hungary' },
-  { flag: '🇮🇳', label: 'India' },
-  { flag: '🇮🇩', label: 'Indonesia' },
-  { flag: '🇮🇪', label: 'Ireland' },
-  { flag: '🇮🇱', label: 'Israel' },
-  { flag: '🇮🇹', label: 'Italy' },
-  { flag: '🇯🇵', label: 'Japan' },
-  { flag: '🇰🇪', label: 'Kenya' },
-  { flag: '🇰🇷', label: 'South Korea' },
-  { flag: '🇲🇾', label: 'Malaysia' },
-  { flag: '🇲🇽', label: 'Mexico' },
-  { flag: '🇳🇱', label: 'Netherlands' },
-  { flag: '🇳🇿', label: 'New Zealand' },
-  { flag: '🇳🇬', label: 'Nigeria' },
-  { flag: '🇳🇴', label: 'Norway' },
-  { flag: '🇵🇰', label: 'Pakistan' },
-  { flag: '🇵🇭', label: 'Philippines' },
-  { flag: '🇵🇱', label: 'Poland' },
-  { flag: '🇵🇹', label: 'Portugal' },
-  { flag: '🇷🇴', label: 'Romania' },
-  { flag: '🇷🇺', label: 'Russia' },
-  { flag: '🇸🇦', label: 'Saudi Arabia' },
-  { flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', label: 'Scotland' },
-  { flag: '🇸🇬', label: 'Singapore' },
-  { flag: '🇿🇦', label: 'South Africa' },
-  { flag: '🇪🇸', label: 'Spain' },
-  { flag: '🇸🇪', label: 'Sweden' },
-  { flag: '🇨🇭', label: 'Switzerland' },
-  { flag: '🇹🇭', label: 'Thailand' },
-  { flag: '🇹🇷', label: 'Turkey' },
-  { flag: '🇺🇦', label: 'Ukraine' },
-  { flag: '🇬🇧', label: 'United Kingdom' },
-  { flag: '🇺🇸', label: 'United States' },
-  { flag: '🇻🇳', label: 'Vietnam' },
-  { flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', label: 'Wales' },
-  { flag: '☘️', label: 'Ireland Shamrock' },
-  { flag: '🏴‍☠️', label: 'Pirate' },
-  { flag: '🏳️‍🌈', label: 'Rainbow' },
-  { flag: '🌍', label: 'Globe Africa Europe' },
-  { flag: '🌎', label: 'Globe Americas' },
-  { flag: '🌏', label: 'Globe Asia' },
-];
 
 const Profile: React.FC = () => {
   const auth = getAuth();
   const user = auth.currentUser;
-  const [username, setUsername] = useState('');
-  const [selectedColor, setSelectedColor] = useState('blue');
-  const [selectedShape, setSelectedShape] = useState('star');
-  const [avatar, setAvatar] = useState('/Stickers/avatar_star_blue.webp');
+  const [profile, setProfile] = useState<SavedProfile>(EMPTY_PROFILE);
+  /** The edit form's copy while editing; null when not. */
+  const [draft, setDraft] = useState<ProfileDraft | null>(null);
+  const nextSocialId = useRef(0);
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const [passwordResetLoading, setPasswordResetLoading] = useState(false);
-  const [passwordResetMessage, setPasswordResetMessage] = useState('');
-  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
-
-  const [bio, setBio] = useState('');
-  const [pronouns, setPronouns] = useState('');
-  const [siteUrl, setSiteUrl] = useState('');
-  const [locationFlag, setLocationFlag] = useState('');
-  const [locationText, setLocationText] = useState('');
-  const [socials, setSocials] = useState<Socials>({});
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editUsername, setEditUsername] = useState('');
-  const [editColor, setEditColor] = useState('blue');
-  const [editShape, setEditShape] = useState('star');
-  const [editAvatar, setEditAvatar] = useState('/Stickers/avatar_star_blue.webp');
-  const [editBio, setEditBio] = useState('');
-  const [editPronouns, setEditPronouns] = useState('');
-  const [editSiteUrl, setEditSiteUrl] = useState('');
-  const [editLocationFlag, setEditLocationFlag] = useState('');
-  const [editLocationText, setEditLocationText] = useState('');
-  const [editSocials, setEditSocials] = useState<SocialRow[]>([]);
-  const nextSocialId = useRef(0);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [flagSearch, setFlagSearch] = useState('');
-  const [flagDropdownOpen, setFlagDropdownOpen] = useState(false);
   const [limitError, setLimitError] = useState('');
   const [nekoEnabled, setNekoEnabled] = useState(false);
   const [designToolEnabled, setDesignToolEnabled] = useState(false);
@@ -159,22 +50,22 @@ const Profile: React.FC = () => {
 
           if (docSnap.exists()) {
             const data = docSnap.data();
-            const fetchedUsername = data.username || '';
-            const fetchedColor = data.color || 'blue';
-            const fetchedShape = data.shape || 'star';
-            const fetchedAvatar = data.avatar || `/Stickers/avatar_${fetchedShape}_${fetchedColor}.webp`;
+            const color = data.color || 'blue';
+            const shape = data.shape || 'star';
 
-            setUsername(fetchedUsername);
-            setSelectedColor(fetchedColor);
-            setSelectedShape(fetchedShape);
-            setAvatar(fetchedAvatar);
+            setProfile({
+              username: data.username || '',
+              color,
+              shape,
+              avatar: data.avatar || `/Stickers/avatar_${shape}_${color}.webp`,
+              bio: data.bio || '',
+              pronouns: typeof data.pronouns === 'string' ? data.pronouns : '',
+              siteUrl: data.siteUrl || '',
+              locationFlag: data.locationFlag || '',
+              locationText: data.locationText || '',
+              socials: readSocials(data.socials),
+            });
             setAvatarBroken(false);
-            setBio(data.bio || '');
-            setPronouns(typeof data.pronouns === 'string' ? data.pronouns : '');
-            setSiteUrl(data.siteUrl || '');
-            setLocationFlag(data.locationFlag || '');
-            setLocationText(data.locationText || '');
-            setSocials(readSocials(data.socials));
             setNekoEnabled(data.nekoEnabled === true);
             setDesignToolEnabled(data.designToolEnabled === true);
           }
@@ -198,85 +89,50 @@ const Profile: React.FC = () => {
   }, []);
 
   const handleStartEditing = () => {
-    setEditUsername(username);
-    setEditColor(selectedColor);
-    setEditShape(selectedShape);
-    setEditAvatar(avatar);
-    setEditBio(bio);
-    setEditPronouns(pronouns);
-    setEditSiteUrl(siteUrl);
-    setEditLocationFlag(locationFlag);
-    setEditLocationText(locationText);
-    setEditSocials(
-      SOCIAL_ORDER.filter((platform) => socials[platform]).map((platform) => ({
-        id: nextSocialId.current++,
-        platform,
-        value: socials[platform]!,
-      })),
-    );
-    setIsEditing(true);
+    setDraft(draftFrom(profile, () => nextSocialId.current++));
     setSaveMessage('');
     setLimitError('');
   };
 
   const handleCancel = () => {
-    setIsEditing(false);
-    setFlagDropdownOpen(false);
-    setFlagSearch('');
+    setDraft(null);
     setSaveMessage('');
     setLimitError('');
   };
 
+  // Stable, because AvatarPreview's effects depend on the callbacks built on it.
+  const updateDraft = useCallback((patch: Partial<ProfileDraft>) => {
+    setDraft((current) => (current ? { ...current, ...patch } : current));
+  }, []);
+
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || !draft) return;
 
-    // Matches isValidUsername in firestore.rules, minus the stray-space cases
-    // that normaliseUsername has already removed.
-    const newUsername = normaliseUsername(editUsername);
-    if (newUsername.length < USERNAME_MIN || newUsername.length > USERNAME_MAX) {
-      setSaveMessage(`Username must be ${USERNAME_MIN}–${USERNAME_MAX} characters.`);
+    const checked = validateProfileDraft(draft);
+    if ('error' in checked) {
+      setSaveMessage(checked.error);
       setSaveSuccess(false);
       return;
     }
-    if (!USERNAME_PATTERN.test(newUsername)) {
-      setSaveMessage(
-        'Username must start and end with a letter or number, and can use spaces, dots, hyphens and underscores between them.',
-      );
-      setSaveSuccess(false);
-      return;
-    }
-
-    // Rows left without a platform or a value are dropped rather than refused —
-    // an "add" clicked and then thought better of.
-    const newSocials: Socials = {};
-    for (const row of editSocials) {
-      if (!row.platform || !row.value.trim()) continue;
-      const parsed = parseSocial(row.platform, row.value);
-      if ('error' in parsed) {
-        setSaveMessage(parsed.error);
-        setSaveSuccess(false);
-        return;
-      }
-      newSocials[row.platform] = parsed.handle;
-    }
+    const { username: newUsername, socials: newSocials } = checked;
 
     setSaving(true);
     setSaveMessage('');
     setSaveSuccess(false);
 
     try {
-      const sanitizedBio = sanitizeHtml(editBio.trim());
-      const sanitizedPronouns = sanitizeText(editPronouns.trim()).slice(0, PRONOUNS_MAX);
+      const sanitizedBio = sanitizeHtml(draft.bio.trim());
+      const sanitizedPronouns = sanitizeText(draft.pronouns.trim()).slice(0, PRONOUNS_MAX);
       // A web address never carries markup, so strip tags outright.
-      const sanitizedSiteUrl = sanitizeText(editSiteUrl.trim());
-      const sanitizedLocationText = sanitizeHtml(editLocationText.trim());
+      const sanitizedSiteUrl = sanitizeText(draft.siteUrl.trim());
+      const sanitizedLocationText = sanitizeHtml(draft.locationText.trim());
       const userDoc = doc(db, 'users', user.uid);
 
       // A username is only the writer's while the reservation under its
       // lowercased form is theirs, so a rename has to release the old name and
       // claim the new one alongside the profile write. One batch: if the name
       // is already taken the create fails and the profile keeps its old name.
-      const oldKey = username ? username.toLowerCase() : null;
+      const oldKey = profile.username ? profile.username.toLowerCase() : null;
       const newKey = newUsername.toLowerCase();
       const batch = writeBatchShadowed(db);
 
@@ -302,13 +158,13 @@ const Profile: React.FC = () => {
         userDoc,
         {
           username: newUsername,
-          color: editColor,
-          shape: editShape,
-          avatar: editAvatar,
+          color: draft.color,
+          shape: draft.shape,
+          avatar: draft.avatar,
           bio: sanitizedBio,
           pronouns: sanitizedPronouns,
           siteUrl: sanitizedSiteUrl,
-          locationFlag: editLocationFlag,
+          locationFlag: draft.locationFlag,
           locationText: sanitizedLocationText,
         },
         { merge: true }
@@ -319,25 +175,24 @@ const Profile: React.FC = () => {
       // Apart from the batch because a merging set merges nested maps key by
       // key, so a removed account would survive it. An update replaces the
       // field whole.
-      if (!sameSocials(newSocials, socials)) {
+      if (!sameSocials(newSocials, profile.socials)) {
         await updateDocShadowed(userDoc, { socials: newSocials });
       }
 
-      setUsername(newUsername);
-      setEditUsername(newUsername);
-      setSelectedColor(editColor);
-      setSelectedShape(editShape);
-      setAvatar(editAvatar);
+      setProfile({
+        username: newUsername,
+        color: draft.color,
+        shape: draft.shape,
+        avatar: draft.avatar,
+        bio: sanitizedBio,
+        pronouns: sanitizedPronouns,
+        siteUrl: sanitizedSiteUrl,
+        locationFlag: draft.locationFlag,
+        locationText: sanitizedLocationText,
+        socials: newSocials,
+      });
       setAvatarBroken(false);
-      setBio(sanitizedBio);
-      setPronouns(sanitizedPronouns);
-      setSiteUrl(sanitizedSiteUrl);
-      setLocationFlag(editLocationFlag);
-      setLocationText(sanitizedLocationText);
-      setSocials(newSocials);
-      setIsEditing(false);
-      setFlagDropdownOpen(false);
-      setFlagSearch('');
+      setDraft(null);
       clearUserCache(user.uid);
       setSaveMessage('Profile updated!');
       setSaveSuccess(true);
@@ -351,7 +206,7 @@ const Profile: React.FC = () => {
       // A rename that loses the race for a name lands here, since the
       // reservation create is what the rules refuse.
       setSaveMessage(
-        newUsername.toLowerCase() !== username.toLowerCase()
+        newUsername.toLowerCase() !== profile.username.toLowerCase()
           ? 'Could not save — that username may have just been taken.'
           : 'Failed to save. Please try again.'
       );
@@ -364,88 +219,6 @@ const Profile: React.FC = () => {
       setSaving(false);
     }
   };
-
-  const addSocialRow = () => {
-    setEditSocials((rows) => [...rows, { id: nextSocialId.current++, platform: '', value: '' }]);
-  };
-
-  const updateSocialRow = (id: number, patch: Partial<SocialRow>) => {
-    setEditSocials((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-  };
-
-  const removeSocialRow = (id: number) => {
-    setEditSocials((rows) => rows.filter((row) => row.id !== id));
-  };
-
-  const handlePasswordReset = async () => {
-    if (!user || !user.email) {
-      setPasswordResetMessage('No email found for current user.');
-      setPasswordResetSuccess(false);
-      return;
-    }
-
-    setPasswordResetLoading(true);
-    setPasswordResetMessage('');
-
-    try {
-      await sendPasswordResetEmail(auth, user.email);
-      setPasswordResetMessage(`Password reset email sent to ${user.email}`);
-      setPasswordResetSuccess(true);
-    } catch (error) {
-      console.error('Error sending password reset email:', error);
-      setPasswordResetMessage('Failed to send password reset email. Please try again.');
-      setPasswordResetSuccess(false);
-    } finally {
-      setPasswordResetLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
-  };
-
-  const handleNekoToggle = async () => {
-    if (!user) return;
-    const newValue = !nekoEnabled;
-    setNekoEnabled(newValue);
-    localStorage.setItem('nekoEnabled', String(newValue));
-    window.dispatchEvent(new CustomEvent('oneko-toggle', { detail: newValue }));
-
-    try {
-      await updateDocShadowed(doc(db, 'users', user.uid), { nekoEnabled: newValue });
-      clearUserCache(user.uid);
-    } catch {
-      // Revert on failure
-      setNekoEnabled(!newValue);
-      localStorage.setItem('nekoEnabled', String(!newValue));
-      window.dispatchEvent(new CustomEvent('oneko-toggle', { detail: !newValue }));
-    }
-  };
-
-  const handleDesignToolToggle = async () => {
-    if (!user) return;
-    const newValue = !designToolEnabled;
-    setDesignToolEnabled(newValue);
-    localStorage.setItem('designToolEnabled', String(newValue));
-    window.dispatchEvent(new CustomEvent('design-tool-toggle', { detail: newValue }));
-
-    try {
-      await updateDocShadowed(doc(db, 'users', user.uid), { designToolEnabled: newValue });
-      clearUserCache(user.uid);
-    } catch {
-      setDesignToolEnabled(!newValue);
-      localStorage.setItem('designToolEnabled', String(!newValue));
-      window.dispatchEvent(new CustomEvent('design-tool-toggle', { detail: !newValue }));
-    }
-  };
-
-  const filteredFlags = FLAG_OPTIONS.filter((opt) =>
-    opt.label.toLowerCase().includes(flagSearch.toLowerCase())
-  );
 
   const handleLimitExceeded = (type: 'words' | 'chars', field: string) => {
     const errorMsg = type === 'words'
@@ -466,9 +239,7 @@ const Profile: React.FC = () => {
     );
   }
 
-  const hasLocation = locationFlag || locationText;
-  const hasSocials = SOCIAL_ORDER.some((platform) => socials[platform]);
-  const flagLabel = FLAG_OPTIONS.find((opt) => opt.flag === editLocationFlag)?.label ?? 'none';
+  const isEditing = draft !== null;
 
   return (
     <div className="me-page">
@@ -488,380 +259,37 @@ const Profile: React.FC = () => {
         )}
       </div>
 
-      {isEditing ? (
-        /* ── EDIT MODE: the one band on the page you type into ── */
-        <div className="me-band">
-          <div className="me-field">
-            <span className="me-label">username</span>
-            <MessageTextBox
-              placeholder="Change Username..."
-              value={editUsername}
-              onChange={setEditUsername}
-              maxWords={5}
-              maxChars={USERNAME_MAX}
-              showSendButton={false}
-              showCounter={false}
-              onLimitExceeded={(type) => handleLimitExceeded(type, 'Username')}
-            />
-          </div>
-
-          <div className="me-field">
-            <span className="me-label">pronouns</span>
-            <MessageTextBox
-              placeholder="e.g. she/her, they/them"
-              value={editPronouns}
-              onChange={setEditPronouns}
-              maxWords={5}
-              maxChars={PRONOUNS_MAX}
-              showSendButton={false}
-              showCounter={false}
-              rows={1}
-              onLimitExceeded={(type) => handleLimitExceeded(type, 'Pronouns')}
-            />
-          </div>
-
-          <div className="me-field">
-            <span className="me-label">sticker</span>
-            <AvatarPreview
-              selectedColor={editColor}
-              selectedShape={editShape}
-              avatar={editAvatar}
-              onColorChange={setEditColor}
-              onShapeChange={setEditShape}
-              onAvatarChange={setEditAvatar}
-            />
-          </div>
-
-          <div className="me-field">
-            <span className="me-label">bio</span>
-            <MessageTextBox
-              placeholder="Write something about yourself..."
-              value={editBio}
-              onChange={setEditBio}
-              maxWords={100}
-              maxChars={500}
-              showSendButton={false}
-              showCounter={true}
-              rows={3}
-              onLimitExceeded={(type) => handleLimitExceeded(type, 'Bio')}
-            />
-          </div>
-
-          <div className="me-field">
-            <span className="me-label">website</span>
-            <MessageTextBox
-              placeholder="your-site.neocities.org"
-              value={editSiteUrl}
-              onChange={setEditSiteUrl}
-              maxWords={1}
-              maxChars={200}
-              showSendButton={false}
-              showCounter={false}
-              rows={1}
-              onLimitExceeded={(type) => handleLimitExceeded(type, 'Website')}
-            />
-          </div>
-
-          {/* The travel filter's facet: the value stated on the line, and an
-              index of the alternatives unrolled under it in flow rather than
-              dropped over the page. */}
-          <div className="me-field me-flag">
-            <span className="me-label">flag</span>
-            <button
-              type="button"
-              className={`me-facet${flagDropdownOpen ? ' is-open' : ''}`}
-              onClick={() => setFlagDropdownOpen(!flagDropdownOpen)}
-              aria-expanded={flagDropdownOpen}
-              aria-controls="me-flag-panel"
-            >
-              <span className="me-facet-glyph">{editLocationFlag || '🏳️'}</span>
-              <span className="me-facet-val">{flagLabel.toLowerCase()}</span>
-              <span className="me-facet-mark" aria-hidden="true">›</span>
-            </button>
-
-            <div
-              id="me-flag-panel"
-              className={`me-flag-panel${flagDropdownOpen ? ' is-open' : ''}`}
-            >
-              <div className="me-flag-panel-inner">
-                <div className="me-flag-body">
-                  <input
-                    type="text"
-                    className="me-flag-search"
-                    placeholder="search…"
-                    value={flagSearch}
-                    onChange={(e) => setFlagSearch(e.target.value)}
-                    aria-label="Search countries"
-                  />
-
-                  {filteredFlags.length > 0 ? (
-                    <ul className="me-flag-opts">
-                      {filteredFlags.map((opt) => (
-                        <li key={opt.label}>
-                          <button
-                            type="button"
-                            className={`me-flag-opt${editLocationFlag === opt.flag ? ' is-sel' : ''}`}
-                            onClick={() => {
-                              setEditLocationFlag(opt.flag);
-                              setFlagDropdownOpen(false);
-                              setFlagSearch('');
-                            }}
-                          >
-                            <span className="me-flag-opt-glyph">{opt.flag || '✕'}</span>
-                            <span className="me-flag-opt-name">{opt.label.toLowerCase()}</span>
-                            <span className="me-flag-opt-leader" aria-hidden="true"></span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="me-flag-none">no matches.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="me-field">
-            <span className="me-label">where</span>
-            <MessageTextBox
-              placeholder="Where are you located?"
-              value={editLocationText}
-              onChange={setEditLocationText}
-              maxWords={10}
-              maxChars={100}
-              showSendButton={false}
-              showCounter={true}
-              rows={1}
-              onLimitExceeded={(type) => handleLimitExceeded(type, 'Location')}
-            />
-          </div>
-
-          <div className="me-field">
-            <span className="me-label">socials</span>
-            {editSocials.map((row) => {
-              const taken = new Set(editSocials.filter((r) => r.id !== row.id).map((r) => r.platform));
-              return (
-                <div key={row.id} className="me-social-row">
-                  <select
-                    className="me-social-select"
-                    value={row.platform}
-                    onChange={(e) => updateSocialRow(row.id, { platform: e.target.value as SocialPlatform })}
-                    aria-label="Platform"
-                  >
-                    <option value="" disabled>choose…</option>
-                    {SOCIAL_ORDER.filter((platform) => !taken.has(platform)).map((platform) => (
-                      <option key={platform} value={platform}>{SOCIAL_PLATFORMS[platform].label}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    className="me-social-input"
-                    value={row.value}
-                    onChange={(e) => updateSocialRow(row.id, { value: e.target.value })}
-                    placeholder={row.platform ? SOCIAL_PLATFORMS[row.platform].placeholder : 'username or link'}
-                    disabled={!row.platform}
-                    maxLength={200}
-                    autoCapitalize="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    aria-label={row.platform ? `${SOCIAL_PLATFORMS[row.platform].label} username or link` : 'Username or link'}
-                  />
-                  <button type="button" className="me-act me-act--del" onClick={() => removeSocialRow(row.id)}>
-                    remove
-                  </button>
-                </div>
-              );
-            })}
-            {editSocials.length < SOCIAL_ORDER.length && (
-              <button type="button" className="me-act me-social-add" onClick={addSocialRow}>
-                + add social media
-              </button>
-            )}
-          </div>
-
-          {limitError && (
-            <p className="me-msg me-msg--bad me-msg--in-band" role="alert">{limitError}</p>
-          )}
-          {saveMessage && (
-            <p
-              className={`me-msg me-msg--in-band ${saveSuccess ? 'me-msg--good' : 'me-msg--bad'}`}
-              role="status"
-            >
-              {saveMessage}
-            </p>
-          )}
-
-          <div className="me-band-foot">
-            <Button
-              label={saving ? 'saving…' : 'save'}
-              onClick={handleSave}
-              disabled={saving}
-              className="me-save basic-button--primary"
-            />
-            <button type="button" className="me-act" onClick={handleCancel}>cancel</button>
-          </div>
-        </div>
+      {draft ? (
+        <ProfileEditForm
+          draft={draft}
+          onChange={updateDraft}
+          nextSocialId={() => nextSocialId.current++}
+          onLimitExceeded={handleLimitExceeded}
+          limitError={limitError}
+          saveMessage={saveMessage}
+          saveSuccess={saveSuccess}
+          saving={saving}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
       ) : (
-        /* ── READ-ONLY: the card everyone else sees ── */
-        <>
-          <div className="me-card">
-            <div className={`me-avatar${avatar && !avatarBroken ? '' : ' me-avatar--none'}`}>
-              {avatar && !avatarBroken ? (
-                <img
-                  src={avatar}
-                  alt={`${username || 'your'} sticker`}
-                  onError={() => setAvatarBroken(true)}
-                />
-              ) : (
-                (username || 'A').charAt(0).toUpperCase()
-              )}
-            </div>
-
-            <span className="me-channel" aria-hidden="true"></span>
-
-            <div className="me-body">
-              <p className="me-name">
-                {username || 'Anonymous'}
-                {pronouns && <span className="me-pronouns">{pronouns}</span>}
-              </p>
-
-              {bio ? (
-                <p className="me-bio">{bio}</p>
-              ) : (
-                <p className="me-bio me-bio--none">no bio yet.</p>
-              )}
-
-              {(siteUrl || hasLocation || hasSocials) && (
-                <dl className="me-facts">
-                  {siteUrl && (
-                    <>
-                      <dt className="me-fact-key">
-                        site<span className="me-fact-leader" aria-hidden="true"></span>
-                      </dt>
-                      <dd className="me-fact-val"><SiteLink url={siteUrl} /></dd>
-                    </>
-                  )}
-
-                  {hasLocation && (
-                    <>
-                      <dt className="me-fact-key">
-                        where<span className="me-fact-leader" aria-hidden="true"></span>
-                      </dt>
-                      <dd className="me-fact-val">
-                        {locationFlag && <span className="me-flag-inline">{locationFlag}</span>}
-                        {locationText}
-                      </dd>
-                    </>
-                  )}
-
-                  {SOCIAL_ORDER.filter((platform) => socials[platform]).map((platform) => (
-                    <React.Fragment key={platform}>
-                      <dt className="me-fact-key">
-                        {SOCIAL_PLATFORMS[platform].label}
-                        <span className="me-fact-leader" aria-hidden="true"></span>
-                      </dt>
-                      <dd className="me-fact-val">
-                        <SocialHandle platform={platform} handle={socials[platform]!} />
-                      </dd>
-                    </React.Fragment>
-                  ))}
-                </dl>
-              )}
-            </div>
-          </div>
-
-          {saveMessage && (
-            <p
-              className={`me-msg ${saveSuccess ? 'me-msg--good' : 'me-msg--bad'}`}
-              role="status"
-            >
-              {saveMessage}
-            </p>
-          )}
-        </>
+        <ProfileView
+          profile={profile}
+          avatarBroken={avatarBroken}
+          onAvatarError={() => setAvatarBroken(true)}
+          saveMessage={saveMessage}
+          saveSuccess={saveSuccess}
+        />
       )}
 
-      {/* ── The account itself ── */}
-      <h2 className="me-h">
-        <span className="me-h-label">account</span>
-        <span className="me-h-rule" aria-hidden="true"></span>
-        {user?.email && <span className="me-h-note">{user.email}</span>}
-      </h2>
-
-      <ul className="me-rows">
-        <li className="me-row">
-          <span className="me-row-key">password</span>
-          <span className="me-row-leader" aria-hidden="true"></span>
-          <span className="me-row-val">
-            <button
-              type="button"
-              className="me-act"
-              onClick={handlePasswordReset}
-              disabled={passwordResetLoading || passwordResetSuccess}
-            >
-              {passwordResetLoading ? 'sending…' : passwordResetSuccess ? 'sent' : 'send reset email'}
-            </button>
-          </span>
-        </li>
-
-        {/* The cat follows a pointer, so there is nothing for it to follow on a
-            touch screen — the setting is not offered where it cannot apply. */}
-        {!window.matchMedia('(pointer: coarse)').matches && (
-          <li className="me-row">
-            <span className="me-row-key">oneko</span>
-            <span className="me-row-leader" aria-hidden="true"></span>
-            <span className="me-row-val">
-              <label className="me-check">
-                <input type="checkbox" checked={nekoEnabled} onChange={handleNekoToggle} />
-                <span className="me-check-mark" aria-hidden="true">
-                  {nekoEnabled ? '[x] on' : '[ ] off'}
-                </span>
-              </label>
-            </span>
-          </li>
-        )}
-
-        {isAdmin && (
-          <li className="me-row">
-            <span className="me-row-key">design tool</span>
-            <span className="me-row-leader" aria-hidden="true"></span>
-            <span className="me-row-val">
-              <label className="me-check">
-                <input
-                  type="checkbox"
-                  checked={designToolEnabled}
-                  onChange={handleDesignToolToggle}
-                />
-                <span className="me-check-mark" aria-hidden="true">
-                  {designToolEnabled ? '[x] on' : '[ ] off'}
-                </span>
-              </label>
-            </span>
-          </li>
-        )}
-
-        {isAdmin && <YeishinTokens />}
-
-        <li className="me-row">
-          <span className="me-row-key">session</span>
-          <span className="me-row-leader" aria-hidden="true"></span>
-          <span className="me-row-val">
-            <button type="button" className="me-act me-act--del" onClick={handleLogout}>
-              log out
-            </button>
-          </span>
-        </li>
-      </ul>
-
-      {passwordResetMessage && (
-        <p
-          className={`me-msg ${passwordResetSuccess ? 'me-msg--good' : 'me-msg--bad'}`}
-          role="status"
-        >
-          {passwordResetMessage}
-        </p>
-      )}
+      <AccountSettings
+        user={user}
+        isAdmin={isAdmin}
+        nekoEnabled={nekoEnabled}
+        setNekoEnabled={setNekoEnabled}
+        designToolEnabled={designToolEnabled}
+        setDesignToolEnabled={setDesignToolEnabled}
+      />
     </div>
   );
 };
