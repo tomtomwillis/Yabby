@@ -21,7 +21,12 @@ interface RequestOptions {
   timeoutMs?: number;
 }
 
-async function send(method: string, path: string, options: RequestOptions, refreshToken: boolean): Promise<Response> {
+/** One per page load. With the request id below, the audit log can tell a
+ *  request the browser resent (same request id) from the app calling twice
+ *  (same page, new request id) and from two tabs or devices (new page id). */
+const PAGE_ID = crypto.randomUUID();
+
+async function send(method: string, path: string, options: RequestOptions, refreshToken: boolean, requestId: string): Promise<Response> {
   const user = auth.currentUser;
   if (!user) throw new ApiError(401, 'You are not signed in.');
   const token = await user.getIdToken(refreshToken);
@@ -37,6 +42,8 @@ async function send(method: string, path: string, options: RequestOptions, refre
       cache: 'no-store',
       headers: {
         Authorization: `Bearer ${token}`,
+        'X-Request-Id': requestId,
+        'X-Page-Id': PAGE_ID,
         ...(body !== undefined && { 'Content-Type': 'application/json' }),
       },
       body,
@@ -54,9 +61,10 @@ async function send(method: string, path: string, options: RequestOptions, refre
 
 /** The parsed JSON answer, or null for 204. Throws ApiError otherwise. */
 export async function apiRequest<T = unknown>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
-  let response = await send(method, path, options, false);
+  const requestId = crypto.randomUUID();
+  let response = await send(method, path, options, false, requestId);
   // A stale cached token is the usual 401; one forced refresh settles it.
-  if (response.status === 401) response = await send(method, path, options, true);
+  if (response.status === 401) response = await send(method, path, options, true, requestId);
 
   if (response.status === 204) return null as T;
   const text = await response.text();
