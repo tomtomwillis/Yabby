@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { getAuth, sendPasswordResetEmail, signOut, type User } from 'firebase/auth';
+import { getAuth, sendPasswordResetEmail, type User } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { updateDocShadowed } from '../../api/shadow';
 import { db } from '../../firebaseConfig';
 import { clearUserCache } from '../../utils/userCache';
-import { endLocalSession, hasLocalSignIn, useLocalSession } from '../../utils/localSession';
+import { signOutEverywhere, useLocalSession } from '../../utils/localSession';
 import YeishinTokens from '../YeishinTokens';
 import ChangePasswordRow from './ChangePasswordRow';
 import TwoFactorRow from './TwoFactorRow';
@@ -61,8 +61,7 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
 
   const handleLogout = async () => {
     try {
-      if (hasLocalSignIn()) await endLocalSession();
-      await signOut(auth);
+      await signOutEverywhere();
     } catch (error) {
       console.error('Error logging out:', error);
     }

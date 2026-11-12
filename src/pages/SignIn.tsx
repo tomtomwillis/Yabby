@@ -44,6 +44,7 @@ const SignIn = () => {
   const [useBackup, setUseBackup] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
+  const [info, setInfo] = useState('');
 
   // Passed once to the enrolment step, which clears its own copy after use.
   const enrolPassword = useRef('');
@@ -55,7 +56,7 @@ const SignIn = () => {
   const firstRender = useRef(true);
 
   const passwordChanged = (location.state as { notice?: string } | null)?.notice === 'password_changed';
-  const notice = passwordChanged ? 'password changed — sign in again.' : '';
+  const notice = info || (passwordChanged ? 'password changed — sign in again.' : '');
 
   // The profile sends a member here still signed in to Firebase and the
   // sign-out happens on arrival: done before the navigation, the private
@@ -176,6 +177,16 @@ const SignIn = () => {
     // Enrolment runs on a session the server has already set.
     await signOutLocal().catch(() => undefined);
     setFailure(null);
+    setInfo('');
+    restart();
+  };
+
+  const handleAlreadyOn = async () => {
+    // Turned on from another device meanwhile, which ended this session; the
+    // next sign-in asks for a code instead.
+    await signOutLocal().catch(() => undefined);
+    setFailure(null);
+    setInfo('two-step sign-in is already on — sign in again with your code.');
     restart();
   };
 
@@ -342,6 +353,7 @@ const SignIn = () => {
                   setFailure({ code: 'no_session', text: authErrorMessage('no_session') });
                   restart();
                 }}
+                onAlreadyOn={() => void handleAlreadyOn()}
               />
               {errorRegion}
               <div className="lg-tail">

@@ -1,4 +1,4 @@
-import { authErrorMessage, NETWORK_ERROR, parseRetryAfter } from '../utils/authFlow';
+import { authErrorMessage, memberErrorText, NETWORK_ERROR, parseRetryAfter } from '../utils/authFlow';
 
 /* The self-hosted sign-in (`/api/auth`). Plain fetch rather than authedFetch:
    these calls are what produce a Firebase user, so most run without one, and
@@ -12,20 +12,29 @@ export class AuthApiError extends Error {
   readonly code: string;
   /** Seconds, from `Retry-After`, on a 429. */
   readonly retryAfter: number | null;
+  /** The server's `error` sentence, when it sent one. */
+  readonly serverText: string | null;
 
-  constructor(status: number, code: string, retryAfter: number | null = null) {
+  constructor(status: number, code: string, retryAfter: number | null = null, serverText: string | null = null) {
     super(`auth request failed: ${status} ${code}`);
     this.name = 'AuthApiError';
     this.status = status;
     this.code = code;
     this.retryAfter = retryAfter;
+    this.serverText = serverText;
   }
 }
 
-/** The code and the member-facing line for anything a call here threw. */
-export function describeAuthError(err: unknown): { code: string; text: string } {
-  const code = err instanceof AuthApiError ? err.code : NETWORK_ERROR;
-  return { code, text: authErrorMessage(code, err instanceof AuthApiError ? err.retryAfter : null) };
+/**
+ * The code and the member-facing line for anything a call here threw. For the
+ * codes in `preferServerFor` the server's own sentence is shown when it sent one.
+ */
+export function describeAuthError(
+  err: unknown,
+  preferServerFor: readonly string[] = [],
+): { code: string; text: string } {
+  if (!(err instanceof AuthApiError)) return { code: NETWORK_ERROR, text: authErrorMessage(NETWORK_ERROR) };
+  return { code: err.code, text: memberErrorText(err.code, err.retryAfter, err.serverText, preferServerFor) };
 }
 
 async function call<T>(method: 'GET' | 'POST', path: string, body?: Record<string, string>): Promise<T> {
@@ -52,7 +61,13 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: Record<strin
     const code = typeof (data as { code?: unknown })?.code === 'string'
       ? (data as { code: string }).code
       : response.status >= 500 ? 'unavailable' : 'unknown';
-    throw new AuthApiError(response.status, code, parseRetryAfter(response.headers.get('Retry-After')));
+    const sentence = (data as { error?: unknown })?.error;
+    throw new AuthApiError(
+      response.status,
+      code,
+      parseRetryAfter(response.headers.get('Retry-After')),
+      typeof sentence === 'string' ? sentence : null,
+    );
   }
   if (data === null) throw new AuthApiError(response.status, 'unavailable');
   return data as T;

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { describeAuthError, disableTwoFactor, type LocalSession } from '../../api/auth';
-import { localSessionEnded, refreshLocalSession } from '../../utils/localSession';
+import { localSessionEnded, refreshLocalSession, renewFirebaseSession } from '../../utils/localSession';
 import TwoFactorEnrol from '../auth/TwoFactorEnrol';
 import './AccountAuthRows.css';
 
@@ -45,9 +45,12 @@ const TwoFactorRow: React.FC<TwoFactorRowProps> = ({ session }) => {
       await disableTwoFactor(password);
       close();
       setMessage('two-step sign-in is off.');
+      // Turning it off changes the Firebase password, which ends this
+      // browser's Firebase session within the hour.
+      await renewFirebaseSession();
       await refreshLocalSession();
     } catch (err) {
-      const { code, text } = describeAuthError(err);
+      const { code, text } = describeAuthError(err, ['try_again', 'unavailable']);
       setError(text);
       setPassword('');
       if (code === 'no_session') void localSessionEnded();
@@ -87,13 +90,20 @@ const TwoFactorRow: React.FC<TwoFactorRowProps> = ({ session }) => {
         <li className="aa-panel">
           <TwoFactorEnrol
             look="row"
-            onConfirmed={async () => {
-              // The returned token is for a sign-in this browser already has.
+            onConfirmed={async (firebaseToken) => {
               close();
               setMessage('two-step sign-in is on.');
+              // Confirming revokes the member's Firebase refresh tokens, this
+              // browser's included.
+              await renewFirebaseSession(firebaseToken);
               await refreshLocalSession();
             }}
             onSessionEnded={() => void localSessionEnded()}
+            onAlreadyOn={() => {
+              close();
+              setMessage('two-step sign-in is already on.');
+              void refreshLocalSession();
+            }}
           />
         </li>
       )}

@@ -80,6 +80,9 @@ const MESSAGES: Record<string, string> = {
   unknown_member: 'no member with that username or email.',
   not_enabled: 'that member is not on the new sign-in yet.',
   [FIREBASE_REFUSED]: 'sign-in failed — try again, or ask an admin.',
+  already_enrolled: 'two-step sign-in is already on.',
+  not_found: 'that is not there any more — reload the page.',
+  internal: 'something went wrong on our side — try again.',
 };
 
 /** A short line in the site's voice for an error code from the auth API. */
@@ -90,6 +93,72 @@ export function authErrorMessage(code: string, retryAfterSeconds: number | null 
       : 'too many attempts — wait a while before trying again.';
   }
   return MESSAGES[code] ?? 'something went wrong — try again.';
+}
+
+const MAX_SERVER_SENTENCE = 200;
+
+/**
+ * The server's own sentence when the caller asked for it for this code and
+ * the server sent a usable one, otherwise our line for the code.
+ */
+export function memberErrorText(
+  code: string,
+  retryAfterSeconds: number | null,
+  serverSentence: unknown,
+  preferServerFor: readonly string[] = [],
+): string {
+  const sentence = typeof serverSentence === 'string' ? serverSentence.trim() : '';
+  if (preferServerFor.includes(code) && sentence && sentence.length <= MAX_SERVER_SENTENCE) return sentence;
+  return authErrorMessage(code, retryAfterSeconds);
+}
+
+/* Getting the Firebase session back from the backend session, after Firebase
+   ended it (the backend changes the Firebase password in several flows, which
+   revokes refresh tokens) or right after one of those flows. */
+
+/** Minimum gap between attempts started by losing the Firebase user. */
+export const RENEW_COOLDOWN_MS = 30 * 1000;
+
+/** Whether losing the Firebase user should start an attempt to get it back. */
+export function shouldRenewAfterLoss(s: {
+  markerSet: boolean;
+  hasUser: boolean;
+  inFlight: boolean;
+  msSinceLastAttempt: number;
+}): boolean {
+  return s.markerSet && !s.hasUser && !s.inFlight && s.msSinceLastAttempt >= RENEW_COOLDOWN_MS;
+}
+
+/**
+ * Whether a token fetched for the renewal may still be used (before the
+ * exchange) or kept (after it): nobody signed out, and nobody else signed in.
+ */
+export function mayUseRenewedToken(s: {
+  markerSet: boolean;
+  epochAtStart: number;
+  epochNow: number;
+  uidAtStart: string | null;
+  uidNow: string | null;
+}): boolean {
+  return s.markerSet && s.epochAtStart === s.epochNow && s.uidAtStart === s.uidNow;
+}
+
+/** `signInWithCustomToken` failures: a dropped connection, or Firebase saying no. */
+export function firebaseExchangeFailure(firebaseCode: unknown): string {
+  return firebaseCode === 'auth/network-request-failed' || firebaseCode === 'auth/too-many-requests'
+    ? NETWORK_ERROR
+    : FIREBASE_REFUSED;
+}
+
+/**
+ * What a failed renewal does to the local sign-in: `forget` it (the server has
+ * no usable session), `end` it (sign out on the server too, since Firebase
+ * refused the member), or `keep` it for a later attempt (anything transient).
+ */
+export function renewFailureAction(code: string): 'keep' | 'forget' | 'end' {
+  if (code === 'no_session' || code === 'two_factor_required') return 'forget';
+  if (code === FIREBASE_REFUSED) return 'end';
+  return 'keep';
 }
 
 /** A reset link's expiry for display. Accepts ISO text or epoch (s or ms). */

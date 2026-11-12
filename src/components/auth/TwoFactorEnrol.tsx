@@ -20,6 +20,8 @@ interface TwoFactorEnrolProps {
   onFailure?: (code: string) => void;
   /** The server no longer has the session the enrolment hangs off. */
   onSessionEnded?: () => void;
+  /** Two-step sign-in turned out to be on already (turned on elsewhere meanwhile). */
+  onAlreadyOn: () => void;
 }
 
 /** Turning on two-step sign-in: password, then the QR, secret and backup codes, then a first code. */
@@ -29,6 +31,7 @@ const TwoFactorEnrol: React.FC<TwoFactorEnrolProps> = ({
   onConfirmed,
   onFailure,
   onSessionEnded,
+  onAlreadyOn,
 }) => {
   const css = LOOKS[look];
   // Held only until the enrol request has gone.
@@ -45,6 +48,11 @@ const TwoFactorEnrol: React.FC<TwoFactorEnrolProps> = ({
 
   const fail = (err: unknown) => {
     const { code: failure, text } = describeAuthError(err);
+    if (failure === 'already_enrolled') {
+      setEnrolment(null);
+      onAlreadyOn();
+      return;
+    }
     onFailure?.(failure);
     setError(text);
     if (failure === 'no_session') onSessionEnded?.();
