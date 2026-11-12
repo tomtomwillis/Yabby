@@ -15,9 +15,12 @@ import PullToRefresh from './components/PullToRefresh';
 import { PlayerProvider } from './utils/usePlayer';
 import { NavidromeCardProvider } from './utils/useNavidromeCard';
 import { useJoinDate } from './utils/useJoinDate';
+import { useLocalSessionWatch } from './utils/localSession';
 
 // Route-level code splitting: heavy dependencies (leaflet, hls.js, xterm,
 // marked) stay out of the initial bundle. Home and Login load eagerly.
+const SignIn = lazy(() => import('./pages/SignIn'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 const MessageBoard = lazy(() => import('./pages/MessageBoardPage'));
@@ -46,6 +49,7 @@ const DesignTool = lazy(() => import('./components/DesignTool'));
 
 function App() {
   useJoinDate();
+  useLocalSessionWatch();
 
   return (
     <PlayerProvider>
@@ -66,8 +70,10 @@ function App() {
             <ErrorBoundary FallbackComponent={PageError} onError={reportPageError}>
               <Suspense fallback={null}>
                 <Routes>
-                  {/* Public route */}
+                  {/* Public routes */}
                   <Route path="/login" element={<Login />} />
+                  <Route path="/signin" element={<SignIn />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
 
                   {/* Cinema takes over the whole viewport — its blackout layer is
                       fixed to the viewport, so it cannot live inside the shell. */}

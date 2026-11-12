@@ -4,7 +4,11 @@ import { doc } from 'firebase/firestore';
 import { updateDocShadowed } from '../../api/shadow';
 import { db } from '../../firebaseConfig';
 import { clearUserCache } from '../../utils/userCache';
+import { endLocalSession, hasLocalSignIn, useLocalSession } from '../../utils/localSession';
 import YeishinTokens from '../YeishinTokens';
+import ChangePasswordRow from './ChangePasswordRow';
+import TwoFactorRow from './TwoFactorRow';
+import ResetLinkRow from './ResetLinkRow';
 
 interface AccountSettingsProps {
   user: User | null;
@@ -26,6 +30,8 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
   setDesignToolEnabled,
 }) => {
   const auth = getAuth();
+  const localSession = useLocalSession();
+  const local = localSession.status === 'active' ? localSession.session : null;
   const [passwordResetLoading, setPasswordResetLoading] = useState(false);
   const [passwordResetMessage, setPasswordResetMessage] = useState('');
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
@@ -55,6 +61,7 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
 
   const handleLogout = async () => {
     try {
+      if (hasLocalSignIn()) await endLocalSession();
       await signOut(auth);
     } catch (error) {
       console.error('Error logging out:', error);
@@ -106,20 +113,28 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
       </h2>
 
       <ul className="me-rows">
-        <li className="me-row">
-          <span className="me-row-key">password</span>
-          <span className="me-row-leader" aria-hidden="true"></span>
-          <span className="me-row-val">
-            <button
-              type="button"
-              className="me-act"
-              onClick={handlePasswordReset}
-              disabled={passwordResetLoading || passwordResetSuccess}
-            >
-              {passwordResetLoading ? 'sending…' : passwordResetSuccess ? 'sent' : 'send reset email'}
-            </button>
-          </span>
-        </li>
+        {/* Signed in through /signin, the password lives with our server, so
+            Firebase's reset email would change the wrong one. */}
+        {local ? (
+          <ChangePasswordRow />
+        ) : (
+          <li className="me-row">
+            <span className="me-row-key">password</span>
+            <span className="me-row-leader" aria-hidden="true"></span>
+            <span className="me-row-val">
+              <button
+                type="button"
+                className="me-act"
+                onClick={handlePasswordReset}
+                disabled={passwordResetLoading || passwordResetSuccess}
+              >
+                {passwordResetLoading ? 'sending…' : passwordResetSuccess ? 'sent' : 'send reset email'}
+              </button>
+            </span>
+          </li>
+        )}
+
+        {local && <TwoFactorRow session={local} />}
 
         {/* The cat follows a pointer, so there is nothing for it to follow on a
             touch screen — the setting is not offered where it cannot apply. */}
@@ -158,6 +173,8 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
         )}
 
         {isAdmin && <YeishinTokens />}
+
+        {local?.canIssueResetLinks && <ResetLinkRow />}
 
         <li className="me-row">
           <span className="me-row-key">session</span>

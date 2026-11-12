@@ -1,0 +1,105 @@
+/* Shown on the sign-in sheet and in a profile row, so colours fall back from
+   one page's tokens to the other's. */
+.tf {
+  --tf-dim: var(--lg-dim, var(--me-dim, #5566c9));
+  --tf-ink: var(--lg-ink, var(--me-ink, var(--colour5)));
+  --tf-rule: var(--lg-rule, var(--me-rule, #c9cee4));
+  --tf-accent: var(--lg-accent, var(--me-accent, var(--colour2)));
+
+  font-family: var(--font2);
+  font-size: 0.78rem;
+  color: var(--tf-ink);
+}
+
+.tf h3:focus {
+  outline: none;
+}
+
+.tf h3:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 2px;
+}
+
+/* White behind the code whatever the band's tint, so every scanner reads it. */
+.tf-qr {
+  display: grid;
+  place-items: center;
+  width: 220px;
+  height: 220px;
+  margin: 0 0 0.8rem;
+  background: #fff;
+  border: 1px solid var(--tf-rule);
+}
+
+.tf-qr img {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.tf-qr-wait {
+  color: var(--tf-dim);
+}
+
+.tf-secret {
+  margin: 0 0 0.9rem;
+  line-height: 1.6;
+}
+
+.tf-secret-label {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--tf-dim);
+}
+
+.tf-secret-key,
+.tf-codes code {
+  overflow-wrap: anywhere;
+  user-select: all;
+  letter-spacing: 0.08em;
+}
+
+.tf-backup {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0 0.8rem;
+  border-top: 1px dotted var(--tf-rule);
+  border-bottom: 1px dotted var(--tf-rule);
+}
+
+.tf-backup-note {
+  margin: 0 0 0.6rem;
+  line-height: 1.6;
+}
+
+.tf-backup-note strong {
+  font-weight: 400;
+  color: var(--tf-accent);
+}
+
+.tf-codes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.6rem;
+  padding: 0 0 0 1.6rem;
+}
+
+.tf-copy {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: 0.06em;
+  color: var(--tf-dim);
+  cursor: pointer;
+}
+
+.tf-copy:hover,
+.tf-copy:focus-visible {
+  color: var(--colour3);
+}
+
+.tf-copy:focus-visible {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}

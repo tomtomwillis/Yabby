@@ -1,0 +1,90 @@
+/* The self-hosted sign-in's rows in the account list: a row opens a small
+   tinted panel under itself, the same band the profile's edit form uses. */
+
+.aa-panel {
+  display: block;
+  margin: 0.2rem 0 0.6rem;
+  padding: 0.9rem var(--me-edge) 1rem;
+  background: var(--me-tint);
+  border-bottom: 2px solid var(--me-accent);
+}
+
+.aa-panel form {
+  max-width: 26rem;
+}
+
+.aa-h {
+  margin: 0 0 0.7rem;
+  font-family: var(--font2);
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--me-accent);
+}
+
+.aa-field {
+  display: block;
+  margin-bottom: 0.8rem;
+}
+
+.aa-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.55rem;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--me-ink);
+  border: 1px solid var(--me-rule);
+  border-radius: 0;
+  font-family: var(--font2);
+  font-size: 0.8rem;
+}
+
+.aa-input:focus {
+  outline: 2px solid var(--colour3);
+  outline-offset: 1px;
+}
+
+.aa-input:disabled {
+  opacity: 0.6;
+}
+
+.aa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  font-family: var(--font2);
+  font-size: 0.78rem;
+}
+
+.aa-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.68rem;
+  color: var(--me-mute);
+}
+
+.aa-link {
+  display: block;
+  margin: 0 0 0.5rem;
+  padding: 0.3rem 0.5rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+  color: var(--me-ink);
+  border: 1px dotted var(--me-rule);
+}
+
+.aa-state {
+  margin-right: 0.5rem;
+  color: var(--me-accent);
+}
+
+.aa-state--off {
+  color: var(--me-mute);
+}
+
+.aa-done {
+  padding: 0;
+}

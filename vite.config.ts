@@ -15,6 +15,8 @@ const OPTIONAL_VENDORS: Record<string, string> = {
   'butterchurn': 'butterchurn',
   'butterchurn-presets': 'butterchurn-presets',
   'marked': 'marked',
+  'qrcode': 'qrcode',
+  'dijkstrajs': 'qrcode',
 }
 
 /* Split by how often code changes rather than by where it is used: Firebase
@@ -32,6 +34,16 @@ function vendorChunk(id: string): string | undefined {
   return undefined
 }
 
+/* Where the dev server sends /api. DEV_API_TARGET points it at a local
+   backend (e.g. http://localhost:3200); unset, it is the live site. */
+const API_TARGET = process.env.DEV_API_TARGET || 'https://yabbyville.xyz'
+const API_WS_TARGET = API_TARGET.replace(/^http/, 'ws')
+const API_PROXY = {
+  target: API_TARGET,
+  changeOrigin: true,
+  secure: !API_TARGET.startsWith('http://'),
+}
+
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -41,32 +53,12 @@ export default defineConfig({
   server: {
     proxy: {
       // WebSocket rule MUST come before the general /api/media rule
-      '/api/media/beets/terminal': {
-        target: 'wss://yabbyville.xyz',
-        ws: true,
-        changeOrigin: true,
-        secure: true,
-      },
-      '/api/media': {
-        target: 'https://yabbyville.xyz',
-        changeOrigin: true,
-        secure: true,
-      },
-      '/api/travel': {
-        target: 'https://yabbyville.xyz',
-        changeOrigin: true,
-        secure: true,
-      },
-      '/api/data': {
-        target: 'https://yabbyville.xyz',
-        changeOrigin: true,
-        secure: true,
-      },
-      '/api/music': {
-        target: 'https://yabbyville.xyz',
-        changeOrigin: true,
-        secure: true,
-      },
+      '/api/media/beets/terminal': { ...API_PROXY, target: API_WS_TARGET, ws: true },
+      '/api/media': { ...API_PROXY },
+      '/api/travel': { ...API_PROXY },
+      '/api/data': { ...API_PROXY },
+      '/api/music': { ...API_PROXY },
+      '/api/auth': { ...API_PROXY },
     },
   },
   plugins: [

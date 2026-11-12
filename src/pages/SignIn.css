@@ -1,0 +1,31 @@
+/* The sign-in and reset pages use the login sheet (Login.css); this is only
+   what they add to it. */
+
+.si-link {
+  text-decoration: none;
+}
+
+.si-tail {
+  justify-content: flex-end;
+  margin-top: 1.1rem;
+}
+
+.si-inline-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.si-inline-link:hover,
+.si-inline-link:focus-visible {
+  color: var(--colour3);
+}
+
+.si-hint {
+  display: block;
+  margin-top: 0.3rem;
+  font-family: var(--font2);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--lg-mute);
+}
