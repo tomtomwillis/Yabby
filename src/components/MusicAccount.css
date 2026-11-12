@@ -1,0 +1,128 @@
+.ma-item .me-row-key {
+  padding-left: 1rem;
+  color: var(--me-mute);
+}
+
+.ma-block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+  padding-left: calc(var(--me-edge) + 1rem);
+}
+
+.ma-text {
+  margin: 0;
+  max-width: var(--me-measure);
+  line-height: 1.6;
+  color: var(--me-ink);
+}
+
+.ma-warn {
+  color: var(--me-red);
+}
+
+.ma-secret-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.8rem;
+}
+
+.ma-secret {
+  flex: 1 1 18rem;
+  min-width: 0;
+  max-width: var(--me-measure);
+  padding: 0.3rem 0.5rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+  color: var(--me-ink);
+  border: 1px dotted var(--me-rule);
+}
+
+.ma-acts {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.ma-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.15rem 0.8rem;
+  margin: 0;
+}
+
+.ma-facts dt {
+  color: var(--me-dim);
+}
+
+.ma-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--me-ink);
+}
+
+.ma-steps {
+  margin: 0;
+  padding-left: 1.4rem;
+  max-width: var(--me-measure);
+  line-height: 1.6;
+  color: var(--me-dim);
+}
+
+.ma-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  max-width: var(--me-measure);
+}
+
+.ma-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-self: stretch;
+}
+
+.ma-field {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.ma-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--me-ink);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--me-rule);
+  border-radius: 0;
+  transition: border-color 0.15s ease;
+}
+
+.ma-input:focus-visible {
+  border-color: var(--colour3);
+  outline: none;
+}
+
+.ma-input:disabled {
+  color: var(--me-mute);
+}
+
+.ma-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  line-height: 1.6;
+  color: var(--me-ink);
+}
+
+.ma-error {
+  padding: 0;
+}

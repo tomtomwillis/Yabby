@@ -1,4 +1,4 @@
-import { musicSessionReady } from './musicSession';
+import { musicSessionGeneration, musicSessionReady, remintAfterAuthError } from './musicSession';
 
 const SERVER_URL = import.meta.env.VITE_NAVIDROME_SERVER_URL;
 const CLIENT_ID = import.meta.env.VITE_NAVIDROME_CLIENT_ID;
@@ -122,38 +122,56 @@ export function parseNavidromeLink(href: string): NavidromeLink | null {
   return { type: match[1] as 'album' | 'artist', id: decodeURIComponent(match[2]) };
 }
 
+/** Subsonic's codes for a login Navidrome refused (40-44). Through the gate on
+ *  the member's own account, that means the link may have gone stale. */
+function isLoginError(code: unknown): boolean {
+  const n = Number(code);
+  return n >= 40 && n <= 44;
+}
+
 /** Fetch a Subsonic endpoint and return the parsed XML document. Throws on HTTP, parse or API errors. */
 export async function fetchSubsonicXml(endpoint: string, params: Record<string, string | number | string[]> = {}, auth?: SubsonicAuth): Promise<Document> {
   if (!auth) await musicSessionReady();
-  const response = await fetch(subsonicUrl(endpoint, params, auth));
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  const text = await response.text();
-  const xmlDoc = new DOMParser().parseFromString(text, 'application/xml');
-  if (xmlDoc.querySelector('parsererror')) {
-    throw new Error('Invalid XML response from server');
-  }
-  const root = xmlDoc.querySelector('subsonic-response');
-  if (root?.getAttribute('status') === 'failed') {
-    const message = xmlDoc.querySelector('error')?.getAttribute('message') || 'Unknown API error';
-    throw new Error(`API Error: ${message}`);
-  }
-  return xmlDoc;
+  const send = async (retried: boolean): Promise<Document> => {
+    const sentAt = musicSessionGeneration();
+    const response = await fetch(subsonicUrl(endpoint, params, auth));
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const text = await response.text();
+    const xmlDoc = new DOMParser().parseFromString(text, 'application/xml');
+    if (xmlDoc.querySelector('parsererror')) {
+      throw new Error('Invalid XML response from server');
+    }
+    const root = xmlDoc.querySelector('subsonic-response');
+    if (root?.getAttribute('status') === 'failed') {
+      const error = xmlDoc.querySelector('error');
+      if (!auth && !retried && isLoginError(error?.getAttribute('code')) && await remintAfterAuthError(sentAt)) return send(true);
+      throw new Error(`API Error: ${error?.getAttribute('message') || 'Unknown API error'}`);
+    }
+    return xmlDoc;
+  };
+  return send(false);
 }
 
 /** Fetch a Subsonic endpoint with f=json and return the subsonic-response object. Throws on HTTP or API errors. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchSubsonicJson(endpoint: string, params: Record<string, string | number | string[]> = {}, auth?: SubsonicAuth): Promise<any> {
   if (!auth) await musicSessionReady();
-  const response = await fetch(subsonicUrl(endpoint, { ...params, f: 'json' }, auth));
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  const data = await response.json();
-  const root = data?.['subsonic-response'];
-  if (!root || root.status === 'failed') {
-    throw new Error(`API Error: ${root?.error?.message || 'Unknown API error'}`);
-  }
-  return root;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const send = async (retried: boolean): Promise<any> => {
+    const sentAt = musicSessionGeneration();
+    const response = await fetch(subsonicUrl(endpoint, { ...params, f: 'json' }, auth));
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    const root = data?.['subsonic-response'];
+    if (!root || root.status === 'failed') {
+      if (!auth && !retried && isLoginError(root?.error?.code) && await remintAfterAuthError(sentAt)) return send(true);
+      throw new Error(`API Error: ${root?.error?.message || 'Unknown API error'}`);
+    }
+    return root;
+  };
+  return send(false);
 }

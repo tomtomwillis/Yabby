@@ -4,6 +4,7 @@ import { doc } from 'firebase/firestore';
 import { updateDocShadowed } from '../../api/shadow';
 import { db } from '../../firebaseConfig';
 import { clearUserCache } from '../../utils/userCache';
+import MusicAccount from '../MusicAccount';
 import YeishinTokens from '../YeishinTokens';
 
 interface AccountSettingsProps {
@@ -156,6 +157,9 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({
             </span>
           </li>
         )}
+
+        {/* The server decides whether this is offered, not the admin flag. */}
+        <MusicAccount />
 
         {isAdmin && <YeishinTokens />}
 

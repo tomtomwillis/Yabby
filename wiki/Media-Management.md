@@ -92,3 +92,5 @@ During local development, `vite.config.ts` proxies both REST and WebSocket reque
 
 - `/api/media/beets/terminal` is proxied as a WebSocket connection (must be listed before the general rule)
 - `/api/media` is proxied as a standard HTTP request
+
+The `/api` rules point at `https://yabbyville.xyz` unless `DEV_API_TARGET` (in the shell or a `.env` file) names another backend, such as `http://localhost:3200`; a plain `http` target gets `ws://` for the terminal and no certificate check.

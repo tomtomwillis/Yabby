@@ -38,6 +38,23 @@ and then playing from it is a single `getAlbum`.
 Anything that starts playback — sticker popups, album carousels, Navidrome cards —
 calls `playAlbum` from the context rather than mounting a player of its own.
 
+## Music session
+
+Library audio and covers go through the same-origin music proxy (`/api/music/rest`),
+authorised by a cookie that `src/utils/musicSession.ts` mints from the Firebase token.
+The mint says which Navidrome account the proxy plays as: `'own'` once the member has
+linked theirs on the [Profile](Pages-Profile) page, `'shared'` otherwise. Read it with
+`getMusicAccount()` or `useMusicAccount()`.
+
+If a Subsonic call (`fetchSubsonicJson` / `fetchSubsonicXml`) comes back with a login
+error (codes 40-44) while on the member's own account, the session is minted once more,
+which lets the backend notice a stale link and fall back to the shared account, and the
+call is sent again once.
+
+On the member's own account the player reports to Navidrome (`src/utils/scrobble.ts`):
+"now playing" when a track starts, and a scrobble once half of it, or four minutes, has
+actually been heard. Never for the radio or the shared account; failures are ignored.
+
 ## Audio engine
 
 `useAudioEngine` owns the single `AudioContext`, the two source nodes (library

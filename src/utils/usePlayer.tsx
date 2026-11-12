@@ -5,6 +5,7 @@ import { attachAudioDebug, logEnvironment, logTrackSource } from './audioDebug';
 import { useAudioEngine } from './useAudioEngine';
 import { useMediaSession } from './useMediaSession';
 import { useRadioMetadata } from './useRadioMetadata';
+import { createScrobbler } from './scrobble';
 
 const RADIO_STREAM_URL = 'https://radio.yabbyville.xyz/live';
 
@@ -124,6 +125,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const mutedRef = useRef(muted);
   /** Was an album playing when the radio took over? */
   const resumeOnReturnRef = useRef(false);
+  const [scrobbler] = useState(createScrobbler);
 
   modeRef.current = mode;
   indexRef.current = index;
@@ -324,12 +326,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAudioDuration(0);
     audio.src = subsonicUrl('stream', { id: queue[i].id });
     logTrackSource(queue[i].id, audio.src);
+    scrobbler.begin(queue[i].id);
     audio.play().catch((err) => {
       // Reassigning src mid-load rejects the in-flight play() with AbortError —
       // expected whenever the user picks another track before this one starts.
       if (err?.name !== 'AbortError') console.error('Playback failed:', err);
     });
-  }, [unloadRadio, clearLibRecovery]);
+  }, [unloadRadio, clearLibRecovery, scrobbler]);
 
   const playAlbum = useCallback(async (nextAlbum: PlayerAlbum, startTrackId?: string) => {
     // Before the await, not after: once the visualiser has put the graph in
@@ -367,6 +370,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const stop = useCallback(() => {
     clearLibRecovery();
+    scrobbler.end();
     const audio = libAudioRef.current;
     if (audio) {
       audio.pause();
@@ -379,7 +383,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setLibraryPlaying(false);
     setCurrentTime(0);
     setAudioDuration(0);
-  }, [clearLibRecovery]);
+  }, [clearLibRecovery, scrobbler]);
 
   // ── Mode ─────────────────────────────────────────────────
 
@@ -487,7 +491,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           preload="none"
           onPlay={() => setLibraryPlaying(true)}
           onPause={() => setLibraryPlaying(false)}
-          onPlaying={() => { libAttemptRef.current = 0; disarmLibWatchdog(); }}
+          onPlaying={(e) => {
+            libAttemptRef.current = 0;
+            disarmLibWatchdog();
+            scrobbler.playing(e.currentTarget.currentTime);
+          }}
           onWaiting={armLibWatchdog}
           onStalled={armLibWatchdog}
           onTimeUpdate={(e) => {
@@ -497,6 +505,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (libResumeAtRef.current != null) return;
             libPositionRef.current = e.currentTarget.currentTime;
             setCurrentTime(e.currentTarget.currentTime);
+            // A transcoded stream can report no length; Subsonic's covers it.
+            const length = e.currentTarget.duration;
+            scrobbler.progress(
+              e.currentTarget.currentTime,
+              Number.isFinite(length) && length > 0 ? length : tracksRef.current[indexRef.current]?.duration ?? 0,
+            );
           }}
           onLoadedMetadata={(e) => {
             const audio = e.currentTarget;

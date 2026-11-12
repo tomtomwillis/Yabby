@@ -13,6 +13,21 @@ Where users edit their profile details. There is also a public profile view at `
 - **Location** - a flag emoji and text
 - **Password** - reset via Firebase email
 - **Oneko cat** - toggle the interactive cat that follows your cursor
+- **Music account** - link your own Navidrome account (see below)
+
+## Music Account
+
+**File:** `src/components/MusicAccount.tsx` (client: `src/api/musicAccount.ts`)
+
+A row in the account list, shown only when `GET /api/music/account` answers `enabled: true` (nothing while loading, when off, or on any error). Linking makes the site's player play as the member's own Navidrome user, so plays and history are theirs, and gives them a generated **music password** for phone apps.
+
+- **Not linked** - Navidrome username and current password, then a confirm step. Linking replaces the Navidrome password, so phone apps must be given the new one. The password field is cleared as soon as it is sent.
+- **Just linked / regenerated** - the music password is shown once, with the server address, the username and a copy button. `done` drops it; it is never stored anywhere.
+- **Linked** - when the password was set, whether the player here is on the member's account, `regenerate` and `unlink` (both confirmed).
+- **Stale** - the music password no longer works and the player has fallen back to the shared account. `regenerate music password` comes first, since it also recovers a password change whose answer was lost. Only if that is refused (409) is `unlink and link again` offered, with no confirm. An unlink the server refuses because a password change is unconfirmed shows its reason inline.
+- **Switched off, still linked** - `{ enabled: false, linked: true }`: a line saying the feature is off for now and a confirmed `unlink`.
+
+Each change mints a fresh music session, so the player switches account at once. Umami events: `music-account-linked`, `music-password-regenerated`, `music-account-unlinked`.
 
 ## Customising
 

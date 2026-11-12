@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -32,6 +32,13 @@ function vendorChunk(id: string): string | undefined {
   return undefined
 }
 
+/* Where the dev server sends /api: the live site unless DEV_API_TARGET (in the
+   shell or a .env file) points at a backend of your own, such as
+   http://localhost:3200. */
+const API_TARGET = loadEnv('development', process.cwd(), 'DEV_').DEV_API_TARGET || 'https://yabbyville.xyz'
+const API_SECURE = !API_TARGET.startsWith('http://')
+const API_WS_TARGET = API_TARGET.replace(/^http/, 'ws')
+
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -42,30 +49,30 @@ export default defineConfig({
     proxy: {
       // WebSocket rule MUST come before the general /api/media rule
       '/api/media/beets/terminal': {
-        target: 'wss://yabbyville.xyz',
+        target: API_WS_TARGET,
         ws: true,
         changeOrigin: true,
-        secure: true,
+        secure: API_SECURE,
       },
       '/api/media': {
-        target: 'https://yabbyville.xyz',
+        target: API_TARGET,
         changeOrigin: true,
-        secure: true,
+        secure: API_SECURE,
       },
       '/api/travel': {
-        target: 'https://yabbyville.xyz',
+        target: API_TARGET,
         changeOrigin: true,
-        secure: true,
+        secure: API_SECURE,
       },
       '/api/data': {
-        target: 'https://yabbyville.xyz',
+        target: API_TARGET,
         changeOrigin: true,
-        secure: true,
+        secure: API_SECURE,
       },
       '/api/music': {
-        target: 'https://yabbyville.xyz',
+        target: API_TARGET,
         changeOrigin: true,
-        secure: true,
+        secure: API_SECURE,
       },
     },
   },

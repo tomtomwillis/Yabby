@@ -14,11 +14,26 @@ const REMINT_AFTER_MS = 50 * 60 * 1000;
 // The app must not hang on music: past this, pages render and covers fail.
 const READY_TIMEOUT_MS = 8000;
 
+/** Which Navidrome account the gate plays as: the member's own once linked. */
+export type MusicAccount = 'own' | 'shared';
+
 let mintedAt = 0;
+let account: MusicAccount = 'shared';
+/** Counts finished mints, so a failed request can tell whether the session it
+ *  was sent with has been replaced since. */
+let generation = 0;
+let authRemint: Promise<void> | null = null;
+const accountListeners = new Set<() => void>();
 let settle: (() => void) | null = null;
 let ready = new Promise<void>((resolve) => { settle = resolve; });
 let isReady = false;
 const listeners = new Set<() => void>();
+
+function setAccount(next: MusicAccount) {
+  if (next === account) return;
+  account = next;
+  accountListeners.forEach((listener) => listener());
+}
 
 function markReady() {
   if (isReady) return;
@@ -35,10 +50,17 @@ async function mint(): Promise<void> {
       method: 'POST',
       headers: { Authorization: `Bearer ${await user.getIdToken()}` },
     });
-    if (response.ok) mintedAt = Date.now();
-    else console.error('Music session refused:', response.status);
+    if (response.ok) {
+      mintedAt = Date.now();
+      const body = await response.json().catch(() => null);
+      setAccount(body?.account === 'own' ? 'own' : 'shared');
+    } else {
+      console.error('Music session refused:', response.status);
+    }
   } catch (err) {
     console.error('Music session failed:', err);
+  } finally {
+    generation += 1;
   }
 }
 
@@ -47,6 +69,7 @@ onIdTokenChanged(auth, (user) => {
     void mint().finally(markReady);
   } else {
     mintedAt = 0;
+    setAccount('shared');
     void fetch(LOGOUT_URL, { method: 'POST' }).catch(() => undefined);
     // Signed out: nothing to wait for, and the next sign-in waits afresh.
     if (isReady) {
@@ -85,4 +108,49 @@ export function useMusicSessionReady(): boolean {
     };
   }, []);
   return state;
+}
+
+/** The account the current music session plays as. */
+export function getMusicAccount(): MusicAccount {
+  return account;
+}
+
+export function useMusicAccount(): MusicAccount {
+  const [state, setState] = useState(account);
+  useEffect(() => {
+    const update = () => setState(account);
+    accountListeners.add(update);
+    update();
+    return () => {
+      accountListeners.delete(update);
+    };
+  }, []);
+  return state;
+}
+
+/** Mints a new session now, after the member's music account changed, so the
+ *  gate switches accounts without waiting for the next token refresh. */
+export function refreshMusicSession(): Promise<void> {
+  return mint();
+}
+
+/** Pass to remintAfterAuthError when a request it answers is sent. */
+export function musicSessionGeneration(): number {
+  return generation;
+}
+
+/**
+ * After Navidrome refused the member's own login: one fresh mint, in which the
+ * gate re-checks the link and falls back to the shared account if it went
+ * stale. Requests that fail together share it, and one sent before a newer
+ * session needs none. Resolves true when the request is worth sending again.
+ */
+export async function remintAfterAuthError(sentAt: number): Promise<boolean> {
+  if (sentAt !== generation) return true;
+  if (account !== 'own') return false;
+  authRemint ??= mint().finally(() => {
+    authRemint = null;
+  });
+  await authRemint;
+  return true;
 }
