@@ -28,6 +28,7 @@ const TYPE_PLURALS: Record<string, string> = {
   club: 'club nights',
   radio: 'radio shows',
   release: 'releases',
+  screening: 'screenings',
   event: 'events',
   other: 'other events',
 };

@@ -328,7 +328,7 @@ service cloud.firestore {
       return validString(data.title, 1, 120)
         && data.date is string
         && data.date.matches('20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])')
-        && data.category in ['radio', 'club', 'gig', 'release', 'event', 'other', 'yabby']
+        && data.category in ['radio', 'club', 'gig', 'release', 'screening', 'event', 'other', 'yabby']
         && (!('time' in data) || isValidEventTime(data.time))
         && (!('endTime' in data) || ('time' in data && isValidEventTime(data.endTime)))
         && (!('timeZone' in data) || ('time' in data && isValidEventTimeZone(data.timeZone)))

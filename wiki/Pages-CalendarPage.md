@@ -7,7 +7,7 @@ A community events calendar — gigs, club nights, radio shows, releases and gen
 
 ## What It Shows
 
-- **Bar** (`cal-bar`, pinned to the top of the column) — prev/today/next navigation, the current month or week range as the heading, a month/week view switch, and a colour key for the six event categories (`gig`, `club`, `radio`, `release`, `event`, `other`) that doubles as a quick type filter.
+- **Bar** (`cal-bar`, pinned to the top of the column) — prev/today/next navigation, the current month or week range as the heading, a month/week view switch, and a colour key for the seven event categories (`gig`, `club`, `radio`, `release`, `screening`, `event`, `other`) that doubles as a quick type filter.
 - **Grid** — `CalendarMonth` (a dot per event, coloured by category, ringed if the member is interested) or `CalendarWeek` (each day as a column of time + title rows), depending on the chosen view. Defaults to week view under 760px width, since a month cell there is too narrow for anything but dots.
 - **Settings + filters** (`CalendarSettings`) — a collapsible panel with faceted filters (city, type, hosted by, added by, calendar) each showing live counts for what's currently on screen, plus the member's own calendar settings (`CalendarMine`) once opened. Each facet shows its first 6 options (counting "all") with a "show more" toggle for the rest; a chosen option past the cut stays visible.
 - **Add band** (`cal-add`) — a single line that expands into `EventForm` when clicked.

@@ -1,13 +1,14 @@
 /** Shared shapes and date helpers for the calendar, its home widget and the
  *  event hover card. Limits mirror isValidEventFields in firestore.rules. */
 
-export type EventCategory = 'radio' | 'club' | 'gig' | 'release' | 'event' | 'other' | 'yabby';
+export type EventCategory = 'radio' | 'club' | 'gig' | 'release' | 'screening' | 'event' | 'other' | 'yabby';
 
 export const EVENT_CATEGORIES: { value: EventCategory; label: string; colour: string }[] = [
   { value: 'gig', label: 'gig', colour: '#1a2ecc' },
   { value: 'club', label: 'club', colour: '#f52bc9' },
   { value: 'radio', label: 'radio', colour: '#8825e6' },
   { value: 'release', label: 'release', colour: '#3a9d3f' },
+  { value: 'screening', label: 'screening', colour: '#d6283a' },
   { value: 'event', label: 'event', colour: '#e0721a' },
   { value: 'other', label: 'other', colour: '#6b7280' },
   { value: 'yabby', label: 'yabby', colour: '#e6c619' },

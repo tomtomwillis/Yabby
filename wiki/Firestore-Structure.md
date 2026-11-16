@@ -104,7 +104,7 @@ Calendar events — see [Calendar Page](Pages-CalendarPage). Any signed-in membe
 |-------|------|-------|
 | `title` | string | |
 | `date` | string | `YYYY-MM-DD`, wall-clock date at the venue |
-| `category` | string | `radio` \| `club` \| `gig` \| `release` \| `event` \| `other` |
+| `category` | string | `radio` \| `club` \| `gig` \| `release` \| `screening` \| `event` \| `other` |
 | `time` / `endTime` | string | Optional, `HH:MM` |
 | `timeZone` | string | Optional IANA zone; absent on all-day events and events saved before zones existed (treated as UK time) |
 | `description` | string | Optional, may carry `@`-tags as `[text](url)` links |
