@@ -182,6 +182,37 @@
   color: var(--ls-rule, #c9cee4);
 }
 
+.ls-form-place-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ls-form-place-results {
+  max-width: 66ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--ls-rule, #c9cee4);
+}
+
+.ls-form-place-results button {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-bottom: 1px solid var(--ls-rule-soft, #dfe3f0);
+  background: transparent;
+  color: var(--ls-accent, var(--colour2));
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ls-form-place-results button:hover,
+.ls-form-place-results button:focus-visible {
+  color: var(--colour3);
+}
+
 /* ─── The album search, brought into the language ─────── */
 
 /* AlbumSearchBox is shared with the media tools, so it is re-set here rather
@@ -270,6 +301,10 @@
   gap: 0.7rem;
   align-items: start;
   margin: 0.6rem 0 0.7rem;
+}
+
+.ls-form-pick--place {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .ls-form-pick-thumb {

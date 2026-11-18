@@ -5,6 +5,7 @@ import { parseMessageHTML } from './basic/messageText';
 import { normalizeAvatarPath } from '../utils/avatarPath';
 import ListAlbumTracks from './ListAlbumTracks';
 import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
+import { isTravelPlaceLink } from '../utils/listPlaces';
 
 interface BaseListItemProps {
   type: 'album' | 'custom';
@@ -36,6 +37,7 @@ type ListItemProps = AlbumListItemProps | CustomListItemProps;
 
 const ListItem: React.FC<ListItemProps> = (props) => {
   const { type, userText, onRemove, showRemoveButton = false } = props;
+  const placeLink = type === 'custom' && isTravelPlaceLink(props.linkUrl) ? props.linkUrl : undefined;
 
   const handleItemClick = () => {
     if (type === 'album') {
@@ -73,7 +75,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         imageUrl: props.imageUrl ? displayImageUrl(props.imageUrl) : undefined,
         imageAlt: props.title,
         clickable: !!props.linkUrl,
-        typeLabel: '[custom]'
+        typeLabel: placeLink ? '[location]' : '[custom]'
       };
     }
   };
@@ -90,7 +92,11 @@ const ListItem: React.FC<ListItemProps> = (props) => {
       }
     >
       {itemDetails.imageUrl && (
-        itemDetails.clickable ? (
+        placeLink ? (
+          <Link className="ls-item-thumb" to={placeLink} aria-label={`Open ${itemDetails.title}`}>
+            <img src={itemDetails.imageUrl} alt={itemDetails.imageAlt} onError={handleImageError} />
+          </Link>
+        ) : itemDetails.clickable ? (
           <button
             type="button"
             className="ls-item-thumb"
@@ -108,7 +114,9 @@ const ListItem: React.FC<ListItemProps> = (props) => {
 
       <div className="ls-item-body">
         <div className="ls-item-head">
-          {itemDetails.clickable ? (
+          {placeLink ? (
+            <Link className="ls-item-title" to={placeLink}>{itemDetails.title}</Link>
+          ) : itemDetails.clickable ? (
             <button type="button" className="ls-item-title" onClick={handleItemClick}>
               {itemDetails.title}
             </button>

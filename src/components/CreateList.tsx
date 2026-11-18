@@ -3,6 +3,8 @@ import { collection, doc, getDoc, getDocs, query, orderBy } from 'firebase/fires
 import { addDocShadowed, updateDocShadowed, deleteDocShadowed, SERVER_TIME, type WriteData } from '../api/shadow';
 import { db, auth } from '../firebaseConfig';
 import AlbumSearchBox from './basic/AlbumSearchBox';
+import ListPlaceSearch from './ListPlaceSearch';
+import { isTravelPlaceLink, travelPlaceLink, type ListPlace } from '../utils/listPlaces';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
 import './CreateList.css';
 import type { AlbumListItem, CustomListItem, List, ListItem } from '../types/firestore';
@@ -39,7 +41,9 @@ const CreateList: React.FC<CreateListProps> = ({
   // Said on the slip itself rather than in a dialog — nothing on these pages
   // interrupts you to tell you something.
   const [error, setError] = useState<string | null>(null);
-  const [addMode, setAddMode] = useState<'album' | 'custom'>('album');
+  const [addMode, setAddMode] = useState<'album' | 'place' | 'custom'>('album');
+  const [selectedPlace, setSelectedPlace] = useState<ListPlace | null>(null);
+  const [placeImageUrl, setPlaceImageUrl] = useState('');
   const [isPublic, setIsPublic] = useState(existingList?.isPublic ?? true);
   const [isCollaborative, setIsCollaborative] = useState(existingList?.isCollaborative ?? false);
   const [currentUserData, setCurrentUserData] = useState<{ username: string; avatar: string } | null>(null);
@@ -206,6 +210,27 @@ const CreateList: React.FC<CreateListProps> = ({
     setCustomImageUrl('');
     setCustomLinkUrl('');
     setCurrentItemText('');
+  };
+
+  const handleAddPlace = () => {
+    if (!selectedPlace) return;
+    const title = [selectedPlace.name, selectedPlace.city, selectedPlace.country].filter(Boolean).join(' · ').slice(0, 300);
+    const placeItem: CustomListItem = {
+      type: 'custom',
+      title,
+      linkUrl: travelPlaceLink(selectedPlace.id),
+      ...(placeImageUrl.trim() && { imageUrl: placeImageUrl.trim() }),
+      userText: currentItemText,
+      order: items.length,
+      addedByUserId: auth.currentUser?.uid || '',
+      addedByUsername: currentUserData?.username || 'Anonymous',
+      addedByAvatar: currentUserData?.avatar || '',
+    };
+    setItems([...items, placeItem]);
+    setSelectedPlace(null);
+    setPlaceImageUrl('');
+    setCurrentItemText('');
+    setError(null);
   };
 
   // Remove item from list
@@ -536,6 +561,8 @@ const CreateList: React.FC<CreateListProps> = ({
         setListTitle('');
         setItems([]);
         setSelectedAlbum(null);
+        setSelectedPlace(null);
+        setPlaceImageUrl('');
         setCurrentItemText('');
         setCustomTitle('');
         setCustomImageUrl('');
@@ -550,6 +577,8 @@ const CreateList: React.FC<CreateListProps> = ({
       // Reset form for edit mode
       if (editMode) {
         setSelectedAlbum(null);
+        setSelectedPlace(null);
+        setPlaceImageUrl('');
         setCurrentItemText('');
         setCustomTitle('');
         setCustomImageUrl('');
@@ -637,6 +666,15 @@ const CreateList: React.FC<CreateListProps> = ({
         <span className="ls-form-mode-sep" aria-hidden="true">/</span>
         <button
           type="button"
+          className={`ls-form-mode${addMode === 'place' ? ' is-sel' : ''}`}
+          aria-pressed={addMode === 'place'}
+          onClick={() => setAddMode('place')}
+        >
+          location
+        </button>
+        <span className="ls-form-mode-sep" aria-hidden="true">/</span>
+        <button
+          type="button"
           className={`ls-form-mode${addMode === 'custom' ? ' is-sel' : ''}`}
           aria-pressed={addMode === 'custom'}
           onClick={() => setAddMode('custom')}
@@ -686,6 +724,43 @@ const CreateList: React.FC<CreateListProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {addMode === 'place' && (
+        selectedPlace ? (
+          <div className="ls-form-pick ls-form-pick--place">
+            <div>
+              <div className="ls-form-pick-name">{selectedPlace.name}</div>
+              <div className="ls-form-pick-artist">{[selectedPlace.city, selectedPlace.country].filter(Boolean).join(' · ')}</div>
+              <div className="ls-form-field">
+                <label className="ls-form-label" htmlFor="ls-form-place-image">image url</label>
+                <input
+                  id="ls-form-place-image"
+                  className="ls-form-input"
+                  type="url"
+                  value={placeImageUrl}
+                  placeholder="optional"
+                  onChange={(e) => setPlaceImageUrl(e.target.value)}
+                />
+              </div>
+              <textarea
+                className="ls-form-textarea"
+                aria-label="location note"
+                value={currentItemText}
+                maxLength={1000}
+                placeholder="what do you make of it?"
+                onChange={(e) => setCurrentItemText(e.target.value)}
+              />
+              <div className="ls-form-actions">
+                <button type="button" className="ls-form-btn" onClick={handleAddPlace}>add entry</button>
+                <button type="button" className="ls-form-quiet" onClick={() => {
+                  setSelectedPlace(null);
+                  setPlaceImageUrl('');
+                }}>discard</button>
+              </div>
+            </div>
+          </div>
+        ) : <ListPlaceSearch onSelect={setSelectedPlace} />
       )}
 
       {addMode === 'custom' && (
@@ -761,6 +836,7 @@ const CreateList: React.FC<CreateListProps> = ({
               const isDragOver = dragOverIndex === index;
               const image = item.type === 'album' ? albumCoverUrl(item.albumId, 300) : item.imageUrl && displayImageUrl(item.imageUrl);
               const title = item.type === 'album' ? item.albumTitle : item.title;
+              const isPlace = item.type === 'custom' && isTravelPlaceLink(item.linkUrl);
 
               return (
                 <li
@@ -799,8 +875,8 @@ const CreateList: React.FC<CreateListProps> = ({
                             <a
                               className="ls-form-entry-title"
                               href={item.linkUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              target={isPlace ? undefined : '_blank'}
+                              rel={isPlace ? undefined : 'noopener noreferrer'}
                             >
                               {title}
                             </a>
@@ -811,7 +887,7 @@ const CreateList: React.FC<CreateListProps> = ({
                             <span className="ls-form-entry-artist">by {item.albumArtist}</span>
                           )}
                           <span className="ls-form-entry-kind">
-                            {item.type === 'album' ? '[album]' : '[custom]'}
+                            {item.type === 'album' ? '[album]' : isPlace ? '[location]' : '[custom]'}
                           </span>
                         </div>
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Place, PlaceCategory, TravelPhoto } from './travelTypes';
 import { CATEGORY_COLOURS, PLACE_CATEGORIES } from './travelTypes';
 import TravelPlaceBubble from './TravelPlaceBubble';
+import { visibleRecommendations } from './recommendationVisibility';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import './TravelRecommendationList.css';
 
@@ -46,8 +47,8 @@ export default function TravelRecommendationList({
     return <p className="tv-rec-empty">nothing matches the filter.</p>;
   }
 
-  const visible = showAll ? places : places.slice(0, PAGE_SIZE);
-  const hiddenCount = places.length - PAGE_SIZE;
+  const visible = visibleRecommendations(places, PAGE_SIZE, showAll, initialExpandedId);
+  const hiddenCount = places.length - visible.length;
 
   const toggleExpand = (place: Place) => {
     if (expandedId === place.id) {

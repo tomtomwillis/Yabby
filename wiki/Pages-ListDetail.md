@@ -10,6 +10,7 @@ Shows the full contents of a single list and allows the owner (or any member for
 - List title, author, item count, and creation date
 - "Collaborative" badge if the list is collaborative
 - Numbered list of items, each rendered by `ListItem`
+- Location entries link to their recommendation on the travel map
 - Edit and Delete buttons for users with edit access
 
 ## Access Control

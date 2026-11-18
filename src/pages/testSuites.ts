@@ -30,6 +30,7 @@ import {
 import { db } from '../firebaseConfig';
 import { sanitizeHtml } from '../utils/sanitise';
 import { placeIdFor } from '../utils/geocode';
+import { travelPlaceLink } from '../utils/listPlaces';
 import { addDays, parseEventLink, todayISO } from '../components/events/eventTypes';
 import { getFeedLink } from '../utils/eventInterests';
 
@@ -441,7 +442,7 @@ const listsSuite: TestSuite = {
   id: 'lists',
   name: 'Lists',
   description:
-    'Runs the two queries the Lists page depends on, then builds a sandbox list with an album and a custom entry, edits it, makes it public and deletes it.',
+    'Runs the two queries the Lists page depends on, then builds a sandbox list with album, custom and travel location entries, edits it, makes it public and deletes it.',
   tests: [
     {
       name: 'reads public lists',
@@ -499,7 +500,7 @@ const listsSuite: TestSuite = {
       },
     },
     {
-      name: 'adds an album entry and a custom entry',
+      name: 'adds album, custom and location entries',
       run: async (ctx) => {
         const listId = requireId(listState.listId, 'list');
         const items = collection(db, SANDBOX_LISTS, listId, 'items');
@@ -531,9 +532,23 @@ const listsSuite: TestSuite = {
         });
         const disposeCustom = ctx.cleanup(`${SANDBOX_LISTS}/${listId}/items/${customRef.id}`, () => deleteDoc(customRef));
 
-        listState.itemIds = [albumRef.id, customRef.id];
-        listState.disposeItems = [disposeAlbum, disposeCustom];
-        return '2 entries added';
+        const placeRef = await addDoc(items, {
+          type: 'custom',
+          userText: `${MARKER} location entry`,
+          order: 2,
+          timestamp: SERVER_TIME,
+          title: 'Test location · Test city',
+          linkUrl: travelPlaceLink('node_123'),
+          imageUrl: 'https://example.com/location.jpg',
+          addedByUserId: ctx.uid,
+          addedByUsername: ctx.username,
+          addedByAvatar: ctx.avatar,
+        });
+        const disposePlace = ctx.cleanup(`${SANDBOX_LISTS}/${listId}/items/${placeRef.id}`, () => deleteDoc(placeRef));
+
+        listState.itemIds = [albumRef.id, customRef.id, placeRef.id];
+        listState.disposeItems = [disposeAlbum, disposeCustom, disposePlace];
+        return '3 entries added';
       },
     },
     {
@@ -543,10 +558,12 @@ const listsSuite: TestSuite = {
         const snap = await getDocs(
           query(collection(db, SANDBOX_LISTS, listId, 'items'), orderBy('order', 'asc')),
         );
-        assert(snap.size === 2, `Expected 2 entries, got ${snap.size}.`);
+        assert(snap.size === 3, `Expected 3 entries, got ${snap.size}.`);
         assert(snap.docs[0].data().type === 'album', 'The entries came back in the wrong order.');
         assert(snap.docs[1].data().title === 'Test entry', 'The custom entry lost its title.');
-        return 'both entries in the right order';
+        assert(snap.docs[2].data().linkUrl === travelPlaceLink('node_123'), 'The location link did not survive.');
+        assert(snap.docs[2].data().imageUrl === 'https://example.com/location.jpg', 'The location image did not survive.');
+        return 'all entries in the right order';
       },
     },
     {
@@ -558,7 +575,7 @@ const listsSuite: TestSuite = {
 
         await updateDoc(ref, {
           title,
-          itemCount: 2,
+          itemCount: 3,
           isPublic: true,
           lastUpdated: SERVER_TIME,
           lastItemImage: '',
@@ -566,7 +583,7 @@ const listsSuite: TestSuite = {
         });
         const data = (await getDoc(ref)).data();
         assert(data?.title === title, 'The title change did not save.');
-        assert(data?.itemCount === 2, 'itemCount did not update.');
+        assert(data?.itemCount === 3, 'itemCount did not update.');
         assert(data?.lastItemAlbumId === 'yabby-test-album', 'The album preview did not save.');
 
         // Same query shape the Lists page uses, so this also proves the index.
