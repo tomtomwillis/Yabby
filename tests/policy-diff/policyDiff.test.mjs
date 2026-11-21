@@ -231,8 +231,6 @@ const BASES = [
   // Profiles and usernames
   { name: 'profile edit', as: ALICE, op: 'set', merge: true, path: 'users/uid-alice', data: { username: 'alice', bio: 'new bio', color: 'red', locationFlag: 'NZ' } },
   { name: 'post count', as: ALICE, op: 'update', path: 'users/uid-alice', data: { postCount: incrementBy(1) } },
-  { name: 'sticker count up from unset', as: ALICE, op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
-  { name: 'sticker count down', as: BOB, op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
   { name: 'sticker count down by admin', as: ADMIN, op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
   { name: 'sticker recount by admin', as: ADMIN, op: 'update', path: 'users/uid-alice', data: { stickerCount: 7 } },
   { name: 'profile socials', as: ALICE, op: 'update', path: 'users/uid-alice', data: { socials: { instagram: 'yab.by', signal: 'yabby.01', discord: 'yabby', playstation: 'Yabby_1', bandcampArtist: 'yabby-band', bandcampFan: 'yabby', soundcloud: 'yabby', mixcloud: 'yabby', twitter: 'yabby', steam: '76561198012345678', radio: 'https://mixcloud.com/yabby/show-1' } } },
@@ -258,22 +256,10 @@ const BASES = [
   { name: 'list item edit', as: ALICE, op: 'update', path: 'lists/own/items/it1', data: { userText: 'changed', order: 2 } },
   { name: 'list item delete', as: ALICE, op: 'delete', path: 'lists/own/items/it1' },
 
-  // Stickers
-  { name: 'sticker', as: ALICE, op: 'create', path: 'stickers/new', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album' } },
-  { name: 'sticker edit', as: ALICE, op: 'update', path: 'stickers/s1', data: { text: 'edited', editedAt: SERVER_TIME } },
-  { name: 'sticker delete', as: ALICE, op: 'delete', path: 'stickers/s1' },
-  { name: 'sticker placed with its count', as: ALICE, op: 'batch', writes: [
-    { op: 'set', path: 'stickers/placed', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album', albumArtist: 'Artist' } },
-    { op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
-  ] },
-  { name: 'sticker deleted with its count', as: BOB, op: 'batch', writes: [
-    { op: 'delete', path: 'stickers/s2' },
-    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
-  ] },
-  { name: 'sticker deleted with its count by admin', as: ADMIN, op: 'batch', writes: [
-    { op: 'delete', path: 'stickers/s2' },
-    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
-  ] },
+  // Stickers. Live stickers are written by the API; browsers write the /test twin only.
+  // SQLite keeps no test collections, so the policy side has no twin sticker to
+  // edit or delete. Only the create can be compared; /test covers the rest.
+  { name: 'sandbox sticker', as: ALICE, op: 'create', path: 'testStickers/new', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album' } },
 
   // Calendar events
   { name: 'event', as: ALICE, op: 'create', path: 'events/new', data: { title: 'Club night', date: '2026-10-03', category: 'club', time: '22:00', endTime: '04:00', timeZone: 'Europe/Paris', description: 'dance', location: 'basement', cost: '£5', urls: ['https://a.example', 'http://b.example'], imageId: '0f8fad5b-d9cb-469f-a165-70867728950e', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
@@ -336,6 +322,16 @@ const BASES = [
 
 /** Writes no one may make. Judged as-is, not mutated. */
 const FORBIDDEN = [
+  { name: 'live sticker by a member', as: ALICE, op: 'create', path: 'stickers/new', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album' } },
+  { name: 'live sticker edit by its owner', as: ALICE, op: 'update', path: 'stickers/s1', data: { text: 'edited', editedAt: SERVER_TIME } },
+  { name: 'live sticker delete by its owner', as: ALICE, op: 'delete', path: 'stickers/s1' },
+  { name: 'live sticker delete by an admin', as: ADMIN, op: 'delete', path: 'stickers/s2' },
+  { name: 'own sticker count up', as: ALICE, op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
+  { name: 'own sticker count down', as: BOB, op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
+  { name: 'live sticker placed with its count', as: ALICE, op: 'batch', writes: [
+    { op: 'set', path: 'stickers/placed', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album', albumArtist: 'Artist' } },
+    { op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
+  ] },
   { name: 'list created with no lastUpdated', as: ALICE, op: 'create', path: 'lists/stale', data: { title: 'new list', userId: ALICE, username: 'alice', timestamp: SERVER_TIME, itemCount: 0, isPublic: true, isCollaborative: false } },
   { name: 'list edit that removes lastUpdated', as: ALICE, op: 'update', path: 'lists/own', data: { lastUpdated: DELETE_FIELD } },
   { name: 'list edit that leaves lastUpdated stale', as: ALICE, op: 'update', path: 'lists/own', data: { title: 'renamed' } },

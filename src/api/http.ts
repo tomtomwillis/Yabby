@@ -9,8 +9,10 @@ import { ApiError } from './areaClient';
 
 export const DATA_API_URL = import.meta.env.VITE_DATA_API_URL || '/api/data';
 
-/** Reads give up after this and fall back. */
-export const READ_TIMEOUT_MS = 3000;
+/** Reads give up after this and fall back. A dead API answers at once (502
+ *  from Caddy, or a refused connection), so a timeout almost always means a
+ *  slow network, which Firestore would cross no faster. Wait for the API. */
+export const READ_TIMEOUT_MS = 10_000;
 const WRITE_TIMEOUT_MS = 15000;
 
 /** Browsers refuse a keepalive body over 64 KiB in flight at once. */

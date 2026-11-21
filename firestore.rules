@@ -452,16 +452,9 @@ service cloud.firestore {
                   || request.resource.data.postCount == resource.data.postCount
                   || request.resource.data.postCount == resource.data.postCount + 1)
             ))
-        // Sticker count follows the member's stickers, which they can both
-        // place and delete, so it may hold or move by one either way. Unlike
-        // postCount, a missing count is zero rather than a free first write.
-        && (!('stickerCount' in request.resource.data) || (
-              request.resource.data.stickerCount is int
-              && request.resource.data.stickerCount >= 0
-              && (request.resource.data.stickerCount == resource.data.get('stickerCount', 0)
-                  || request.resource.data.stickerCount == resource.data.get('stickerCount', 0) + 1
-                  || request.resource.data.stickerCount == resource.data.get('stickerCount', 0) - 1)
-            ))
+        // Stickers are written by the backend, which keeps this count with
+        // them. The member may carry it through a profile save but never move it.
+        && request.resource.data.get('stickerCount', 0) == resource.data.get('stickerCount', 0)
         // Travel recs are written by the backend, which keeps this count with
         // them. The member may carry it through a profile save but never move it.
         && request.resource.data.get('travelCount', 0) == resource.data.get('travelCount', 0);
@@ -909,11 +902,13 @@ service cloud.firestore {
       }
     }
 
-    // Stickers, plus the /test sandbox twin
+    // Stickers, plus the /test sandbox twin. Live stickers are written only by
+    // the backend (it reads and writes them in SQLite and copies each change
+    // here), so a browser may write the sandbox twin and nothing else.
     match /{stickerCollection}/{stickerId} {
       allow read: if isStickerCollection(stickerCollection) && isSignedIn();
 
-      allow create: if isStickerCollection(stickerCollection) && isSignedIn()
+      allow create: if stickerCollection == 'testStickers' && isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasOnly(['userId', 'albumId', 'text', 'position', 'sticker', 'timestamp', 'favoriteTrackId', 'favoriteTrackTitle', 'albumName', 'albumArtist'])
         && isValidMessage(request.resource.data.text)
@@ -928,11 +923,11 @@ service cloud.firestore {
         && (!('albumArtist' in request.resource.data) || validString(request.resource.data.albumArtist, 0, 300))
         && request.resource.data.timestamp == request.time;
 
-      allow update: if isStickerCollection(stickerCollection) && isOwner(resource.data.userId)
+      allow update: if stickerCollection == 'testStickers' && isOwner(resource.data.userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
         && isValidMessage(request.resource.data.text);
 
-      allow delete: if isStickerCollection(stickerCollection) && (isOwner(resource.data.userId) || isAdmin());
+      allow delete: if stickerCollection == 'testStickers' && (isOwner(resource.data.userId) || isAdmin());
     }
 
     // Calendar events, plus the /test sandbox twin. Any member may add one; only
