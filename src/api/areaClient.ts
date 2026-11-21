@@ -12,8 +12,8 @@
  * means the flag changed under the page, so the flag is fetched again.
  */
 
-export type Area = 'travel' | 'stickers';
-export const AREAS: readonly Area[] = ['travel', 'stickers'];
+export type Area = 'travel' | 'stickers' | 'lists';
+export const AREAS: readonly Area[] = ['travel', 'stickers', 'lists'];
 export type Source = 'firestore' | 'sqlite';
 export type FallbackReason = 'network' | 'timeout' | 'server';
 

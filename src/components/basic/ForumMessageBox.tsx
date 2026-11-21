@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ForumMessageBox.css';
 import Button from './Button';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
 import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
 import { searchLibrary } from '../../utils/navidromeSearch';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
 import { listPlaces } from '../../api/areas/travel';
+import { publicLists } from '../../api/areas/lists';
 import { getAllUserProfiles } from '../../utils/userCache';
 import PollComposeModal, { type PollDraft } from './PollComposeModal';
 import { loadEventsInRange } from '../../utils/eventsApi';
@@ -176,18 +177,10 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
     const p = (async () => {
       try {
-        const listsQuery = query(
-          collection(db, 'lists'),
-          where('isPublic', '==', true),
-        );
-        const snapshot = await getDocs(listsQuery);
         const lists: Result[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.title) {
-            lists.push({ id: docSnap.id, name: data.title, type: 'list' as const });
-          }
-        });
+        for (const { id, data } of await publicLists()) {
+          if (data.title) lists.push({ id, name: data.title, type: 'list' as const });
+        }
         lists.sort((a, b) => a.name.localeCompare(b.name));
         setAllLists(lists);
       } catch (error) {
