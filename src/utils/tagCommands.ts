@@ -55,6 +55,10 @@ export interface Trigger {
   text: string;
 }
 
+/** Past this much search text with nothing matching, an @ or / is taken to be
+ *  just a character in the sentence. */
+export const MAX_SEARCH_CHARS = 15;
+
 /** The @ or / that starts a word nearest before the caret, on the same line. */
 export function findTrigger(value: string, caret: number): Trigger | null {
   for (let i = caret - 1; i >= 0 && caret - i <= MAX_TRIGGER_TEXT + 1; i--) {
@@ -68,6 +72,15 @@ export function findTrigger(value: string, caret: number): Trigger | null {
     }
   }
   return null;
+}
+
+/** What is being searched for: a member's name, or what follows a command —
+ *  for /event, what follows its month and "past" words. */
+export function searchText({ kind, text }: Pick<Trigger, 'kind' | 'text'>): string {
+  if (kind === '@') return text;
+  const { command, term } = splitSlash(text);
+  if (term === null) return command;
+  return resolveSearchCommand(command)?.name === 'event' ? parseEventQuery(term).text : term.trim();
 }
 
 /** The search a typed command name opens, by its name or one of its aliases. */

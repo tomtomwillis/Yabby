@@ -15,6 +15,7 @@ import {
   parseEventQuery,
   pickEvents,
   resolveSearchCommand,
+  searchText,
   splitSlash,
 } from '../../src/utils/tagCommands.ts';
 
@@ -31,6 +32,20 @@ test('a trigger starts a word', () => {
 test('nothing is searched after a bare @ or / followed by a space', () => {
   assert.strictEqual(at('meet @ 5'), null);
   assert.strictEqual(at('a / b'), null);
+});
+
+test('a long search still finds its trigger; the menu decides whether to close', () => {
+  assert.deepStrictEqual(at('@abcdefghijklmnopqrst'), { kind: '@', start: 0, text: 'abcdefghijklmnopqrst' });
+});
+
+test('what counts toward the search limit', () => {
+  const len = (value) => searchText(at(value)).length;
+  assert.strictEqual(len('@ana smith'), 9);
+  assert.strictEqual(len('/issueresolved fifteen chars!!'), 15);
+  assert.strictEqual(len('/abcdefghijklmnop'), 16);
+  // /event's month and "past" words are not counted.
+  assert.strictEqual(len('/event past september fabric live'), 11);
+  assert.strictEqual(len('/calendar jan a really long event'), 19);
 });
 
 test('a trigger ends at a new line', () => {

@@ -4,6 +4,7 @@ import { navidromeHref, searchLibrary, searchSongs } from '../../../utils/navidr
 import { eventPath, monthLabel } from '../../events/eventTypes';
 import {
   INSTANT_COMMANDS,
+  MAX_SEARCH_CHARS,
   SEARCH_COMMANDS,
   SITE_ORIGIN,
   commandNameFor,
@@ -11,6 +12,7 @@ import {
   parseEventQuery,
   pickEvents,
   resolveSearchCommand,
+  searchText,
   splitSlash,
   type SearchCommand,
   type Trigger,
@@ -49,6 +51,8 @@ export interface TagMenu {
   items: TagItem[];
   /** Shown when there are no items. */
   note?: string;
+  /** Still loading, so no items does not yet mean no matches. */
+  pending?: boolean;
   active: number;
 }
 
@@ -160,13 +164,13 @@ export function useTagging({ value, onChange, textareaRef, maxLength, actions = 
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
   }, []);
 
-  const menu = useMemo((): Omit<TagMenu, 'active'> | null => {
+  const built = useMemo((): Omit<TagMenu, 'active'> | null => {
     if (!trigger || trigger.start === dismissedAt) return null;
 
     if (trigger.kind === '@') {
       const name = trigger.text.trim().toLowerCase();
       if (!name) return null;
-      if (!members) return { caption: 'members', items: [], note: 'loading members…' };
+      if (!members) return { caption: 'members', items: [], note: 'loading members…', pending: true };
       const items: TagItem[] = members
         .filter((m) => m.name.toLowerCase().includes(name))
         .sort((a, b) => Number(!a.name.toLowerCase().startsWith(name)) - Number(!b.name.toLowerCase().startsWith(name)))
@@ -204,11 +208,11 @@ export function useTagging({ value, onChange, textareaRef, maxLength, actions = 
       case 'album':
       case 'track': {
         if (term.length < LIBRARY_MIN) return { caption: search.heading, items: [], note: `type to search ${search.heading}…` };
-        if (library?.key !== libraryKey) return { caption: search.heading, items: [], note: 'searching the library…' };
+        if (library?.key !== libraryKey) return { caption: search.heading, items: [], note: 'searching the library…', pending: true };
         return { caption: search.heading, items: library.items, note: 'nothing in the library called that' };
       }
       case 'playlist': {
-        if (!playlists) return { caption: search.heading, items: [], note: 'loading playlists…' };
+        if (!playlists) return { caption: search.heading, items: [], note: 'loading playlists…', pending: true };
         const items = playlists
           .filter((p) => !term || includes(p.name, term))
           .slice(0, MAX_ITEMS)
@@ -216,20 +220,20 @@ export function useTagging({ value, onChange, textareaRef, maxLength, actions = 
         return { caption: search.heading, items, note: 'no playlists called that' };
       }
       case 'list': {
-        if (!lists) return { caption: search.heading, items: [], note: 'loading lists…' };
+        if (!lists) return { caption: search.heading, items: [], note: 'loading lists…', pending: true };
         if (!term) return { caption: search.heading, items: [], note: 'type to search lists…' };
         const items = lists.filter((l) => includes(l.name, term)).slice(0, MAX_ITEMS)
           .map((l) => link(l.id, l.name, `${SITE_ORIGIN}/lists/${l.id}`));
         return { caption: search.heading, items, note: 'no lists called that' };
       }
       case 'travel': {
-        if (!places) return { caption: search.heading, items: [], note: 'loading places…' };
+        if (!places) return { caption: search.heading, items: [], note: 'loading places…', pending: true };
         const items = places.filter((p) => !term || includes(p.name, term)).slice(0, MAX_ITEMS)
           .map((p) => link(p.id, p.name, `${SITE_ORIGIN}/travel?place=${p.id}`, p.city || undefined));
         return { caption: search.heading, items, note: 'no places called that' };
       }
       case 'city': {
-        if (!places) return { caption: search.heading, items: [], note: 'loading cities…' };
+        if (!places) return { caption: search.heading, items: [], note: 'loading cities…', pending: true };
         const cities = new Map<string, string>();
         for (const p of places) {
           if (p.cityKey && !cities.has(p.cityKey)) cities.set(p.cityKey, p.city || p.cityKey);
@@ -248,13 +252,13 @@ export function useTagging({ value, onChange, textareaRef, maxLength, actions = 
           ? `${q.when === 'past' ? 'past ' : ''}events in ${monthLabel(q.month)}`
           : q.when === 'past' ? 'past events' : 'events';
         const loaded = events[eventKey];
-        if (!loaded) return { caption, items: [], note: 'loading events…' };
+        if (!loaded) return { caption, items: [], note: 'loading events…', pending: true };
         const items = pickEvents(loaded, q).slice(0, MAX_LONG_ITEMS)
           .map((e) => link(e.id, eventLabel(e), `${SITE_ORIGIN}${eventPath(e.id)}`));
         return { caption, items, note: q.text ? 'no events match that' : 'no events then' };
       }
       case 'issueresolved': {
-        if (!issues) return { caption: search.heading, items: [], note: 'loading issues…' };
+        if (!issues) return { caption: search.heading, items: [], note: 'loading issues…', pending: true };
         const items = issues.filter((i) => !term || includes(i.name, term)).slice(0, MAX_ITEMS)
           .map((i) => link(i.id, i.name, `${SITE_ORIGIN}/issues?issue=${i.id}`));
         return { caption: search.heading, items, note: 'no issues match that' };
@@ -262,6 +266,11 @@ export function useTagging({ value, onChange, textareaRef, maxLength, actions = 
     }
     return null;
   }, [trigger, dismissedAt, members, slash, search, term, actions, library, libraryKey, playlists, lists, places, eventQuery, events, eventKey, issues]);
+
+  // A long search with nothing matching is someone using @ or / in a sentence.
+  const menu = built && !built.pending && built.items.length === 0 && trigger && searchText(trigger).length > MAX_SEARCH_CHARS
+    ? null
+    : built;
 
   const activeIndex = menu && menu.items.length ? Math.min(active, menu.items.length - 1) : 0;
 

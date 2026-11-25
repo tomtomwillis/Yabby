@@ -34,7 +34,7 @@ The `@` and `/` menu comes from the shared `useTagging` hook (`src/components/ba
 - `/event` takes `jan` (the next January, or the rest of this month if it is January), `past jan` (the last January to have started), `past` (the last 20 days), or text matched against title, city, venue and lineup — and month words can be followed by text (`/event dec fabric`). A plain search covers 20 days back to 60 ahead; a month loads that month's events.
 - `/track` links to the track's album, since Navidrome's web UI has no track page; the link text is `Title – Artist`.
 
-Arrow keys move through the menu, Enter or Tab picks, Escape dismisses it; Ctrl/Cmd+Enter still sends. Results are written as Markdown links `[Name](url)`, which `parseMessageHTML` renders as hover cards where it knows the target.
+The menu stays shut when `@` or `/` is followed by a space, and closes when the search passes 15 characters (`MAX_SEARCH_CHARS`) with nothing matching — counting a name after `@`, the text after a command, or for `/event` the text after its month and `past` words — so the symbols can be used in ordinary sentences. Deleting back reopens it. Arrow keys move through the menu, Enter or Tab picks, Escape dismisses it; Ctrl/Cmd+Enter still sends. Results are written as Markdown links `[Name](url)`, which `parseMessageHTML` renders as hover cards where it knows the target.
 
 **Actions** — only offered when the matching prop is supplied:
 
