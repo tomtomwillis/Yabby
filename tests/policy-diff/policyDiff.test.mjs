@@ -135,6 +135,7 @@ const SEED = {
   'messages/m1': post(ALICE, 'alice'),
   'messages/poll': post(ALICE, 'alice', { pollQuestion: 'which?', pollOptions: ['a', 'b', 'c'], pollMultiple: false, pollVotes: { [BOB]: [0] } }),
   'messages/m1/replies/r1': reply(BOB, 'bob'),
+  'messages/m0': post(ALICE, 'alice', { replyCount: 0 }),
   'testMessages/t1': post(ALICE, 'alice'),
   'filmClubMessages/f1': post(ALICE, 'alice', { showOnMain: false }),
   'filmClubMessages/f1/replies/r1': reply(BOB, 'bob'),
@@ -146,6 +147,9 @@ const SEED = {
   'lists/own': { title: 'mine', userId: ALICE, username: 'alice', timestamp: at(-1000), itemCount: 1, isPublic: true, isCollaborative: false, lastUpdated: at(-3_600_000) },
   'lists/collab': { title: 'shared', userId: BOB, username: 'bob', timestamp: at(-1000), itemCount: 0, isPublic: true, isCollaborative: true, lastUpdated: at(-3_600_000) },
   'lists/own/items/it1': { type: 'custom', userText: 'note', order: 0, title: 'thing', timestamp: at(-1000) },
+  'lists/collab/items/c1': { type: 'custom', userText: 'note', order: 0, title: 'theirs', timestamp: at(-1000) },
+  'lists/privcollab': { title: 'closed', userId: BOB, username: 'bob', timestamp: at(-1000), itemCount: 1, isPublic: false, isCollaborative: true, lastUpdated: at(-3_600_000) },
+  'lists/privcollab/items/pc1': { type: 'custom', userText: 'note', order: 0, title: 'thing', timestamp: at(-1000) },
 
   'stickers/s1': { userId: ALICE, albumId: 'alb', text: 'nice', position: { x: 1, y: 2 }, sticker: '/s.webp', timestamp: at(-1000) },
   'stickers/s2': { userId: BOB, albumId: 'alb', text: 'mine', position: { x: 3, y: 4 }, sticker: '/b.webp', timestamp: at(-1000) },
@@ -231,8 +235,6 @@ const BASES = [
   // Profiles and usernames
   { name: 'profile edit', as: ALICE, op: 'set', merge: true, path: 'users/uid-alice', data: { username: 'alice', bio: 'new bio', color: 'red', locationFlag: 'NZ' } },
   { name: 'post count', as: ALICE, op: 'update', path: 'users/uid-alice', data: { postCount: incrementBy(1) } },
-  { name: 'sticker count up from unset', as: ALICE, op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
-  { name: 'sticker count down', as: BOB, op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
   { name: 'sticker count down by admin', as: ADMIN, op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
   { name: 'sticker recount by admin', as: ADMIN, op: 'update', path: 'users/uid-alice', data: { stickerCount: 7 } },
   { name: 'profile socials', as: ALICE, op: 'update', path: 'users/uid-alice', data: { socials: { instagram: 'yab.by', signal: 'yabby.01', discord: 'yabby', playstation: 'Yabby_1', bandcampArtist: 'yabby-band', bandcampFan: 'yabby', soundcloud: 'yabby', mixcloud: 'yabby', twitter: 'yabby', steam: '76561198012345678', radio: 'https://mixcloud.com/yabby/show-1' } } },
@@ -257,23 +259,18 @@ const BASES = [
   { name: 'collab list item', as: ALICE, op: 'create', path: 'lists/collab/items/new', data: { type: 'custom', userText: 'x', order: 1, title: 'T', linkUrl: 'https://l' } },
   { name: 'list item edit', as: ALICE, op: 'update', path: 'lists/own/items/it1', data: { userText: 'changed', order: 2 } },
   { name: 'list item delete', as: ALICE, op: 'delete', path: 'lists/own/items/it1' },
+  { name: 'private collab list edit by owner', as: BOB, op: 'update', path: 'lists/privcollab', data: { title: 'renamed', lastUpdated: SERVER_TIME } },
+  { name: 'private collab list item by owner', as: BOB, op: 'create', path: 'lists/privcollab/items/new', data: { type: 'custom', userText: 'x', order: 1, title: 'T' } },
+  { name: 'private collab list item delete by owner', as: BOB, op: 'delete', path: 'lists/privcollab/items/pc1' },
+  { name: 'collab list item delete', as: ALICE, op: 'delete', path: 'lists/collab/items/c1' },
+  { name: 'list item with an http link', as: ALICE, op: 'create', path: 'lists/own/items/http', data: { type: 'custom', userText: '', order: 2, title: 'T', linkUrl: 'http://a.example/x?y=1' } },
+  { name: 'list with no preview link', as: ALICE, op: 'update', path: 'lists/own', data: { lastItemLink: '', lastUpdated: SERVER_TIME } },
+  { name: 'collab list preview link', as: ALICE, op: 'update', path: 'lists/collab', data: { lastItemLink: 'https://a.example/album', lastUpdated: SERVER_TIME } },
 
-  // Stickers
-  { name: 'sticker', as: ALICE, op: 'create', path: 'stickers/new', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album' } },
-  { name: 'sticker edit', as: ALICE, op: 'update', path: 'stickers/s1', data: { text: 'edited', editedAt: SERVER_TIME } },
-  { name: 'sticker delete', as: ALICE, op: 'delete', path: 'stickers/s1' },
-  { name: 'sticker placed with its count', as: ALICE, op: 'batch', writes: [
-    { op: 'set', path: 'stickers/placed', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album', albumArtist: 'Artist' } },
-    { op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
-  ] },
-  { name: 'sticker deleted with its count', as: BOB, op: 'batch', writes: [
-    { op: 'delete', path: 'stickers/s2' },
-    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
-  ] },
-  { name: 'sticker deleted with its count by admin', as: ADMIN, op: 'batch', writes: [
-    { op: 'delete', path: 'stickers/s2' },
-    { op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
-  ] },
+  // Stickers. Live stickers are written by the API; browsers write the /test twin only.
+  // SQLite keeps no test collections, so the policy side has no twin sticker to
+  // edit or delete. Only the create can be compared; /test covers the rest.
+  { name: 'sandbox sticker', as: ALICE, op: 'create', path: 'testStickers/new', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album' } },
 
   // Calendar events
   { name: 'event', as: ALICE, op: 'create', path: 'events/new', data: { title: 'Club night', date: '2026-10-03', category: 'club', time: '22:00', endTime: '04:00', timeZone: 'Europe/Paris', description: 'dance', location: 'basement', cost: '£5', urls: ['https://a.example', 'http://b.example'], imageId: '0f8fad5b-d9cb-469f-a165-70867728950e', userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
@@ -336,6 +333,16 @@ const BASES = [
 
 /** Writes no one may make. Judged as-is, not mutated. */
 const FORBIDDEN = [
+  { name: 'live sticker by a member', as: ALICE, op: 'create', path: 'stickers/new', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album' } },
+  { name: 'live sticker edit by its owner', as: ALICE, op: 'update', path: 'stickers/s1', data: { text: 'edited', editedAt: SERVER_TIME } },
+  { name: 'live sticker delete by its owner', as: ALICE, op: 'delete', path: 'stickers/s1' },
+  { name: 'live sticker delete by an admin', as: ADMIN, op: 'delete', path: 'stickers/s2' },
+  { name: 'own sticker count up', as: ALICE, op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
+  { name: 'own sticker count down', as: BOB, op: 'update', path: 'users/uid-bob', data: { stickerCount: incrementBy(-1) } },
+  { name: 'live sticker placed with its count', as: ALICE, op: 'batch', writes: [
+    { op: 'set', path: 'stickers/placed', data: { userId: ALICE, albumId: 'alb', text: 'wow', position: { x: 0.5, y: 0.5 }, sticker: '/s.webp', timestamp: SERVER_TIME, albumName: 'Album', albumArtist: 'Artist' } },
+    { op: 'update', path: 'users/uid-alice', data: { stickerCount: incrementBy(1) } },
+  ] },
   { name: 'list created with no lastUpdated', as: ALICE, op: 'create', path: 'lists/stale', data: { title: 'new list', userId: ALICE, username: 'alice', timestamp: SERVER_TIME, itemCount: 0, isPublic: true, isCollaborative: false } },
   { name: 'list edit that removes lastUpdated', as: ALICE, op: 'update', path: 'lists/own', data: { lastUpdated: DELETE_FIELD } },
   { name: 'list edit that leaves lastUpdated stale', as: ALICE, op: 'update', path: 'lists/own', data: { title: 'renamed' } },
@@ -433,6 +440,28 @@ const FORBIDDEN = [
   { name: 'interests for someone else', as: ALICE, op: 'create', path: 'eventInterests/uid-bob', data: { eventIds: [], feedVersion: 1, updatedAt: SERVER_TIME } },
   { name: 'feed version rewound', as: ALICE, op: 'update', path: 'eventInterests/uid-alice', data: { feedVersion: 0, updatedAt: SERVER_TIME } },
   { name: '201 interests', as: ALICE, op: 'update', path: 'eventInterests/uid-alice', data: { eventIds: Array.from({ length: 201 }, (_, i) => `e${i}`), updatedAt: SERVER_TIME } },
+  { name: 'post dated ahead to sort first', as: ALICE, op: 'create', path: 'messages/ahead', data: newPost({ lastActivityAt: at(86_400_000) }) },
+  { name: 'film club post dated ahead', as: ALICE, op: 'create', path: 'filmClubMessages/ahead', data: newPost({ lastActivityAt: at(86_400_000) }) },
+  { name: 'issue dated ahead', as: ALICE, op: 'create', path: 'issues/ahead', data: newPost({ status: 'inprogress', lastActivityAt: at(86_400_000) }) },
+  { name: 'news dated ahead', as: ADMIN, op: 'create', path: 'news/ahead', data: newPost({ userId: ADMIN, username: 'admin', lastActivityAt: at(86_400_000) }) },
+  { name: 'post with a backdated lastActivityAt', as: ALICE, op: 'create', path: 'messages/behind', data: newPost({ lastActivityAt: at(-86_400_000) }) },
+  { name: 'reply count below zero', as: BOB, op: 'update', path: 'messages/m0', data: { replyCount: incrementBy(-1) } },
+  { name: 'reply deleted from a post counting none', as: BOB, op: 'batch', writes: [
+    { op: 'delete', path: 'messages/m1/replies/r1' },
+    { op: 'update', path: 'messages/m0', data: { replyCount: incrementBy(-1) } },
+  ] },
+  { name: 'private collab list edit by a member', as: ALICE, op: 'update', path: 'lists/privcollab', data: { title: 'renamed', lastUpdated: SERVER_TIME } },
+  { name: 'private collab list item by a member', as: ALICE, op: 'create', path: 'lists/privcollab/items/new', data: { type: 'custom', userText: 'x', order: 1, title: 'T' } },
+  { name: 'private collab list item edit by a member', as: ALICE, op: 'update', path: 'lists/privcollab/items/pc1', data: { userText: 'changed' } },
+  { name: 'private collab list item delete by a member', as: ALICE, op: 'delete', path: 'lists/privcollab/items/pc1' },
+  { name: 'list item javascript link', as: ALICE, op: 'create', path: 'lists/own/items/js', data: { type: 'custom', userText: '', order: 2, title: 'T', linkUrl: 'javascript:alert(1)' } },
+  { name: 'list item link with no host', as: ALICE, op: 'create', path: 'lists/own/items/bare', data: { type: 'custom', userText: '', order: 2, title: 'T', linkUrl: 'https://' } },
+  { name: 'list item link hiding a second line', as: ALICE, op: 'create', path: 'lists/own/items/nl', data: { type: 'custom', userText: '', order: 2, title: 'T', linkUrl: 'https://a.example\njavascript:alert(1)' } },
+  { name: 'list item empty link', as: ALICE, op: 'create', path: 'lists/own/items/empty', data: { type: 'custom', userText: '', order: 2, title: 'T', linkUrl: '' } },
+  { name: 'list preview javascript link', as: ALICE, op: 'update', path: 'lists/own', data: { lastItemLink: 'javascript:alert(1)', lastUpdated: SERVER_TIME } },
+  { name: 'collab list preview data link', as: ALICE, op: 'update', path: 'lists/collab', data: { lastItemLink: 'data:text/html,x', lastUpdated: SERVER_TIME } },
+  { name: 'list created with a javascript preview link', as: ALICE, op: 'create', path: 'lists/jsprev', data: { title: 'new list', userId: ALICE, username: 'alice', timestamp: SERVER_TIME, itemCount: 0, isPublic: true, isCollaborative: false, lastUpdated: SERVER_TIME, lastItemLink: 'javascript:alert(1)' } },
+  { name: 'list preview link of 1001', as: ALICE, op: 'update', path: 'lists/own', data: { lastItemLink: 'https://' + 'x'.repeat(993), lastUpdated: SERVER_TIME } },
   { name: 'event javascript link', as: ALICE, op: 'create', path: 'events/js', data: { title: 'x', date: '2026-10-01', category: 'gig', urls: ['javascript:alert(1)'], userId: ALICE, username: 'alice', createdAt: SERVER_TIME } },
 ];
 

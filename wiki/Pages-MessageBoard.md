@@ -7,7 +7,7 @@ A community forum where users can post messages, reply to each other, and react 
 
 ## Features
 
-- Messages with `@` tagging for members and artists/albums (links to a profile or Navidrome card) and `/` slash commands for linking to lists, playlists, travel recs, cities, calendar events, issues, and community pages
+- Messages with `@` tagging for members and `/` commands for linking artists, albums, tracks, playlists, lists, calendar events, travel recs, cities, issues and community pages (see [ForumMessageBox](Components-ForumMessageBox))
 - Image attachments (paste, file select, or drag-and-drop, max 8 MB)
 - Polls (`/poll`)
 - Admin bot commands: `/filmannounce1`/`2`/`3` (Film Club), `/eventbot` (posts the calendar's weekly round-up — see [Calendar Page](Pages-CalendarPage))
@@ -20,7 +20,7 @@ A community forum where users can post messages, reply to each other, and react 
 ## Components Used
 
 - `MessageBoard` — the main feature component that handles all logic
-- `ForumMessageBox` — compose box with `@` tagging and `/` slash commands
+- `ForumMessageBox` — compose box with `@` member tagging and `/` commands
 - `UserMessages` — renders individual messages
 - `Tips` — contextual tip bar (randomly shows the slash-command tip or the reaction tip)
 

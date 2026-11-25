@@ -1,0 +1,93 @@
+.tag-suggest {
+  text-align: left;
+}
+
+.tag-suggest-caption {
+  margin: 0 0 5px;
+  font-family: var(--font2);
+  color: var(--colour2);
+  text-decoration: underline;
+}
+
+.tag-suggest-note {
+  margin: 0;
+  font-family: var(--font2);
+  font-size: 0.85em;
+  color: var(--colour2);
+}
+
+.tag-suggest-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag-suggest-list li {
+  margin: 0 0 2px !important;
+  padding: 2px 0 !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+}
+
+.tag-suggest-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  max-width: 100%;
+  width: auto !important;
+  padding: 5px 10px;
+  background-color: var(--colour1) !important;
+  color: var(--colour4) !important;
+  border: none;
+  border-radius: 4px;
+  font-family: var(--font2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tag-suggest-item:hover,
+.tag-suggest-item.is-active {
+  background-color: var(--colour2) !important;
+}
+
+.tag-suggest-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-suggest-hint {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+
+/* Inside a form: a box over whatever follows the field. */
+.tag-suggest--floating {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 30;
+  max-height: 15rem;
+  margin-top: -1px;
+  padding: 0.3rem 0.55rem;
+  overflow-y: auto;
+  background: #fbfbfd;
+  border: 1px solid var(--cal-accent, var(--colour2));
+}
+
+.tag-suggest--floating .tag-suggest-list {
+  margin-top: 0.3rem;
+}
+
+.tag-suggest--floating .tag-suggest-item {
+  display: flex;
+  justify-content: space-between;
+  width: 100% !important;
+}
+
+.tag-textarea {
+  position: relative;
+}

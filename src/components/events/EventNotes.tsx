@@ -56,7 +56,7 @@ const EventNotes: React.FC<EventNotesProps> = ({ event, descClassName }) => {
       {event.comment && (
         <div className="ev-comment">
           <span className="ev-comment-label">{event.username || 'the author'} says:</span>
-          <p className="ev-comment-text">{event.comment}</p>
+          <p className="ev-comment-text">{parseMessageHTML(event.comment)}</p>
         </div>
       )}
     </>

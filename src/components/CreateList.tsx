@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { collection, doc, getDoc, getDocs, query, orderBy } from 'firebase/firestore';
-import { addDocShadowed, updateDocShadowed, deleteDocShadowed, SERVER_TIME, type WriteData } from '../api/shadow';
+import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { createList, getList, toListLink, saveList, type EditorItem, type ListInput } from '../api/areas/lists';
+import { ApiError } from '../api/client';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
+import TagTextarea from './basic/tagging/TagTextarea';
 import './CreateList.css';
 import type { AlbumListItem, CustomListItem, List, ListItem } from '../types/firestore';
 
@@ -99,18 +101,11 @@ const CreateList: React.FC<CreateListProps> = ({
     if (!existingListId) return;
     
     try {
-      const itemsQuery = query(
-        collection(db, 'lists', existingListId, 'items'),
-        orderBy('order', 'asc')
+      const found = await getList(existingListId);
+      const existingItems: ListItem[] = (found?.items ?? []).map(
+        ({ id, data }) => ({ ...data, id }) as unknown as ListItem,
       );
-      
-      const snapshot = await getDocs(itemsQuery);
-      const existingItems: ListItem[] = [];
-      
-      snapshot.forEach((doc) => {
-        existingItems.push({ ...doc.data(), id: doc.id } as unknown as ListItem);
-      });
-      
+
       setItems(existingItems);
     } catch (error) {
       console.error('Error loading existing items:', error);
@@ -187,13 +182,18 @@ const CreateList: React.FC<CreateListProps> = ({
       setError('a custom item needs a title.');
       return;
     }
+    const customLink = toListLink(customLinkUrl);
+    if (customLinkUrl.trim() && !customLink) {
+      setError('that link is not a web address.');
+      return;
+    }
     setError(null);
 
     const newCustomItem: CustomListItem = {
       type: 'custom',
       title: customTitle.trim(),
       ...(customImageUrl.trim() && { imageUrl: customImageUrl.trim() }),
-      ...(customLinkUrl.trim() && { linkUrl: customLinkUrl.trim() }),
+      ...(customLink && { linkUrl: customLink }),
       userText: currentItemText,
       order: items.length,
       addedByUserId: auth.currentUser?.uid || '',
@@ -289,12 +289,18 @@ const CreateList: React.FC<CreateListProps> = ({
       const currentItem = updatedItems[editingItemIndex];
       
       if (currentItem.type === 'custom') {
+        const editedLink = toListLink(editingLinkUrl);
+        if (editingLinkUrl.trim() && !editedLink) {
+          setError('that link is not a web address.');
+          return;
+        }
+        setError(null);
         // Update text, image URL, and link URL for custom items
         updatedItems[editingItemIndex] = {
           ...currentItem,
           userText: editingText.trim(),
           imageUrl: editingImageUrl.trim() || undefined,
-          linkUrl: editingLinkUrl.trim() || undefined
+          linkUrl: editedLink || undefined
         };
       } else {
         // Update only text for album items
@@ -354,7 +360,7 @@ const CreateList: React.FC<CreateListProps> = ({
         return {
           lastItemImage: item.imageUrl,
           lastItemAlbumId: '',
-          lastItemLink: item.linkUrl || '',
+          lastItemLink: toListLink(item.linkUrl),
           lastItemAddedByAvatar: item.addedByAvatar || '',
         };
       }
@@ -369,7 +375,15 @@ const CreateList: React.FC<CreateListProps> = ({
     };
   };
 
-  // Save list to Firestore with subcollection
+  const listInput = (): ListInput => ({
+    title: listTitle.trim(),
+    isPublic,
+    isCollaborative,
+    items: items as EditorItem[],
+    preview: computeLastItemMetadata(items),
+  });
+
+  // Save the list and its items, through the lists area module
   const handleSaveList = async () => {
     if (!auth.currentUser) {
       setError('log in to make a list.');
@@ -391,73 +405,7 @@ const CreateList: React.FC<CreateListProps> = ({
 
     try {
       if (editMode && existingListId) {
-        // Update existing list
-        const lastItemMeta = computeLastItemMetadata(items);
-
-        if (isCollaborativeEdit) {
-          // Non-owner: only update fields allowed by Firestore rules
-          await updateDocShadowed(doc(db, 'lists', existingListId), {
-            title: listTitle.trim(),
-            itemCount: items.length,
-            lastUpdated: SERVER_TIME,
-            lastItemImage: lastItemMeta.lastItemImage,
-            lastItemAlbumId: lastItemMeta.lastItemAlbumId,
-            lastItemLink: lastItemMeta.lastItemLink,
-            lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
-          });
-        } else {
-          // Owner: update everything
-          await updateDocShadowed(doc(db, 'lists', existingListId), {
-            title: listTitle.trim(),
-            itemCount: items.length,
-            isPublic: isPublic,
-            isCollaborative: isCollaborative,
-            lastUpdated: SERVER_TIME,
-            lastItemImage: lastItemMeta.lastItemImage,
-            lastItemAlbumId: lastItemMeta.lastItemAlbumId,
-            lastItemLink: lastItemMeta.lastItemLink,
-            lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
-          });
-        }
-
-        // Delete all existing items
-        const existingItemsQuery = query(collection(db, 'lists', existingListId, 'items'));
-        const existingItemsSnapshot = await getDocs(existingItemsQuery);
-        
-        for (const itemDoc of existingItemsSnapshot.docs) {
-          await deleteDocShadowed(itemDoc.ref);
-        }
-
-        // Add updated items
-        const itemsCollection = collection(db, 'lists', existingListId, 'items');
-        
-        for (const item of items) {
-          const cleanItemData: WriteData = {
-            type: item.type,
-            userText: item.userText,
-            order: item.order,
-            timestamp: SERVER_TIME,
-            ...(item.addedByUserId && { addedByUserId: item.addedByUserId }),
-            ...(item.addedByUsername && { addedByUsername: item.addedByUsername }),
-            ...(item.addedByAvatar && { addedByAvatar: item.addedByAvatar })
-          };
-
-          if (item.type === 'album') {
-            cleanItemData.albumId = item.albumId;
-            cleanItemData.albumTitle = item.albumTitle;
-            cleanItemData.albumArtist = item.albumArtist;
-          } else if (item.type === 'custom') {
-            cleanItemData.title = item.title;
-            if (item.imageUrl && item.imageUrl.trim()) {
-              cleanItemData.imageUrl = item.imageUrl;
-            }
-            if (item.linkUrl && item.linkUrl.trim()) {
-              cleanItemData.linkUrl = item.linkUrl;
-            }
-          }
-
-          await addDocShadowed(itemsCollection, cleanItemData);
-        }
+        await saveList(existingListId, listInput(), !isCollaborativeEdit);
       } else {
         // Fetch username from user profile (same pattern as MessageBoard)
         let username = 'Anonymous';
@@ -480,57 +428,7 @@ const CreateList: React.FC<CreateListProps> = ({
           return;
         }
 
-        const lastItemMeta = computeLastItemMetadata(items);
-
-        // Create main list document
-        const listDocRef = await addDocShadowed(collection(db, 'lists'), {
-          title: listTitle.trim(),
-          userId: auth.currentUser.uid,
-          username: username,
-          timestamp: SERVER_TIME,
-          itemCount: items.length,
-          isPublic: isPublic,
-          isCollaborative: isCollaborative,
-          lastUpdated: SERVER_TIME,
-          lastItemImage: lastItemMeta.lastItemImage,
-          lastItemAlbumId: lastItemMeta.lastItemAlbumId,
-          lastItemLink: lastItemMeta.lastItemLink,
-          lastItemAddedByAvatar: lastItemMeta.lastItemAddedByAvatar,
-        });
-
-      // Add items as subcollection
-      const itemsCollection = collection(listDocRef, 'items');
-      
-      for (const item of items) {
-        // Clean the item data for Firestore (remove undefined fields)
-        const cleanItemData: WriteData = {
-          type: item.type,
-          userText: item.userText,
-          order: item.order,
-          timestamp: SERVER_TIME,
-          ...(item.addedByUserId && { addedByUserId: item.addedByUserId }),
-          ...(item.addedByUsername && { addedByUsername: item.addedByUsername }),
-          ...(item.addedByAvatar && { addedByAvatar: item.addedByAvatar })
-        };
-
-        if (item.type === 'album') {
-          cleanItemData.albumId = item.albumId;
-          cleanItemData.albumTitle = item.albumTitle;
-          cleanItemData.albumArtist = item.albumArtist;
-        } else if (item.type === 'custom') {
-          cleanItemData.title = item.title;
-          // Only add imageUrl if it exists and is not empty
-          if (item.imageUrl && item.imageUrl.trim()) {
-            cleanItemData.imageUrl = item.imageUrl;
-          }
-          // Only add linkUrl if it exists and is not empty
-          if (item.linkUrl && item.linkUrl.trim()) {
-            cleanItemData.linkUrl = item.linkUrl;
-          }
-        }
-
-        await addDocShadowed(itemsCollection, cleanItemData);
-      }
+        const newListId = await createList(auth.currentUser.uid, username, listInput());
 
         // Reset form
         setListTitle('');
@@ -543,7 +441,7 @@ const CreateList: React.FC<CreateListProps> = ({
 
         // Notify parent component
         if (onListCreated) {
-          onListCreated(listDocRef.id);
+          onListCreated(newListId);
         }
       }
       
@@ -563,7 +461,7 @@ const CreateList: React.FC<CreateListProps> = ({
 
     } catch (error) {
       console.error('Error creating list:', error);
-      setError(editMode ? 'could not update the list. try again.' : 'could not save the list. try again.');
+      setError(error instanceof ApiError ? error.message.toLowerCase() : editMode ? 'could not update the list. try again.' : 'could not save the list. try again.');
     } finally {
       setLoading(false);
     }
@@ -663,12 +561,12 @@ const CreateList: React.FC<CreateListProps> = ({
               <div>
                 <div className="ls-form-pick-name">{selectedAlbum.title}</div>
                 <div className="ls-form-pick-artist">by {selectedAlbum.artist}</div>
-                <textarea
+                <TagTextarea
                   className="ls-form-textarea"
                   value={currentItemText}
                   maxLength={1000}
                   placeholder="what do you make of it?"
-                  onChange={(e) => setCurrentItemText(e.target.value)}
+                  onChange={setCurrentItemText}
                 />
                 <div className="ls-form-actions">
                   <button type="button" className="ls-form-btn" onClick={handleAddAlbum}>
@@ -729,13 +627,13 @@ const CreateList: React.FC<CreateListProps> = ({
 
           <div className="ls-form-field">
             <label className="ls-form-label" htmlFor="ls-form-custom-note">note</label>
-            <textarea
+            <TagTextarea
               id="ls-form-custom-note"
               className="ls-form-textarea"
               value={currentItemText}
               maxLength={1000}
               placeholder="what do you make of it?"
-              onChange={(e) => setCurrentItemText(e.target.value)}
+              onChange={setCurrentItemText}
             />
           </div>
 
@@ -795,10 +693,10 @@ const CreateList: React.FC<CreateListProps> = ({
 
                       <div className="ls-form-entry-main">
                         <div className="ls-form-entry-head">
-                          {item.type === 'custom' && item.linkUrl ? (
+                          {item.type === 'custom' && toListLink(item.linkUrl) ? (
                             <a
                               className="ls-form-entry-title"
-                              href={item.linkUrl}
+                              href={toListLink(item.linkUrl)}
                               target="_blank"
                               rel="noopener noreferrer"
                             >
@@ -835,12 +733,12 @@ const CreateList: React.FC<CreateListProps> = ({
                                 />
                               </>
                             )}
-                            <textarea
+                            <TagTextarea
                               className="ls-form-textarea"
                               value={editingText}
                               maxLength={1000}
                               placeholder="what do you make of it?"
-                              onChange={(e) => setEditingText(e.target.value)}
+                              onChange={setEditingText}
                             />
                             <div className="ls-form-actions">
                               <button type="button" className="ls-form-btn" onClick={saveEditedText}>

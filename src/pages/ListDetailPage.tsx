@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { deleteDocShadowed } from '../api/shadow';
-import { db, auth } from '../firebaseConfig';
+import { auth } from '../firebaseConfig';
+import { deleteList, getList } from '../api/areas/lists';
+import { ApiError } from '../api/client';
 import Header from '../components/basic/Header';
 import ListItem from '../components/ListItem';
 import CreateList from '../components/CreateList';
@@ -66,31 +66,14 @@ const ListDetailPage: React.FC = () => {
     setError(null);
 
     try {
-      // Load main list document
-      const listDocRef = doc(db, 'lists', listId);
-      const listDoc = await getDoc(listDocRef);
-
-      if (!listDoc.exists()) {
+      const found = await getList(listId);
+      if (!found) {
         setError('List not found');
         return;
       }
 
-      const listData = { id: listDoc.id, ...listDoc.data() } as List;
-      setList(listData);
-
-      // Load list items
-      const itemsQuery = query(
-        collection(db, 'lists', listId, 'items'),
-        orderBy('order', 'asc')
-      );
-
-      const itemsSnapshot = await getDocs(itemsQuery);
-      const itemsData: StoredListItem[] = [];
-
-      itemsSnapshot.forEach((doc) => {
-        itemsData.push({ id: doc.id, ...doc.data() } as StoredListItem);
-      });
-
+      setList({ ...found.list.data, id: found.list.id } as List);
+      const itemsData = found.items.map(({ id, data }) => ({ ...data, id }) as StoredListItem);
       setItems(itemsData);
     } catch (error) {
       console.error('Error loading list:', error);
@@ -113,21 +96,12 @@ const ListDetailPage: React.FC = () => {
     }
 
     try {
-      // Delete all items first
-      const itemsQuery = query(collection(db, 'lists', list.id, 'items'));
-      const itemsSnapshot = await getDocs(itemsQuery);
-
-      for (const itemDoc of itemsSnapshot.docs) {
-        await deleteDocShadowed(itemDoc.ref);
-      }
-
-      // Delete the main list document
-      await deleteDocShadowed(doc(db, 'lists', list.id));
+      await deleteList(list.id);
 
       navigate('/lists');
     } catch (error) {
       console.error('Error deleting list:', error);
-      alert('Failed to delete list. Please try again.');
+      alert(error instanceof ApiError ? error.message : 'Failed to delete list. Please try again.');
     }
   };
 

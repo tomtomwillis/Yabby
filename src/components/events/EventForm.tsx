@@ -24,7 +24,7 @@ import {
   type LineupAct,
   viewerTimeZone,
 } from './eventTypes';
-import TagTextarea from './TagTextarea';
+import TagTextarea from '../basic/tagging/TagTextarea';
 import LineupEditor from './LineupEditor';
 import CityInput from './CityInput';
 import { useAdmin } from '../../utils/useAdmin';
@@ -484,19 +484,20 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
           <div className="ev-field">
             <span className="ev-label">description</span>
             <TagTextarea
+              className="ev-input ev-textarea"
               value={description}
               onChange={setDescription}
               maxLength={EVENT_LIMITS.description}
-              placeholder="use @ to tag artists and albums"
+              placeholder="use / to tag artists, albums and more, @ for members"
             />
           </div>
 
           <label className="ev-field">
             <span className="ev-label">Add a Comment</span>
-            <textarea
+            <TagTextarea
               className="ev-input ev-textarea"
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={setComment}
               maxLength={EVENT_LIMITS.comment}
               placeholder="saw them last year, a friend's playing…"
             />

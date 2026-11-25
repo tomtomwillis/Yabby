@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { auth } from '../firebaseConfig';
+import { myLists, publicListsByUpdate } from '../api/areas/lists';
 import Header from '../components/basic/Header';
 import CreateList from '../components/CreateList';
 import { normalizeAvatarPath } from '../utils/avatarPath';
@@ -36,6 +36,7 @@ const formatDate = (millis: number): string => {
 const ListsPage: React.FC = () => {
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   // Covers are whatever URL someone pasted, so some of them rot or refuse to be
   // loaded cross-origin. Those fall back to the sleeve rather than to a blank
@@ -46,40 +47,20 @@ const ListsPage: React.FC = () => {
     try {
       setLoading(true);
 
-      // The list rule only grants reads on isPublic == true (or your own lists),
-      // and Firestore rejects any query the rule cannot verify from the filters
-      // alone — so public and own lists must be fetched as separate queries.
-      const publicQuery = query(
-        collection(db, 'lists'),
-        where('isPublic', '==', true),
-        orderBy('lastUpdated', 'desc')
-      );
-
-      const queries = [getDocs(publicQuery)];
-
-      // No orderBy on this one: the merge below re-sorts everything anyway, so
-      // it would only buy a composite index — and ordering by a field excludes
-      // documents that lack it, which would silently drop your own older lists.
+      setFailed(false);
+      // Public lists and your own are separate queries; the merge below
+      // re-sorts everything.
       const uid = auth.currentUser?.uid;
-      if (uid) {
-        queries.push(getDocs(query(
-          collection(db, 'lists'),
-          where('userId', '==', uid)
-        )));
-      }
-
-      const snapshots = await Promise.all(queries);
+      const results = await Promise.all([publicListsByUpdate(), ...(uid ? [myLists(uid)] : [])]);
       const listsById = new Map<string, List>();
-
-      snapshots.forEach((snapshot) => {
-        snapshot.forEach((docSnap) => {
-          listsById.set(docSnap.id, { ...docSnap.data(), id: docSnap.id } as List);
-        });
-      });
+      for (const docs of results) {
+        for (const { id, data } of docs) listsById.set(id, { ...data, id } as List);
+      }
 
       setLists(Array.from(listsById.values()));
     } catch (err) {
       console.error('Error fetching lists:', err);
+      setFailed(true);
     } finally {
       setLoading(false);
     }
@@ -141,6 +122,8 @@ const ListsPage: React.FC = () => {
 
         {loading ? (
           <p className="ls-status">loading…</p>
+        ) : failed ? (
+          <p className="ls-status">couldn't load the lists. reload the page to try again.</p>
         ) : sorted.length === 0 ? (
           <p className="ls-empty">no lists yet — make the first one.</p>
         ) : (

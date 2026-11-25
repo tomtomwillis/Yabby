@@ -9,6 +9,7 @@ import {
   addDocShadowed,
   updateDocShadowed,
   deleteDocShadowed,
+  writeBatchShadowed,
   SERVER_TIME,
   incrementBy,
   arrayUnionOf,
@@ -330,10 +331,14 @@ export function useBoardActions({
         setExpandedReplies((prev) => new Set(prev).add(messageId));
       }
 
-      let newReplyId: string;
+      // One batch so the reply and the parent's count can never drift apart.
+      const newReplyRef = doc(collection(db, board, messageId, 'replies'));
+      const newReplyId = newReplyRef.id;
       try {
-        const newReplyRef = await addDocShadowed(collection(db, board, messageId, 'replies'), replyData);
-        newReplyId = newReplyRef.id;
+        await writeBatchShadowed(db)
+          .set(newReplyRef, replyData)
+          .update(doc(db, board, messageId), { lastActivityAt: SERVER_TIME, replyCount: incrementBy(1) })
+          .commit();
       } catch (error) {
         setMessages((prev) => prev.map((m) => (m.id === messageId ? withoutReply(m, pendingId) : m)));
         throw error;
@@ -346,15 +351,6 @@ export function useBoardActions({
         ),
       );
       void bumpPostCount(auth.currentUser.uid);
-      try {
-        await updateDocShadowed(doc(db, board, messageId), {
-          lastActivityAt: SERVER_TIME,
-          replyCount: incrementBy(1),
-        });
-      } catch (error) {
-        // The reply is saved; only the stored count is behind.
-        console.error('Error updating reply count:', error);
-      }
     } catch (error) {
       console.error('Error sending reply:', error);
       alert('Failed to send reply. Please try again.');
@@ -477,10 +473,12 @@ export function useBoardActions({
     const board = boardOf(message);
     const messageId = message.id;
     try {
-      await deleteDocShadowed(doc(db, board, messageId, 'replies', replyId));
-      await updateDocShadowed(doc(db, board, messageId), {
-        replyCount: incrementBy(-1),
-      });
+      const batch = writeBatchShadowed(db).delete(doc(db, board, messageId, 'replies', replyId));
+      // A count that already drifted to zero must not block the delete: the rules refuse a negative count.
+      if ((message.replyCount ?? 0) > 0) {
+        batch.update(doc(db, board, messageId), { replyCount: incrementBy(-1) });
+      }
+      await batch.commit();
       setMessages((prev) => prev.map((m) => (m.id === messageId ? withoutReply(m, replyId) : m)));
     } catch (error) {
       console.error('Error deleting reply:', error);

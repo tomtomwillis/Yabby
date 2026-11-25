@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
-import { trackedGetDocs as getDocs } from '../utils/firestoreMetrics';
+import { publicListsByUpdate } from '../api/areas/lists';
 import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
 import './RecentLists.css';
 
@@ -36,39 +34,27 @@ const useIsMobile = () => {
 const RecentLists: React.FC = () => {
   const [lists, setLists] = useState<RecentList[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchRecentLists = async () => {
       try {
-        // isPublic must be filtered server-side: the list rule only grants
-        // reads on isPublic == true (or your own lists), and Firestore rejects
-        // any query the rule cannot verify from the filters alone.
-        const q = query(
-          collection(db, 'lists'),
-          where('isPublic', '==', true),
-          orderBy('lastUpdated', 'desc'),
-          limit(3),
-        );
-        const snapshot = await getDocs(q);
-
-        const result: RecentList[] = [];
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
-          result.push({
-            id: docSnap.id,
-            title: data.title || 'Untitled',
-            lastItemImage: data.lastItemImage || '',
-            lastItemAlbumId: data.lastItemAlbumId || '',
-            lastItemLink: data.lastItemLink || '',
-            lastItemAddedByAvatar: data.lastItemAddedByAvatar || '',
-          });
-        }
+        const docs = await publicListsByUpdate(3);
+        const result: RecentList[] = docs.map(({ id, data }) => ({
+          id,
+          title: data.title || 'Untitled',
+          lastItemImage: data.lastItemImage || '',
+          lastItemAlbumId: data.lastItemAlbumId || '',
+          lastItemLink: data.lastItemLink || '',
+          lastItemAddedByAvatar: data.lastItemAddedByAvatar || '',
+        }));
 
         setLists(result);
       } catch (error) {
         console.error('Error fetching recent lists:', error);
+        setFailed(true);
       } finally {
         setLoading(false);
       }
@@ -79,6 +65,10 @@ const RecentLists: React.FC = () => {
 
   if (loading) {
     return <p className="recent-lists-loading">Loading lists...</p>;
+  }
+
+  if (failed) {
+    return <p className="recent-lists-loading">Couldn't load lists. Reload the page to try again.</p>;
   }
 
   if (lists.length === 0) {
