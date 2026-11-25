@@ -45,3 +45,27 @@ export async function searchLibrary(
       .slice(0, count);
   return [...read('artist', artists), ...read('album', albums)];
 }
+
+export interface LibrarySong {
+  id: string;
+  title: string;
+  artist?: string;
+  album?: string;
+  albumId: string;
+}
+
+/** Tracks matching `query`. The web UI has no page for a track, so a tagged
+ *  one links to its album. */
+export async function searchSongs(query: string, count = 6): Promise<LibrarySong[]> {
+  const xml = await fetchSubsonicXml('search3', { query, artistCount: 0, albumCount: 0, songCount: count });
+  return Array.from(xml.getElementsByTagName('searchResult3')[0]?.children ?? [])
+    .filter((el) => el.tagName === 'song')
+    .map((el) => ({
+      id: el.getAttribute('id') || '',
+      title: el.getAttribute('title') || '',
+      artist: el.getAttribute('artist') || undefined,
+      album: el.getAttribute('album') || undefined,
+      albumId: el.getAttribute('albumId') || '',
+    }))
+    .filter((song) => song.id && song.title && song.albumId);
+}

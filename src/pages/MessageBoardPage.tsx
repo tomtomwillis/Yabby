@@ -13,7 +13,7 @@ const tips: React.ComponentProps<typeof Tips>[] = [
     showOnDesktop: false,
   },
   {
-    text: <><span className="mb-tip-mark">tip ▸</span> type <code>@</code> to tag artists &amp; albums, or <code>/</code> to tag lists, travel recs and more</>,
+    text: <><span className="mb-tip-mark">tip ▸</span> type <code>@</code> to tag a member, or <code>/</code> for artists, albums, tracks, events and more</>,
     showOnMobile: true,
     showOnDesktop: true,
   },

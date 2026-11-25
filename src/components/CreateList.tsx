@@ -5,6 +5,7 @@ import { createList, getList, toListLink, saveList, type EditorItem, type ListIn
 import { ApiError } from '../api/client';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
+import TagTextarea from './basic/tagging/TagTextarea';
 import './CreateList.css';
 import type { AlbumListItem, CustomListItem, List, ListItem } from '../types/firestore';
 
@@ -560,12 +561,12 @@ const CreateList: React.FC<CreateListProps> = ({
               <div>
                 <div className="ls-form-pick-name">{selectedAlbum.title}</div>
                 <div className="ls-form-pick-artist">by {selectedAlbum.artist}</div>
-                <textarea
+                <TagTextarea
                   className="ls-form-textarea"
                   value={currentItemText}
                   maxLength={1000}
                   placeholder="what do you make of it?"
-                  onChange={(e) => setCurrentItemText(e.target.value)}
+                  onChange={setCurrentItemText}
                 />
                 <div className="ls-form-actions">
                   <button type="button" className="ls-form-btn" onClick={handleAddAlbum}>
@@ -626,13 +627,13 @@ const CreateList: React.FC<CreateListProps> = ({
 
           <div className="ls-form-field">
             <label className="ls-form-label" htmlFor="ls-form-custom-note">note</label>
-            <textarea
+            <TagTextarea
               id="ls-form-custom-note"
               className="ls-form-textarea"
               value={currentItemText}
               maxLength={1000}
               placeholder="what do you make of it?"
-              onChange={(e) => setCurrentItemText(e.target.value)}
+              onChange={setCurrentItemText}
             />
           </div>
 
@@ -732,12 +733,12 @@ const CreateList: React.FC<CreateListProps> = ({
                                 />
                               </>
                             )}
-                            <textarea
+                            <TagTextarea
                               className="ls-form-textarea"
                               value={editingText}
                               maxLength={1000}
                               placeholder="what do you make of it?"
-                              onChange={(e) => setEditingText(e.target.value)}
+                              onChange={setEditingText}
                             />
                             <div className="ls-form-actions">
                               <button type="button" className="ls-form-btn" onClick={saveEditedText}>

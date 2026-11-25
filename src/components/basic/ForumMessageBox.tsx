@@ -1,67 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ForumMessageBox.css';
 import Button from './Button';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
-import { trackedGetDocs as getDocs } from '../../utils/firestoreMetrics';
-import { fetchSubsonicXml, NAVIDROME_SERVER_URL } from '../../utils/navidrome';
-import { searchLibrary } from '../../utils/navidromeSearch';
 import { normalizeAvatarPath } from '../../utils/avatarPath';
-import { listPlaces } from '../../api/areas/travel';
-import { publicLists } from '../../api/areas/lists';
-import { getAllUserProfiles } from '../../utils/userCache';
 import PollComposeModal, { type PollDraft } from './PollComposeModal';
-import { loadEventsInRange } from '../../utils/eventsApi';
-import { addDays, dayLabel, eventPath, todayISO } from '../events/eventTypes';
-
-interface Result {
-  id: string;
-  name: string;
-  type: 'artist' | 'album' | 'list' | 'playlist' | 'place' | 'city' | 'instant' | 'travel' | 'action' | 'poll' | 'issue' | 'user' | 'event';
-}
-
-type SearchCommand = 'list' | 'playlist' | 'travel' | 'city' | 'calendar' | 'issueresolved';
-type SlashMode = 'command' | SearchCommand | null;
-
-// Inserted links are stored in messages, so they must not depend on the
-// current origin (e.g. localhost during development).
-const SITE_ORIGIN = 'https://yabbyville.xyz';
-
-const INSTANT_COMMANDS: Record<string, { label: string; path: string }> = {
-  filmclub: { label: 'Film Club', path: '/film-club' },
-  radio:    { label: 'Radio',     path: '/radio' },
-  news:     { label: 'News',      path: '/news' },
-  stickers: { label: 'Stickers',  path: '/stickers' },
-  wiki:     { label: 'Wiki',      path: '/wiki' },
-  issues:   { label: 'Issues',    path: '/issues' },
-};
-
-const SEARCH_COMMANDS: readonly SearchCommand[] = ['list', 'playlist', 'travel', 'city', 'calendar', 'issueresolved'];
-
-const SEARCH_COMMAND_LABELS: Record<SearchCommand, string> = {
-  list:     'search lists',
-  playlist: 'search public playlists',
-  travel:   'search a travel rec',
-  city:     'search a list of filtered recs for a city',
-  calendar: 'link to a recent or upcoming event',
-  issueresolved: 'link to a specific issue',
-};
-
-const SLASH_MODE_LABELS: Record<SearchCommand, string> = {
-  list:     'Lists',
-  playlist: 'Playlists',
-  travel:   'Places',
-  city:     'Cities',
-  calendar: 'Events',
-  issueresolved: 'Issues',
-};
-
-const EVENT_BOT_COMMAND = 'eventbot';
-
-// The window /calendar searches. Each event in it is a read, so it stays
-// short; eventsApi caches the range for a few minutes.
-const CALENDAR_SEARCH_DAYS = 60;
-const CALENDAR_PAST_DAYS = 20;
+import { useTagging, type TagAction } from './tagging/useTagging';
+import TagSuggestions from './tagging/TagSuggestions';
 
 // Matches MAX_FILE_SIZE in backend_server/routes/messageImages.js
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -119,283 +62,31 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
   outsideControls,
   crossPost,
 }) => {
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [artistResults, setArtistResults] = useState<Result[]>([]);
-  const [albumResults, setAlbumResults] = useState<Result[]>([]);
-  const [userResults, setUserResults] = useState<Result[]>([]);
-  const [allUsers, setAllUsers] = useState<Result[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<string>("");
   const [newMessage, setNewMessage] = useState(initialValue);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [pendingPoll, setPendingPoll] = useState<PollDraft | null>(null);
   const [pollComposeOpen, setPollComposeOpen] = useState(false);
 
-  // Slash command state
-  const [slashMode, setSlashMode] = useState<SlashMode>(null);
-  const [slashSearchTerm, setSlashSearchTerm] = useState('');
-  const [slashResults, setSlashResults] = useState<Result[]>([]);
-
-  // Lazy-loaded data for search commands
-  const [allLists, setAllLists] = useState<Result[]>([]);
-  const [allPlaces, setAllPlaces] = useState<{ id: string; displayName: string; city: string; cityKey: string }[]>([]);
-  const [allPlaylists, setAllPlaylists] = useState<Result[]>([]);
-  const [allIssues, setAllIssues] = useState<Result[]>([]);
-  const [allEvents, setAllEvents] = useState<{ id: string; name: string; search: string }[] | null>(null);
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Dragging over a child fires dragleave on the parent, so count depth
   // instead of toggling on the first leave.
   const dragDepthRef = useRef(0);
-  const triggerPositionRef = useRef<number>(-1);
-  const listsFetchPromiseRef = useRef<Promise<void> | null>(null);
-  const placesFetchPromiseRef = useRef<Promise<void> | null>(null);
-  const playlistsFetchPromiseRef = useRef<Promise<void> | null>(null);
-  const issuesFetchPromiseRef = useRef<Promise<void> | null>(null);
-  const usersFetchPromiseRef = useRef<Promise<void> | null>(null);
-  const eventsFetchPromiseRef = useRef<Promise<void> | null>(null);
 
-  // The shared directory read, so a session that has already opened the
-  // directory — or tagged someone before — pays nothing more.
-  const ensureUsersLoaded = (): Promise<void> => {
-    if (usersFetchPromiseRef.current) return usersFetchPromiseRef.current;
-    const p = getAllUserProfiles()
-      .then((entries) => {
-        setAllUsers(entries.map((u) => ({ id: u.userId, name: u.username, type: 'user' as const })));
-      })
-      .catch((error) => {
-        console.error('Error fetching members:', error);
-        usersFetchPromiseRef.current = null;
-      });
-    usersFetchPromiseRef.current = p;
-    return p;
-  };
-
-  const ensureListsLoaded = (): Promise<void> => {
-    if (listsFetchPromiseRef.current) return listsFetchPromiseRef.current;
-    const p = (async () => {
-      try {
-        const lists: Result[] = [];
-        for (const { id, data } of await publicLists()) {
-          if (data.title) lists.push({ id, name: data.title, type: 'list' as const });
-        }
-        lists.sort((a, b) => a.name.localeCompare(b.name));
-        setAllLists(lists);
-      } catch (error) {
-        console.error('Error fetching lists:', error);
-        listsFetchPromiseRef.current = null;
-      }
-    })();
-    listsFetchPromiseRef.current = p;
-    return p;
-  };
-
-  const ensurePlacesLoaded = (): Promise<void> => {
-    if (placesFetchPromiseRef.current) return placesFetchPromiseRef.current;
-    const p = (async () => {
-      try {
-        const docs = await listPlaces();
-        const places: { id: string; displayName: string; city: string; cityKey: string }[] = [];
-        docs.forEach((docSnap) => {
-          const { data } = docSnap;
-          if (data.displayName) {
-            places.push({
-              id: docSnap.id,
-              displayName: data.displayName,
-              city: data.city || '',
-              cityKey: data.cityKey || '',
-            });
-          }
-        });
-        setAllPlaces(places);
-      } catch (error) {
-        console.error('Error fetching places:', error);
-        placesFetchPromiseRef.current = null;
-      }
-    })();
-    placesFetchPromiseRef.current = p;
-    return p;
-  };
-
-  const ensurePlaylistsLoaded = (): Promise<void> => {
-    if (playlistsFetchPromiseRef.current) return playlistsFetchPromiseRef.current;
-    const p = (async () => {
-      try {
-        const xmlDoc = await fetchSubsonicXml('getPlaylists');
-        const playlists: Result[] = Array.from(xmlDoc.getElementsByTagName('playlist')).map((el) => ({
-          id: el.getAttribute('id') || '',
-          name: el.getAttribute('name') || 'Unknown Playlist',
-          type: 'playlist' as const,
-        }));
-        setAllPlaylists(playlists);
-      } catch (error) {
-        console.error('Error fetching playlists:', error);
-        playlistsFetchPromiseRef.current = null;
-      }
-    })();
-    playlistsFetchPromiseRef.current = p;
-    return p;
-  };
-
-  const ensureIssuesLoaded = (): Promise<void> => {
-    if (issuesFetchPromiseRef.current) return issuesFetchPromiseRef.current;
-    const p = (async () => {
-      try {
-        const issuesQuery = query(
-          collection(db, 'issues'),
-          orderBy('lastActivityAt', 'desc'),
-          limit(50),
-        );
-        const snapshot = await getDocs(issuesQuery);
-        const issues: Result[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          // Issues have no title — derive a snippet from the message text.
-          const plain = String(data.text || '')
-            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          const name = plain ? (plain.length > 60 ? `${plain.slice(0, 60)}…` : plain) : '(image post)';
-          issues.push({ id: docSnap.id, name, type: 'issue' as const });
-        });
-        setAllIssues(issues);
-      } catch (error) {
-        console.error('Error fetching issues:', error);
-        issuesFetchPromiseRef.current = null;
-      }
-    })();
-    issuesFetchPromiseRef.current = p;
-    return p;
-  };
-
-  const ensureEventsLoaded = (): Promise<void> => {
-    if (eventsFetchPromiseRef.current) return eventsFetchPromiseRef.current;
-    const today = todayISO();
-    const p = loadEventsInRange(addDays(today, -CALENDAR_PAST_DAYS), addDays(today, CALENDAR_SEARCH_DAYS))
-      .then((events) => {
-        // Upcoming first, soonest at the top, then past ones most recent first,
-        // so an empty search still leads with what is coming up.
-        const upcoming = events.filter((e) => e.date >= today);
-        const past = events.filter((e) => e.date < today).reverse();
-        setAllEvents(
-          [...upcoming, ...past].map((e) => ({
-            id: e.id,
-            name: `${e.title} · ${dayLabel(e.date)}`,
-            search: [e.title, e.city, e.location, ...(e.lineup ?? []).map((act) => act.name)].join(' ').toLowerCase(),
-          })),
-        );
-      })
-      .catch((error) => {
-        console.error('Error fetching events:', error);
-        eventsFetchPromiseRef.current = null;
-      });
-    eventsFetchPromiseRef.current = p;
-    return p;
-  };
-
-  const fetchResults = async (queryStr: string): Promise<Result[][]> => {
-    setSearchStatus("Searching...");
-    const items = await searchLibrary(queryStr, { artists: 3, albums: 3 });
-    const albums: Result[] = items.filter((i) => i.type === 'album').map(({ id, name, type }) => ({ id, name, type }));
-    const artists: Result[] = items.filter((i) => i.type === 'artist').map(({ id, name, type }) => ({ id, name, type }));
-
-    if (albums.length === 0 && artists.length === 0) {
-      setSearchStatus("No results :(");
-    } else {
-      setSearchStatus("Tag an artist or album!");
-    }
-
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve([albums, artists]);
-      }, 500);
-    });
-  };
-
-  useEffect(() => {
-    if (searchQuery.length >= 3) {
-      setIsSearching(true);
-      fetchResults(searchQuery).then((data) => {
-        setAlbumResults(data[0]);
-        setArtistResults(data[1]);
-      });
-    } else {
-      setAlbumResults([]);
-      setArtistResults([]);
-      setSearchStatus('');
-    }
-  }, [searchQuery]);
-
-  // Members match from the first letter — names are short, and the list is
-  // already in memory, unlike the library search above.
-  useEffect(() => {
-    const term = searchQuery.trim().toLowerCase();
-    if (!isSearching || !term) {
-      setUserResults([]);
-      return;
-    }
-    setUserResults(
-      allUsers
-        .filter((u) => u.name.toLowerCase().includes(term))
-        .sort((a, b) => Number(!a.name.toLowerCase().startsWith(term)) - Number(!b.name.toLowerCase().startsWith(term)))
-        .slice(0, 5),
+  // The / commands only some boards offer, on top of the ones every box has.
+  const actions: TagAction[] = [];
+  if (onFilmAnnounce) {
+    actions.push(
+      { name: 'filmannounce1', hint: 'announce current film', run: () => void onFilmAnnounce(1) },
+      { name: 'filmannounce2', hint: 'remind voting deadline', run: () => void onFilmAnnounce(2) },
+      { name: 'filmannounce3', hint: 'announce next month\'s film', run: () => void onFilmAnnounce(3) },
     );
-  }, [searchQuery, isSearching, allUsers]);
+  }
+  if (onEventAnnounce) actions.push({ name: 'eventbot', hint: 'post this week\'s events', run: () => void onEventAnnounce() });
+  if (onPollAttach) actions.push({ name: 'poll', hint: 'create a poll', run: () => setPollComposeOpen(true) });
 
-  // Reactive slash search filtering — runs when mode, term, or loaded data changes
-  useEffect(() => {
-    if (slashMode === null || slashMode === 'command') return;
-
-    if (slashMode === 'list') {
-      if (!slashSearchTerm.trim()) { setSlashResults([]); return; }
-      const filtered = allLists
-        .filter((l) => l.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
-        .slice(0, 5);
-      setSlashResults(filtered);
-    } else if (slashMode === 'travel') {
-      const filtered = allPlaces
-        .filter((p) => !slashSearchTerm.trim() || p.displayName.toLowerCase().includes(slashSearchTerm.toLowerCase()))
-        .slice(0, 5)
-        .map((p) => ({ id: p.id, name: p.displayName, type: 'place' as const }));
-      setSlashResults(filtered);
-    } else if (slashMode === 'city') {
-      const cityMap = new Map<string, string>();
-      for (const p of allPlaces) {
-        if (p.cityKey && !cityMap.has(p.cityKey)) {
-          cityMap.set(p.cityKey, p.city || p.cityKey);
-        }
-      }
-      const filtered = Array.from(cityMap.entries())
-        .filter(([, label]) => !slashSearchTerm.trim() || label.toLowerCase().includes(slashSearchTerm.toLowerCase()))
-        .sort(([, a], [, b]) => a.localeCompare(b))
-        .slice(0, 8)
-        .map(([cityKey, label]) => ({ id: cityKey, name: label, type: 'city' as const }));
-      setSlashResults(filtered);
-    } else if (slashMode === 'playlist') {
-      if (!slashSearchTerm.trim()) { setSlashResults([]); return; }
-      const filtered = allPlaylists
-        .filter((p) => p.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
-        .slice(0, 5);
-      setSlashResults(filtered);
-    } else if (slashMode === 'calendar') {
-      // Empty term shows the soonest upcoming events (allEvents is kept upcoming-first).
-      const term = slashSearchTerm.trim().toLowerCase();
-      const filtered = (allEvents ?? [])
-        .filter((e) => !term || e.search.includes(term))
-        .slice(0, 5)
-        .map((e) => ({ id: e.id, name: e.name, type: 'event' as const }));
-      setSlashResults(filtered);
-    } else if (slashMode === 'issueresolved') {
-      // Empty term shows the most recent issues (kept in lastActivityAt order).
-      const filtered = allIssues
-        .filter((i) => !slashSearchTerm.trim() || i.name.toLowerCase().includes(slashSearchTerm.toLowerCase()))
-        .slice(0, 5);
-      setSlashResults(filtered);
-    }
-  }, [slashMode, slashSearchTerm, allLists, allPlaces, allPlaylists, allIssues, allEvents]);
+  const tagging = useTagging({ value: newMessage, onChange: setNewMessage, textareaRef, maxLength: maxChars, actions });
 
   const handleSend = () => {
     if ((newMessage.trim() || imagePreviewUrl || pendingPoll) && onSend && !disabled) {
@@ -410,7 +101,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
         setPendingPoll(null);
         onPollAttach?.(null);
       }
-      clearSearch();
+      tagging.close();
     }
   };
 
@@ -425,18 +116,8 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     onPollAttach?.(null);
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
-    setIsSearching(false);
-    setSlashMode(null);
-    setSlashResults([]);
-    setSlashSearchTerm('');
-    triggerPositionRef.current = -1;
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
-    const cursorPos = e.target.selectionStart;
 
     if (value.length > maxChars) return;
 
@@ -444,231 +125,7 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     if (wordCount > maxWords) return;
 
     setNewMessage(value);
-
-    if (!value.trim()) {
-      clearSearch();
-      return;
-    }
-
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const atIndex = textBeforeCursor.lastIndexOf('@');
-    const slashIndex = textBeforeCursor.lastIndexOf('/');
-
-    // @ trigger (artists/albums) — must be at start or preceded by whitespace
-    if (atIndex !== -1 && atIndex > slashIndex && (atIndex === 0 || /\s/.test(value[atIndex - 1]))) {
-      const queryText = textBeforeCursor.slice(atIndex + 1);
-      if (!/\n/.test(queryText)) {
-        triggerPositionRef.current = atIndex;
-        ensureUsersLoaded();
-        setSearchQuery(queryText);
-        setIsSearching(true);
-        setSlashMode(null);
-        setSlashResults([]);
-        setSlashSearchTerm('');
-        return;
-      }
-    }
-
-    // / trigger (slash commands) — must be at start or preceded by whitespace
-    if (slashIndex !== -1 && slashIndex > atIndex && (slashIndex === 0 || /\s/.test(value[slashIndex - 1]))) {
-      const afterSlash = textBeforeCursor.slice(slashIndex + 1);
-      if (!/\n/.test(afterSlash)) {
-        triggerPositionRef.current = slashIndex;
-        const spaceIdx = afterSlash.indexOf(' ');
-        const command = (spaceIdx === -1 ? afterSlash : afterSlash.slice(0, spaceIdx)).toLowerCase();
-        const searchTerm = spaceIdx === -1 ? '' : afterSlash.slice(spaceIdx + 1);
-        setSlashSearchTerm(searchTerm);
-        setSearchQuery('');
-        setIsSearching(false);
-
-        if (spaceIdx === -1) {
-          // No space yet — show matching command suggestions
-          const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
-            .filter(([k]) => k.startsWith(command))
-            .map(([k, v]) => ({ id: k, name: `/${k} — ${v.label}`, type: 'instant' as const }));
-          const searchMatches: Result[] = SEARCH_COMMANDS
-            .filter((k) => k.startsWith(command))
-            .map((k) => ({ id: k, name: `/${k} — ${SEARCH_COMMAND_LABELS[k]}`, type: k as Result['type'] }));
-          const actionMatches: Result[] = [];
-          if (onFilmAnnounce) {
-            const ANNOUNCE_LABELS: Record<string, string> = {
-              filmannounce1: 'announce current film',
-              filmannounce2: 'remind voting deadline',
-              filmannounce3: 'announce next month\'s film',
-            };
-            Object.keys(ANNOUNCE_LABELS).forEach((cmd) => {
-              if (cmd.startsWith(command)) {
-                actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
-              }
-            });
-          }
-          if (onEventAnnounce && EVENT_BOT_COMMAND.startsWith(command)) {
-            actionMatches.push({ id: EVENT_BOT_COMMAND, name: `/${EVENT_BOT_COMMAND} — post this week's events`, type: 'action' });
-          }
-          if (onPollAttach && 'poll'.startsWith(command)) {
-            actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
-          }
-          setSlashResults([...searchMatches, ...instantMatches, ...actionMatches]);
-          setSlashMode('command');
-        } else if (SEARCH_COMMANDS.includes(command as SearchCommand)) {
-          setSlashMode(command as SearchCommand);
-          // slashResults populated reactively by useEffect above
-          if (command === 'list') ensureListsLoaded();
-          if (command === 'travel' || command === 'city') ensurePlacesLoaded();
-          if (command === 'playlist') ensurePlaylistsLoaded();
-          if (command === 'calendar') ensureEventsLoaded();
-          if (command === 'issueresolved') ensureIssuesLoaded();
-        } else if (Object.keys(INSTANT_COMMANDS).some((k) => k.startsWith(command)) || (onFilmAnnounce && ['filmannounce1', 'filmannounce2', 'filmannounce3'].some((cmd) => cmd.startsWith(command))) || (onEventAnnounce && EVENT_BOT_COMMAND.startsWith(command)) || (onPollAttach && 'poll'.startsWith(command))) {
-          // Instant or action command typed with a trailing space
-          const instantMatches: Result[] = Object.entries(INSTANT_COMMANDS)
-            .filter(([k]) => k.startsWith(command))
-            .map(([k, v]) => ({ id: k, name: `/${k} — ${v.label}`, type: 'instant' as const }));
-          const actionMatches: Result[] = [];
-          if (onFilmAnnounce) {
-            const ANNOUNCE_LABELS: Record<string, string> = {
-              filmannounce1: 'announce current film',
-              filmannounce2: 'remind voting deadline',
-              filmannounce3: 'announce next month\'s film',
-            };
-            Object.keys(ANNOUNCE_LABELS).forEach((cmd) => {
-              if (cmd.startsWith(command)) {
-                actionMatches.push({ id: cmd, name: `/${cmd} — ${ANNOUNCE_LABELS[cmd]}`, type: 'action' });
-              }
-            });
-          }
-          if (onEventAnnounce && EVENT_BOT_COMMAND.startsWith(command)) {
-            actionMatches.push({ id: EVENT_BOT_COMMAND, name: `/${EVENT_BOT_COMMAND} — post this week's events`, type: 'action' });
-          }
-          if (onPollAttach && 'poll'.startsWith(command)) {
-            actionMatches.push({ id: 'poll', name: '/poll — create a poll', type: 'poll' });
-          }
-          setSlashResults([...instantMatches, ...actionMatches]);
-          setSlashMode('command');
-        } else {
-          setSlashMode(null);
-          setSlashResults([]);
-        }
-        return;
-      }
-    }
-
-    clearSearch();
-  };
-
-  const selectResult = (result: Result) => {
-    if (result.type === 'action' && result.id.startsWith('filmannounce')) {
-      const triggerPos = triggerPositionRef.current;
-      if (triggerPos !== -1) {
-        const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
-        setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
-      }
-      clearSearch();
-      const variant = parseInt(result.id.slice(-1)) as 1 | 2 | 3;
-      onFilmAnnounce?.(variant);
-      return;
-    }
-
-    if (result.type === 'action' && result.id === EVENT_BOT_COMMAND) {
-      const triggerPos = triggerPositionRef.current;
-      if (triggerPos !== -1) {
-        const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
-        setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
-      }
-      clearSearch();
-      onEventAnnounce?.();
-      return;
-    }
-
-    if (result.type === 'poll') {
-      const triggerPos = triggerPositionRef.current;
-      if (triggerPos !== -1) {
-        const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
-        setNewMessage(newMessage.slice(0, triggerPos) + newMessage.slice(cursorPos));
-      }
-      clearSearch();
-      setPollComposeOpen(true);
-      return;
-    }
-
-    let link: string;
-    const linkText =
-      result.type === 'instant' ? INSTANT_COMMANDS[result.id].label
-      : result.type === 'user' ? `@${result.name}`
-      : result.type === 'event' ? result.name.replace(/[[\]]/g, '')
-      : result.name;
-
-    if (result.type === 'user') {
-      link = `${SITE_ORIGIN}/user/${result.id}`;
-      window.umami?.track('user_mention');
-    } else if (result.type === 'instant') {
-      link = `${SITE_ORIGIN}${INSTANT_COMMANDS[result.id].path}`;
-    } else if (result.type === 'playlist') {
-      link = `${NAVIDROME_SERVER_URL}/app/#/playlist/${result.id}/show`;
-    } else if (result.type === 'place') {
-      link = `${SITE_ORIGIN}/travel?place=${result.id}`;
-    } else if (result.type === 'city') {
-      link = `${SITE_ORIGIN}/travel?city=${result.id}`;
-    } else if (result.type === 'list') {
-      link = `${SITE_ORIGIN}/lists/${result.id}`;
-    } else if (result.type === 'event') {
-      link = `${SITE_ORIGIN}${eventPath(result.id)}`;
-      window.umami?.track('calendar_event_link');
-    } else if (result.type === 'issue') {
-      link = `${SITE_ORIGIN}/issues?issue=${result.id}`;
-    } else {
-      link = `${NAVIDROME_SERVER_URL}/app/#/${result.type}/${result.id}/show`;
-    }
-
-    const triggerPos = triggerPositionRef.current;
-    if (triggerPos === -1) return;
-
-    const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
-    const replacement = `[${linkText}](${link}) `;
-    const before = newMessage.slice(0, triggerPos);
-    const after = newMessage.slice(cursorPos);
-    const updatedMessage = before + replacement + after;
-
-    setNewMessage(updatedMessage);
-    clearSearch();
-
-    setTimeout(() => {
-      if (textareaRef.current) {
-        const newCursorPos = triggerPos + replacement.length;
-        textareaRef.current.focus();
-        textareaRef.current.selectionStart = newCursorPos;
-        textareaRef.current.selectionEnd = newCursorPos;
-      }
-    }, 0);
-  };
-
-  // Clicking a search command suggestion activates that command's search mode
-  const activateSearchCommand = (commandName: string) => {
-    const triggerPos = triggerPositionRef.current;
-    if (triggerPos === -1) return;
-    const cursorPos = textareaRef.current?.selectionStart ?? newMessage.length;
-    const inserted = `/${commandName} `;
-    const updated = newMessage.slice(0, triggerPos) + inserted + newMessage.slice(cursorPos);
-    setNewMessage(updated);
-
-    const cmd = commandName as SearchCommand;
-    setSlashMode(cmd);
-    setSlashSearchTerm('');
-    setSlashResults([]);
-
-    if (cmd === 'list') ensureListsLoaded();
-    if (cmd === 'travel' || cmd === 'city') ensurePlacesLoaded();
-    if (cmd === 'playlist') ensurePlaylistsLoaded();
-    if (cmd === 'calendar') ensureEventsLoaded();
-    if (cmd === 'issueresolved') ensureIssuesLoaded();
-
-    setTimeout(() => {
-      if (textareaRef.current) {
-        const newPos = triggerPos + inserted.length;
-        textareaRef.current.focus();
-        textareaRef.current.selectionStart = newPos;
-        textareaRef.current.selectionEnd = newPos;
-      }
-    }, 0);
+    tagging.update(value, e.target.selectionStart);
   };
 
   const autoResize = () => {
@@ -778,19 +235,6 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
     </div>
   );
 
-  const isSlashSearchMode = slashMode !== null && slashMode !== 'command';
-  const slashModeLabel = isSlashSearchMode ? SLASH_MODE_LABELS[slashMode as SearchCommand] : '';
-
-  const slashEmptyHint = (() => {
-    if (slashMode === 'list') return 'Type to search lists…';
-    if (slashMode === 'playlist') return 'Type to search playlists…';
-    if (slashMode === 'travel') return allPlaces.length === 0 ? 'Loading places…' : 'Type to search places…';
-    if (slashMode === 'city') return allPlaces.length === 0 ? 'Loading cities…' : 'No cities found';
-    if (slashMode === 'calendar') return allEvents === null ? 'Loading events…' : 'No matching events';
-    if (slashMode === 'issueresolved') return allIssues.length === 0 ? 'Loading issues…' : 'No matching issues';
-    return '';
-  })();
-
   // Only offered where a parent is actually listening for the file — News uses
   // this layout but has nowhere to put an image.
   const attachButton = onImageAttach ? (
@@ -868,7 +312,10 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           value={newMessage}
           onChange={handleInputChange}
           onPaste={handlePaste}
+          onClick={(e) => tagging.update(newMessage, e.currentTarget.selectionStart)}
+          onBlur={tagging.onBlur}
           onKeyDown={(e) => {
+            if (tagging.onKeyDown(e)) return;
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && canSend) {
               e.preventDefault();
               handleSend();
@@ -877,83 +324,14 @@ const ForumBox: React.FC<ForumMessageBoxProps> = ({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
+          aria-autocomplete="list"
+          aria-expanded={!!tagging.menu}
         />
         {showSendButton && !outsideControls && sendButton}
       </div>
 
-      {isSearching && <p>{searchStatus}</p>}
-
-      {userResults.length > 0 && (
-        <figure>
-          <figcaption>Members</figcaption>
-          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
-            {userResults.map((result) => (
-              <li key={result.id}>
-                <button onClick={() => selectResult(result)}>@{result.name}</button>
-              </li>
-            ))}
-          </ul>
-        </figure>
-      )}
-      {artistResults.length > 0 && (
-        <figure>
-          <figcaption>Artists</figcaption>
-          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
-            {artistResults.map((result, index) => (
-              <li key={index}>
-                <button onClick={() => selectResult(result)}>{result.name}</button>
-              </li>
-            ))}
-          </ul>
-        </figure>
-      )}
-      {albumResults.length > 0 && (
-        <figure>
-          <figcaption>Albums</figcaption>
-          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
-            {albumResults.map((result, index) => (
-              <li key={index}>
-                <button onClick={() => selectResult(result)}>{result.name}</button>
-              </li>
-            ))}
-          </ul>
-        </figure>
-      )}
-
-      {slashMode === 'command' && slashResults.length > 0 && (
-        <figure>
-          <figcaption>Commands</figcaption>
-          <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
-            {slashResults.map((r) => (
-              <li key={r.id}>
-                <button
-                  onClick={() =>
-                    r.type === 'instant' || r.type === 'action' || r.type === 'poll' ? selectResult(r) : activateSearchCommand(r.id)
-                  }
-                >
-                  {r.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </figure>
-      )}
-
-      {isSlashSearchMode && (
-        <figure>
-          <figcaption>{slashModeLabel}</figcaption>
-          {slashResults.length === 0 ? (
-            <p>{slashEmptyHint}</p>
-          ) : (
-            <ul style={{ marginTop: "10px", listStyleType: "none", padding: 0 }}>
-              {slashResults.map((r) => (
-                <li key={r.id}>
-                  <button onClick={() => selectResult(r)}>{r.name}</button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </figure>
+      {tagging.menu && (
+        <TagSuggestions menu={tagging.menu} onSelect={tagging.select} onHover={tagging.setActive} />
       )}
 
       {outsideControls && (

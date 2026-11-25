@@ -15,7 +15,7 @@ The community forum component. Handles fetching, posting, editing, deleting, rep
 ## Features
 
 - Paginated message feed, 20 per page, sorted by most recent activity (bump order)
-- `@` tagging for artists/albums and `/` slash commands (via `ForumMessageBox`)
+- `@` member tagging and `/` commands (via `ForumMessageBox`)
 - Image attachments: paste or attach up to 5 MB images
 - Threaded replies (lazy-loaded on first expand)
 - Heart reactions with tooltip showing who reacted
@@ -42,5 +42,5 @@ The community forum component. Handles fetching, posting, editing, deleting, rep
 
 ## Components Used
 
-- `ForumMessageBox` — compose box with `@` tagging and `/` slash commands
+- `ForumMessageBox` — compose box with `@` member tagging and `/` commands
 - `UserMessages` — renders each individual message and its replies

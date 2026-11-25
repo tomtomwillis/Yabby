@@ -2,7 +2,7 @@
 
 **File:** `src/components/basic/ForumMessageBox.tsx`
 
-A compose box for the message board, film club board, news page, issues board and the calendar's event-linked posts. Supports `@` tagging for members and Navidrome artists/albums, `/` slash commands for linking to community resources and triggering admin bot posts, image attachments, and poll composing.
+A compose box for the message board, film club board, news page, issues board and the calendar's event-linked posts. Supports `@` tagging for members, `/` commands for linking music, events and community resources and triggering admin bot posts, image attachments, and poll composing.
 
 ## Props
 
@@ -27,20 +27,16 @@ A compose box for the message board, film club board, news page, issues board an
 
 ## Tagging
 
-### `@` — Member / artist / album search
+The `@` and `/` menu comes from the shared `useTagging` hook (`src/components/basic/tagging/`), the same one [TagTextarea](Components-TagTextarea) uses, so every tagging box on the site behaves alike. The command set and its parsing live in `src/utils/tagCommands.ts` (tested in `tests/tag-commands/`); the data each command searches is loaded on first use and shared by every box on the page (`tagSources.ts`).
 
-Type `@` (at word start) followed by at least 3 characters. Two sources are searched in parallel:
+- `@name` — members only, matched from the first letter. Inserts `[@Name](https://yabbyville.xyz/user/:id)`.
+- `/` — the command menu. Search commands (`/artist`, `/album`, `/track` or `/song`, `/playlist`, `/list`, `/event` or `/calendar`, `/travel`, `/city`, `/issueresolved`), instant page links (`INSTANT_COMMANDS`), and the actions this box's props switch on.
+- `/event` takes `jan` (the next January, or the rest of this month if it is January), `past jan` (the last January to have started), `past` (the last 20 days), or text matched against title, city, venue and lineup — and month words can be followed by text (`/event dec fabric`). A plain search covers 20 days back to 60 ahead; a month loads that month's events.
+- `/track` links to the track's album, since Navidrome's web UI has no track page; the link text is `Title – Artist`.
 
-- **Members** — matched from the first letter against the directory (`getAllUserProfiles`, loaded once and cached), sorted with prefix matches first, up to 5 shown.
-- **Navidrome library** — via `searchLibrary` (`src/utils/navidromeSearch.ts`), up to 3 artists and 3 albums.
+Arrow keys move through the menu, Enter or Tab picks, Escape dismisses it; Ctrl/Cmd+Enter still sends. Results are written as Markdown links `[Name](url)`, which `parseMessageHTML` renders as hover cards where it knows the target.
 
-Clicking a member inserts `[@Name](https://yabbyville.xyz/user/:id)`; clicking an artist/album inserts `[Name](navidrome link)`. Both are Markdown-style links that `parseMessageHTML` (`src/components/basic/messageText.tsx`) later renders as hover/pin cards.
-
-### `/` — Slash commands
-
-Type `/` (at word start) to open the command menu. Three categories of commands are available:
-
-**Action commands** — trigger a side-effect rather than inserting a link (admin only, and only when the matching handler prop is supplied):
+**Actions** — only offered when the matching prop is supplied:
 
 | Command | Effect |
 |---------|--------|
@@ -48,31 +44,7 @@ Type `/` (at word start) to open the command menu. Three categories of commands 
 | `/filmannounce2` | Remind of the voting deadline (`onFilmAnnounce(2)`) |
 | `/filmannounce3` | Announce next month's film (`onFilmAnnounce(3)`) |
 | `/eventbot` | Post this week's calendar round-up (`onEventAnnounce`) |
-| `/poll` | Open the poll composer (`onPollAttach`, any signed-in poster) |
-
-**Instant links** — insert a direct link to a community page:
-
-| Command | Links to |
-|---------|----------|
-| `/filmclub` | Film Club page |
-| `/radio` | Radio page |
-| `/news` | News page |
-| `/stickers` | Stickers page |
-| `/wiki` | Wiki page |
-| `/issues` | Issues page |
-
-**Search commands** — open a search mode to find and link a specific item:
-
-| Command | Searches |
-|---------|---------|
-| `/list <query>` | Public community lists |
-| `/playlist <query>` | Navidrome public playlists |
-| `/travel <query>` | Travel recommendations (places) |
-| `/city <query>` | Cities with travel recs (links to filtered travel view) |
-| `/calendar <query>` | Calendar events in the next 60 days, by title, city, venue or lineup (links to `/calendar?event=<id>`, which boards render with the event hover card). An empty query lists the soonest five |
-| `/issueresolved <query>` | Existing issues (links to a specific issue) |
-
-All results are inserted as Markdown links `[Name](url)`.
+| `/poll` | Open the poll composer (`onPollAttach`) |
 
 ## Images
 
@@ -93,7 +65,5 @@ Attaching is offered whenever `onImageAttach` is provided, via paste, the "▓ a
 
 ## Customising
 
-- To add a new instant slash command, add an entry to `INSTANT_COMMANDS`.
-- To add a new search command, add the key to `SEARCH_COMMANDS`/`SEARCH_COMMAND_LABELS`/`SLASH_MODE_LABELS` and handle it in the reactive `useEffect` that populates `slashResults`.
-- To add a new admin action command, follow the `EVENT_BOT_COMMAND` pattern: a prop, a constant id, an entry pushed into `actionMatches` in both the "typing" and "trailing space" branches of `handleInputChange`, and a branch in `selectResult`.
-- Member and library search both go through shared caches (`getAllUserProfiles` in `userCache.ts`, `searchLibrary` in `navidromeSearch.ts`) — a session that has already opened the directory or tagged someone pays nothing more.
+- Commands every box offers are defined in `src/utils/tagCommands.ts`: add an instant link to `INSTANT_COMMANDS`, or a search to `SEARCH_COMMANDS` (with any aliases) and give it a `case` in `useTagging`'s menu.
+- Board-only actions are `TagAction`s built from props at the top of `ForumMessageBox`.

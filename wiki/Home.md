@@ -38,6 +38,7 @@ Welcome to the Yabbyville wiki. This covers each page and component so you can u
 - [MessageTextBox](Components-MessageTextBox)
 - [PosterStats](Components-PosterStats)
 - [Star](Components-Star)
+- [TagTextarea](Components-TagTextarea)
 - [Tips](Components-Tips)
 - [UserCardBody](Components-UserCardBody)
 - [UserMessages](Components-UserMessages)

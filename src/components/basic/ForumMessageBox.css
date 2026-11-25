@@ -100,51 +100,6 @@
     color: var(--colour3);
   }
 
-  /* Search Results Styling */
-  .textbox-container figure {
-    background-color: transparent;
-    margin: 0;
-    padding: 0;
-  }
-
-  .textbox-container figcaption {
-    text-align: left;
-    text-decoration: underline;
-    margin-bottom: 5px;
-    font-family: var(--font2);
-    color: var(--colour2);
-  }
-
-  .textbox-container figure ul {
-    text-align: left;
-    background-color: transparent;
-  }
-
-  .textbox-container figure ul li {
-    background-color: transparent !important;
-    padding: 2px 0 !important;
-    margin-bottom: 2px !important;
-    border-radius: 0 !important;
-  }
-
-  .textbox-container figure ul li button {
-    text-align: left;
-    justify-content: flex-start;
-    width: auto !important;
-    display: inline-block;
-    padding: 5px 10px;
-    background-color: var(--colour1) !important;
-    color: var(--colour4) !important;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: var(--font2);
-  }
-
-  .textbox-container figure ul li button:hover {
-    background-color: var(--colour2) !important;
-  }
-
   /* The picker is opened by the attach button, never shown itself. */
   .textbox-attach-input {
     display: none;
