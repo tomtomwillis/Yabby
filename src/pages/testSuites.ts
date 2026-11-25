@@ -1586,17 +1586,13 @@ const profileSuite: TestSuite = {
         ),
     },
     {
-      name: 'counts a sticker, then takes it back off',
+      // The backend keeps this count with the stickers it writes.
+      name: 'rules stop a member moving their own sticker count',
       run: async (ctx) => {
-        const ref = doc(db, 'users', ctx.uid);
-        const before = (await getDoc(ref)).data()?.stickerCount ?? 0;
-        await updateDoc(ref, { stickerCount: incrementBy(1) });
-        const up = (await getDoc(ref)).data()?.stickerCount;
-        await updateDoc(ref, { stickerCount: incrementBy(-1) });
-        const down = (await getDoc(ref)).data()?.stickerCount;
-        assert(up === before + 1, `stickerCount went from ${before} to ${up}, expected ${before + 1}.`);
-        assert(down === before, `stickerCount went back to ${down}, expected ${before}.`);
-        return `${before} → ${up} → ${down}`;
+        if (await runnerIsAdmin(ctx)) return 'skipped: you are an admin, and admins may set any sticker count';
+        return expectDenied('moving the sticker count by one', () =>
+          updateDoc(doc(db, 'users', ctx.uid), { stickerCount: incrementBy(1) }),
+        );
       },
     },
     {
