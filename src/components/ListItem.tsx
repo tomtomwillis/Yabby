@@ -4,7 +4,7 @@ import './ListItem.css';
 import { parseMessageHTML } from './basic/messageText';
 import { normalizeAvatarPath } from '../utils/avatarPath';
 import ListAlbumTracks from './ListAlbumTracks';
-import { validateUrl } from '../utils/sanitise';
+import { toListLink } from '../api/areas/lists';
 import { albumCoverUrl, displayImageUrl } from '../utils/navidrome';
 
 interface BaseListItemProps {
@@ -37,7 +37,7 @@ type ListItemProps = AlbumListItemProps | CustomListItemProps;
 
 const ListItem: React.FC<ListItemProps> = (props) => {
   const { type, userText, onRemove, showRemoveButton = false } = props;
-  const hasSafeLink = type === 'custom' && !!props.linkUrl && validateUrl(props.linkUrl);
+  const safeLink = type === 'custom' ? toListLink(props.linkUrl) : '';
 
   const handleItemClick = () => {
     if (type === 'album') {
@@ -46,9 +46,9 @@ const ListItem: React.FC<ListItemProps> = (props) => {
       if (NAVIDROME_SERVER_URL && props.albumId) {
         window.open(`${NAVIDROME_SERVER_URL}/app/#/album/${props.albumId}/show`, '_blank');
       }
-    } else if (type === 'custom' && hasSafeLink) {
+    } else if (safeLink) {
       // Open custom item link
-      window.open(props.linkUrl, '_blank', 'noopener,noreferrer');
+      window.open(safeLink, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -74,7 +74,7 @@ const ListItem: React.FC<ListItemProps> = (props) => {
         subtitle: null,
         imageUrl: props.imageUrl ? displayImageUrl(props.imageUrl) : undefined,
         imageAlt: props.title,
-        clickable: hasSafeLink,
+        clickable: !!safeLink,
         typeLabel: '[custom]'
       };
     }

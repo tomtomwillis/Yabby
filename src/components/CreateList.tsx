@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { createList, getList, isListLink, saveList, type EditorItem, type ListInput } from '../api/areas/lists';
+import { createList, getList, toListLink, saveList, type EditorItem, type ListInput } from '../api/areas/lists';
 import { ApiError } from '../api/client';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
-import { validateUrl } from '../utils/sanitise';
 import './CreateList.css';
 import type { AlbumListItem, CustomListItem, List, ListItem } from '../types/firestore';
 
@@ -182,8 +181,9 @@ const CreateList: React.FC<CreateListProps> = ({
       setError('a custom item needs a title.');
       return;
     }
-    if (customLinkUrl.trim() && !(validateUrl(customLinkUrl.trim()) && isListLink(customLinkUrl.trim()))) {
-      setError('the link must be a full http:// or https:// address.');
+    const customLink = toListLink(customLinkUrl);
+    if (customLinkUrl.trim() && !customLink) {
+      setError('that link is not a web address.');
       return;
     }
     setError(null);
@@ -192,7 +192,7 @@ const CreateList: React.FC<CreateListProps> = ({
       type: 'custom',
       title: customTitle.trim(),
       ...(customImageUrl.trim() && { imageUrl: customImageUrl.trim() }),
-      ...(customLinkUrl.trim() && { linkUrl: customLinkUrl.trim() }),
+      ...(customLink && { linkUrl: customLink }),
       userText: currentItemText,
       order: items.length,
       addedByUserId: auth.currentUser?.uid || '',
@@ -288,8 +288,9 @@ const CreateList: React.FC<CreateListProps> = ({
       const currentItem = updatedItems[editingItemIndex];
       
       if (currentItem.type === 'custom') {
-        if (editingLinkUrl.trim() && !(validateUrl(editingLinkUrl.trim()) && isListLink(editingLinkUrl.trim()))) {
-          setError('the link must be a full http:// or https:// address.');
+        const editedLink = toListLink(editingLinkUrl);
+        if (editingLinkUrl.trim() && !editedLink) {
+          setError('that link is not a web address.');
           return;
         }
         setError(null);
@@ -298,7 +299,7 @@ const CreateList: React.FC<CreateListProps> = ({
           ...currentItem,
           userText: editingText.trim(),
           imageUrl: editingImageUrl.trim() || undefined,
-          linkUrl: editingLinkUrl.trim() || undefined
+          linkUrl: editedLink || undefined
         };
       } else {
         // Update only text for album items
@@ -358,7 +359,7 @@ const CreateList: React.FC<CreateListProps> = ({
         return {
           lastItemImage: item.imageUrl,
           lastItemAlbumId: '',
-          lastItemLink: item.linkUrl && validateUrl(item.linkUrl) ? item.linkUrl : '',
+          lastItemLink: toListLink(item.linkUrl),
           lastItemAddedByAvatar: item.addedByAvatar || '',
         };
       }
@@ -691,10 +692,10 @@ const CreateList: React.FC<CreateListProps> = ({
 
                       <div className="ls-form-entry-main">
                         <div className="ls-form-entry-head">
-                          {item.type === 'custom' && item.linkUrl && validateUrl(item.linkUrl) ? (
+                          {item.type === 'custom' && toListLink(item.linkUrl) ? (
                             <a
                               className="ls-form-entry-title"
-                              href={item.linkUrl}
+                              href={toListLink(item.linkUrl)}
                               target="_blank"
                               rel="noopener noreferrer"
                             >

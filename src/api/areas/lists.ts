@@ -10,6 +10,7 @@
  */
 
 import { collection, doc, limit, orderBy, query, where } from 'firebase/firestore';
+import { normalizeSiteUrl } from '../../utils/sanitise';
 
 import { db } from '../../firebaseConfig';
 import { trackedGetDoc, trackedGetDocs } from '../../utils/firestoreMetrics';
@@ -123,11 +124,16 @@ export function isListLink(url: string): boolean {
   return /^https?:\/\/[^\n]+$/.test(url);
 }
 
-/** A stored link the rules refuse (a list saved before links were checked may
- *  hold one) is dropped, so it cannot fail the whole save. The page never
- *  opens one anyway. */
+/** A link as a member typed it, as the web link the rules accept, or '' when it
+ *  is not one. A bare address ("www.youtube.com/...") gets https://, which is
+ *  also how a list saved before links were checked is shown and re-saved. */
+export function toListLink(raw: string | undefined): string {
+  const link = normalizeSiteUrl(raw ?? '');
+  return link && isListLink(link) ? link : '';
+}
+
 function previewForWrite(preview: ListPreview): ListPreview {
-  return { ...preview, lastItemLink: isListLink(preview.lastItemLink) ? preview.lastItemLink : '' };
+  return { ...preview, lastItemLink: toListLink(preview.lastItemLink) };
 }
 
 /** The item fields the API takes. The server sets order, time and adder. */
@@ -141,7 +147,8 @@ function itemForApi(item: EditorItem): WriteData {
   } else {
     out.title = item.title;
     if (item.imageUrl?.trim()) out.imageUrl = item.imageUrl;
-    if (item.linkUrl?.trim() && isListLink(item.linkUrl)) out.linkUrl = item.linkUrl;
+    const link = toListLink(item.linkUrl);
+    if (link) out.linkUrl = link;
   }
   return out;
 }
@@ -164,7 +171,8 @@ function itemForFirestore(item: EditorItem): WriteData {
   } else {
     out.title = item.title;
     if (item.imageUrl?.trim()) out.imageUrl = item.imageUrl;
-    if (item.linkUrl?.trim() && isListLink(item.linkUrl)) out.linkUrl = item.linkUrl;
+    const link = toListLink(item.linkUrl);
+    if (link) out.linkUrl = link;
   }
   return out;
 }
