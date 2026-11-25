@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { createList, getList, saveList, type EditorItem, type ListInput } from '../api/areas/lists';
+import { createList, getList, isListLink, saveList, type EditorItem, type ListInput } from '../api/areas/lists';
 import { ApiError } from '../api/client';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
@@ -182,7 +182,7 @@ const CreateList: React.FC<CreateListProps> = ({
       setError('a custom item needs a title.');
       return;
     }
-    if (customLinkUrl.trim() && !validateUrl(customLinkUrl.trim())) {
+    if (customLinkUrl.trim() && !(validateUrl(customLinkUrl.trim()) && isListLink(customLinkUrl.trim()))) {
       setError('the link must be a full http:// or https:// address.');
       return;
     }
@@ -288,7 +288,7 @@ const CreateList: React.FC<CreateListProps> = ({
       const currentItem = updatedItems[editingItemIndex];
       
       if (currentItem.type === 'custom') {
-        if (editingLinkUrl.trim() && !validateUrl(editingLinkUrl.trim())) {
+        if (editingLinkUrl.trim() && !(validateUrl(editingLinkUrl.trim()) && isListLink(editingLinkUrl.trim()))) {
           setError('the link must be a full http:// or https:// address.');
           return;
         }

@@ -118,6 +118,18 @@ export interface ListInput {
   preview: ListPreview;
 }
 
+/** The rules' isWebLink: http(s), then at least one character, on one line. */
+export function isListLink(url: string): boolean {
+  return /^https?:\/\/[^\n]+$/.test(url);
+}
+
+/** A stored link the rules refuse (a list saved before links were checked may
+ *  hold one) is dropped, so it cannot fail the whole save. The page never
+ *  opens one anyway. */
+function previewForWrite(preview: ListPreview): ListPreview {
+  return { ...preview, lastItemLink: isListLink(preview.lastItemLink) ? preview.lastItemLink : '' };
+}
+
 /** The item fields the API takes. The server sets order, time and adder. */
 function itemForApi(item: EditorItem): WriteData {
   const out: WriteData = { type: item.type, userText: item.userText };
@@ -129,7 +141,7 @@ function itemForApi(item: EditorItem): WriteData {
   } else {
     out.title = item.title;
     if (item.imageUrl?.trim()) out.imageUrl = item.imageUrl;
-    if (item.linkUrl?.trim()) out.linkUrl = item.linkUrl;
+    if (item.linkUrl?.trim() && isListLink(item.linkUrl)) out.linkUrl = item.linkUrl;
   }
   return out;
 }
@@ -152,7 +164,7 @@ function itemForFirestore(item: EditorItem): WriteData {
   } else {
     out.title = item.title;
     if (item.imageUrl?.trim()) out.imageUrl = item.imageUrl;
-    if (item.linkUrl?.trim()) out.linkUrl = item.linkUrl;
+    if (item.linkUrl?.trim() && isListLink(item.linkUrl)) out.linkUrl = item.linkUrl;
   }
   return out;
 }
@@ -169,7 +181,7 @@ export async function createList(uid: string, username: string, input: ListInput
           isPublic: input.isPublic,
           isCollaborative: input.isCollaborative,
           items: input.items.map(itemForApi),
-          ...input.preview,
+          ...previewForWrite(input.preview),
         },
       });
       return body.id;
@@ -185,7 +197,7 @@ export async function createList(uid: string, username: string, input: ListInput
     isPublic: input.isPublic,
     isCollaborative: input.isCollaborative,
     lastUpdated: SERVER_TIME,
-    ...input.preview,
+    ...previewForWrite(input.preview),
   });
   for (const item of input.items) await addDocShadowed(collection(listRef, 'items'), itemForFirestore(item));
   return listRef.id;
@@ -200,7 +212,7 @@ export async function saveList(listId: string, input: ListInput, asOwner: boolea
   if ((await sourceFor(AREA)) === 'sqlite') {
     await writeArea(AREA, () =>
       apiRequest('PUT', `/lists/${encodeURIComponent(listId)}`, {
-        body: { title: input.title, ...flags, items: input.items.map(itemForApi), ...input.preview },
+        body: { title: input.title, ...flags, items: input.items.map(itemForApi), ...previewForWrite(input.preview) },
       }),
     );
     return;
@@ -211,7 +223,7 @@ export async function saveList(listId: string, input: ListInput, asOwner: boolea
     itemCount: input.items.length,
     ...flags,
     lastUpdated: SERVER_TIME,
-    ...input.preview,
+    ...previewForWrite(input.preview),
   });
   const existing = await trackedGetDocs(query(itemsOf(listId)));
   for (const itemDoc of existing.docs) await deleteDocShadowed(itemDoc.ref);

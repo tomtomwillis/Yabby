@@ -298,6 +298,13 @@ const messagesSuite: TestSuite = {
       },
     },
     {
+      name: 'rules stop the reply count going below zero',
+      run: async () => {
+        const ref = doc(db, SANDBOX_MESSAGES, requireId(msgState.messageId, 'message'));
+        return expectDenied('dropping a reply count of 0 to -1', () => updateDoc(ref, { replyCount: incrementBy(-1) }));
+      },
+    },
+    {
       name: 'runs a poll',
       run: async (ctx) => {
         const ref = await addDoc(collection(db, SANDBOX_MESSAGES), {
@@ -339,6 +346,25 @@ const messagesSuite: TestSuite = {
               userId: 'not-my-uid',
               timestamp: SERVER_TIME,
               lastActivityAt: SERVER_TIME,
+              username: ctx.username,
+              avatar: ctx.avatar,
+              reactedBy: [],
+              reactionCount: 0,
+            }),
+          ctx,
+        ),
+    },
+    {
+      name: 'rules stop a post dated ahead to sort first',
+      run: async (ctx) =>
+        expectDenied(
+          'posting with lastActivityAt a day ahead',
+          () =>
+            addDoc(collection(db, SANDBOX_MESSAGES), {
+              text: sanitizeHtml(stamp('should not exist')),
+              userId: ctx.uid,
+              timestamp: SERVER_TIME,
+              lastActivityAt: Timestamp.fromMillis(Date.now() + 86_400_000),
               username: ctx.username,
               avatar: ctx.avatar,
               reactedBy: [],
@@ -563,6 +589,7 @@ const listsSuite: TestSuite = {
           lastUpdated: SERVER_TIME,
           lastItemImage: '',
           lastItemAlbumId: 'yabby-test-album',
+          lastItemLink: 'https://example.com/album',
         });
         const data = (await getDoc(ref)).data();
         assert(data?.title === title, 'The title change did not save.');
@@ -598,6 +625,36 @@ const listsSuite: TestSuite = {
               order: 99,
               timestamp: SERVER_TIME,
             }),
+          ctx,
+        );
+      },
+    },
+    {
+      name: 'rules reject an entry link that is not http(s)',
+      run: async (ctx) => {
+        const listId = requireId(listState.listId, 'list');
+        return expectDenied(
+          'adding an entry linking to javascript:',
+          () =>
+            addDoc(collection(db, SANDBOX_LISTS, listId, 'items'), {
+              type: 'custom',
+              userText: `${MARKER} should not exist`,
+              order: 99,
+              timestamp: SERVER_TIME,
+              title: 'Bad link',
+              linkUrl: 'javascript:alert(1)',
+            }),
+          ctx,
+        );
+      },
+    },
+    {
+      name: 'rules reject a preview link that is not http(s)',
+      run: async (ctx) => {
+        const listId = requireId(listState.listId, 'list');
+        return expectDenied(
+          'setting lastItemLink to javascript:',
+          () => updateDoc(doc(db, SANDBOX_LISTS, listId), { lastItemLink: 'javascript:alert(1)', lastUpdated: SERVER_TIME }),
           ctx,
         );
       },

@@ -65,7 +65,8 @@ service cloud.firestore {
        where the last surviving reply put it — but lastActivityAt may only move
        to the server clock, and only alongside the reply that earns it: a count
        going up by exactly one. Without that pairing any member could push a
-       post to the top of the board with nothing under it to explain why. */
+       post to the top of the board with nothing under it to explain why.
+       The count never goes below zero. */
     function isValidReplyBump(before, after) {
       let affected = after.diff(before).affectedKeys();
       let oldCount = before.get('replyCount', 0);
@@ -74,8 +75,26 @@ service cloud.firestore {
         && (!affected.hasAny(['lastActivityAt'])
           || (after.lastActivityAt == request.time && newCount == oldCount + 1))
         && (!affected.hasAny(['replyCount'])
-          || newCount == oldCount + 1
-          || newCount == oldCount - 1);
+          || ((newCount == oldCount + 1 || newCount == oldCount - 1) && newCount >= 0));
+    }
+
+    // A post may carry lastActivityAt from its create only as the server
+    // time; a later one would sort it first on the board until someone replied.
+    function hasServerActivityTime(data) {
+      return !('lastActivityAt' in data) || data.lastActivityAt == request.time;
+    }
+
+    // A link a member can click: http(s) only, never javascript: or data:.
+    // matches() is a whole-string match.
+    function isWebLink(url) {
+      return url.matches('https?://.+');
+    }
+
+    // The list's preview link: empty when there is none, else a web link.
+    function validLastItemLink(data) {
+      return !('lastItemLink' in data)
+        || (validString(data.lastItemLink, 0, 1000)
+          && (data.lastItemLink == '' || isWebLink(data.lastItemLink)));
     }
 
     // reactedBy/reactionCount may be present at creation only as empty/zero
@@ -162,7 +181,7 @@ service cloud.firestore {
         && (!('albumCover' in data) || validString(data.albumCover, 0, 1000))
         && (!('title' in data) || validString(data.title, 0, 300))
         && (!('imageUrl' in data) || validString(data.imageUrl, 0, 1000))
-        && (!('linkUrl' in data) || validString(data.linkUrl, 0, 1000))
+        && (!('linkUrl' in data) || (validString(data.linkUrl, 0, 1000) && isWebLink(data.linkUrl)))
         && (!('addedByUserId' in data) || validString(data.addedByUserId, 1, 128))
         && (!('addedByUsername' in data) || validString(data.addedByUsername, 0, 50))
         && (!('addedByAvatar' in data) || validString(data.addedByAvatar, 0, 200));
@@ -484,6 +503,7 @@ service cloud.firestore {
         && isValidBotFlag(request.resource.data)
         && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
+        && hasServerActivityTime(request.resource.data)
         && validString(request.resource.data.username, 1, 50)
         && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
@@ -589,6 +609,7 @@ service cloud.firestore {
         && isValidBotFlag(request.resource.data)
         && isValidPollCreate(request.resource.data)
         && request.resource.data.timestamp == request.time
+        && hasServerActivityTime(request.resource.data)
         && validString(request.resource.data.username, 1, 50)
         && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
@@ -691,6 +712,7 @@ service cloud.firestore {
         && request.resource.data.status == 'inprogress'
         && hasNoPriorReactions(request.resource.data)
         && request.resource.data.timestamp == request.time
+        && hasServerActivityTime(request.resource.data)
         && validString(request.resource.data.username, 1, 50)
         && usernameMatchesProfile(request.resource.data.username)
         && validString(request.resource.data.avatar, 0, 200)
@@ -772,6 +794,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['title', 'userId', 'username', 'timestamp', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
         && validLastItemAlbumId(request.resource.data)
+        && validLastItemLink(request.resource.data)
         && usernameMatchesProfile(request.resource.data.username)
         && request.resource.data.timestamp == request.time
         && request.resource.data.lastUpdated == request.time;
@@ -780,13 +803,17 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'isPublic', 'isCollaborative', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
         && validLastItemAlbumId(request.resource.data)
+        && validLastItemLink(request.resource.data)
         && request.resource.data.lastUpdated == request.time;
 
+      // A private list is its owner's alone, collaborative or not, as for reading.
       allow update: if isListCollection(listCollection) && isSignedIn()
         && resource.data.isCollaborative == true
+        && resource.data.get('isPublic', true) != false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itemCount', 'lastUpdated', 'lastItemImage', 'lastItemAlbumId', 'lastItemLink', 'lastItemAddedByAvatar'])
         && validString(request.resource.data.title, 1, 200)
         && validLastItemAlbumId(request.resource.data)
+        && validLastItemLink(request.resource.data)
         && request.resource.data.lastUpdated == request.time;
 
       allow delete: if isListCollection(listCollection) && isOwner(resource.data.userId);
@@ -806,10 +833,12 @@ service cloud.firestore {
 
         allow create, update: if isListCollection(listCollection) && isSignedIn()
           && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isCollaborative == true
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.get('isPublic', true) != false
           && isValidListItem(request.resource.data);
 
         allow delete: if isListCollection(listCollection) && isSignedIn()
-          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isCollaborative == true;
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.isCollaborative == true
+          && get(/databases/$(database)/documents/$(listCollection)/$(listId)).data.get('isPublic', true) != false;
       }
     }
 
@@ -828,6 +857,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['text', 'userId', 'timestamp', 'lastActivityAt', 'username', 'avatar', 'imageId', 'showOnMain', 'reactedBy', 'reactionCount'])
         && hasNoPriorReactions(request.resource.data)
         && request.resource.data.timestamp == request.time
+        && hasServerActivityTime(request.resource.data)
         && validString(request.resource.data.username, 1, 50)
         && (!('showOnMain' in request.resource.data) || request.resource.data.showOnMain is bool)
         && (!('imageId' in request.resource.data) || (request.resource.data.imageId is string && request.resource.data.imageId.size() == 36))
