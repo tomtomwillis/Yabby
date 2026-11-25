@@ -73,6 +73,7 @@ Areas move off Firestore one at a time. **Travel and stickers read from SQLite**
 - All authorization enforced server-side, never by client-side UI checks: by Firestore security rules, and for a moved area's writes by its API endpoint (`backend_server/routes/areas/`), which ports those rules
 - Client-side `useAdmin` hook is UI-only; always validate permissions on read/write operations
 - After editing `firestore.rules`, deploy then run the affected `/test` suites — they assert both the allowed and the denied paths — and run `npm run test:policy`, which fails until `policy.js` matches
+- The deployed Firestore rules and `firestore.rules` on GitHub `main` must never drift. Pull `main` before deploying rules; deploy only from a checkout of what is on `main` and push in the same step; never push a rules change without deploying it
 
 ### External Integrations
 
