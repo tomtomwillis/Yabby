@@ -473,10 +473,12 @@ export function useBoardActions({
     const board = boardOf(message);
     const messageId = message.id;
     try {
-      await writeBatchShadowed(db)
-        .delete(doc(db, board, messageId, 'replies', replyId))
-        .update(doc(db, board, messageId), { replyCount: incrementBy(-1) })
-        .commit();
+      const batch = writeBatchShadowed(db).delete(doc(db, board, messageId, 'replies', replyId));
+      // A count that already drifted to zero must not block the delete: the rules refuse a negative count.
+      if ((message.replyCount ?? 0) > 0) {
+        batch.update(doc(db, board, messageId), { replyCount: incrementBy(-1) });
+      }
+      await batch.commit();
       setMessages((prev) => prev.map((m) => (m.id === messageId ? withoutReply(m, replyId) : m)));
     } catch (error) {
       console.error('Error deleting reply:', error);
