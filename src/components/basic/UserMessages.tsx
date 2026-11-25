@@ -12,6 +12,7 @@ import Lightbox from './Lightbox';
 import PollBlock from './PollBlock';
 import UsernameLink from './UsernameLink';
 import PosterStats from './PosterStats';
+import { usePosterIdentity } from '../../utils/usePosterIdentity';
 import type { Reaction, Reply } from '../../types/firestore';
 
 interface UserMessageProps {
@@ -94,10 +95,10 @@ const isValidUrl = (url: string): boolean => {
 };
 
 const UserMessage: React.FC<UserMessageProps> = ({
-  username,
+  username: storedUsername,
   message,
   timestamp,
-  userSticker,
+  userSticker: storedSticker,
   onClose,
   hideCloseButton,
   reactions,
@@ -141,6 +142,10 @@ const UserMessage: React.FC<UserMessageProps> = ({
   sourceTag,
   postMaxWords = 250,
 }) => {
+  const { username, avatar: userSticker } = usePosterIdentity(userId, isBot, {
+    username: storedUsername,
+    avatar: storedSticker,
+  });
   const [imageError, setImageError] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -511,7 +516,7 @@ const UserMessage: React.FC<UserMessageProps> = ({
         <div className="user-message-reply-input-container">
           {replyingToUsername && (
             <div className="user-message-reply-header">
-              Replying in thread to {replyingToUsername}
+              Replying in thread to {username}
             </div>
           )}
           <ForumBox
