@@ -5,6 +5,7 @@ import { createList, getList, saveList, type EditorItem, type ListInput } from '
 import { ApiError } from '../api/client';
 import AlbumSearchBox from './basic/AlbumSearchBox';
 import { albumCoverUrl, displayImageUrl, fetchAlbumSummary } from '../utils/navidrome';
+import { validateUrl } from '../utils/sanitise';
 import './CreateList.css';
 import type { AlbumListItem, CustomListItem, List, ListItem } from '../types/firestore';
 
@@ -181,6 +182,10 @@ const CreateList: React.FC<CreateListProps> = ({
       setError('a custom item needs a title.');
       return;
     }
+    if (customLinkUrl.trim() && !validateUrl(customLinkUrl.trim())) {
+      setError('the link must be a full http:// or https:// address.');
+      return;
+    }
     setError(null);
 
     const newCustomItem: CustomListItem = {
@@ -283,6 +288,11 @@ const CreateList: React.FC<CreateListProps> = ({
       const currentItem = updatedItems[editingItemIndex];
       
       if (currentItem.type === 'custom') {
+        if (editingLinkUrl.trim() && !validateUrl(editingLinkUrl.trim())) {
+          setError('the link must be a full http:// or https:// address.');
+          return;
+        }
+        setError(null);
         // Update text, image URL, and link URL for custom items
         updatedItems[editingItemIndex] = {
           ...currentItem,
@@ -348,7 +358,7 @@ const CreateList: React.FC<CreateListProps> = ({
         return {
           lastItemImage: item.imageUrl,
           lastItemAlbumId: '',
-          lastItemLink: item.linkUrl || '',
+          lastItemLink: item.linkUrl && validateUrl(item.linkUrl) ? item.linkUrl : '',
           lastItemAddedByAvatar: item.addedByAvatar || '',
         };
       }
@@ -681,7 +691,7 @@ const CreateList: React.FC<CreateListProps> = ({
 
                       <div className="ls-form-entry-main">
                         <div className="ls-form-entry-head">
-                          {item.type === 'custom' && item.linkUrl ? (
+                          {item.type === 'custom' && item.linkUrl && validateUrl(item.linkUrl) ? (
                             <a
                               className="ls-form-entry-title"
                               href={item.linkUrl}
