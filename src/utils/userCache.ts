@@ -154,7 +154,11 @@ export function clearUserCache(userId: string): void {
   persist();
 }
 
-export async function getUserProfile(userId: string): Promise<UserProfile> {
+/** One member's profile, throwing if it could not be read. A member with no
+    profile document is not a failure and comes back empty. Use this wherever an
+    empty profile would be acted on rather than just drawn, or a failed read
+    turns into "set a username" or "user not found". */
+export async function loadUserProfile(userId: string): Promise<UserProfile> {
   const now = Date.now();
   const cached = cache.get(userId);
 
@@ -174,10 +178,6 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
       cache.set(userId, { ...userData, timestamp: Date.now() });
       persist();
       return userData;
-    } catch {
-      cache.set(userId, { ...EMPTY, timestamp: Date.now() });
-      persist();
-      return EMPTY;
     } finally {
       inFlight.delete(userId);
     }
@@ -185,6 +185,16 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
 
   inFlight.set(userId, promise);
   return promise;
+}
+
+/** For drawing: never throws. A failed read shows as the empty profile for this
+    render and is not cached, so the next one tries again. */
+export async function getUserProfile(userId: string): Promise<UserProfile> {
+  try {
+    return await loadUserProfile(userId);
+  } catch {
+    return EMPTY;
+  }
 }
 
 export type DirectoryEntry = UserProfile & { userId: string };
@@ -233,20 +243,20 @@ export async function getUserData(
     Silent on failure: anyone who has not saved a profile has no users document
     to update, and the rules require a valid username on every write to one. */
 export async function ensureJoinedAt(user: User): Promise<void> {
-  const profile = await getUserProfile(user.uid);
-  if (profile.joinedAt) return;
-
   const creationTime = user.metadata.creationTime;
   if (!creationTime) return;
 
   try {
+    const profile = await loadUserProfile(user.uid);
+    if (profile.joinedAt) return;
+
     await updateDocShadowed(doc(db, 'users', user.uid), {
       joinedAt: Timestamp.fromDate(new Date(creationTime)),
     });
     clearUserCache(user.uid);
   } catch {
-    // No profile document yet, or the write was rejected — either way there is
-    // nothing to show in the gutter and nothing to retry.
+    // A failed read, no profile document yet, or a rejected write. The next
+    // sign-in tries again, and until then there is nothing to show in the gutter.
   }
 }
 

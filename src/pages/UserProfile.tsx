@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
-import { getUserProfile, type UserProfile as Profile } from '../utils/userCache';
+import { loadUserProfile, type UserProfile as Profile } from '../utils/userCache';
 import Header from '../components/basic/Header';
 import SiteLink from '../components/basic/SiteLink';
 import SocialHandle from '../components/basic/SocialHandle';
@@ -40,12 +40,11 @@ const UserProfile: React.FC = () => {
     let live = true;
     setAvatarBroken(false);
 
-    getUserProfile(userId)
+    loadUserProfile(userId)
       .then((data) => {
         if (!live) return;
-        /* The cache answers with its empty profile rather than throwing when
-           there is no document, so an absent member reads as one with no name
-           of their own. */
+        /* A missing document comes back as the empty profile rather than an
+           error, so an absent member reads as one with no name of their own. */
         if (!data.hasUsername) setError('User not found.');
         else setProfile(data);
       })

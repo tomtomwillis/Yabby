@@ -45,7 +45,7 @@ import {
   type EventDraft,
 } from '../utils/eventsApi';
 import { setEventStatus, useEventInterests } from '../utils/eventInterests';
-import { getUserData, getUserProfile } from '../utils/userCache';
+import { getUserProfile, loadUserProfile } from '../utils/userCache';
 import { useAdmin } from '../utils/useAdmin';
 import { useRateLimit } from '../utils/useRateLimit';
 import './CalendarPage.css';
@@ -548,7 +548,7 @@ export default function CalendarPage() {
     }
 
     if (!checkRateLimit()) throw new Error("You're adding events quickly. Give it a few minutes.");
-    const profile = await getUserData(user.uid);
+    const profile = await loadUserProfile(user.uid);
     // The rules refuse an event whose name is not the one on the profile.
     if (!profile.hasUsername) throw new Error('Set a username on your profile before adding events.');
     const saved = await createEvent(draft, profile.username);

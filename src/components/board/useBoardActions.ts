@@ -19,7 +19,7 @@ import {
 import { db, auth } from '../../firebaseConfig';
 import { sanitizeHtml, sanitizeText } from '../../utils/sanitise';
 import { useRateLimit } from '../../utils/useRateLimit';
-import { getUserData, bumpPostCount } from '../../utils/userCache';
+import { loadUserProfile, bumpPostCount } from '../../utils/userCache';
 import { postEventBotNow } from '../../utils/eventsApi';
 import { uploadBoardImage } from '../../api/media';
 import type { PollDraft } from '../basic/PollComposeModal';
@@ -107,7 +107,7 @@ export function useBoardActions({
         }
       }
 
-      const userData = await getUserData(auth.currentUser.uid);
+      const userData = await loadUserProfile(auth.currentUser.uid);
       // Posts carry the poster's name, and the rules refuse one that is not
       // the name on the profile — so a profile with no name cannot post at
       // all, and saying "try again" would send them round the same loop.
@@ -289,7 +289,7 @@ export function useBoardActions({
         }
       }
 
-      const userData = await getUserData(auth.currentUser.uid);
+      const userData = await loadUserProfile(auth.currentUser.uid);
       if (!userData.hasUsername) {
         alert('Set a username on your profile before replying.');
         return;

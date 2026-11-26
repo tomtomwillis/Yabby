@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { doc } from 'firebase/firestore';
 import { setDocShadowed, SERVER_TIME } from '../../api/shadow';
 import { db, auth } from '../../firebaseConfig';
-import { getUserData } from '../../utils/userCache';
+import { loadUserProfile } from '../../utils/userCache';
 import { useAdmin } from '../../utils/useAdmin';
 import { useFilmClub, MAX_SUBMISSIONS_PER_MONTH } from '../../utils/useFilmClub';
 import FilmSearchBox from '../basic/FilmSearchBox';
@@ -42,7 +42,7 @@ function FilmClubSubmit() {
 
     setStatus('submitting');
     try {
-      const { username, hasUsername } = await getUserData(user.uid);
+      const { username, hasUsername } = await loadUserProfile(user.uid);
       // A submission carries the submitter's name, which the rules match
       // against the profile — no name on the profile, no submission.
       if (!hasUsername) {
