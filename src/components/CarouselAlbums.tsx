@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { coverArtUrl, fetchSubsonicXml } from "../utils/navidrome";
+import { COVER_THUMB, coverArtUrl, fetchSubsonicXml } from "../utils/navidrome";
 import { useNavidromeCard } from "../utils/useNavidromeCard";
 import "./CarouselAlbums.css";
 
@@ -247,7 +247,7 @@ const CarouselAlbums: React.FC = () => {
       title={`${album.name} — ${album.artist}${album.year ? ` (${album.year})` : ''}`}
     >
       <img
-        src={coverArtUrl(album.coverArt)}
+        src={coverArtUrl(album.coverArt, COVER_THUMB)}
         alt={album.name}
         className="albums-marquee__img"
         loading="lazy"

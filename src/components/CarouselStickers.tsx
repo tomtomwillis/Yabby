@@ -5,11 +5,12 @@ import PlaceSticker from './PlaceSticker';
 import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './CarouselStickers.css';
 import AnchoredBubble from './basic/AnchoredBubble';
-import { albumCoverUrl, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
+import { albumCoverUrl, COVER_LARGE, COVER_TILE, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
 import { auth } from '../firebaseConfig';
 import { deleteSticker, randomStickers, recentStickers, stickersOnAlbums } from '../api/areas/stickers';
 import { ApiError } from '../api/client';
 import { useAdmin } from '../utils/useAdmin';
+import { clearStickerWall } from '../utils/stickerWall';
 import { getUserData, clearUserCache } from '../utils/userCache';
 import type { FirestoreTimestamp } from '../types/firestore';
 
@@ -201,7 +202,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
               throw new Error('Album not found in response');
             }
 
-            const albumCover = coverArtUrl(albumElement.getAttribute('coverArt') || `al-${albumId}`);
+            const albumCover = coverArtUrl(albumElement.getAttribute('coverArt') || `al-${albumId}`, COVER_TILE);
 
             return {
               albumId,
@@ -321,7 +322,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
       albumId: album.albumId,
       albumTitle: album.albumTitle,
       albumArtist: album.albumArtist,
-      albumCover: albumCoverUrl(album.albumId),
+      albumCover: albumCoverUrl(album.albumId, COVER_LARGE),
     });
   };
 
@@ -331,6 +332,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     try {
       await deleteSticker(stickerId);
       clearUserCache(ownerId);
+      clearStickerWall();
       setPopup((prev) => ({
         ...prev,
         stickers: prev.stickers.filter((s) => s.stickerId !== stickerId),
@@ -418,7 +420,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
         title={`${album.albumTitle} — ${album.albumArtist}`}
       >
         <img
-          src={album.albumCover}
+          src={index === 0 ? albumCoverUrl(album.albumId, COVER_LARGE) : album.albumCover}
           alt={album.albumTitle}
           className="album-image"
           loading="lazy"

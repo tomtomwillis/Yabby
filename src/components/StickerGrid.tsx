@@ -1,25 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Button from './basic/Button';
 import UserMessage from './basic/UserMessages';
 import PlaceSticker from './PlaceSticker';
 import StickerAlbumPlayer, { StickerFavoritePlay } from './StickerAlbumPlayer';
 import './StickerGrid.css';
 import { auth } from '../firebaseConfig';
-import { recentStickers } from '../api/areas/stickers';
+import { getAllStickers, type WallSticker as Sticker } from '../utils/stickerWall';
 import { getUserData } from '../utils/userCache';
-import { albumCoverUrl, coverArtUrl, fetchSubsonicXml } from '../utils/navidrome';
-import type { FirestoreTimestamp } from '../types/firestore';
-
-interface Sticker {
-  userId: string;
-  albumId: string;
-  text: string;
-  position: { x: number; y: number };
-  sticker: string;
-  timestamp: FirestoreTimestamp;
-  favoriteTrackId?: string;
-  favoriteTrackTitle?: string;
-}
+import { musicSessionReady } from '../utils/musicSession';
+import { albumCoverUrl, COVER_LARGE, COVER_TILE } from '../utils/navidrome';
 
 interface AlbumWithStickers {
   albumId: string;
@@ -68,7 +57,9 @@ const ALBUMS_PER_PAGE = 50;
 
 const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterUserId, onUsersLoaded, refreshKey = 0 }) => {
   const [albums, setAlbums] = useState<AlbumWithStickers[]>([]);
-  const [displayedAlbums, setDisplayedAlbums] = useState<AlbumWithStickers[]>([]);
+  /* Covers that would not load: the album has left the library, or Navidrome
+     reissued its id on a rescan. Those tiles drop out of the wall. */
+  const [goneAlbums, setGoneAlbums] = useState<ReadonlySet<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState<number>(ALBUMS_PER_PAGE);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,63 +86,33 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       setLoading(true);
       setError(null);
 
-      const allStickers: Sticker[] = (await recentStickers()).map((doc) => doc.data as Sticker);
+      // Covers are plain <img> requests, so the wall waits for the music cookie
+      // too. The two run side by side, and that one is usually already set.
+      const [allStickers] = await Promise.all([getAllStickers(), musicSessionReady()]);
 
-      // Group by album. The query above already returned every sticker in
-      // timestamp order, so each album's list needs no further reads.
+      // Group by album. Stickers arrive newest first, so each album's list needs
+      // no further reads and a Map's insertion order is already the wall's
+      // order: most recent sticker first.
       const stickersByAlbum = new Map<string, Sticker[]>();
       for (const sticker of allStickers) {
         const list = stickersByAlbum.get(sticker.albumId);
         if (list) list.push(sticker);
         else stickersByAlbum.set(sticker.albumId, [sticker]);
       }
-      const uniqueAlbumIds = [...stickersByAlbum.keys()];
 
-      const albumResults = await Promise.all(
-        uniqueAlbumIds.map(async (albumId) => {
-          const allAlbumStickers: Sticker[] = stickersByAlbum.get(albumId) || [];
+      // Every sticker carries its album's name, and a cover needs only the id,
+      // so the wall needs no lookup per album. At hundreds of albums those would
+      // take far longer than the rest of this put together.
+      setAlbums([...stickersByAlbum].map(([albumId, stickers]) => ({
+        albumId,
+        albumCover: albumCoverUrl(albumId, COVER_TILE),
+        albumTitle: stickers[0].albumName || 'Unknown Album',
+        albumArtist: stickers[0].albumArtist || 'Unknown Artist',
+        stickers,
+      })));
 
-          try {
-            const xmlDoc = await fetchSubsonicXml('getAlbum', { id: albumId });
-            const albumElement = xmlDoc.querySelector('album');
-
-            if (!albumElement) {
-              throw new Error('Album not found in response');
-            }
-
-            const albumCover = coverArtUrl(albumElement.getAttribute('coverArt') || `al-${albumId}`);
-
-            // Find the most recent sticker timestamp for this album
-            const mostRecentTimestamp = allAlbumStickers[0]?.timestamp?.toDate ?
-              allAlbumStickers[0].timestamp.toDate().getTime() : 0;
-
-            return {
-              albumId,
-              albumCover,
-              albumTitle: albumElement.getAttribute('name') || 'Unknown Album',
-              albumArtist: albumElement.getAttribute('artist') || 'Unknown Artist',
-              stickers: allAlbumStickers,
-              mostRecentTimestamp, // Add this for sorting
-            };
-          } catch (err) {
-            // An album removed from the library still has stickers pointing at it;
-            // drop it rather than failing the whole grid.
-            console.warn(`Skipping album ${albumId}:`, err instanceof Error ? err.message : err);
-            return null;
-          }
-        })
-      );
-
-      const albumsWithAllStickers = albumResults.filter(
-        (album): album is NonNullable<typeof album> => album !== null
-      );
-
-      // Sort by most recent sticker timestamp (chronological by default)
-      const sortedAlbums = albumsWithAllStickers.sort((a, b) =>
-        b.mostRecentTimestamp - a.mostRecentTimestamp
-      );
-
-      setAlbums(sortedAlbums);
+      // The filter below needs every poster's name; the wall does not.
+      setLoading(false);
 
       // Build sorted list of unique users who have posted stickers
       if (onUsersLoaded) {
@@ -193,31 +154,27 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
-  // Handle sort mode changes and shuffle key
-  useEffect(() => {
-    if (albums.length === 0) return;
-
-    if (sortMode === 'shuffle') {
-      // Fisher-Yates shuffle algorithm
-      const shuffled = [...albums];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      setDisplayedAlbums(shuffled);
-    } else {
-      // Chronological (already sorted)
-      setDisplayedAlbums(albums);
+  // shuffleKey is a dependency so that asking again deals a new order.
+  const displayedAlbums = useMemo(() => {
+    if (sortMode !== 'shuffle') return albums;
+    // Fisher-Yates shuffle algorithm
+    const shuffled = [...albums];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
+    return shuffled;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortMode, albums, shuffleKey]);
 
   const handleLoadMore = () => {
     setVisibleCount(prev => prev + ALBUMS_PER_PAGE);
   };
 
-  const filteredAlbums = filterUserId
-    ? displayedAlbums.filter(album => album.stickers.some(s => s.userId === filterUserId))
-    : displayedAlbums;
+  const filteredAlbums = displayedAlbums.filter(album =>
+    !goneAlbums.has(album.albumId)
+    && (!filterUserId || album.stickers.some(s => s.userId === filterUserId))
+  );
   const visibleAlbums = filteredAlbums.slice(0, visibleCount);
   const hasMore = visibleCount < filteredAlbums.length;
 
@@ -244,7 +201,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
       albumId: album.albumId,
       albumTitle: album.albumTitle,
       albumArtist: album.albumArtist,
-      albumCover: albumCoverUrl(album.albumId),
+      albumCover: albumCoverUrl(album.albumId, COVER_LARGE),
     });
   };
 
@@ -328,11 +285,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
     );
   }
 
-  const filteredForEmpty = filterUserId
-    ? displayedAlbums.filter(album => album.stickers.some(s => s.userId === filterUserId))
-    : displayedAlbums;
-
-  if (filteredForEmpty.length === 0) {
+  if (filteredAlbums.length === 0) {
     return (
       <div className="sticker-grid-container">
         <div className="empty-container">
@@ -356,6 +309,8 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
                 src={album.albumCover}
                 alt={album.albumTitle}
                 className="grid-album-image"
+                loading="lazy"
+                onError={() => setGoneAlbums((gone) => new Set(gone).add(album.albumId))}
               />
               {album.stickers.map((sticker, index) => {
                 const stickerElement = document.querySelector(
@@ -382,7 +337,7 @@ const StickerGrid: React.FC<StickerGridProps> = ({ sortMode, shuffleKey, filterU
         <div className="load-more-container">
           <Button
             type="basic"
-            label={`Load More (${displayedAlbums.length - visibleCount} remaining)`}
+            label={`Load More (${filteredAlbums.length - visibleCount} remaining)`}
             onClick={handleLoadMore}
           />
         </div>

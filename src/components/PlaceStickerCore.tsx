@@ -6,6 +6,7 @@ import { db, auth } from '../firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { createSticker, stickersOnAlbums, type NewSticker } from '../api/areas/stickers';
 import { ApiError } from '../api/client';
+import { clearStickerWall } from '../utils/stickerWall';
 import { clearUserCache } from '../utils/userCache';
 import MessageTextBox from './basic/MessageTextBox';
 import Button from './basic/Button';
@@ -322,6 +323,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       const uid = auth.currentUser.uid;
       const stickerId = await createSticker(stickerData);
       clearUserCache(uid);
+      clearStickerWall();
 
       if (onSuccess) {
         onSuccess({

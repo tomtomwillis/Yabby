@@ -47,6 +47,12 @@ export function subsonicUrl(endpoint: string, params: Record<string, string | nu
   return `${base}/${endpoint}${query ? `?${query}` : ''}`;
 }
 
+/* Originals run to 4000x4000 and nearly 10 MB, so only the lightbox asks for one.
+   Each size allows for a 2x screen at the largest the image is drawn. */
+export const COVER_THUMB = 300;
+export const COVER_TILE = 600;
+export const COVER_LARGE = 1000;
+
 /** Cover-art image URL for use in img src. Omit size for the original image. */
 export function coverArtUrl(coverArtId: string, size?: number): string {
   return subsonicUrl('getCoverArt', size ? { id: coverArtId, size } : { id: coverArtId });
@@ -95,7 +101,7 @@ export async function fetchAlbumSummary(albumId: string): Promise<AlbumSummary> 
     id,
     artist: album.getAttribute('artist') || 'Unknown Artist',
     title: album.getAttribute('name') || 'Unknown Album',
-    cover: coverArtUrl(album.getAttribute('coverArt') || `al-${id}`),
+    cover: coverArtUrl(album.getAttribute('coverArt') || `al-${id}`, COVER_LARGE),
   };
 }
 
