@@ -329,7 +329,7 @@ const CarouselStickers = forwardRef<CarouselStickersHandle, CarouselStickersProp
     if (!window.confirm('Are you sure you want to delete this sticker? This cannot be undone.')) return;
 
     try {
-      await deleteSticker(stickerId, ownerId);
+      await deleteSticker(stickerId);
       clearUserCache(ownerId);
       setPopup((prev) => ({
         ...prev,

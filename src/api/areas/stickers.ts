@@ -1,8 +1,8 @@
 /**
  * Sticker reads and writes. Reads go to the API when the flag says stickers
- * read from SQLite, and to Firestore otherwise or on fallback. Writes go to
- * the API when the flag says so, and through the old Firestore batch when it
- * does not; a failed API write is an error, never retried on Firestore.
+ * read from SQLite, and to Firestore otherwise or on fallback. Writes always go
+ * to the API: the rules refuse browser writes to live stickers, so a failed
+ * API write is an error, never retried on Firestore.
  *
  * The API routes are backend_server/routes/areas/stickers.js. Each read pair
  * below must return the same documents in the same order.
@@ -10,7 +10,6 @@
 
 import {
   collection,
-  doc,
   documentId,
   endBefore,
   limit,
@@ -22,9 +21,7 @@ import {
 
 import { db } from '../../firebaseConfig';
 import { trackedGetDocs } from '../../utils/firestoreMetrics';
-import { incrementBy, SERVER_TIME, writeBatchShadowed } from '../shadow';
 import { apiRequest, readArea, writeArea } from '../client';
-import { sourceFor } from '../dataSource';
 import { docsFromSnapshot, docsFromWire, type AreaDoc } from '../wire';
 
 const AREA = 'stickers';
@@ -115,38 +112,17 @@ export interface NewSticker {
   favoriteTrackTitle?: string;
 }
 
-/** Post a sticker. Returns its id. The owner's stickerCount moves with it. */
-export async function createSticker(uid: string, input: NewSticker): Promise<string> {
-  // Firestore refuses a field set to undefined, so an unchosen track is left out.
+/** Post a sticker. Returns its id. The server moves the owner's stickerCount. */
+export async function createSticker(input: NewSticker): Promise<string> {
+  // An unchosen track is left out rather than sent as undefined.
   const fields = Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
-
-  if ((await sourceFor(AREA)) === 'sqlite') {
-    return writeArea(AREA, async () => {
-      const body = await apiRequest<{ id: string }>('POST', '/stickers', { body: fields });
-      return body.id;
-    });
-  }
-
-  // One batch, so the profile's count can never drift from the stickers.
-  const docRef = doc(stickers());
-  await writeBatchShadowed(db)
-    .set(docRef, { ...fields, userId: uid, timestamp: SERVER_TIME })
-    .update(doc(db, 'users', uid), { stickerCount: incrementBy(1) })
-    .commit();
-  return docRef.id;
+  return writeArea(AREA, async () => {
+    const body = await apiRequest<{ id: string }>('POST', '/stickers', { body: fields });
+    return body.id;
+  });
 }
 
-/** Delete a sticker. Its owner's stickerCount drops by one. */
-export async function deleteSticker(stickerId: string, ownerId: string): Promise<void> {
-  if ((await sourceFor(AREA)) === 'sqlite') {
-    await writeArea(AREA, () => apiRequest('DELETE', `/stickers/${encodeURIComponent(stickerId)}`));
-    return;
-  }
-
-  // An admin deleting someone else's sticker is let through by the profile's
-  // admin stickerCount rule.
-  await writeBatchShadowed(db)
-    .delete(doc(db, 'stickers', stickerId))
-    .update(doc(db, 'users', ownerId), { stickerCount: incrementBy(-1) })
-    .commit();
+/** Delete a sticker. The server drops its owner's stickerCount. */
+export async function deleteSticker(stickerId: string): Promise<void> {
+  await writeArea(AREA, () => apiRequest('DELETE', `/stickers/${encodeURIComponent(stickerId)}`));
 }

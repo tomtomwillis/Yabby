@@ -8,16 +8,22 @@ import CalendarWeek from '../components/events/CalendarWeek';
 import CalendarSettings from '../components/events/CalendarSettings';
 import EventForm from '../components/events/EventForm';
 import EventList from '../components/events/EventList';
+import {
+  NO_FILTERS,
+  choose,
+  facetsFor,
+  filtersFrom,
+  matchesFilters,
+  type CalendarFilters,
+} from '../components/events/calendarFilter';
 import type { Facet } from '../components/travel/TravelFilters';
 import {
   EVENT_CATEGORIES,
   addDays,
-  cityKey,
   compareEvents,
   addMonths,
   attendeesOf,
   dayLabel,
-  isHosted,
   monthGrid,
   monthLabel,
   weekTitle,
@@ -66,50 +72,11 @@ function storedView(): View {
   return window.matchMedia('(max-width: 760px)').matches ? 'week' : 'month';
 }
 
-type HostFilter = '' | 'members' | 'mine';
-
-/** What the filter line is set to. Labels are kept beside the values so a
- *  choice still reads right on a day or month that has none of it. */
-interface Filters {
-  city: string;
-  cityLabel: string;
-  type: EventCategory | '';
-  by: string;
-  byLabel: string;
-  host: HostFilter;
-  /** '' for everyone's events, 'mine' for the member's own ticks, or the uid
-   *  of a member who shares their calendar. */
-  cal: string;
-  calLabel: string;
-}
-
-const NO_FILTERS: Filters = {
-  city: '',
-  cityLabel: '',
-  type: '',
-  by: '',
-  byLabel: '',
-  host: '',
-  cal: '',
-  calLabel: '',
-};
-
 /** The filters as this browser last left them — "only Glasgow" should not
- *  need setting again every visit. Anything unreadable is dropped. */
-function storedFilters(): Filters {
+ *  need setting again every visit. */
+function storedFilters(): CalendarFilters {
   try {
-    const raw = JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}');
-    const text = (key: keyof Filters) => (typeof raw[key] === 'string' ? (raw[key] as string).slice(0, 200) : '');
-    return {
-      city: text('city'),
-      cityLabel: text('cityLabel'),
-      type: EVENT_CATEGORIES.some((c) => c.value === raw.type) ? raw.type : '',
-      by: text('by'),
-      byLabel: text('byLabel'),
-      host: raw.host === 'members' || raw.host === 'mine' ? raw.host : '',
-      cal: text('cal'),
-      calLabel: text('calLabel'),
-    };
+    return filtersFrom(JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}'));
   } catch {
     return NO_FILTERS;
   }
@@ -135,10 +102,6 @@ function defaultSelection(view: View, anchor: string, today: string): string {
   return view === 'month' ? startOfMonth(anchor) : startOfWeek(anchor);
 }
 
-/** Which facet a count is being taken for — left out of the match, so each
- *  option shows what choosing it would leave. Same scheme as the travel page. */
-type Facetted = 'city' | 'type' | 'by' | 'host' | 'cal' | null;
-
 /** Events in calendar order, split into runs of one date. */
 function groupByDate(events: CalendarEvent[]): [string, CalendarEvent[]][] {
   const groups: [string, CalendarEvent[]][] = [];
@@ -160,7 +123,7 @@ export default function CalendarPage() {
   const [view, setView] = useState<View>(storedView);
   const [anchor, setAnchor] = useState(today);
   const [selected, setSelected] = useState(today);
-  const [filters, setFilters] = useState<Filters>(storedFilters);
+  const [filters, setFilters] = useState<CalendarFilters>(storedFilters);
   const { ids: interested, going } = useEventInterests();
   // Members who ticked something in view: their name, and whether they let
   // others pick their calendar in the filter.
@@ -219,7 +182,7 @@ export default function CalendarPage() {
     return () => observer.disconnect();
   }, []);
 
-  const setFilter = useCallback((patch: Partial<Filters>) => setFilters((prev) => ({ ...prev, ...patch })), []);
+  const setFilter = useCallback((patch: Partial<CalendarFilters>) => setFilters((prev) => ({ ...prev, ...patch })), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -373,22 +336,10 @@ export default function CalendarPage() {
     };
   }, [linkedCal, uid, setFilter]);
 
-  /** Does this event survive the filters, ignoring the one being counted? */
-  const matches = useCallback(
-    (e: CalendarEvent, skip: Facetted) => {
-      const f = filters;
-      return (
-        (skip === 'city' || !f.city || cityKey(e.city ?? '') === f.city) &&
-        (skip === 'type' || !f.type || e.category === f.type) &&
-        (skip === 'by' || !f.by || e.userId === f.by) &&
-        (skip === 'host' || !f.host || (isHosted(e) && (f.host === 'members' || e.userId === uid))) &&
-        (skip === 'cal' || !f.cal || (f.cal === 'mine' ? interested.has(e.id) : attendeesOf(e).includes(f.cal)))
-      );
-    },
-    [filters, interested, uid],
-  );
+  const viewer = useMemo(() => ({ uid, interested, people }), [uid, interested, people]);
+  const matches = useCallback((e: CalendarEvent) => matchesFilters(e, filters, viewer), [filters, viewer]);
 
-  const visible = useMemo(() => events.filter((e) => matches(e, null)), [events, matches]);
+  const visible = useMemo(() => events.filter((e) => matches(e)), [events, matches]);
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -410,7 +361,7 @@ export default function CalendarPage() {
       ),
     [events, from, beyond, beyondFrom],
   );
-  const upcomingShown = useMemo(() => upcoming.filter((e) => matches(e, null)), [upcoming, matches]);
+  const upcomingShown = useMemo(() => upcoming.filter((e) => matches(e)), [upcoming, matches]);
 
   // The filter offers what the whole month (or week) on screen holds, so
   // choosing a day never changes what can be chosen.
@@ -421,113 +372,20 @@ export default function CalendarPage() {
         : events.filter((e) => e.date >= start && e.date <= end),
     [events, view, anchor, start, end],
   );
-  const viewShown = useMemo(() => inView.filter((e) => matches(e, null)).length, [inView, matches]);
+  const viewShown = useMemo(() => inView.filter((e) => matches(e)).length, [inView, matches]);
 
-  const facets = useMemo<Facet[]>(() => {
-    const count = (skip: Facetted, keysOf: (e: CalendarEvent) => string[]) => {
-      const counts = new Map<string, number>();
-      let all = 0;
-      for (const e of inView) {
-        if (!matches(e, skip)) continue;
-        all += 1;
-        for (const key of keysOf(e)) if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-      return { counts, all };
-    };
-    const byCount = (a: { count: number; label: string }, b: { count: number; label: string }) =>
-      b.count - a.count || a.label.localeCompare(b.label);
-
-    const cityLabels = new Map<string, string>();
-    const userLabels = new Map<string, string>();
-    const calLabels = new Map<string, string>();
-    for (const e of inView) {
-      if (e.city && !cityLabels.has(cityKey(e.city))) cityLabels.set(cityKey(e.city), e.city);
-      if (e.userId && !userLabels.has(e.userId)) userLabels.set(e.userId, e.username || 'someone');
-      for (const id of attendeesOf(e)) {
-        const person = people.get(id);
-        if (id !== uid && person?.shares) calLabels.set(id, person.username);
-      }
-    }
-    // A choice stays on the line even where this stretch has none of it.
-    if (filters.city && !cityLabels.has(filters.city)) cityLabels.set(filters.city, filters.cityLabel || filters.city);
-    if (filters.by && !userLabels.has(filters.by)) userLabels.set(filters.by, filters.byLabel || 'someone');
-    if (filters.cal && filters.cal !== 'mine' && !calLabels.has(filters.cal)) {
-      calLabels.set(filters.cal, filters.calLabel || 'someone');
-    }
-    const calOptions = new Map(uid ? [['mine', 'mine'] as const, ...calLabels] : calLabels);
-
-    const facet = (
-      key: string,
-      value: string,
-      labels: Map<string, string>,
-      counted: { counts: Map<string, number>; all: number },
-      onChange: (value: string, label: string) => void,
-      sort = true,
-    ): Facet => {
-      const options = Array.from(labels, ([v, label]) => ({
-        value: v,
-        label,
-        count: counted.counts.get(v) ?? 0,
-      }));
-      return {
-        key,
-        value,
-        allCount: counted.all,
-        options: sort ? options.sort(byCount) : options,
-        onChange: (next) => {
-          onChange(next, labels.get(next) ?? '');
-          track('calendar_filter', { type: key });
+  const facets = useMemo<Facet[]>(
+    () =>
+      facetsFor(inView, filters, viewer).map(({ id, ...facet }) => ({
+        ...facet,
+        onChange: (next: string) => {
+          const label = facet.options.find((o) => o.value === next)?.label ?? '';
+          setFilters((prev) => choose(prev, id, next, label));
+          track('calendar_filter', { type: facet.key });
         },
-      };
-    };
-
-    return [
-      facet(
-        'city',
-        filters.city,
-        cityLabels,
-        count('city', (e) => [cityKey(e.city ?? '')]),
-        (v, label) => setFilter({ city: v, cityLabel: label }),
-      ),
-      facet(
-        'type',
-        filters.type,
-        new Map(EVENT_CATEGORIES.map((c) => [c.value, c.label])),
-        count('type', (e) => [e.category]),
-        (v) => setFilter({ type: v as EventCategory | '' }),
-      ),
-      facet(
-        'hosted by',
-        filters.host,
-        new Map(
-          uid
-            ? [
-                ['members', 'yabbyville members'],
-                ['mine', 'me'],
-              ]
-            : [['members', 'yabbyville members']],
-        ),
-        count('host', (e) => (isHosted(e) ? ['members', e.userId === uid ? 'mine' : ''] : [])),
-        (v) => setFilter({ host: v as HostFilter }),
-        false,
-      ),
-      facet(
-        'added by',
-        filters.by,
-        userLabels,
-        count('by', (e) => [e.userId]),
-        (v, label) => setFilter({ by: v, byLabel: label }),
-      ),
-      facet(
-        'calendar',
-        filters.cal,
-        calOptions,
-        count('cal', (e) => [interested.has(e.id) ? 'mine' : '', ...attendeesOf(e).filter((id) => id !== uid)]),
-        (v, label) => setFilter({ cal: v, calLabel: v === 'mine' ? '' : label }),
-        false,
-      ),
-    ];
-  }, [inView, matches, filters, setFilter, interested, people, uid]);
+      })),
+    [inView, filters, viewer],
+  );
 
   const clearFilters = () => setFilters(NO_FILTERS);
 

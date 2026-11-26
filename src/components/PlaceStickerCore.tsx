@@ -320,7 +320,7 @@ const PlaceStickerCore: React.FC<PlaceStickerCoreProps> = ({
       }
 
       const uid = auth.currentUser.uid;
-      const stickerId = await createSticker(uid, stickerData);
+      const stickerId = await createSticker(stickerData);
       clearUserCache(uid);
 
       if (onSuccess) {

@@ -7,14 +7,13 @@ import {
   type EventDraft,
   type ImportedEvent,
 } from '../../utils/eventsApi';
-import { normalizeSiteUrl, sanitizeText, validateUrl } from '../../utils/sanitise';
+import { validateUrl } from '../../utils/sanitise';
 import {
   DEFAULT_TIME_ZONE,
   ADMIN_CATEGORIES,
   EVENT_CATEGORIES,
   EVENT_LIMITS,
   EVENT_TIME_ZONES,
-  isValidCityName,
   isHosted,
   isValidEventDate,
   isValidEventImageId,
@@ -24,6 +23,7 @@ import {
   type LineupAct,
   viewerTimeZone,
 } from './eventTypes';
+import { buildEventDraft } from './eventDraft';
 import TagTextarea from '../basic/tagging/TagTextarea';
 import LineupEditor from './LineupEditor';
 import CityInput from './CityInput';
@@ -42,9 +42,6 @@ interface EventFormProps {
   onSubmit: (draft: EventDraft, going: boolean) => Promise<void>;
   onCancel: () => void;
 }
-
-/** One line of text as the rules want it: tags stripped, whitespace folded. */
-const oneLine = (value: string) => sanitizeText(value).replace(/\s+/g, ' ').trim();
 
 /** Radio shows and yabby events are nearly always the author's own;
  *  everything else is as likely to be a night they are only telling people
@@ -195,56 +192,12 @@ const EventForm: React.FC<EventFormProps> = ({ editing, defaultDate, onSubmit, o
   const removeUrl = (index: number) =>
     setUrls((prev) => (prev.length === 1 ? [''] : prev.filter((_, i) => i !== index)));
 
-  /** The form as a draft, or an error message saying what to fix. */
-  const buildDraft = (): EventDraft | string => {
-    const cleanTitle = oneLine(title);
-    if (!cleanTitle) return 'Give the event a title.';
-    if (!isValidEventDate(date)) return 'Pick a date.';
-    if (time && !isValidEventTime(time)) return 'The start time is not a time.';
-    if (endTime && !time) return 'Add a start time before an end time.';
-    if (endTime && !isValidEventTime(endTime)) return 'The end time is not a time.';
-
-    const cleanCity = city.trim().replace(/\s+/g, ' ');
-    if (!cleanCity) return 'Add the city it is in.';
-    if (!isValidCityName(cleanCity)) {
-      return 'A city is letters, with spaces, hyphens, apostrophes or full stops between them.';
-    }
-
-    if (lineup.length > EVENT_LIMITS.lineup) {
-      return `An event can have at most ${EVENT_LIMITS.lineup} acts in its lineup. Remove ${lineup.length - EVENT_LIMITS.lineup} to save.`;
-    }
-
-    const links: string[] = [];
-    for (const [i, raw] of urls.entries()) {
-      if (!raw.trim()) continue;
-      const url = normalizeSiteUrl(raw);
-      // The rules refuse characters outside the BMP (emoji) in a link.
-      if (!url || url.length > EVENT_LIMITS.url || /[\u{10000}-\u{10FFFF}]/u.test(url)) return `Link ${i + 1} is not a web address.`;
-      if (!links.includes(url)) links.push(url);
-    }
-
-    return {
-      title: cleanTitle.slice(0, EVENT_LIMITS.title),
-      date,
-      category,
-      time: time || undefined,
-      endTime: time && endTime ? endTime : undefined,
-      timeZone: time ? timeZone : undefined,
-      location: oneLine(location).slice(0, EVENT_LIMITS.location) || undefined,
-      city: cleanCity,
-      lineup,
-      cost: oneLine(cost).slice(0, EVENT_LIMITS.cost) || undefined,
-      description: sanitizeText(description).trim().slice(0, EVENT_LIMITS.description) || undefined,
-      comment: sanitizeText(comment).trim().slice(0, EVENT_LIMITS.comment) || undefined,
-      urls: links.slice(0, EVENT_LIMITS.urls),
-      imageId,
-      hosted,
-    };
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const draft = buildDraft();
+    const draft = buildEventDraft({
+      title, date, category, time, endTime, timeZone, location, city, lineup,
+      cost, description, comment, urls, imageId, hosted,
+    });
     if (typeof draft === 'string') {
       setError(draft);
       return;
