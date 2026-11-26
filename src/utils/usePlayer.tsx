@@ -8,6 +8,26 @@ import { useRadioMetadata } from './useRadioMetadata';
 
 const RADIO_STREAM_URL = 'https://radio.yabbyville.xyz/live';
 
+/* Per tab, and only long enough to outlive a reload: two tabs must not both
+   claim one queue, and an album from last week is not worth coming back to. */
+const SESSION_KEY = 'yabby.playerSession';
+
+interface SavedSession {
+  album: PlayerAlbum;
+  tracks: PlayerTrack[];
+  index: number;
+  position: number;
+}
+
+function readSavedSession(): SavedSession | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null') as SavedSession | null;
+    return saved?.album && saved.tracks?.[saved.index] ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface PlayerTrack {
   id: string;
   title: string;
@@ -56,7 +76,6 @@ export interface PlayerState {
   album: PlayerAlbum | null;
   tracks: PlayerTrack[];
   index: number;
-  currentTime: number;
   duration: number;
 
   radio: RadioNowPlaying;
@@ -94,24 +113,27 @@ export interface PlayerActions {
   registerVizHost: (el: HTMLDivElement | null) => void;
 }
 
-// Split in two: currentTime ticks about four times a second, and everything
-// that only needs an action (play buttons in the sticker grid, Stats, the
-// hover cards) would otherwise re-render with it.
+// Split three ways: the position ticks about four times a second, and only the
+// seek bar needs it. On the state context it would re-render the whole shell
+// with every tick, and on the actions context every play button as well.
 const PlayerStateContext = createContext<PlayerState | null>(null);
 const PlayerActionsContext = createContext<PlayerActions | null>(null);
+const PlayerPositionContext = createContext(0);
 
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const libAudioRef = useRef<HTMLAudioElement | null>(null);
   const radAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const [saved] = useState(readSavedSession);
+
   const [mode, setMode] = useState<PlayerMode>('library');
-  const [album, setAlbum] = useState<PlayerAlbum | null>(null);
-  const [tracks, setTracks] = useState<PlayerTrack[]>([]);
-  const [index, setIndex] = useState(-1);
+  const [album, setAlbum] = useState<PlayerAlbum | null>(saved?.album ?? null);
+  const [tracks, setTracks] = useState<PlayerTrack[]>(saved?.tracks ?? []);
+  const [index, setIndex] = useState(saved?.index ?? -1);
   const [libraryPlaying, setLibraryPlaying] = useState(false);
   const [radioPlaying, setRadioPlaying] = useState(false);
   const [radioError, setRadioError] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(saved?.position ?? 0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.7);
   const [muted, setMuted] = useState(false);
@@ -119,6 +141,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Latest-value mirrors, so every action can read state without becoming a
   // new function each render.
   const modeRef = useRef(mode);
+  const albumRef = useRef(album);
   const indexRef = useRef(index);
   const tracksRef = useRef(tracks);
   const mutedRef = useRef(muted);
@@ -126,6 +149,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const resumeOnReturnRef = useRef(false);
 
   modeRef.current = mode;
+  albumRef.current = album;
   indexRef.current = index;
   tracksRef.current = tracks;
   mutedRef.current = muted;
@@ -211,9 +235,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const libWatchdogRef = useRef<number | null>(null);
   const libAttemptRef = useRef(0);
   /** Last position actually heard, so a reload resumes where the drop was. */
-  const libPositionRef = useRef(0);
+  const libPositionRef = useRef(saved?.position ?? 0);
   /** Applied once the reloaded track's metadata arrives. */
-  const libResumeAtRef = useRef<number | null>(null);
+  const libResumeAtRef = useRef<number | null>(saved?.position ?? null);
 
   const clearLibRecovery = useCallback(() => {
     if (libRetryRef.current != null) window.clearTimeout(libRetryRef.current);
@@ -271,6 +295,47 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   useEffect(() => clearLibRecovery, [clearLibRecovery]);
+
+  // ── Surviving a reload ───────────────────────────────────
+
+  // Comes back paused: a page cannot start sound without a gesture. With
+  // preload="none" nothing is fetched until play, and the seek to the saved
+  // position then rides on libResumeAtRef like any other recovery.
+  useEffect(() => {
+    const audio = libAudioRef.current;
+    if (!saved || !audio || audio.hasAttribute('src')) return;
+    audio.src = subsonicUrl('stream', { id: saved.tracks[saved.index].id });
+  }, [saved]);
+
+  useEffect(() => {
+    const save = () => {
+      try {
+        const queuedAlbum = albumRef.current;
+        if (!queuedAlbum || !tracksRef.current[indexRef.current]) {
+          sessionStorage.removeItem(SESSION_KEY);
+          return;
+        }
+        const session: SavedSession = {
+          album: queuedAlbum,
+          tracks: tracksRef.current,
+          index: indexRef.current,
+          position: libPositionRef.current,
+        };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      } catch {
+        // Nothing to come back to after a reload, which is where it started.
+      }
+    };
+    // Hidden as well as pagehide: a phone can discard a backgrounded tab
+    // without pagehide ever firing.
+    const saveIfHidden = () => { if (document.hidden) save(); };
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', saveIfHidden);
+    return () => {
+      window.removeEventListener('pagehide', save);
+      document.removeEventListener('visibilitychange', saveIfHidden);
+    };
+  }, []);
 
   // ── Source exclusivity ───────────────────────────────────
 
@@ -361,6 +426,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const seek = useCallback((seconds: number) => {
     const audio = libAudioRef.current;
     if (!audio) return;
+    // Nothing is loaded yet, so the pending resume would undo this seek.
+    if (libResumeAtRef.current != null) libResumeAtRef.current = seconds;
     audio.currentTime = seconds;
     setCurrentTime(seconds);
   }, []);
@@ -434,20 +501,26 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ? audioDuration
     : tracks[index]?.duration ?? 0;
 
-  const state: PlayerState = {
+  const isPlaying = mode === 'radio' ? radioPlaying : libraryPlaying;
+
+  // Memoised because this component re-renders with every position tick; a
+  // fresh object here would pass each tick on to every state consumer.
+  const state: PlayerState = useMemo(() => ({
     mode,
     album,
     tracks,
     index,
-    currentTime,
     duration,
     radio: { artist, title, error: radioError },
-    isPlaying: mode === 'radio' ? radioPlaying : libraryPlaying,
+    isPlaying,
     volume,
     muted,
     vizOpen: engine.vizOpen,
     vizFullscreen: engine.vizFullscreen,
-  };
+  }), [
+    mode, album, tracks, index, duration, artist, title, radioError,
+    isPlaying, volume, muted, engine.vizOpen, engine.vizFullscreen,
+  ]);
 
   useMediaSession({
     mode,
@@ -455,7 +528,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     track: tracks[index],
     radioArtist: artist,
     radioTitle: title,
-    isPlaying: state.isPlaying,
+    isPlaying,
     duration,
     hasNext: index + 1 < tracks.length,
     hasPrev: index > 0,
@@ -479,7 +552,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   return (
     <PlayerActionsContext.Provider value={actions}>
       <PlayerStateContext.Provider value={state}>
-        {children}
+        <PlayerPositionContext.Provider value={currentTime}>
+          {children}
+        </PlayerPositionContext.Provider>
 
         <audio
           ref={libAudioRef}
@@ -565,6 +640,12 @@ export function usePlayerState(): PlayerState {
   const ctx = useContext(PlayerStateContext);
   if (!ctx) throw new Error('usePlayerState must be used inside PlayerProvider');
   return ctx;
+}
+
+/** Seconds into the current track. Ticks about four times a second, so keep the
+ *  component reading it small. */
+export function usePlayerPosition(): number {
+  return useContext(PlayerPositionContext);
 }
 
 export function usePlayerActions(): PlayerActions {

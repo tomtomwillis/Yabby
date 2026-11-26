@@ -12,6 +12,7 @@ import './App.css';
 import './components/basic/TextAnimations.css';
 import PrivateRoute from './components/PrivateRoute';
 import PullToRefresh from './components/PullToRefresh';
+import UpdateOnNavigate from './components/UpdateOnNavigate';
 import { PlayerProvider } from './utils/usePlayer';
 import { NavidromeCardProvider } from './utils/useNavidromeCard';
 import { useJoinDate } from './utils/useJoinDate';
@@ -50,6 +51,7 @@ function App() {
   return (
     <PlayerProvider>
       <Router>
+        <UpdateOnNavigate />
         {/* Inside the router: the event card links through to the calendar. */}
         <NavidromeCardProvider>
           <div className="app-container">

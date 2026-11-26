@@ -6,7 +6,7 @@ import BlockRange, {
   VOLUME_MIN_BLOCKS,
 } from './basic/BlockRange';
 import { NAVIDROME_SERVER_URL } from '../utils/navidrome';
-import { formatTime, usePlayerActions, usePlayerState } from '../utils/usePlayer';
+import { formatTime, usePlayerActions, usePlayerPosition, usePlayerState } from '../utils/usePlayer';
 import { elementVolumeSettable } from '../utils/useAudioEngine';
 import './PlayerBar.css';
 
@@ -146,6 +146,32 @@ const VolumeControl: React.FC = () => {
 };
 
 /** Full transport: prev/play/next, seek and time. Library mode only. */
+/** Its own component because it is the only part of the bar that changes with
+ *  every position tick. */
+const SeekRow: React.FC = () => {
+  const { index, duration } = usePlayerState();
+  const { seek } = usePlayerActions();
+  const currentTime = usePlayerPosition();
+
+  return (
+    <div className="pb-seek">
+      <BlockRange
+        label="Seek"
+        value={Math.min(currentTime, duration)}
+        max={duration}
+        step={1}
+        cellPx={SEEK_CELL_PX}
+        minBlocks={SEEK_MIN_BLOCKS}
+        disabled={index < 0 || duration === 0}
+        onChange={seek}
+      />
+      <span className="pb-time">
+        {formatTime(currentTime)} / {formatTime(duration)}
+      </span>
+    </div>
+  );
+};
+
 const LibraryControls: React.FC<{
   onQueueToggle: () => void;
   queueOpen: boolean;
@@ -153,8 +179,8 @@ const LibraryControls: React.FC<{
 }> = ({
   onQueueToggle, queueOpen, trailing,
 }) => {
-  const { tracks, index, isPlaying, currentTime, duration, album } = usePlayerState();
-  const { toggle, next, prev, seek } = usePlayerActions();
+  const { tracks, index, isPlaying, album } = usePlayerState();
+  const { toggle, next, prev } = usePlayerActions();
   const idle = index < 0;
 
   return (
@@ -186,21 +212,7 @@ const LibraryControls: React.FC<{
         ) : 'nothing queued'}
       />
 
-      <div className="pb-seek">
-        <BlockRange
-          label="Seek"
-          value={Math.min(currentTime, duration)}
-          max={duration}
-          step={1}
-          cellPx={SEEK_CELL_PX}
-          minBlocks={SEEK_MIN_BLOCKS}
-          disabled={idle || duration === 0}
-          onChange={seek}
-        />
-        <span className="pb-time">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
-      </div>
+      <SeekRow />
 
       <div className="pb-row">
         <button className="pb-btn" onClick={prev} disabled={idle || index === 0} aria-label="Previous track">
